@@ -114,6 +114,9 @@
     <ClCompile Include="main.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="WorldPartitionManager.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
     <ClCompile Include="ImGui\imgui.cpp">
       <Filter>ImGui</Filter>
     </ClCompile>
@@ -378,6 +381,9 @@
     <ClCompile Include="MenuBarWidget.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="Octree.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
     <ClCompile Include="Frustum.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
@@ -402,6 +408,9 @@
   <ItemGroup>
     <ClInclude Include="ImGui\imconfig.h">
       <Filter>ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="WorldPartitionManager.h">
+      <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="ImGui\imgui.h">
       <Filter>ImGui</Filter>
@@ -696,6 +705,9 @@
     </ClInclude>
     <ClInclude Include="WindowsBinReader.h">
       <Filter>헤더 파일\Archive</Filter>
+    </ClInclude>
+    <ClInclude Include="Octree.h">
+      <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="Frustum.h">
       <Filter>헤더 파일</Filter>

@@ -157,6 +157,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="ActorComponent.cpp" />
+    <ClCompile Include="WorldPartitionManager.cpp" />
     <ClCompile Include="AllClassesRegistration.cpp" />
     <ClCompile Include="AABoundingBoxComponent.cpp" />
     <ClCompile Include="Frustum.cpp" />
@@ -178,6 +179,7 @@
     <ClCompile Include="GizmoScaleComponent.cpp" />
     <ClCompile Include="GizmoRotateComponent.cpp" />
     <ClCompile Include="GridActor.cpp" />
+    <ClCompile Include="Octree.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -322,6 +324,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ActorComponent.h" />
+    <ClInclude Include="WorldPartitionManager.h" />
     <ClInclude Include="AABoundingBoxComponent.h" />
     <ClInclude Include="Archive.h" />
     <ClInclude Include="Frustum.h" />
@@ -340,6 +343,7 @@
     <ClInclude Include="ObjectFactory.h" />
     <ClInclude Include="GizmoScaleComponent.h" />
     <ClInclude Include="GizmoRotateComponent.h" />
+    <ClInclude Include="Octree.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Picking.h" />
     <ClInclude Include="CameraActor.h" />

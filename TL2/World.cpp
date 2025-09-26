@@ -14,6 +14,9 @@
 #include "StaticMesh.h"
 #include "ObjManager.h"
 #include "SceneRotationUtils.h"
+#include "WorldPartitionManager.h"
+#include "PrimitiveComponent.h"
+#include "Octree.h"
 #include "Frustum.h"
 
 extern float CLIENTWIDTH;
@@ -54,6 +57,17 @@ UWorld::~UWorld()
 
 	// ObjManager 정리
 	FObjManager::Clear();
+
+	// Octree 정리
+	if (SceneOctree)
+	{
+		delete SceneOctree;
+		SceneOctree = nullptr;
+	}
+
+	// Partition manager cleanup
+	delete PartitionManager;
+	PartitionManager = nullptr;
 }
 
 static void DebugRTTI_UObject(UObject* Obj, const char* Title)
@@ -104,6 +118,12 @@ void UWorld::Initialize()
 {
 	FObjManager::Preload();
 
+	// Create partition manager
+	if (!PartitionManager)
+	{
+		PartitionManager = new UWorldPartitionManager();
+	}
+
 	// 새 씬 생성
 	CreateNewScene();
 
@@ -113,12 +133,22 @@ void UWorld::Initialize()
 
 	// 액터 간 참조 설정
 	SetupActorReferences();
+
+	if (SceneOctree)
+	{
+		delete SceneOctree;
+		SceneOctree = nullptr;
+	}
+	{
+		FBound WorldBounds(FVector(-10.f, -10.f, -10.f), FVector(10.f, 10.f, 10.f));
+		SceneOctree = new FOctree(WorldBounds, 0, 8, 8);
+	}
 }
 
 void UWorld::InitializeMainCamera()
 {
-
 	MainCameraActor = NewObject<ACameraActor>();
+	MainCameraActor->SetWorld(this);
 
 	DebugRTTI_UObject(MainCameraActor, "MainCameraActor");
 	UIManager.SetCamera(MainCameraActor);
@@ -129,8 +159,8 @@ void UWorld::InitializeMainCamera()
 void UWorld::InitializeGrid()
 {
 	GridActor = NewObject<AGridActor>();
+	GridActor->SetWorld(this);
 	GridActor->Initialize();
-
 
 	// Add GridActor to Actors array so it gets rendered in the main loop
 	EngineActors.push_back(GridActor);
@@ -192,8 +222,8 @@ void UWorld::RenderSingleViewport()
 	// === Begin Line Batch for all actors ===
 	Renderer->BeginLineBatch();
 
-	// === Draw Actors with Show Flag checks ===
-	Renderer->SetViewModeType(ViewModeIndex);
+    // === Draw Actors with Show Flag checks ===
+    Renderer->SetViewModeType(ViewModeIndex);
 
 	// 일반 액터들 렌더링 (Primitives Show Flag 체크)
 	if (IsShowFlagEnabled(EEngineShowFlags::SF_Primitives))
@@ -270,7 +300,13 @@ void UWorld::RenderSingleViewport()
 		// 블랜드 스테이드 종료
 		Renderer->OMSetBlendState(false);
 	}
-	Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
+    // Octree debug draw
+    if (IsShowFlagEnabled(EEngineShowFlags::SF_OctreeDebug) && SceneOctree)
+    {
+        SceneOctree->DebugDraw(Renderer);
+    }
+
+    Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
 
 
 
@@ -303,11 +339,16 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 
 	FVector rgb(1.0f, 1.0f, 1.0f);
 
+
+	// ============ Culling Logic Dispatch ========= //
+	//TArray<AActor*> CulledActors = PartitionManager.Query(Frustum Data); 
+
+
 	// === Begin Line Batch for all actors ===
 	Renderer->BeginLineBatch();
 
-	// === Draw Actors with Show Flag checks ===
-	Renderer->SetViewModeType(ViewModeIndex);
+    // === Draw Actors with Show Flag checks ===
+    Renderer->SetViewModeType(ViewModeIndex);
 
 	// 일반 액터들 렌더링
 	if (IsShowFlagEnabled(EEngineShowFlags::SF_Primitives))
@@ -395,6 +436,16 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 		}
 		Renderer->OMSetBlendState(false);
 	}
+
+    // Octree debug draw
+    if (IsShowFlagEnabled(EEngineShowFlags::SF_OctreeDebug) && SceneOctree)
+    {
+        SceneOctree->DebugDraw(Renderer);
+    }
+    
+    Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
+
+
 	UE_LOG("FrustumCulling: StaticMeshes Drawn=%d, Culled=%d\r\n",
 		TotalStaticMeshes - CulledStaticMeshes,
 		CulledStaticMeshes);
@@ -407,6 +458,12 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 
 void UWorld::Tick(float DeltaSeconds)
 {
+	// Update spatial indices first so any previous-frame changes are reflected
+	if (PartitionManager)
+	{
+		PartitionManager->Update(DeltaSeconds, /*budget*/256);
+	}
+
 	//순서 바꾸면 안댐
 	for (AActor* Actor : Actors)
 	{
@@ -471,6 +528,9 @@ bool UWorld::DestroyActor(AActor* Actor)
 	auto it = std::find(Actors.begin(), Actors.end(), Actor);
 	if (it != Actors.end())
 	{
+		// 옥트리에서 제거
+		OnActorDestroyed(Actor);
+
 		Actors.erase(it);
 
 		// 메모리 해제
@@ -483,6 +543,22 @@ bool UWorld::DestroyActor(AActor* Actor)
 	}
 
 	return false; // 월드에 없는 액터
+}
+
+void UWorld::OnActorSpawned(AActor* Actor)
+{
+	if (PartitionManager && Actor)
+	{
+		PartitionManager->Register(Actor);
+	}
+}
+
+void UWorld::OnActorDestroyed(AActor* Actor)
+{
+	if (PartitionManager && Actor)
+	{
+		PartitionManager->Unregister(Actor);
+	}
 }
 
 inline FString ToObjFileName(const FString& TypeName)
@@ -528,6 +604,17 @@ void UWorld::CreateNewScene()
 
 	// 이름 카운터 초기화: 씬을 새로 시작할 때 각 BaseName 별 suffix를 0부터 다시 시작
 	ObjectTypeCounts.clear();
+
+	// 옥트리 초기화
+	if (SceneOctree)
+	{
+		SceneOctree->Clear();
+	}
+
+	if (PartitionManager)
+	{
+		PartitionManager->Clear();
+	}
 }
 
 
@@ -702,10 +789,13 @@ void UWorld::LoadScene(const FString& SceneName)
 	AddUUID(GizmoActor); // Gizmo는 EngineActors에 안 들어갈 수 있으므로 명시 추가
 
 	uint32 MaxAssignedUUID = 0;
+	// 벌크 삽입을 위해 액터들을 먼저 모두 생성
+	TArray<AActor*> SpawnedActors;
+	SpawnedActors.reserve(Primitives.size());
 
 	for (const FPrimitiveData& Primitive : Primitives)
 	{
-		// 스폰 시 필요한 초기 트랜스폼은 그대로 넘김
+		// 스폰 시 필요한 초기 트랜스포은 그대로 넘김
 		AStaticMeshActor* StaticMeshActor = SpawnActor<AStaticMeshActor>(
 			FTransform(Primitive.Location,
 				SceneRotUtil::QuatFromEulerZYX_Deg(Primitive.Rotation),
@@ -765,6 +855,16 @@ void UWorld::LoadScene(const FString& SceneName)
 			}
 			StaticMeshActor->SetName(GenerateUniqueActorName(BaseName));
 		}
+		
+		// 벌크 삽입을 위해 목록에 추가
+		SpawnedActors.push_back(StaticMeshActor);
+	}
+	
+	// 모든 액터를 한 번에 벌크 등록 하여 성능 최적화
+	if (PartitionManager && !SpawnedActors.empty())
+	{
+		UE_LOG("LoadScene: Using bulk registration for %zu actors\r\n", SpawnedActors.size());
+		PartitionManager->BulkRegister(SpawnedActors);
 	}
 
 	// 3) 최종 보정: 전역 카운터는 절대 하향 금지 + 현재 사용된 최대값 이후로 설정

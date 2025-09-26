@@ -4,6 +4,8 @@
 #include "GridActor.h"
 #include "GizmoActor.h"
 #include "Enums.h"
+// forward declare to avoid heavy include
+class FOctree;
 
 // Forward Declarations
 class UResourceManager;
@@ -19,11 +21,14 @@ class SMultiViewportWindow;
 struct FTransform;
 struct FPrimitiveData;
 class SViewportWindow;
+class UWorldPartitionManager;
 
 /**
  * UWorld
  * - 월드 단위의 액터/타임/매니저 관리 클래스
  */
+
+
 class UWorld final : public UObject
 {
 public:
@@ -64,13 +69,17 @@ public:
 
     template<class T>
     T* SpawnActor(const FTransform& Transform);
-
-    void AddActor(AActor* Actor)
-    {
-        Actors.Add(Actor);
-    }
+    
+    // 벌크 액터 스폰 - 대량 액터 생성 시 사용
+    template<class T>
+    TArray<T*> BulkSpawnActors(const TArray<FTransform>& Transforms);
 
     bool DestroyActor(AActor* Actor);
+
+    // Partial hooks
+    void OnActorSpawned(AActor* Actor);
+    void OnActorDestroyed(AActor* Actor);
+    FOctree* GetOctree() const { return SceneOctree; }
 
     void CreateNewScene();
     void LoadScene(const FString& SceneName);
@@ -103,6 +112,9 @@ public:
     void RenderViewports(ACameraActor* Camera, FViewport* Viewport);
     //void GameRender(ACameraActor* Camera, FViewport* Viewport);
 
+    // Partition manager
+    UWorldPartitionManager* GetPartitionManager() const { return PartitionManager; }
+
 
     /** === 필요한 엑터 게터 === */
     const TArray<AActor*>& GetActors() { return Actors; }
@@ -125,6 +137,9 @@ private:
     UUIManager& UIManager;
     UInputManager& InputManager;
     USelectionManager& SelectionManager;
+
+    // World partition/spatial indexing //Non Single Ton
+    UWorldPartitionManager* PartitionManager = nullptr;
 
    
     // 메인 카메라
@@ -156,6 +171,9 @@ private:
     EEngineShowFlags ShowFlags = EEngineShowFlags::SF_DefaultEnabled;
     
     EViewModeIndex ViewModeIndex = EViewModeIndex::VMI_Unlit;
+
+    // Spatial index
+    FOctree* SceneOctree = nullptr;
 };
 template<class T>
 inline T* UWorld::SpawnActor()
