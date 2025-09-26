@@ -30,7 +30,6 @@ void UWorldPartitionManager::Register(AActor* Owner)
     }
 }
 
-// 벌크 등록 - 대량 액터 처리용
 void UWorldPartitionManager::BulkRegister(const TArray<AActor*>& Actors)
 {
     if (Actors.empty()) return;

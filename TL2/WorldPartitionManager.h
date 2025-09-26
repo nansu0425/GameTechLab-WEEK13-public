@@ -7,9 +7,10 @@ class AStaticMeshActor;
 struct FRay;
 struct FBound;
 
-class UWorldPartitionManager
+class UWorldPartitionManager : public UObject
 {
 public:
+    DECLARE_CLASS(UWorldPartitionManager, UObject)
     UWorldPartitionManager() = default;
     ~UWorldPartitionManager() = default;
 
