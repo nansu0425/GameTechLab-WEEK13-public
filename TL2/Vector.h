@@ -159,7 +159,17 @@ struct FVector
     FVector& operator/=(float S) { X /= S; Y /= S; Z /= S; return *this; }
     FVector& operator+=(float S) { X += S; Y += S; Z += S; return *this; }
     FVector& operator-=(float S) { X -= S; Y -= S; Z -= S; return *this; }
+    float& operator[](int Index)
+    {
+        assert(Index >= 0 && Index < 3); // 잘못된 인덱스면 프로그램 중단
+        return ((&X)[Index]);
+    }
 
+    const float& operator[](int Index) const
+    {
+        assert(Index >= 0 && Index < 3);
+        return ((&X)[Index]);
+    }
     bool operator==(const FVector& V) const
     {
         return std::fabs(X - V.X) < KINDA_SMALL_NUMBER &&
@@ -269,6 +279,21 @@ struct FVector4
         : X(InX), Y(InY), Z(InZ), W(InW)
     {
     }
+    FVector4 operator+(const FVector4& V) const { return FVector4(X + V.X, Y + V.Y, Z + V.Z, W + V.W); }
+    FVector4 operator-(const FVector4& V) const { return FVector4(X - V.X, Y - V.Y, Z - V.Z, W - V.W); }
+    FVector4 operator*(float S)        const { return FVector4(X * S, Y * S, Z * S, W * S); }
+    FVector4 operator/(float S)        const { return FVector4(X / S, Y / S, Z / S, W / S); }
+    FVector4 operator+(float S)        const { return FVector4(X + S, Y + S, Z + S, W + S); }
+    FVector4 operator-(float S)        const { return FVector4(X - S, Y - S, Z - S, W - S); }
+    FVector4 operator-()               const { return FVector4(-X, -Y, -Z, -W); }
+
+    FVector4& operator+=(const FVector4& V) { X += V.X; Y += V.Y; Z += V.Z, W += V.W; return *this; }
+    FVector4& operator-=(const FVector4& V) { X -= V.X; Y -= V.Y; Z -= V.Z, W += V.W; return *this; }
+    FVector4& operator*=(float S) { X *= S; Y *= S; Z *= S, W *= S; return *this; }
+    FVector4& operator/=(float S) { X /= S; Y /= S; Z /= S, W *= S; return *this; }
+    FVector4& operator+=(float S) { X += S; Y += S; Z += S, W *= S; return *this; }
+    FVector4& operator-=(float S) { X -= S; Y -= S; Z -= S, W *= S; return *this; }
+
 
     FVector4 ComponentMin(const FVector4& B)
     {
@@ -288,6 +313,7 @@ struct FVector4
             (W > B.W) ? W : B.W
         );
     }
+
 };
 
 // ─────────────────────────────

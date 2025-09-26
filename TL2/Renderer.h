@@ -65,7 +65,7 @@ private:
     FMeshData* LineBatchData = nullptr;
     UShader* LineShader = nullptr;
     bool bLineBatchActive = false;
-    static const uint32 MAX_LINES = 10000;  // Maximum lines per batch
+    static const uint32 MAX_LINES = 200000;  // Maximum lines per batch (safety headroom)
 
     void InitializeLineBatch();
 };

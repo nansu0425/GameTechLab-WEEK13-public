@@ -2,12 +2,12 @@
 #include <unordered_map>
 #include "AABoundingBoxComponent.h"
 #include "Renderer.h"
-
+#include "Picking.h"
 class FOctree
 {
 public:
     // 생성자/소멸자
-    FOctree(const FBound& InBounds, int InDepth = 0, int InMaxDepth = 5, int InMaxObjects = 32);
+    FOctree(const FBound& InBounds, int InDepth = 0, int InMaxDepth = 5, int InMaxObjects = 15);
     ~FOctree();
 
 	// 초기화
@@ -21,18 +21,23 @@ public:
 	bool Remove(AActor* InActor, const FBound& ActorBounds);
     void Update(AActor* InActor, const FBound& OldBounds, const FBound& NewBounds);
 
+    //void QueryRay(const Ray& InRay, std::vector<Actor*>& OutActors) const;
+    //void QueryFrustum(const Frustum& InFrustum, std::vector<Actor*>& OutActors) const;
+	//쿼리
+	void QueryRay(const FRay& Ray, TArray<AActor*>& OutActors) const;
     // for Partition Manager Query
     void Remove(AActor* InActor);
     void Update(AActor* InActor);
 
     // Debug draw
-    void DebugDraw(URenderer* Renderer) const;
+    void DebugDraw(URenderer* InRenderer) const;
 
     // Debug/Stats
     int TotalNodeCount() const;
     int TotalActorCount() const;
     int MaxOccupiedDepth() const;
     void DebugDump() const;
+
     const FBound& GetBounds() const { return Bounds; }
 
 private:

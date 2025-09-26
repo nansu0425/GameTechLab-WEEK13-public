@@ -43,6 +43,7 @@
 #include "TextQuad.h"
 #include"RenderViewportSwitcherWidget.h"
 #include "MenuBarWidget.h"
+#include "WorldPartitionManager.h"
 // ... (rest of the file)
 IMPLEMENT_CLASS(UWorld)
 
@@ -74,6 +75,7 @@ IMPLEMENT_CLASS(UUIManager)
 IMPLEMENT_CLASS(USelectionManager)
 IMPLEMENT_CLASS(UMeshLoader)
 IMPLEMENT_CLASS(UResourceManager)
+IMPLEMENT_CLASS(UWorldPartitionManager)
 
 //UI Class
 IMPLEMENT_CLASS(UUIWindowFactory)

@@ -134,7 +134,7 @@ void URenderer::DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITI
 
     if (InMesh->HasMaterial())
     {
-        const TArray<FGroupInfo> MeshGroupInfos = InMesh->GetMeshGroupInfo();
+        const TArray<FGroupInfo>& MeshGroupInfos = InMesh->GetMeshGroupInfo();
         const uint32 NumMeshGroupInfos = static_cast<uint32>(MeshGroupInfos.size());
         for (uint32 i = 0; i < NumMeshGroupInfos; ++i)
         {
@@ -293,7 +293,19 @@ void URenderer::EndLineBatch(const FMatrix& ModelMatrix, const FMatrix& ViewMatr
         bLineBatchActive = false;
         return;
     }
-    
+
+    // Clamp to GPU buffer capacity to avoid full drop when overflowing
+    const uint32 totalLines = static_cast<uint32>(LineBatchData->Indices.size() / 2);
+    if (totalLines > MAX_LINES)
+    {
+        const uint32 clampedLines = MAX_LINES;
+        const uint32 clampedVerts = clampedLines * 2;
+        const uint32 clampedIndices = clampedLines * 2;
+        LineBatchData->Vertices.resize(clampedVerts);
+        LineBatchData->Color.resize(clampedVerts);
+        LineBatchData->Indices.resize(clampedIndices);
+    }
+
     // Efficiently update dynamic mesh data (no buffer recreation!)
     if (!DynamicLineMesh->UpdateData(LineBatchData, RHIDevice->GetDeviceContext()))
     {

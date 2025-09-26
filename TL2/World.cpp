@@ -57,17 +57,6 @@ UWorld::~UWorld()
 
 	// ObjManager 정리
 	FObjManager::Clear();
-
-	// Octree 정리
-	if (SceneOctree)
-	{
-		delete SceneOctree;
-		SceneOctree = nullptr;
-	}
-
-	// Partition manager cleanup
-	delete PartitionManager;
-	PartitionManager = nullptr;
 }
 
 static void DebugRTTI_UObject(UObject* Obj, const char* Title)
@@ -86,22 +75,14 @@ static void DebugRTTI_UObject(UObject* Obj, const char* Title)
 		UE_LOG(buf);
 	}
 
-	// 1) 현재 동적 타입 이름
 	std::snprintf(buf, sizeof(buf), "[RTTI] TypeName = %s\r\n", Obj->GetClass()->Name);
 	UE_LOG(buf);
 
-	// 2) IsA 체크 (파생 포함)
 	std::snprintf(buf, sizeof(buf), "[RTTI] IsA<AActor>      = %d\r\n", (int)Obj->IsA<AActor>());
 	UE_LOG(buf);
 	std::snprintf(buf, sizeof(buf), "[RTTI] IsA<ACameraActor> = %d\r\n", (int)Obj->IsA<ACameraActor>());
 	UE_LOG(buf);
 
-	//// 3) 정확한 타입 비교 (파생 제외)
-	//std::snprintf(buf, sizeof(buf), "[RTTI] EXACT ACameraActor = %d\r\n",
-	//    (int)(Obj->GetClass() == ACameraActor::StaticClass()));
-	//UE_LOG(buf);
-
-	// 4) 상속 체인 출력
 	UE_LOG("[RTTI] Inheritance chain: ");
 	for (const UClass* c = Obj->GetClass(); c; c = c->Super)
 	{
@@ -117,14 +98,6 @@ static void DebugRTTI_UObject(UObject* Obj, const char* Title)
 void UWorld::Initialize()
 {
 	FObjManager::Preload();
-
-	// Create partition manager
-	if (!PartitionManager)
-	{
-		PartitionManager = new UWorldPartitionManager();
-	}
-
-	// 새 씬 생성
 	CreateNewScene();
 
 	InitializeMainCamera();
@@ -134,15 +107,6 @@ void UWorld::Initialize()
 	// 액터 간 참조 설정
 	SetupActorReferences();
 
-	if (SceneOctree)
-	{
-		delete SceneOctree;
-		SceneOctree = nullptr;
-	}
-	{
-		FBound WorldBounds(FVector(-10.f, -10.f, -10.f), FVector(10.f, 10.f, 10.f));
-		SceneOctree = new FOctree(WorldBounds, 0, 8, 8);
-	}
 }
 
 void UWorld::InitializeMainCamera()
@@ -193,15 +157,10 @@ void UWorld::Render()
 	Renderer->BeginFrame();
 	UIManager.Render();
 
-	// UIManager의 뷰포트 전환 상태에 따라 렌더링 변경 SWidget으로 변경해줄거임
-
-
 	if (MultiViewport)
 	{
 		MultiViewport->OnRender();
 	}
-
-
 
 	//프레임 종료 
 	UIManager.EndFrame();
@@ -300,10 +259,15 @@ void UWorld::RenderSingleViewport()
 		// 블랜드 스테이드 종료
 		Renderer->OMSetBlendState(false);
 	}
-    // Octree debug draw
-    if (IsShowFlagEnabled(EEngineShowFlags::SF_OctreeDebug) && SceneOctree)
+    // Octree debug draw (draw as overlay: depth test always, no write)
+    if (IsShowFlagEnabled(EEngineShowFlags::SF_OctreeDebug))
     {
-        SceneOctree->DebugDraw(Renderer);
+        if (FOctree* Octree = UWorldPartitionManager::GetInstance()->GetSceneOctree())
+        {
+            Renderer->OMSetDepthStencilState(EComparisonFunc::Always);
+            Octree->DebugDraw(Renderer);
+            Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+        }
     }
 
     Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
@@ -319,8 +283,6 @@ void UWorld::RenderSingleViewport()
 
 void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 {
-	int32 TotalStaticMeshes = 0;
-	int32 CulledStaticMeshes = 0;
 
 	// 뷰포트의 실제 크기로 aspect ratio 계산
 	float ViewportAspectRatio = static_cast<float>(Viewport->GetSizeX()) / static_cast<float>(Viewport->GetSizeY());
@@ -367,11 +329,9 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 				{
 					if (UAABoundingBoxComponent* Box = Cast<UAABoundingBoxComponent>(MeshActor->CollisionComponent))
 					{
-						++TotalStaticMeshes; // 컬링 전 증가
 						const FBound Bound = Box->GetWorldBound();
 						if (!IsAABBVisible(ViewFrustum, Bound))
 						{
-							++CulledStaticMeshes;
 							continue;
 						}
 					}
@@ -438,18 +398,15 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 	}
 
     // Octree debug draw
-    if (IsShowFlagEnabled(EEngineShowFlags::SF_OctreeDebug) && SceneOctree)
-    {
-        SceneOctree->DebugDraw(Renderer);
-    }
+	if (IsShowFlagEnabled(EEngineShowFlags::SF_OctreeDebug))
+	{
+		if (FOctree* Octree = UWorldPartitionManager::GetInstance()->GetSceneOctree())
+		{
+			Octree->DebugDraw(Renderer);
+		}
+	}
     
     Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
-
-
-	UE_LOG("FrustumCulling: StaticMeshes Drawn=%d, Culled=%d\r\n",
-		TotalStaticMeshes - CulledStaticMeshes,
-		CulledStaticMeshes);
-	Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
 	Renderer->UpdateHighLightConstantBuffer(false, rgb, 0, 0, 0, 0);
 
 }
@@ -459,9 +416,9 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 void UWorld::Tick(float DeltaSeconds)
 {
 	// Update spatial indices first so any previous-frame changes are reflected
-	if (PartitionManager)
+	if (UWorldPartitionManager::GetInstance())
 	{
-		PartitionManager->Update(DeltaSeconds, /*budget*/256);
+		UWorldPartitionManager::GetInstance()->Update(DeltaSeconds, /*budget*/256);
 	}
 
 	//순서 바꾸면 안댐
@@ -547,17 +504,17 @@ bool UWorld::DestroyActor(AActor* Actor)
 
 void UWorld::OnActorSpawned(AActor* Actor)
 {
-	if (PartitionManager && Actor)
+	if (UWorldPartitionManager::GetInstance() && Actor)
 	{
-		PartitionManager->Register(Actor);
+		UWorldPartitionManager::GetInstance()->Register(Actor);
 	}
 }
 
 void UWorld::OnActorDestroyed(AActor* Actor)
 {
-	if (PartitionManager && Actor)
+	if (UWorldPartitionManager::GetInstance() && Actor)
 	{
-		PartitionManager->Unregister(Actor);
+		UWorldPartitionManager::GetInstance()->Unregister(Actor);
 	}
 }
 
@@ -606,14 +563,11 @@ void UWorld::CreateNewScene()
 	ObjectTypeCounts.clear();
 
 	// 옥트리 초기화
-	if (SceneOctree)
-	{
-		SceneOctree->Clear();
-	}
+	UWorldPartitionManager::GetInstance()->ClearSceneOctree();
 
-	if (PartitionManager)
+	if (UWorldPartitionManager::GetInstance())
 	{
-		PartitionManager->Clear();
+		UWorldPartitionManager::GetInstance()->Clear();
 	}
 }
 
@@ -856,15 +810,23 @@ void UWorld::LoadScene(const FString& SceneName)
 			StaticMeshActor->SetName(GenerateUniqueActorName(BaseName));
 		}
 		
+		//UWorldPartitionManager::GetInstance()->BulkRegister();
 		// 벌크 삽입을 위해 목록에 추가
 		SpawnedActors.push_back(StaticMeshActor);
+		//UWorldPartitionManager::GetInstance()->Register(StaticMeshActor);
+		//FVector extent = StaticMeshActor->GetBounds().GetExtent();
+		//float length = sqrtf(extent.X * extent.X +
+		//	extent.Y * extent.Y +
+		//	extent.Z * extent.Z);
+		//UE_LOG("APPLE_EXTENT : %f ", length);
+		//UWorldPartitionManager::GetInstance()->GetSceneOctree()->Insert(StaticMeshActor, StaticMeshActor->GetBounds());
 	}
 	
 	// 모든 액터를 한 번에 벌크 등록 하여 성능 최적화
-	if (PartitionManager && !SpawnedActors.empty())
+	if (UWorldPartitionManager::GetInstance() && !SpawnedActors.empty())
 	{
 		UE_LOG("LoadScene: Using bulk registration for %zu actors\r\n", SpawnedActors.size());
-		PartitionManager->BulkRegister(SpawnedActors);
+		UWorldPartitionManager::GetInstance()->BulkRegister(SpawnedActors);
 	}
 
 	// 3) 최종 보정: 전역 카운터는 절대 하향 금지 + 현재 사용된 최대값 이후로 설정
