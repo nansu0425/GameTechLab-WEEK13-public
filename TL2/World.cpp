@@ -319,8 +319,6 @@ void UWorld::RenderSingleViewport()
 
 void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 {
-	int32 TotalStaticMeshes = 0;
-	int32 CulledStaticMeshes = 0;
 
 	// 뷰포트의 실제 크기로 aspect ratio 계산
 	float ViewportAspectRatio = static_cast<float>(Viewport->GetSizeX()) / static_cast<float>(Viewport->GetSizeY());
@@ -367,11 +365,9 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 				{
 					if (UAABoundingBoxComponent* Box = Cast<UAABoundingBoxComponent>(MeshActor->CollisionComponent))
 					{
-						++TotalStaticMeshes; // 컬링 전 증가
 						const FBound Bound = Box->GetWorldBound();
 						if (!IsAABBVisible(ViewFrustum, Bound))
 						{
-							++CulledStaticMeshes;
 							continue;
 						}
 					}
@@ -444,12 +440,6 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
     }
     
     Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
-
-
-	UE_LOG("FrustumCulling: StaticMeshes Drawn=%d, Culled=%d\r\n",
-		TotalStaticMeshes - CulledStaticMeshes,
-		CulledStaticMeshes);
-	Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
 	Renderer->UpdateHighLightConstantBuffer(false, rgb, 0, 0, 0, 0);
 
 }
