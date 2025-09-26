@@ -14,6 +14,8 @@
 #include "StaticMesh.h"
 #include "ObjManager.h"
 #include "SceneRotationUtils.h"
+#include "WorldPartitionManager.h"
+#include "PrimitiveComponent.h"
 
 extern float CLIENTWIDTH;
 extern float CLIENTHEIGHT;
@@ -53,6 +55,10 @@ UWorld::~UWorld()
 
 	// ObjManager 정리
 	FObjManager::Clear();
+
+	// Partition manager cleanup
+	delete PartitionManager;
+	PartitionManager = nullptr;
 }
 
 static void DebugRTTI_UObject(UObject* Obj, const char* Title)
@@ -102,6 +108,12 @@ static void DebugRTTI_UObject(UObject* Obj, const char* Title)
 void UWorld::Initialize()
 {
 	FObjManager::Preload();
+
+	// Create partition manager
+	if (!PartitionManager)
+	{
+		PartitionManager = new UWorldPartitionManager();
+	}
 
 	// 새 씬 생성
 	CreateNewScene();
@@ -290,6 +302,13 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 	if (!Renderer) return;
 	FVector rgb(1.0f, 1.0f, 1.0f);
 
+
+
+	// ============ Culling Logic Dispatch ========= //
+	//TArray<AActor*> CulledActors = PartitionManager.Query(Frustum Data); 
+
+
+
 	// === Begin Line Batch for all actors ===
 	Renderer->BeginLineBatch();
 
@@ -377,6 +396,12 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 
 void UWorld::Tick(float DeltaSeconds)
 {
+	// Update spatial indices first so any previous-frame changes are reflected
+	if (PartitionManager)
+	{
+		PartitionManager->Update(DeltaSeconds, /*budget*/256);
+	}
+
 	//순서 바꾸면 안댐
 	for (AActor* Actor : Actors)
 	{
@@ -418,6 +443,22 @@ FString UWorld::GenerateUniqueActorName(const FString& ActorType)
 	return UniqueName;
 }
 
+void UWorld::AddActor(AActor* Actor)
+{
+	Actors.Add(Actor);
+	// Register primitive components with partition manager if available
+	if (PartitionManager && Actor)
+	{
+		for (USceneComponent* Comp : Actor->GetComponents())
+		{
+			if (auto* Prim = Cast<UPrimitiveComponent>(Comp))
+			{
+				PartitionManager->Register(Prim);
+			}
+		}
+	}
+}
+
 //
 // 액터 제거
 //
@@ -442,6 +483,18 @@ bool UWorld::DestroyActor(AActor* Actor)
 	if (it != Actors.end())
 	{
 		Actors.erase(it);
+
+		// Before deleting, unregister primitive components from partition manager
+		if (PartitionManager)
+		{
+			for (USceneComponent* Comp : Actor->GetComponents())
+			{
+				if (auto* Prim = Cast<UPrimitiveComponent>(Comp))
+				{
+					PartitionManager->Unregister(Prim);
+				}
+			}
+		}
 
 		// 메모리 해제
 		ObjectFactory::DeleteObject(Actor);
@@ -617,6 +670,9 @@ void UWorld::LoadScene(const FString& SceneName)
 	// [1] 로드 시작 전 현재 카운터 백업
 	const uint32 PreLoadNext = UObject::PeekNextUUID();
 
+
+	////////////JSON LOAD HICKING////////////
+
 	// [2] 파일 NextUUID는 현재보다 클 때만 반영(절대 하향 설정 금지)
 	uint32 LoadedNextUUID = 0;
 	if (FSceneLoader::TryReadNextUUID(FilePath, LoadedNextUUID))
@@ -711,6 +767,7 @@ void UWorld::LoadScene(const FString& SceneName)
 		if (UStaticMeshComponent* SMC = StaticMeshActor->GetStaticMeshComponent())
 		{
 			FPrimitiveData Temp = Primitive;
+			//SMC->Serialize(true, const_cast<FPrimitiveData&>(Primitive));
 			SMC->Serialize(true, Temp);
 
 			FString LoadedAssetPath;

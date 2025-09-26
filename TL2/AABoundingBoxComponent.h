@@ -4,15 +4,6 @@
 #pragma once
 #include "ShapeComponent.h"
 
-struct FBound
-{
-    FVector Min;
-    FVector Max;
-
-    FBound() : Min(FVector()), Max(FVector()) {}
-    FBound(const FVector& InMin, const FVector& InMax) : Min(InMin), Max(InMax) {}
-};
-
 class ULine;
 class UAABoundingBoxComponent :
     public UShapeComponent

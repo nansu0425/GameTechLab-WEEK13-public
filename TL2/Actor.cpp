@@ -6,6 +6,8 @@
 #include "AABoundingBoxComponent.h"   
 #include "MeshComponent.h"
 #include "TextRenderComponent.h"
+#include "WorldPartitionManager.h"
+
 AActor::AActor()
 {
     Name = "DefaultActor";
@@ -195,5 +197,17 @@ void AActor::AddComponent(USceneComponent* Component)
     {
         RootComponent = Component;
         //Component->SetupAttachment(RootComponent);
+    }
+
+    // If world is already assigned and this is a primitive, register it now
+    if (World)
+    {
+        if (auto* Prim = Cast<UPrimitiveComponent>(Component))
+        {
+            if (World->GetPartitionManager())
+            {
+                World->GetPartitionManager()->Register(Prim);
+            }
+        }
     }
 }

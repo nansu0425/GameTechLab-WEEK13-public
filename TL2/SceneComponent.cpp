@@ -2,6 +2,8 @@
 #include "SceneComponent.h"
 #include <algorithm>
 #include "ObjectFactory.h"
+#include "PrimitiveComponent.h"
+#include "WorldPartitionManager.h"
 
 USceneComponent::USceneComponent()
     : RelativeLocation(0, 0, 0)
@@ -255,4 +257,19 @@ void USceneComponent::DetachFromParent(bool bKeepWorld)
 void USceneComponent::UpdateRelativeTransform()
 {
     RelativeTransform = FTransform(RelativeLocation, RelativeRotation, RelativeScale);
+
+    // Notify partition manager if this is a primitive component with a world/owner
+    if (auto* Prim = Cast<UPrimitiveComponent>(this))
+    {
+        if (AActor* Owner = GetOwner())
+        {
+            if (UWorld* World = Owner->GetWorld())
+            {
+                if (auto* PM = World->GetPartitionManager())
+                {
+                    PM->MarkDirty(Prim, /*flags*/1);
+                }
+            }
+        }
+    }
 }

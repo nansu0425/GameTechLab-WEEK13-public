@@ -19,6 +19,7 @@ class SMultiViewportWindow;
 struct FTransform;
 struct FPrimitiveData;
 class SViewportWindow;
+class UWorldPartitionManager;
 
 /**
  * UWorld
@@ -65,10 +66,7 @@ public:
     template<class T>
     T* SpawnActor(const FTransform& Transform);
 
-    void AddActor(AActor* Actor)
-    {
-        Actors.Add(Actor);
-    }
+    void AddActor(AActor* Actor);
 
     bool DestroyActor(AActor* Actor);
 
@@ -103,6 +101,9 @@ public:
     void RenderViewports(ACameraActor* Camera, FViewport* Viewport);
     //void GameRender(ACameraActor* Camera, FViewport* Viewport);
 
+    // Partition manager
+    UWorldPartitionManager* GetPartitionManager() const { return PartitionManager; }
+
 
     /** === 필요한 엑터 게터 === */
     const TArray<AActor*>& GetActors() { return Actors; }
@@ -125,6 +126,9 @@ private:
     UUIManager& UIManager;
     UInputManager& InputManager;
     USelectionManager& SelectionManager;
+
+    // World partition/spatial indexing //Non Single Ton
+    UWorldPartitionManager* PartitionManager = nullptr;
 
    
     // 메인 카메라
