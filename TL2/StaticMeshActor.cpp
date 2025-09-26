@@ -30,6 +30,12 @@ AStaticMeshActor::~AStaticMeshActor()
     StaticMeshComponent = nullptr;
 }
 
+FBound AStaticMeshActor::GetBounds() const
+{
+    //TODO 수정 
+    return FBound();
+}
+
 void AStaticMeshActor::SetStaticMeshComponent(UStaticMeshComponent* InStaticMeshComponent)
 {
     StaticMeshComponent = InStaticMeshComponent;
