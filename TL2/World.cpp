@@ -14,6 +14,7 @@
 #include "StaticMesh.h"
 #include "ObjManager.h"
 #include "SceneRotationUtils.h"
+#include "Octree.h"
 
 extern float CLIENTWIDTH;
 extern float CLIENTHEIGHT;
@@ -53,6 +54,13 @@ UWorld::~UWorld()
 
 	// ObjManager 정리
 	FObjManager::Clear();
+
+	// Octree 정리
+	if (SceneOctree)
+	{
+		delete SceneOctree;
+		SceneOctree = nullptr;
+	}
 }
 
 static void DebugRTTI_UObject(UObject* Obj, const char* Title)
@@ -112,6 +120,16 @@ void UWorld::Initialize()
 
 	// 액터 간 참조 설정
 	SetupActorReferences();
+
+	if (SceneOctree)
+	{
+		delete SceneOctree;
+		SceneOctree = nullptr;
+	}
+	{
+		FBound WorldBounds(FVector(-100000.f, -100000.f, -100000.f), FVector(100000.f, 100000.f, 100000.f));
+		SceneOctree = new FOctree(WorldBounds, 0, 8, 8);
+	}
 }
 
 void UWorld::InitializeMainCamera()
@@ -441,6 +459,9 @@ bool UWorld::DestroyActor(AActor* Actor)
 	auto it = std::find(Actors.begin(), Actors.end(), Actor);
 	if (it != Actors.end())
 	{
+		// 옥트리에서 제거
+		OnActorDestroyed(Actor);
+
 		Actors.erase(it);
 
 		// 메모리 해제
@@ -453,6 +474,32 @@ bool UWorld::DestroyActor(AActor* Actor)
 	}
 
 	return false; // 월드에 없는 액터
+}
+
+void UWorld::OnActorSpawned(AActor* Actor)
+{
+    if (!Actor) return;
+    if (!SceneOctree) return;
+    FBound B = Actor->GetBounds();
+    if (SceneOctree->Contains(B))
+    {
+        SceneOctree->Insert(Actor, B);
+    }
+}
+
+void UWorld::OnActorDestroyed(AActor* Actor)
+{
+    if (!Actor) return;
+    if (!SceneOctree) return;
+    FBound B = Actor->GetBounds();
+    SceneOctree->Remove(Actor, B);
+}
+
+void UWorld::UpdateActorInOctree(AActor* Actor, const FBound& OldBounds, const FBound& NewBounds)
+{
+    if (!Actor) return;
+    if (!SceneOctree) return;
+    SceneOctree->Update(Actor, OldBounds, NewBounds);
 }
 
 inline FString ToObjFileName(const FString& TypeName)
@@ -498,6 +545,12 @@ void UWorld::CreateNewScene()
 
 	// 이름 카운터 초기화: 씬을 새로 시작할 때 각 BaseName 별 suffix를 0부터 다시 시작
 	ObjectTypeCounts.clear();
+
+	// 옥트리 초기화
+	if (SceneOctree)
+	{
+		SceneOctree->Clear();
+	}
 }
 
 
@@ -734,6 +787,9 @@ void UWorld::LoadScene(const FString& SceneName)
 				BaseName = RemoveObjExtension(LoadedAssetPath);
 			}
 			StaticMeshActor->SetName(GenerateUniqueActorName(BaseName));
+
+			// 옥트리에 등록
+			OnActorSpawned(StaticMeshActor);
 		}
 	}
 

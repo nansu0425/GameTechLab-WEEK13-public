@@ -4,13 +4,12 @@
 
 class FOctree
 {
-	// 생성자
+public:
+	// 생성자/소멸자
 	FOctree(const FBound& InBounds, int InDepth = 0, int InMaxDepth = 5, int InMaxObjects = 5);
-	
-	// 소멸자
 	~FOctree();
 
-	// 초기화 
+	// 초기화
 	void Clear();
 
 	// 삽입 / 제거 / 갱신

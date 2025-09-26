@@ -32,7 +32,10 @@ AStaticMeshActor::~AStaticMeshActor()
 
 FBound AStaticMeshActor::GetBounds() const
 {
-    //TODO 수정 
+    if (CollisionComponent)
+    {
+        return CollisionComponent->GetWorldBoundFromCube();
+    }
     return FBound();
 }
 
