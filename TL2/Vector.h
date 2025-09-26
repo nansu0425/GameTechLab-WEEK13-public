@@ -159,7 +159,17 @@ struct FVector
     FVector& operator/=(float S) { X /= S; Y /= S; Z /= S; return *this; }
     FVector& operator+=(float S) { X += S; Y += S; Z += S; return *this; }
     FVector& operator-=(float S) { X -= S; Y -= S; Z -= S; return *this; }
+    float& operator[](int Index)
+    {
+        assert(Index >= 0 && Index < 3); // 잘못된 인덱스면 프로그램 중단
+        return ((&X)[Index]);
+    }
 
+    const float& operator[](int Index) const
+    {
+        assert(Index >= 0 && Index < 3);
+        return ((&X)[Index]);
+    }
     bool operator==(const FVector& V) const
     {
         return std::fabs(X - V.X) < KINDA_SMALL_NUMBER &&

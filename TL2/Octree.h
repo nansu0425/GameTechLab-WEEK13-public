@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include "AABoundingBoxComponent.h"
 #include "Renderer.h"
-
+#include "Picking.h"
 class FOctree
 {
 public:
@@ -20,7 +20,8 @@ public:
 
     //void QueryRay(const Ray& InRay, std::vector<Actor*>& OutActors) const;
     //void QueryFrustum(const Frustum& InFrustum, std::vector<Actor*>& OutActors) const;
-
+	//쿼리
+	void QueryRay(const FRay& Ray, TArray<AActor*>& OutActors) const;
     // Debug draw
     void DebugDraw(URenderer* Renderer) const;
 
@@ -29,6 +30,7 @@ public:
     int TotalActorCount() const;
     int MaxOccupiedDepth() const;
     void DebugDump() const;
+
     const FBound& GetBounds() const { return Bounds; }
 
 private:

@@ -252,6 +252,32 @@ static void CreateLineDataFromAABB(
     Start.Add(v3); End.Add(v7); Color.Add(LineColor);
 }
 
+void FOctree::QueryRay(const FRay& Ray, TArray<AActor*>& OutActors) const
+{
+    if (!Bounds.IntersectsRay(Ray))
+        return;
+
+    for (AActor* Actor : Actors)
+    {
+        if (!Actor) continue;
+        FBound Box = Actor->GetBounds();
+        if (Box.IntersectsRay(Ray))
+        {
+            OutActors.Add(Actor);
+        }
+    }
+    if (Children[0])
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            if (Children[i])
+            {
+                Children[i]->QueryRay(Ray, OutActors);
+            }
+        }
+    }
+}
+
 void FOctree::DebugDraw(URenderer* Renderer) const
 {
     if (!Renderer) return;

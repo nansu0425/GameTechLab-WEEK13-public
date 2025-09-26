@@ -391,7 +391,7 @@ void D3D11RHI::Present()
 {
     // Draw any Direct2D overlays before present
     UStatsOverlayD2D::Get().Draw();
-    SwapChain->Present(1, 0); // vsync on
+    SwapChain->Present(0, 0); // vsync on
 }
 
 void D3D11RHI::CreateDeviceAndSwapChain(HWND hWindow)
