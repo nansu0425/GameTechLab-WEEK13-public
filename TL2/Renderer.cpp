@@ -134,7 +134,7 @@ void URenderer::DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITI
 
     if (InMesh->HasMaterial())
     {
-        const TArray<FGroupInfo> MeshGroupInfos = InMesh->GetMeshGroupInfo();
+        const TArray<FGroupInfo>& MeshGroupInfos = InMesh->GetMeshGroupInfo();
         const uint32 NumMeshGroupInfos = static_cast<uint32>(MeshGroupInfos.size());
         for (uint32 i = 0; i < NumMeshGroupInfos; ++i)
         {
