@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "AABoundingBoxComponent.h"
-
+#include "Renderer.h"
 
 class FOctree
 {
@@ -20,6 +20,9 @@ public:
 
     //void QueryRay(const Ray& InRay, std::vector<Actor*>& OutActors) const;
     //void QueryFrustum(const Frustum& InFrustum, std::vector<Actor*>& OutActors) const;
+
+    // Debug draw
+    void DebugDraw(URenderer* Renderer) const;
 
     // Debug/Stats
     int TotalNodeCount() const;

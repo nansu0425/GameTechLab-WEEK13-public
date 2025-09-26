@@ -219,3 +219,65 @@ void FOctree::DebugDump() const
     }
     UE_LOG("===== OCTREE DUMP END =====\r\n");
 }
+
+static void CreateLineDataFromAABB(
+    const FVector& Min, const FVector& Max,
+    OUT TArray<FVector>& Start,
+    OUT TArray<FVector>& End,
+    OUT TArray<FVector4>& Color,
+    const FVector4& LineColor)
+{
+    const FVector v0(Min.X, Min.Y, Min.Z);
+    const FVector v1(Max.X, Min.Y, Min.Z);
+    const FVector v2(Max.X, Max.Y, Min.Z);
+    const FVector v3(Min.X, Max.Y, Min.Z);
+    const FVector v4(Min.X, Min.Y, Max.Z);
+    const FVector v5(Max.X, Min.Y, Max.Z);
+    const FVector v6(Max.X, Max.Y, Max.Z);
+    const FVector v7(Min.X, Max.Y, Max.Z);
+
+    Start.Add(v0); End.Add(v1); Color.Add(LineColor);
+    Start.Add(v1); End.Add(v2); Color.Add(LineColor);
+    Start.Add(v2); End.Add(v3); Color.Add(LineColor);
+    Start.Add(v3); End.Add(v0); Color.Add(LineColor);
+
+    Start.Add(v4); End.Add(v5); Color.Add(LineColor);
+    Start.Add(v5); End.Add(v6); Color.Add(LineColor);
+    Start.Add(v6); End.Add(v7); Color.Add(LineColor);
+    Start.Add(v7); End.Add(v4); Color.Add(LineColor);
+
+    Start.Add(v0); End.Add(v4); Color.Add(LineColor);
+    Start.Add(v1); End.Add(v5); Color.Add(LineColor);
+    Start.Add(v2); End.Add(v6); Color.Add(LineColor);
+    Start.Add(v3); End.Add(v7); Color.Add(LineColor);
+}
+
+void FOctree::DebugDraw(URenderer* Renderer) const
+{
+    if (!Renderer) return;
+
+    struct Item { const FOctree* Node; int D; };
+    TArray<Item> st; st.push_back({ this, Depth });
+    while (!st.empty())
+    {
+        Item it = st.back(); st.pop_back();
+        const FOctree* N = it.Node;
+
+        const int di = it.D % 3;
+        FVector4 color(0.0f, 1.0f, 0.0f, 1.0f);
+        if (di == 1) color = FVector4(0.2f, 0.8f, 1.0f, 1.0f);
+        else if (di == 2) color = FVector4(1.0f, 0.6f, 0.1f, 1.0f);
+
+        TArray<FVector> S, E; TArray<FVector4> C;
+        CreateLineDataFromAABB(N->Bounds.Min, N->Bounds.Max, S, E, C, color);
+        Renderer->AddLines(S, E, C);
+
+        if (N->Children[0])
+        {
+            for (int i = 7; i >= 0; --i)
+            {
+                if (N->Children[i]) st.push_back({ N->Children[i], it.D + 1 });
+            }
+        }
+    }
+}

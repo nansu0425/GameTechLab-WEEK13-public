@@ -127,7 +127,7 @@ void UWorld::Initialize()
 		SceneOctree = nullptr;
 	}
 	{
-		FBound WorldBounds(FVector(-100000.f, -100000.f, -100000.f), FVector(100000.f, 100000.f, 100000.f));
+		FBound WorldBounds(FVector(-10.f, -10.f, -10.f), FVector(10.f, 10.f, 10.f));
 		SceneOctree = new FOctree(WorldBounds, 0, 8, 8);
 	}
 }
@@ -209,8 +209,8 @@ void UWorld::RenderSingleViewport()
 	// === Begin Line Batch for all actors ===
 	Renderer->BeginLineBatch();
 
-	// === Draw Actors with Show Flag checks ===
-	Renderer->SetViewModeType(ViewModeIndex);
+    // === Draw Actors with Show Flag checks ===
+    Renderer->SetViewModeType(ViewModeIndex);
 
 	// 일반 액터들 렌더링 (Primitives Show Flag 체크)
 	if (IsShowFlagEnabled(EEngineShowFlags::SF_Primitives))
@@ -287,7 +287,13 @@ void UWorld::RenderSingleViewport()
 		// 블랜드 스테이드 종료
 		Renderer->OMSetBlendState(false);
 	}
-	Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
+    // Octree debug draw
+    if (IsShowFlagEnabled(EEngineShowFlags::SF_OctreeDebug) && SceneOctree)
+    {
+        SceneOctree->DebugDraw(Renderer);
+    }
+
+    Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
 
 
 
@@ -311,8 +317,8 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 	// === Begin Line Batch for all actors ===
 	Renderer->BeginLineBatch();
 
-	// === Draw Actors with Show Flag checks ===
-	Renderer->SetViewModeType(ViewModeIndex);
+    // === Draw Actors with Show Flag checks ===
+    Renderer->SetViewModeType(ViewModeIndex);
 
 	// 일반 액터들 렌더링
 	if (IsShowFlagEnabled(EEngineShowFlags::SF_Primitives))
@@ -384,7 +390,13 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 		Renderer->OMSetBlendState(false);
 	}
 
-	Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
+    // Octree debug draw
+    if (IsShowFlagEnabled(EEngineShowFlags::SF_OctreeDebug) && SceneOctree)
+    {
+        SceneOctree->DebugDraw(Renderer);
+    }
+    
+    Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
 
 
 	Renderer->UpdateHighLightConstantBuffer(false, rgb, 0, 0, 0, 0);
