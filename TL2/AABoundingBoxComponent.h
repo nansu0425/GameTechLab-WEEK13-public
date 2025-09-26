@@ -1,9 +1,6 @@
 ﻿#pragma once
 #include "ShapeComponent.h"
 
-#pragma once
-#include "ShapeComponent.h"
-
 struct FBound
 {
 	FVector Min;
@@ -105,9 +102,13 @@ public:
 
 	void Render(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) override;
 
-	// 월드 좌표계에서의 AABB 반환
-	FBound GetWorldBoundFromCube();
-	//FBound GetWorldBoundFromSphere() const;
+    // Arvo 기반 월드 AABB
+    // 코너 8개 변환 방식에 비해 8배 이상 빠릅니다.
+    FBound GetWorldBound() const;
+
+    // 월드 좌표계에서의 AABB 반환
+    FBound GetWorldBoundFromCube() const;
+    FBound GetWorldBoundFromSphere() const;
 
 	TArray<FVector4> GetLocalCorners() const;
 
@@ -120,9 +121,12 @@ private:
 		OUT TArray<FVector>& End,
 		OUT TArray<FVector4>& Color);
 
-	FVector LocalMin;
-	FVector LocalMax;
-	FBound Bound;
-	EPrimitiveType PrimitiveType = EPrimitiveType::Default;
+    // Arvo 익스텐트 계산 헬퍼
+    FVector ComputeWorldExtentsArvo(const FVector& LocalExtents, const FMatrix& World) const;
+
+    FVector LocalMin;
+    FVector LocalMax;
+
+    EPrimitiveType PrimitiveType = EPrimitiveType::Default;
 };
 
