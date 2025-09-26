@@ -18,7 +18,7 @@ namespace {
 
 UWorldPartitionManager::UWorldPartitionManager()
 {
-	FBound WorldBounds(FVector(-800, -800, -800), FVector(800, 800, 800));
+	FBound WorldBounds(FVector(-25, -25, 0), FVector(25, 25, 20));
 	SceneOctree = new FOctree(WorldBounds, 0, 8, 8);
 }
 

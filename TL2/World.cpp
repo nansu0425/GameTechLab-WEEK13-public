@@ -258,14 +258,16 @@ void UWorld::RenderSingleViewport()
 		// 블랜드 스테이드 종료
 		Renderer->OMSetBlendState(false);
 	}
-    // Octree debug draw
-	if (IsShowFlagEnabled(EEngineShowFlags::SF_OctreeDebug))
-	{
-		if (FOctree* Octree = UWorldPartitionManager::GetInstance()->GetSceneOctree())
-		{
-			Octree->DebugDraw(Renderer);
-		}
-	}
+    // Octree debug draw (draw as overlay: depth test always, no write)
+    if (IsShowFlagEnabled(EEngineShowFlags::SF_OctreeDebug))
+    {
+        if (FOctree* Octree = UWorldPartitionManager::GetInstance()->GetSceneOctree())
+        {
+            Renderer->OMSetDepthStencilState(EComparisonFunc::Always);
+            Octree->DebugDraw(Renderer);
+            Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+        }
+    }
 
     Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
 
@@ -784,8 +786,16 @@ void UWorld::LoadScene(const FString& SceneName)
 			StaticMeshActor->SetName(GenerateUniqueActorName(BaseName));
 		}
 		
+		//UWorldPartitionManager::GetInstance()->BulkRegister();
 		// 벌크 삽입을 위해 목록에 추가
 		SpawnedActors.push_back(StaticMeshActor);
+		//UWorldPartitionManager::GetInstance()->Register(StaticMeshActor);
+		//FVector extent = StaticMeshActor->GetBounds().GetExtent();
+		//float length = sqrtf(extent.X * extent.X +
+		//	extent.Y * extent.Y +
+		//	extent.Z * extent.Z);
+		//UE_LOG("APPLE_EXTENT : %f ", length);
+		//UWorldPartitionManager::GetInstance()->GetSceneOctree()->Insert(StaticMeshActor, StaticMeshActor->GetBounds());
 	}
 	
 	// 모든 액터를 한 번에 벌크 등록 하여 성능 최적화

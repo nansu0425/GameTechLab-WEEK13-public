@@ -333,6 +333,7 @@ void FOctree::DebugDump() const
     struct StackItem { const FOctree* Node; int D; };
     TArray<StackItem> stack;
     stack.push_back({ this, Depth });
+    int size = 0;
     while (!stack.empty())
     {
         StackItem it = stack.back();
@@ -340,14 +341,21 @@ void FOctree::DebugDump() const
 
         const FOctree* N = it.Node;
         char buf[256];
+        FVector extent = N->GetBounds().GetExtent();
+        float length = sqrtf(extent.X * extent.X +
+            extent.Y * extent.Y +
+            extent.Z * extent.Z);
         std::snprintf(buf, sizeof(buf),
-            "[Octree] depth=%d, actors=%zu, bounds=[(%.1f,%.1f,%.1f)-(%.1f,%.1f,%.1f)]\r\n",
+            "[Octree] depth=%d, actors=%zu, bounds=[(%.1f,%.1f,%.1f)-(%.1f,%.1f,%.1f)], extent : %f  \r\n",
             it.D,
             N->Actors.size(),
             N->Bounds.Min.X, N->Bounds.Min.Y, N->Bounds.Min.Z,
-            N->Bounds.Max.X, N->Bounds.Max.Y, N->Bounds.Max.Z);
+            N->Bounds.Max.X, N->Bounds.Max.Y, N->Bounds.Max.Z , length);
         UE_LOG(buf);
 
+
+
+        size += N->Actors.size();
         if (N->Children[0])
         {
             for (int i = 7; i >= 0; --i)
@@ -359,6 +367,8 @@ void FOctree::DebugDump() const
             }
         }
     }
+
+    UE_LOG("size : %d", size);
     UE_LOG("===== OCTREE DUMP END =====\r\n");
 }
 
