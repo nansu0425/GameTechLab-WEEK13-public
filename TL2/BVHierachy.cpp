@@ -51,7 +51,7 @@ namespace
     }
 }
 
-BVHierachy::BVHierachy(const FBound& InBounds, int InDepth, int InMaxDepth, int InMaxObjects)
+FBVHierachy::FBVHierachy(const FBound& InBounds, int InDepth, int InMaxDepth, int InMaxObjects)
     : Depth(InDepth)
     , MaxDepth(InMaxDepth)
     , MaxObjects(InMaxObjects)
@@ -61,12 +61,12 @@ BVHierachy::BVHierachy(const FBound& InBounds, int InDepth, int InMaxDepth, int 
 {
 }
 
-BVHierachy::~BVHierachy()
+FBVHierachy::~FBVHierachy()
 {
     Clear();
 }
 
-void BVHierachy::Clear()
+void FBVHierachy::Clear()
 {
     // 액터/맵 비우기
     Actors = TArray<AActor*>();
@@ -77,7 +77,7 @@ void BVHierachy::Clear()
     if (Right) { delete Right; Right = nullptr; }
 }
 
-void BVHierachy::Insert(AActor* InActor, const FBound& ActorBounds)
+void FBVHierachy::Insert(AActor* InActor, const FBound& ActorBounds)
 {
     if (!InActor) return;
 
@@ -114,14 +114,14 @@ void BVHierachy::Insert(AActor* InActor, const FBound& ActorBounds)
 
     if (!Left && Right)
     {
-        Left = new BVHierachy(ActorBounds, Depth + 1, MaxDepth, MaxObjects);
+        Left = new FBVHierachy(ActorBounds, Depth + 1, MaxDepth, MaxObjects);
         Left->Actors.Add(InActor);
         Left->ActorLastBounds.Add(InActor, ActorBounds);
         Left->Refit();
     }
     else if (Left && !Right)
     {
-        Right = new BVHierachy(ActorBounds, Depth + 1, MaxDepth, MaxObjects);
+        Right = new FBVHierachy(ActorBounds, Depth + 1, MaxDepth, MaxObjects);
         Right->Actors.Add(InActor);
         Right->ActorLastBounds.Add(InActor, ActorBounds);
         Right->Refit();
@@ -137,7 +137,7 @@ void BVHierachy::Insert(AActor* InActor, const FBound& ActorBounds)
     Refit();
 }
 
-void BVHierachy::BulkInsert(const TArray<std::pair<AActor*, FBound>>& ActorsAndBounds)
+void FBVHierachy::BulkInsert(const TArray<std::pair<AActor*, FBound>>& ActorsAndBounds)
 {
     for (const auto& kv : ActorsAndBounds)
     {
@@ -145,12 +145,12 @@ void BVHierachy::BulkInsert(const TArray<std::pair<AActor*, FBound>>& ActorsAndB
     }
 }
 
-bool BVHierachy::Contains(const FBound& Box) const
+bool FBVHierachy::Contains(const FBound& Box) const
 {
     return Bounds.Contains(Box);
 }
 
-bool BVHierachy::Remove(AActor* InActor, const FBound& ActorBounds)
+bool FBVHierachy::Remove(AActor* InActor, const FBound& ActorBounds)
 {
     if (!InActor) return false;
 
@@ -187,7 +187,7 @@ bool BVHierachy::Remove(AActor* InActor, const FBound& ActorBounds)
     return removed;
 }
 
-void BVHierachy::Update(AActor* InActor, const FBound& OldBounds, const FBound& NewBounds)
+void FBVHierachy::Update(AActor* InActor, const FBound& OldBounds, const FBound& NewBounds)
 {
     if (!InActor) return;
     if (OldBounds.Min.X == NewBounds.Min.X && OldBounds.Min.Y == NewBounds.Min.Y && OldBounds.Min.Z == NewBounds.Min.Z &&
@@ -201,7 +201,7 @@ void BVHierachy::Update(AActor* InActor, const FBound& OldBounds, const FBound& 
     Insert(InActor, NewBounds);
 }
 
-void BVHierachy::Remove(AActor* InActor)
+void FBVHierachy::Remove(AActor* InActor)
 {
     if (!InActor) return;
     if (auto* Found = ActorLastBounds.Find(InActor))
@@ -211,7 +211,7 @@ void BVHierachy::Remove(AActor* InActor)
     }
 }
 
-void BVHierachy::Update(AActor* InActor)
+void FBVHierachy::Update(AActor* InActor)
 {
     auto it = ActorLastBounds.find(InActor);
     if (it != ActorLastBounds.end())
@@ -224,7 +224,7 @@ void BVHierachy::Update(AActor* InActor)
     }
 }
 
-void BVHierachy::DebugDraw(URenderer* Renderer) const
+void FBVHierachy::DebugDraw(URenderer* Renderer) const
 {
     if (!Renderer) return;
 
@@ -242,7 +242,7 @@ void BVHierachy::DebugDraw(URenderer* Renderer) const
     if (Right) Right->DebugDraw(Renderer);
 }
 
-int BVHierachy::TotalNodeCount() const
+int FBVHierachy::TotalNodeCount() const
 {
     int count = 1; // self
     if (Left) count += Left->TotalNodeCount();
@@ -250,7 +250,7 @@ int BVHierachy::TotalNodeCount() const
     return count;
 }
 
-int BVHierachy::TotalActorCount() const
+int FBVHierachy::TotalActorCount() const
 {
     int count = 0;
     for (auto* a : Actors) { (void)a; ++count; }
@@ -259,7 +259,7 @@ int BVHierachy::TotalActorCount() const
     return count;
 }
 
-int BVHierachy::MaxOccupiedDepth() const
+int FBVHierachy::MaxOccupiedDepth() const
 {
     int maxDepth = Actors.empty() ? -1 : Depth;
     if (Left)
@@ -275,11 +275,11 @@ int BVHierachy::MaxOccupiedDepth() const
     return std::max(maxDepth, Depth);
 }
 
-void BVHierachy::DebugDump() const
+void FBVHierachy::DebugDump() const
 {
     UE_LOG("===== BVHierachy DUMP BEGIN =====\r\n");
 
-    struct StackItem { const BVHierachy* Node; int D; };
+    struct StackItem { const FBVHierachy* Node; int D; };
     TArray<StackItem> stack;
     stack.push_back({ this, Depth });
 
@@ -287,7 +287,7 @@ void BVHierachy::DebugDump() const
     {
         StackItem it = stack.back();
         stack.pop_back();
-        const BVHierachy* N = it.Node;
+        const FBVHierachy* N = it.Node;
 
         char buf[256];
         std::snprintf(buf, sizeof(buf),
@@ -305,7 +305,7 @@ void BVHierachy::DebugDump() const
     UE_LOG("===== BVHierachy DUMP END =====\r\n");
 }
 
-void BVHierachy::Split()
+void FBVHierachy::Split()
 {
     // 이미 내부 노드면 패스
     if (Left || Right) return;
@@ -320,30 +320,36 @@ void BVHierachy::Split()
     // 분할 축 선정(가장 긴 축)
     int axis = ChooseSplitAxis();
 
-    // 중심 평균을 기준으로 파티션 (간단 구현)
-    float sum = 0.0f; int n = 0;
+    // 중앙값 기반 분할로 변경 (더 균등한 분할 보장)
+    struct ActorSort { AActor* Actor; float Key; };
+    TArray<ActorSort> sortData;
+    
     for (auto* a : Actors)
     {
         if (auto* pb = ActorLastBounds.Find(a))
         {
             FVector c = pb->GetCenter();
-            sum += (axis == 0 ? c.X : (axis == 1 ? c.Y : c.Z));
-            ++n;
+            float key = (axis == 0 ? c.X : (axis == 1 ? c.Y : c.Z));
+            sortData.Add({ a, key });
         }
     }
-    if (n == 0) { Refit(); return; }
-    float splitPos = sum / float(n);
-
+    
+    if (sortData.empty()) { Refit(); return; }
+    
+    // 중앙값으로 정렬
+    std::sort(sortData.begin(), sortData.end(), 
+        [](const ActorSort& a, const ActorSort& b) { return a.Key < b.Key; });
+    
     TArray<AActor*> leftActors;
     TArray<AActor*> rightActors;
-
-    for (auto* a : Actors)
+    
+    int half = (int)sortData.size() / 2;
+    for (int i = 0; i < (int)sortData.size(); ++i)
     {
-        const FBound* pb = ActorLastBounds.Find(a);
-        if (!pb) { rightActors.Add(a); continue; }
-        FVector c = pb->GetCenter();
-        float key = (axis == 0 ? c.X : (axis == 1 ? c.Y : c.Z));
-        if (key < splitPos) leftActors.Add(a); else rightActors.Add(a);
+        if (i < half) 
+            leftActors.Add(sortData[i].Actor);
+        else 
+            rightActors.Add(sortData[i].Actor);
     }
 
     // 퇴화 방지: 한쪽이 비면 균등 분할
@@ -360,8 +366,8 @@ void BVHierachy::Split()
     }
 
     // 자식 생성
-    Left = new BVHierachy(Bounds, Depth + 1, MaxDepth, MaxObjects);
-    Right = new BVHierachy(Bounds, Depth + 1, MaxDepth, MaxObjects);
+    Left = new FBVHierachy(Bounds, Depth + 1, MaxDepth, MaxObjects);
+    Right = new FBVHierachy(Bounds, Depth + 1, MaxDepth, MaxObjects);
 
     // 재분배
     for (auto* a : leftActors)
@@ -384,7 +390,7 @@ void BVHierachy::Split()
     Refit();
 }
 
-void BVHierachy::Refit()
+void FBVHierachy::Refit()
 {
     // 내부 노드: 자식 Bounds 합집합
     if (Left || Right)
@@ -415,7 +421,7 @@ void BVHierachy::Refit()
     if (inited) Bounds = acc;
 }
 
-FBound BVHierachy::UnionBounds(const FBound& A, const FBound& B)
+FBound FBVHierachy::UnionBounds(const FBound& A, const FBound& B)
 {
     FBound out;
     out.Min = FVector(
@@ -429,7 +435,7 @@ FBound BVHierachy::UnionBounds(const FBound& A, const FBound& B)
     return out;
 }
 
-int BVHierachy::ChooseSplitAxis() const
+int FBVHierachy::ChooseSplitAxis() const
 {
     // 리프에 담긴 액터들의 합집합 Bounds로 가장 긴 축 선택
     bool inited = false;
@@ -449,7 +455,7 @@ int BVHierachy::ChooseSplitAxis() const
     return 2;
 }
 
-BVHierachy* BVHierachy::Build(const TArray<std::pair<AActor*, FBound>>& Items, int InMaxDepth, int InMaxObjects)
+FBVHierachy* FBVHierachy::Build(const TArray<std::pair<AActor*, FBound>>& Items, int InMaxDepth, int InMaxObjects)
 {
     // 입력을 빌더 아이템으로 변환(센트로이드 계산)
     TArray<FBuildItem> Work;
@@ -465,13 +471,13 @@ BVHierachy* BVHierachy::Build(const TArray<std::pair<AActor*, FBound>>& Items, i
 
     if (Work.empty())
     {
-        return new BVHierachy(FBound{}, 0, InMaxDepth, InMaxObjects);
+        return new FBVHierachy(FBound{}, 0, InMaxDepth, InMaxObjects);
     }
 
     return BuildRecursive(Work, 0, InMaxDepth, InMaxObjects);
 }
 
-BVHierachy* BVHierachy::BuildRecursive(TArray<FBuildItem>& Items, int Depth, int InMaxDepth, int InMaxObjects)
+FBVHierachy* FBVHierachy::BuildRecursive(TArray<FBuildItem>& Items, int Depth, int InMaxDepth, int InMaxObjects)
 {
     // 현재 노드 Bounds 계산
     FBound bounds = Items[0].Box;
@@ -480,7 +486,7 @@ BVHierachy* BVHierachy::BuildRecursive(TArray<FBuildItem>& Items, int Depth, int
         bounds = UnionBounds(bounds, Items[i].Box);
     }
 
-    BVHierachy* node = new BVHierachy(bounds, Depth, InMaxDepth, InMaxObjects);
+    FBVHierachy* node = new FBVHierachy(bounds, Depth, InMaxDepth, InMaxObjects);
 
     // 리프 조건
     if ((int)Items.size() <= InMaxObjects || Depth >= InMaxDepth)

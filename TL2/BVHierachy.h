@@ -2,12 +2,12 @@
 
 #include <vector>
 
-class BVHierachy
+class FBVHierachy
 {
 public:
     // 생성자/소멸자
-    BVHierachy(const FBound& InBounds, int InDepth = 0, int InMaxDepth = 5, int InMaxObjects = 16);
-    ~BVHierachy();
+    FBVHierachy(const FBound& InBounds, int InDepth = 0, int InMaxDepth = 12, int InMaxObjects = 8);
+    ~FBVHierachy();
 
     // 초기화
     void Clear();
@@ -28,7 +28,7 @@ public:
     void DebugDraw(URenderer* Renderer) const;
 
     // 대량 빌더(가장 긴 축 중앙값 분할)
-    static BVHierachy* Build(const TArray<std::pair<AActor*, FBound>>& Items, int InMaxDepth = 8, int InMaxObjects = 16);
+    static FBVHierachy* Build(const TArray<std::pair<AActor*, FBound>>& Items, int InMaxDepth = 8, int InMaxObjects = 16);
 
     // Debug/Stats
     int TotalNodeCount() const;
@@ -46,7 +46,7 @@ private:
 
     // 빌더 헬퍼: 아이템과 재귀 빌드
     struct FBuildItem { AActor* Actor; FBound Box; FVector Centroid; };
-    static BVHierachy* BuildRecursive(TArray<FBuildItem>& Items, int Depth, int InMaxDepth, int InMaxObjects);
+    static FBVHierachy* BuildRecursive(TArray<FBuildItem>& Items, int Depth, int InMaxDepth, int InMaxObjects);
 
 private:
     int Depth;
@@ -56,8 +56,8 @@ private:
 
     // 리프는 Actors 보유, 내부 노드는 Left/Right 보유
     TArray<AActor*> Actors;
-    BVHierachy* Left;
-    BVHierachy* Right;
+    FBVHierachy* Left;
+    FBVHierachy* Right;
 
     // 액터의 마지막 바운드 캐시 (루트 호출 기준으로 갱신)
     TMap<AActor*, FBound> ActorLastBounds;
