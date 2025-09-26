@@ -43,10 +43,36 @@ void UAABoundingBoxComponent::Render(URenderer* Renderer, const FMatrix& ViewMat
         TArray<FVector> End;
         TArray<FVector4> Color;
 
-        FBound WorldBound = GetWorldBoundFromCube();
+        // FBound WorldBound = GetWorldBoundFromCube();
+        // Arvo 방식으로 월드 AABB
+        FBound WorldBound = GetWorldBound();
         CreateLineData(WorldBound.Min, WorldBound.Max, Start, End, Color);
         Renderer->AddLines(Start, End, Color);
     }
+}
+
+
+FBound UAABoundingBoxComponent::GetWorldBound() const
+{
+    // 1) 로컬 중심/익스텐트
+    const FVector LocalCenter = (LocalMin + LocalMax) * 0.5f;
+    const FVector LocalExtents = (LocalMax - LocalMin) * 0.5f;
+
+    // 2) 월드 행렬
+    const FMatrix WorldMat = GetOwner()->GetWorldMatrix();
+
+    // 3) 월드 중심 (행벡터: p' = p * M)
+    const FVector WorldCenter(
+        LocalCenter.X * WorldMat.M[0][0] + LocalCenter.Y * WorldMat.M[1][0] + LocalCenter.Z * WorldMat.M[2][0] + WorldMat.M[3][0],
+        LocalCenter.X * WorldMat.M[0][1] + LocalCenter.Y * WorldMat.M[1][1] + LocalCenter.Z * WorldMat.M[2][1] + WorldMat.M[3][1],
+        LocalCenter.X * WorldMat.M[0][2] + LocalCenter.Y * WorldMat.M[1][2] + LocalCenter.Z * WorldMat.M[2][2] + WorldMat.M[3][2]
+    );
+
+    // 4) 월드 익스텐트 (Arvo)
+    const FVector WorldExtents = ComputeWorldExtentsArvo(LocalExtents, WorldMat);
+
+    // 5) AABB 재조립
+    return FBound(WorldCenter - WorldExtents, WorldCenter + WorldExtents);
 }
 
 FBound UAABoundingBoxComponent::GetWorldBoundFromCube() const
@@ -66,6 +92,8 @@ FBound UAABoundingBoxComponent::GetWorldBoundFromCube() const
 
     return FBound({ MinW.X, MinW.Y, MinW.Z }, { MaxW.X, MaxW.Y, MaxW.Z});
 }
+
+
 
 FBound UAABoundingBoxComponent::GetWorldBoundFromSphere() const
 {
@@ -148,4 +176,18 @@ void UAABoundingBoxComponent::CreateLineData(
     Start.Add(v1); End.Add(v5); Color.Add(LineColor);
     Start.Add(v2); End.Add(v6); Color.Add(LineColor);
     Start.Add(v3); End.Add(v7); Color.Add(LineColor);
+}
+
+FVector UAABoundingBoxComponent::ComputeWorldExtentsArvo(const FVector& E, const FMatrix& M) const
+{
+    // 행벡터 기준: World.M[r][c], 선형부 L = 상위 3x3
+    // WorldExtents = E * |L|  (오른쪽 곱)
+    const float Ex = E.X, Ey = E.Y, Ez = E.Z;
+
+    // 각 월드축(X,Y,Z) 방향 익스텐트
+    const float Wx = std::abs(M.M[0][0]) * Ex + std::abs(M.M[1][0]) * Ey + std::abs(M.M[2][0]) * Ez;
+    const float Wy = std::abs(M.M[0][1]) * Ex + std::abs(M.M[1][1]) * Ey + std::abs(M.M[2][1]) * Ez;
+    const float Wz = std::abs(M.M[0][2]) * Ex + std::abs(M.M[1][2]) * Ey + std::abs(M.M[2][2]) * Ez;
+
+    return FVector(Wx, Wy, Wz);
 }
