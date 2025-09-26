@@ -160,6 +160,7 @@
     <ClCompile Include="WorldPartitionManager.cpp" />
     <ClCompile Include="AllClassesRegistration.cpp" />
     <ClCompile Include="AABoundingBoxComponent.cpp" />
+    <ClCompile Include="Frustum.cpp" />
     <ClCompile Include="FViewportClient.cpp" />
     <ClCompile Include="MenuBarWidget.cpp" />
     <ClCompile Include="ObjManager.cpp" />
@@ -326,6 +327,7 @@
     <ClInclude Include="WorldPartitionManager.h" />
     <ClInclude Include="AABoundingBoxComponent.h" />
     <ClInclude Include="Archive.h" />
+    <ClInclude Include="Frustum.h" />
     <ClInclude Include="FViewportClient.h" />
     <ClInclude Include="MenuBarWidget.h" />
     <ClInclude Include="ObjManager.h" />
