@@ -37,7 +37,7 @@ public:
 
 	void Update(float DeltaTime, uint32 budgetItems = 256);
 
-	void Query(FRay InRay, OUT TArray<AActor*>& Actors);
+	void RayQuery(FRay InRay, OUT TArray<AActor*>& Actors);
 	void Query(FBound InBound, OUT TArray<AActor*>& Actors);
 
 	/** 옥트리 게터 */

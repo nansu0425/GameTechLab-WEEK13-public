@@ -18,7 +18,7 @@
 #include "UI/GlobalConsole.h"
 #include "ObjManager.h"
 #include"stdio.h"
-
+#include "WorldPartitionManager.h"
 FRay MakeRayFromMouse(const FMatrix& InView,
                       const FMatrix& InProj)
 {
@@ -352,10 +352,25 @@ AActor* CPickingSystem::PerformViewportPicking(const TArray<AActor*>& Actors,
     int pickedIndex = -1;
     float pickedT = 1e9f;
 
-    // 모든 액터에 대해 피킹 테스트
-    for (int i = 0; i < Actors.Num(); ++i)
+    UWorldPartitionManager* PartitionManager = UWorldPartitionManager::GetInstance();
+    if (PartitionManager == nullptr)
     {
-        AActor* Actor = Actors[i];
+        UE_LOG("WorldPartitionManager is Empty!");
+        return nullptr;
+    }
+
+
+    LARGE_INTEGER frequency, start, end;
+    QueryPerformanceFrequency(&frequency);
+    QueryPerformanceCounter(&start);
+    TArray<AActor*> HitActors;
+    PartitionManager->RayQuery(ray, HitActors);
+    UE_LOG("HIT ACTORS NUM : %d", HitActors.Num());
+
+    // 모든 액터에 대해 피킹 테스트
+    for (int i = 0; i < HitActors.Num(); ++i)
+    {
+        AActor* Actor = HitActors[i];
         if (!Actor) continue;
 
         // Skip hidden actors for picking
@@ -371,17 +386,22 @@ AActor* CPickingSystem::PerformViewportPicking(const TArray<AActor*>& Actors,
             }
         }
     }
+    QueryPerformanceCounter(&end);
+    double elapsedSec = static_cast<double>(end.QuadPart - start.QuadPart) / static_cast<double>(frequency.QuadPart);
 
     if (pickedIndex >= 0)
     {
         char buf[160];
-        sprintf_s(buf, "[Viewport Pick with AspectRatio] Hit primitive %d at t=%.3f\n", pickedIndex, pickedT);
+        sprintf_s(buf, "[Pick] Hit primitive %d at t=%.3f | time=%.6f sec\n",
+            pickedIndex, pickedT, elapsedSec);
         UE_LOG(buf);
         return Actors[pickedIndex];
     }
     else
     {
-        UE_LOG("[Viewport Pick with AspectRatio] No hit\n");
+        char buf[160];
+        sprintf_s(buf, "[Pick] No hit | time=%.6f sec\n", elapsedSec);
+        UE_LOG(buf);
         return nullptr;
     }
 }
