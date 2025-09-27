@@ -10,6 +10,7 @@
 #include"Vector.h"
 #include "SelectionManager.h"
 #include <cmath>
+#include <algorithm>
 
 #include "GizmoActor.h"
 #include "GizmoScaleComponent.h"
@@ -363,18 +364,26 @@ AActor* CPickingSystem::PerformViewportPicking(const TArray<AActor*>& Actors,
     LARGE_INTEGER frequency, start, end;
     QueryPerformanceFrequency(&frequency);
     QueryPerformanceCounter(&start);
-    TArray<AActor*> HitActors;
-    PartitionManager->RayQuery(ray, HitActors);
-    UE_LOG("HIT ACTORS NUM : %d", HitActors.Num());
+    // 옥트리에서 후보를 거리순(tmin)으로 수집
+    TArray<std::pair<AActor*, float>> Candidates;
+    PartitionManager->RayQueryOrdered(ray, Candidates);
+    UE_LOG("HIT ACTORS NUM : %d", Candidates.Num());
+    // 가까운 순으로 정렬
+    std::sort(Candidates.begin(), Candidates.end(), [](const auto& a, const auto& b){ return a.second < b.second; });
 
-    // 모든 액터에 대해 피킹 테스트
-    for (int i = 0; i < HitActors.Num(); ++i)
+    // 가까운 것부터 정밀 충돌, 충분히 멀어지면 조기 중단
+    const float Epsilon = 1e-3f;
+    AActor* pickedActor = nullptr;
+    for (size_t i = 0; i < Candidates.size(); ++i)
     {
-        AActor* Actor = HitActors[i];
+        AActor* Actor = Candidates[i].first;
+        float boxTMin = Candidates[i].second;
         if (!Actor) continue;
-
-        // Skip hidden actors for picking
         if (Actor->GetActorHiddenInGame()) continue;
+
+        // 이미 더 가까운 정밀 히트가 있으면 중단
+        if (pickedActor && boxTMin > pickedT + Epsilon)
+            break;
 
         float hitDistance;
         if (CheckActorPicking(Actor, ray, hitDistance))
@@ -382,21 +391,21 @@ AActor* CPickingSystem::PerformViewportPicking(const TArray<AActor*>& Actors,
             if (hitDistance < pickedT)
             {
                 pickedT = hitDistance;
-                pickedIndex = i;
+                pickedIndex = static_cast<int>(i);
+                pickedActor = Actor;
             }
         }
     }
     QueryPerformanceCounter(&end);
     double elapsedSec = static_cast<double>(end.QuadPart - start.QuadPart) / static_cast<double>(frequency.QuadPart);
 
-    if (pickedIndex >= 0)
+    if (pickedActor)
     {
         char buf[160];
         sprintf_s(buf, "[Pick] Hit primitive %d at t=%.3f | time=%.6f sec\n",
             pickedIndex, pickedT, elapsedSec);
         UE_LOG(buf);
-        // pickedIndex refers to HitActors
-        return HitActors[pickedIndex];
+        return pickedActor;
     }
     else
     {
