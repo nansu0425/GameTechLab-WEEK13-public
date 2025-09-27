@@ -9,6 +9,7 @@ class FBVHierachy;
 
 struct FRay;
 struct FBound;
+struct Frustum;
 
 class UWorldPartitionManager : public UObject
 {
@@ -38,7 +39,7 @@ public:
 	void Update(float DeltaTime, uint32 budgetItems = 256);
 
 	void RayQuery(FRay InRay, OUT TArray<AActor*>& Actors);
-	void Query(FBound InBound, OUT TArray<AActor*>& Actors);
+	void FrustumQuery(Frustum InFrustum, OUT TArray<AActor*>& Actors);
 
 	/** 옥트리 게터 */
 	FOctree* GetSceneOctree() const { return SceneOctree; }

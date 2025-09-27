@@ -302,16 +302,17 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 
 	FVector rgb(1.0f, 1.0f, 1.0f);
 
-
-	// ============ Culling Logic Dispatch ========= //
-	//TArray<AActor*> CulledActors = PartitionManager.Query(Frustum Data); 
-
-
 	// === Begin Line Batch for all actors ===
 	Renderer->BeginLineBatch();
 
     // === Draw Actors with Show Flag checks ===
     Renderer->SetViewModeType(ViewModeIndex);
+
+
+	// ============ Culling Logic Dispatch ========= //
+	//TArray<AActor*> CulledActors;
+	//UWorldPartitionManager::GetInstance()->FrustumQuery(ViewFrustum, CulledActors);
+
 
 	// 일반 액터들 렌더링
 	if (IsShowFlagEnabled(EEngineShowFlags::SF_Primitives))
@@ -824,13 +825,6 @@ void UWorld::LoadScene(const FString& SceneName)
 		//UWorldPartitionManager::GetInstance()->BulkRegister();
 		// 벌크 삽입을 위해 목록에 추가
 		SpawnedActors.push_back(StaticMeshActor);
-		//UWorldPartitionManager::GetInstance()->Register(StaticMeshActor);
-		//FVector extent = StaticMeshActor->GetBounds().GetExtent();
-		//float length = sqrtf(extent.X * extent.X +
-		//	extent.Y * extent.Y +
-		//	extent.Z * extent.Z);
-		//UE_LOG("APPLE_EXTENT : %f ", length);
-		//UWorldPartitionManager::GetInstance()->GetSceneOctree()->Insert(StaticMeshActor, StaticMeshActor->GetBounds());
 	}
 	
 	// 모든 액터를 한 번에 벌크 등록 하여 성능 최적화

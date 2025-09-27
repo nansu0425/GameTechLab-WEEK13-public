@@ -3,6 +3,7 @@
 #include "AABoundingBoxComponent.h" // FBound helpers
 #include "Vector.h"
 #include <algorithm>
+#include "Frustum.h"
 #include <cfloat>
 
 FBVHierachy::FBVHierachy(const FBound& InBounds, int InDepth, int InMaxDepth, int InMaxObjects)
@@ -256,12 +257,50 @@ void FBVHierachy::Update(AActor* InActor)
     }
 }
 
-void FBVHierachy::Query(FRay InRay, OUT TArray<AActor*>& Actors)
+void FBVHierachy::QueryRay(FRay InRay, OUT TArray<AActor*>& Actors)
 {
+    //교차 X시 종료
+    if (!Bounds.IntersectsRay(InRay))
+        return;
+
+    // 현재 노드의 액터에 대해 교차 검증 및 액터 추가
+    for (AActor* Actor : this->Actors)
+    {
+        if (!Actor) continue;
+        const FBound* Cached = ActorLastBounds.Find(Actor);
+        FBound Box = Cached ? *Cached : Actor->GetBounds();
+        if (Box.IntersectsRay(InRay))
+        {
+            Actors.Add(Actor);
+        }
+    }
+
+    // 자식들에 대해 재귀적 호출
+    if (Left) Left->QueryRay(InRay, Actors);
+    if (Right) Right->QueryRay(InRay, Actors);
 }
 
-void FBVHierachy::Query(FBound InBound, OUT TArray<AActor*>& Actors)
+void FBVHierachy::QueryFrustum(Frustum InFrustum, OUT TArray<AActor*>& Actors)
 {
+    //교차 X시 종료
+    if (!IsAABBVisible(InFrustum, Bounds))
+        return;
+
+    // 현재 노드의 액터에 대해 검증 및 추가
+    for (AActor* Actor : this->Actors)
+    {
+        if (!Actor) continue;
+        const FBound* Cached = ActorLastBounds.Find(Actor);
+        FBound Box = Cached ? *Cached : Actor->GetBounds();
+        if (IsAABBVisible(InFrustum, Box))
+        {
+            Actors.Add(Actor);
+        }
+    }
+
+    // 자식들에 대해 재귀적 호출
+    if (Left) Left->QueryFrustum(InFrustum, Actors);
+    if (Right) Right->QueryFrustum(InFrustum, Actors);
 }
 
 void FBVHierachy::DebugDraw(URenderer* Renderer) const
@@ -314,19 +353,18 @@ void FBVHierachy::DebugDraw(URenderer* Renderer) const
 
 int FBVHierachy::TotalNodeCount() const
 {
-    int count = 1; // self
-    if (Left) count += Left->TotalNodeCount();
-    if (Right) count += Right->TotalNodeCount();
-    return count;
+    int Count = 1; // self
+    if (Left) Count += Left->TotalNodeCount();
+    if (Right) Count += Right->TotalNodeCount();
+    return Count;
 }
 
 int FBVHierachy::TotalActorCount() const
 {
-    int count = 0;
-    for (auto* a : Actors) { (void)a; ++count; }
-    if (Left) count += Left->TotalActorCount();
-    if (Right) count += Right->TotalActorCount();
-    return count;
+    int Count = Actors.Num();
+    if (Left) Count += Left->TotalActorCount();
+    if (Right) Count += Right->TotalActorCount();
+    return Count;
 }
 
 int FBVHierachy::MaxOccupiedDepth() const

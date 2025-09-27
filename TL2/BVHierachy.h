@@ -2,6 +2,8 @@
 
 #include <vector>
 
+struct Frustum;
+
 class FBVHierachy
 {
 public:
@@ -24,8 +26,8 @@ public:
     void Remove(AActor* InActor);
     void Update(AActor* InActor);
 
-    void Query(FRay InRay, OUT TArray<AActor*>& Actors);
-    void Query(FBound InBound, OUT TArray<AActor*>& Actors);
+    void QueryRay(FRay InRay, OUT TArray<AActor*>& Actors);
+    void QueryFrustum(Frustum InFrustum, OUT TArray<AActor*>& Actors);
 
     // Debug draw
     void DebugDraw(URenderer* Renderer) const;
