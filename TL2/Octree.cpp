@@ -278,8 +278,12 @@ void FOctree::Split()
     for (int i = 0; i < 8; i++)
     {
         FBound ChildBounds = Bounds.CreateOctant(i);
+        FVector ChildCenter = ChildBounds.GetCenter();
+        FVector ChildExtent = ChildBounds.GetExtent() * LooseFactor;
+        FBound LooseChildBounds(ChildCenter - ChildExtent, ChildCenter + ChildExtent);
 
-        Children[i] = new FOctree(ChildBounds, Depth + 1, MaxDepth, MaxObjects);
+        Children[i] = new FOctree(LooseChildBounds, Depth + 1, MaxDepth, MaxObjects);
+        Children[i]->LooseFactor = this->LooseFactor; // propagate
     }
 }
 

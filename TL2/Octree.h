@@ -65,6 +65,9 @@ private:
 	int MaxObjects;
 	FBound Bounds;
 
+	// Loose octree factor: expand child bounds to reduce parent crowding
+	float LooseFactor = 1.25f;
+
 	TArray<AActor*> Actors;
 	FOctree* Children[8]; // 8분할 
 
