@@ -18,6 +18,7 @@
 #include "GizmoArrowComponent.h"
 #include "UI/GlobalConsole.h"
 #include "ObjManager.h"
+#include "ResourceManager.h"
 #include"stdio.h"
 #include "WorldPartitionManager.h"
 #include "PlatformTime.h"
@@ -827,14 +828,13 @@ bool CPickingSystem::CheckActorPicking(const AActor* Actor, const FRay& Ray, flo
     {
         if (UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>(SceneComponent))
         {
-            // Cooked FStaticMesh 사용 (MeshData 대체)
-            FStaticMesh* StaticMesh = FObjManager::LoadObjStaticMeshAsset(
-                StaticMeshComponent->GetStaticMesh()->GetFilePath()
-            );
+            UStaticMesh* MeshRes = StaticMeshComponent->GetStaticMesh();
+            if (!MeshRes) continue;
 
-            if (!StaticMesh) return false;
+            FStaticMesh* StaticMesh = MeshRes->GetStaticMeshAsset();
+            if (!StaticMesh) continue;
 
-            // 월드 <-> 로컬 변환 준비: 로컬 공간에서 삼각형-레이 교차를 수행하기 위해 Ray를 로컬로 변환
+            // 로컬 공간에서의 레이로 변환
             const FMatrix WorldMatrix = StaticMeshComponent->GetWorldMatrix();
             const FMatrix InvWorld = WorldMatrix.InverseAffine();
             const FVector4 RayOrigin4(Ray.Origin.X, Ray.Origin.Y, Ray.Origin.Z, 1.0f);
@@ -843,83 +843,24 @@ bool CPickingSystem::CheckActorPicking(const AActor* Actor, const FRay& Ray, flo
             const FVector4 LocalDir4 = RayDir4 * InvWorld;
             const FRay LocalRay{ FVector(LocalOrigin4.X, LocalOrigin4.Y, LocalOrigin4.Z), FVector(LocalDir4.X, LocalDir4.Y, LocalDir4.Z) };
 
-            float ClosestT = 1e9f;
-            bool bHasHit = false;
-
-            // 인덱스가 있는 경우: 인덱스 삼각형 집합 검사
-            if (StaticMesh->Indices.Num() >= 3)
+            // 캐시된 BVH 사용 (동일 OBJ 경로는 동일 BVH 공유)
+            FMeshBVH* BVH = UResourceManager::GetInstance().GetOrBuildMeshBVH(MeshRes->GetAssetPathFileName(), StaticMesh);
+            if (BVH)
             {
-                uint32 IndexNum = StaticMesh->Indices.Num();
-                for (uint32 Idx = 0; Idx + 2 < IndexNum; Idx += 3)
+                float THitLocal;
+                if (BVH->IntersectRay(LocalRay, StaticMesh->Vertices, StaticMesh->Indices, THitLocal))
                 {
-                    const FNormalVertex& V0N = StaticMesh->Vertices[StaticMesh->Indices[Idx + 0]];
-                    const FNormalVertex& V1N = StaticMesh->Vertices[StaticMesh->Indices[Idx + 1]];
-                    const FNormalVertex& V2N = StaticMesh->Vertices[StaticMesh->Indices[Idx + 2]];
-
-                    // 로컬 공간 교차 검사
-                    const FVector A(V0N.pos.X, V0N.pos.Y, V0N.pos.Z);
-                    const FVector B(V1N.pos.X, V1N.pos.Y, V1N.pos.Z);
-                    const FVector C(V2N.pos.X, V2N.pos.Y, V2N.pos.Z);
-
-                    float THitLocal;
-                    if (IntersectRayTriangleMT(LocalRay, A, B, C, THitLocal))
-                    {
-                        // 월드 거리로 환산: P_local -> P_world 변환 후 원점과의 거리
-                        const FVector HitLocal = FVector(
-                            LocalOrigin4.X + LocalDir4.X * THitLocal,
-                            LocalOrigin4.Y + LocalDir4.Y * THitLocal,
-                            LocalOrigin4.Z + LocalDir4.Z * THitLocal);
-                        const FVector4 HitLocal4(HitLocal.X, HitLocal.Y, HitLocal.Z, 1.0f);
-                        const FVector4 HitWorld4 = HitLocal4 * WorldMatrix;
-                        const FVector HitWorld(HitWorld4.X, HitWorld4.Y, HitWorld4.Z);
-                        float THitWorld = (HitWorld - Ray.Origin).Size();
-                        if (THitWorld < ClosestT)
-                        {
-                            ClosestT = THitWorld;
-                            bHasHit = true;
-                        }
-                    }
+                    const FVector HitLocal = FVector(
+                        LocalOrigin4.X + LocalDir4.X * THitLocal,
+                        LocalOrigin4.Y + LocalDir4.Y * THitLocal,
+                        LocalOrigin4.Z + LocalDir4.Z * THitLocal);
+                    const FVector4 HitLocal4(HitLocal.X, HitLocal.Y, HitLocal.Z, 1.0f);
+                    const FVector4 HitWorld4 = HitLocal4 * WorldMatrix;
+                    const FVector HitWorld(HitWorld4.X, HitWorld4.Y, HitWorld4.Z);
+                    const float THitWorld = (HitWorld - Ray.Origin).Size();
+                    OutDistance = THitWorld;
+                    return true;
                 }
-            }
-            // 인덱스가 없는 경우: 정점 배열을 순차적 삼각형으로 간주
-            else if (StaticMesh->Vertices.Num() >= 3)
-            {
-                uint32 VertexNum = StaticMesh->Vertices.Num();
-                for (uint32 Idx = 0; Idx + 2 < VertexNum; Idx += 3)
-                {
-                    const FNormalVertex& V0N = StaticMesh->Vertices[Idx + 0];
-                    const FNormalVertex& V1N = StaticMesh->Vertices[Idx + 1];
-                    const FNormalVertex& V2N = StaticMesh->Vertices[Idx + 2];
-
-                    const FVector A(V0N.pos.X, V0N.pos.Y, V0N.pos.Z);
-                    const FVector B(V1N.pos.X, V1N.pos.Y, V1N.pos.Z);
-                    const FVector C(V2N.pos.X, V2N.pos.Y, V2N.pos.Z);
-
-                    float THitLocal;
-                    if (IntersectRayTriangleMT(LocalRay, A, B, C, THitLocal))
-                    {
-                        const FVector HitLocal = FVector(
-                            LocalOrigin4.X + LocalDir4.X * THitLocal,
-                            LocalOrigin4.Y + LocalDir4.Y * THitLocal,
-                            LocalOrigin4.Z + LocalDir4.Z * THitLocal);
-                        const FVector4 HitLocal4(HitLocal.X, HitLocal.Y, HitLocal.Z, 1.0f);
-                        const FVector4 HitWorld4 = HitLocal4 * WorldMatrix;
-                        const FVector HitWorld(HitWorld4.X, HitWorld4.Y, HitWorld4.Z);
-                        const float THitWorld = (HitWorld - Ray.Origin).Size();
-                        if (THitWorld < ClosestT)
-                        {
-                            ClosestT = THitWorld;
-                            bHasHit = true;
-                        }
-                    }
-                }
-            }
-
-            // 가장 가까운 교차가 있으면 거리 반환
-            if (bHasHit)
-            {
-                OutDistance = ClosestT;
-                return true;
             }
         }
     }

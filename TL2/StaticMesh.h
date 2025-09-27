@@ -1,8 +1,10 @@
 ﻿#pragma once
 #include "ResourceBase.h"
 #include "Enums.h"
+#include "MeshBVH.h"
 #include <d3d11.h>
 
+class FMeshBVH;
 class UStaticMesh : public UResourceBase
 {
 public:
@@ -32,7 +34,8 @@ public:
 
 
     // BVH GETTER 
-    const FMeshBVH& GetBVH() const { return MeshBVH; }
+    const FMeshBVH* GetBVH() const { return MeshBVH; }
+
 private:
     void CreateVertexBuffer(FMeshData* InMeshData, ID3D11Device* InDevice, EVertexLayoutType InVertexType);
 	void CreateVertexBuffer(FStaticMesh* InStaticMesh, ID3D11Device* InDevice, EVertexLayoutType InVertexType);
@@ -50,6 +53,6 @@ private:
 	// CPU 리소스
     FStaticMesh* StaticMeshAsset = nullptr;
 
-    // 메시 단위 BVH
-    FMeshBVH MeshBVH;
+    // 메시 단위 BVH (ResourceManager에서 캐싱, 소유)
+    FMeshBVH* MeshBVH = nullptr;
 };
