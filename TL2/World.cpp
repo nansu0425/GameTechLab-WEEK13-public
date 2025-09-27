@@ -310,97 +310,58 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 	// === Begin Line Batch for all actors ===
 	Renderer->BeginLineBatch();
 
-    // === Draw Actors with Show Flag checks ===
-    Renderer->SetViewModeType(ViewModeIndex);
+	// === Draw Actors with Show Flag checks ===
+	Renderer->SetViewModeType(ViewModeIndex);
 
-	// 일반 액터들 렌더링 (AVX2 Frustum Culling)
-	if (IsShowFlagEnabled(EEngineShowFlags::SF_Primitives) && CamComp)
+	// 일반 액터들 렌더링
+	if (IsShowFlagEnabled(EEngineShowFlags::SF_Primitives))
 	{
-		//TArray<AStaticMeshActor*> StaticMeshActors;
-		TArray<AActor*> OtherActors;
-
-		// 1. Separate mesh actors from others for batch processing
-		/*for (AActor* Actor : Actors)
+		for (AActor* Actor : Actors)
 		{
-			if (!Actor || Actor->GetActorHiddenInGame())
+			if (!Actor) continue;
+			if (Actor->GetActorHiddenInGame()) continue;
+
+			if (Cast<AStaticMeshActor>(Actor) && !IsShowFlagEnabled(EEngineShowFlags::SF_StaticMeshes))
 				continue;
 
-			if (AStaticMeshActor* MeshActor = Cast<AStaticMeshActor>(Actor))
+			if (CamComp)
 			{
-				if (IsShowFlagEnabled(EEngineShowFlags::SF_StaticMeshes))
-					MeshActors.push_back(MeshActor);
-			}
-			else
-			{
-				OtherActors.push_back(Actor);
-			}
-		}*/
-		
-
-		// 2. Process StaticMeshActors in batches of 8 using AVX2
-		const int numMeshActors = StaticMeshActors.size();
-		for (int i = 0; i < numMeshActors; i += 8)
-		{
-			FBound bounds[8];
-			int batch_size = std::min(8, numMeshActors - i);
-
-			// Prepare batch of bounds
-			for (int j = 0; j < batch_size; ++j)
-			{
-				AStaticMeshActor* actor = StaticMeshActors[i + j];
-				bounds[j] = actor->CollisionComponent->GetWorldBound();
-			}
-
-			// Cull 8 AABBs at once
-			uint8_t visibility_mask = AreAABBsVisible_8_AVX(ViewFrustum, bounds);
-
-			// Render only visible actors from the batch
-			for (int j = 0; j < batch_size; ++j)
-			{
-				if ((visibility_mask >> j) & 1)
+				if (AStaticMeshActor* MeshActor = Cast<AStaticMeshActor>(Actor))
 				{
-					AActor* Actor = StaticMeshActors[i + j];
-					bool bIsSelected = SelectionManager.IsActorSelected(Actor);
-					Renderer->UpdateHighLightConstantBuffer(bIsSelected, rgb, 0, 0, 0, 0);
-
-					for (USceneComponent* Component : Actor->GetComponents())
+					if (UAABoundingBoxComponent* Box = Cast<UAABoundingBoxComponent>(MeshActor->CollisionComponent))
 					{
-						if (!Component) continue;
-						if (UActorComponent* ActorComp = Cast<UActorComponent>(Component))
-							if (!ActorComp->IsActive()) continue;
-
-						/*if (Cast<UTextRenderComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BillboardText))
-							continue;
-
-						if (Cast<UAABoundingBoxComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BoundingBoxes))
-							continue;*/
-
-						if (Cast<UTextRenderComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BillboardText))
-							continue;
-
-						if (Cast<UAABoundingBoxComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BoundingBoxes))
-							continue;
-						if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
+						const FBound Bound = Box->GetWorldBound();
+						if (!IsAABBVisible(ViewFrustum, Bound))
 						{
-							Renderer->SetViewModeType(ViewModeIndex);
-							Primitive->Render(Renderer, ViewMatrix, ProjectionMatrix);
-							Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+							continue;
 						}
 					}
-					Renderer->OMSetBlendState(false);
 				}
-			}
-		}
 
-		// 3. Render other actors (non-mesh, etc.) without batching
-		/*for (AActor* Actor : OtherActors)
-		{
+			}
 			bool bIsSelected = SelectionManager.IsActorSelected(Actor);
+			/*if (bIsSelected)
+				Renderer->OMSetDepthStencilState(EComparisonFunc::Always);*/ // 이렇게 하면, 같은 메시에 속한 정점끼리도 뒤에 있는게 앞에 그려지는 경우가 발생해, 이상하게 렌더링 됨.
+
 			Renderer->UpdateHighLightConstantBuffer(bIsSelected, rgb, 0, 0, 0, 0);
+
 			for (USceneComponent* Component : Actor->GetComponents())
 			{
-				if (!Component || (Cast<UActorComponent>(Component) && !Cast<UActorComponent>(Component)->IsActive())) continue;
-				if (Cast<UTextRenderComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BillboardText)) continue;
+				if (!Component) continue;
+				if (UActorComponent* ActorComp = Cast<UActorComponent>(Component))
+					if (!ActorComp->IsActive()) continue;
+
+				/*if (Cast<UTextRenderComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BillboardText))
+					continue;
+
+				if (Cast<UAABoundingBoxComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BoundingBoxes))
+					continue;*/
+
+				if (Cast<UTextRenderComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BillboardText))
+					continue;
+
+				if (Cast<UAABoundingBoxComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BoundingBoxes))
+					continue;
 				if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
 				{
 					Renderer->SetViewModeType(ViewModeIndex);
@@ -409,33 +370,8 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 				}
 			}
 			Renderer->OMSetBlendState(false);
-		}*/
+		}
 	}
-	//else // Fallback for when culling is disabled or not applicable
-	//{
-	//	for (AActor* Actor : Actors)
-	//	{
-	//		if (!Actor || Actor->GetActorHiddenInGame()) continue;
-	//		if (Cast<AStaticMeshActor>(Actor) && !IsShowFlagEnabled(EEngineShowFlags::SF_StaticMeshes)) continue;
-
-	//		bool bIsSelected = SelectionManager.IsActorSelected(Actor);
-	//		Renderer->UpdateHighLightConstantBuffer(bIsSelected, rgb, 0, 0, 0, 0);
-
-	//		for (USceneComponent* Component : Actor->GetComponents())
-	//		{
-	//			if (!Component || (Cast<UActorComponent>(Component) && !Cast<UActorComponent>(Component)->IsActive())) continue;
-	//			if (Cast<UTextRenderComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BillboardText)) continue;
-	//			if (Cast<UAABoundingBoxComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BoundingBoxes)) continue;
-	//			if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
-	//			{
-	//				Renderer->SetViewModeType(ViewModeIndex);
-	//				Primitive->Render(Renderer, ViewMatrix, ProjectionMatrix);
-	//				Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
-	//			}
-	//		}
-	//		Renderer->OMSetBlendState(false);
-	//	}
-	//}
 
 	// 엔진 액터들 (그리드 등)
 	for (AActor* EngineActor : EngineActors)
@@ -462,7 +398,7 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 		Renderer->OMSetBlendState(false);
 	}
 
-    // Debug draw (exclusive: BVH first, else Octree)
+	// Debug draw (exclusive: BVH first, else Octree)
 	if (IsShowFlagEnabled(EEngineShowFlags::SF_BVHDebug))
 	{
 		if (auto* PM = UWorldPartitionManager::GetInstance())
@@ -483,8 +419,8 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 			}
 		}
 	}
-    
-    Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
+
+	Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
 	Renderer->UpdateHighLightConstantBuffer(false, rgb, 0, 0, 0, 0);
 
 }
