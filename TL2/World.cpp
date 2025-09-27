@@ -310,8 +310,9 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 
 
 	// ============ Culling Logic Dispatch ========= //
-	//TArray<AActor*> CulledActors;
-	//UWorldPartitionManager::GetInstance()->FrustumQuery(ViewFrustum, CulledActors);
+	for (AActor* Actor : Actors)
+		Actor->SetCulled(true);
+	UWorldPartitionManager::GetInstance()->FrustumQuery(ViewFrustum);
 
 
 	// 일반 액터들 렌더링
@@ -321,25 +322,25 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 		{
 			if (!Actor) continue;
 			if (Actor->GetActorHiddenInGame()) continue;
+			if (Actor->GetCulled()) continue;
 
 			if (Cast<AStaticMeshActor>(Actor) && !IsShowFlagEnabled(EEngineShowFlags::SF_StaticMeshes))
 				continue;
 
-			if (CamComp)
-			{
-				if (AStaticMeshActor* MeshActor = Cast<AStaticMeshActor>(Actor))
-				{
-					if (UAABoundingBoxComponent* Box = Cast<UAABoundingBoxComponent>(MeshActor->CollisionComponent))
-					{
-						const FBound Bound = Box->GetWorldBound();
-						if (!IsAABBVisible(ViewFrustum, Bound))
-						{
-							continue;
-						}
-					}
-				}
-
-			}
+			//if (CamComp)
+			//{
+			//	if (AStaticMeshActor* MeshActor = Cast<AStaticMeshActor>(Actor))
+			//	{
+			//		if (UAABoundingBoxComponent* Box = Cast<UAABoundingBoxComponent>(MeshActor->CollisionComponent))
+			//		{
+			//			const FBound Bound = Box->GetWorldBound();
+			//			if (!IsAABBVisible(ViewFrustum, Bound))
+			//			{
+			//				continue;
+			//			}
+			//		}
+			//	}
+			//}
 			bool bIsSelected = SelectionManager.IsActorSelected(Actor);
 			/*if (bIsSelected)
 				Renderer->OMSetDepthStencilState(EComparisonFunc::Always);*/ // 이렇게 하면, 같은 메시에 속한 정점끼리도 뒤에 있는게 앞에 그려지는 경우가 발생해, 이상하게 렌더링 됨.

@@ -170,7 +170,7 @@ private:
     
     EViewModeIndex ViewModeIndex = EViewModeIndex::VMI_Unlit;
 
-
+    TArray<AActor*> CulledActors;
 };
 template<class T>
 inline T* UWorld::SpawnActor()

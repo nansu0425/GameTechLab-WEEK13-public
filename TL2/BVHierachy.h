@@ -26,8 +26,8 @@ public:
     void Remove(AActor* InActor);
     void Update(AActor* InActor);
 
-    void QueryRay(FRay InRay, OUT TArray<AActor*>& Actors);
-    void QueryFrustum(Frustum InFrustum, OUT TArray<AActor*>& Actors);
+    void QueryRay(const FRay& InRay, OUT TArray<AActor*>& Actors);
+    void QueryFrustum(const Frustum& InFrustum);
 
     // Debug draw
     void DebugDraw(URenderer* Renderer) const;

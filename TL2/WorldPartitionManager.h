@@ -39,7 +39,7 @@ public:
 	void Update(float DeltaTime, uint32 budgetItems = 256);
 
 	void RayQuery(FRay InRay, OUT TArray<AActor*>& Actors);
-	void FrustumQuery(Frustum InFrustum, OUT TArray<AActor*>& Actors);
+	void FrustumQuery(Frustum InFrustum);
 	void RayQueryOrdered(FRay InRay, OUT TArray<std::pair<AActor*, float>>& Candidates);
 
 	/** 옥트리 게터 */

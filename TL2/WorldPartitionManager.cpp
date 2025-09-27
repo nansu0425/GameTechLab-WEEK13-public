@@ -72,6 +72,7 @@ void UWorldPartitionManager::BulkRegister(const TArray<AActor*>& Actors)
 		{
 			ActorsAndBounds.push_back({ Actor, Actor->GetBounds() });
 		}
+		DirtySet.erase(Actor);
 	}
 
 	// Octree: 기존 대량 삽입
@@ -140,9 +141,9 @@ void UWorldPartitionManager::RayQueryOrdered(FRay InRay, OUT TArray<std::pair<AA
     }
 }
 
-void UWorldPartitionManager::FrustumQuery(Frustum InFrustum, OUT TArray<AActor*>& Actors)
+void UWorldPartitionManager::FrustumQuery(Frustum InFrustum)
 {
-	BVH->QueryFrustum(InFrustum, Actors);
+	BVH->QueryFrustum(InFrustum);
 }
 
 void UWorldPartitionManager::ClearSceneOctree()
