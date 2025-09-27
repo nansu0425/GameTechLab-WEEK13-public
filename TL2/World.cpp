@@ -316,11 +316,11 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 	// 일반 액터들 렌더링 (AVX2 Frustum Culling)
 	if (IsShowFlagEnabled(EEngineShowFlags::SF_Primitives) && CamComp)
 	{
-		TArray<AStaticMeshActor*> MeshActors;
+		//TArray<AStaticMeshActor*> StaticMeshActors;
 		TArray<AActor*> OtherActors;
 
 		// 1. Separate mesh actors from others for batch processing
-		for (AActor* Actor : Actors)
+		/*for (AActor* Actor : Actors)
 		{
 			if (!Actor || Actor->GetActorHiddenInGame())
 				continue;
@@ -334,10 +334,10 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 			{
 				OtherActors.push_back(Actor);
 			}
-		}
+		}*/
 
 		// 2. Process StaticMeshActors in batches of 8 using AVX2
-		const int numMeshActors = MeshActors.size();
+		const int numMeshActors = StaticMeshActors.size();
 		for (int i = 0; i < numMeshActors; i += 8)
 		{
 			FAlignedBound aligned_bounds[8];
@@ -346,16 +346,20 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 			// Prepare batch of aligned bounds using MakePoint4, as you suggested.
 			for (int j = 0; j < batch_size; ++j)
 			{
-				if (UAABoundingBoxComponent* Box = Cast<UAABoundingBoxComponent>(MeshActors[i + j]->CollisionComponent))
-				{
-					const FBound& bound = Box->GetWorldBound();
-					aligned_bounds[j].Min = MakePoint4(bound.Min);
-					aligned_bounds[j].Max = MakePoint4(bound.Max);
-				}
-				else
-				{
-					aligned_bounds[j] = { FVector4(0,0,0,1), FVector4(0,0,0,1) }; // Default bound
-				}
+				//if (UAABoundingBoxComponent* Box = Cast<UAABoundingBoxComponent>(StaticMeshActors[i + j]->CollisionComponent))
+				//{
+				//	const FBound& bound = Box->GetWorldBound();
+				//	aligned_bounds[j].Min = MakePoint4(bound.Min);
+				//	aligned_bounds[j].Max = MakePoint4(bound.Max);
+				//}
+				//else
+				//{
+				//	aligned_bounds[j] = { FVector4(0,0,0,1), FVector4(0,0,0,1) }; // Default bound
+				//}
+
+				const FBound& bound = StaticMeshActors[i + j]->CollisionComponent->GetWorldBound();
+				aligned_bounds[j].Min = MakePoint4(bound.Min);
+				aligned_bounds[j].Max = MakePoint4(bound.Max);
 			}
 
 			// Cull 8 AABBs at once with the aligned data
@@ -366,7 +370,7 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 			{
 				if ((visibility_mask >> j) & 1)
 				{
-					AActor* Actor = MeshActors[i + j];
+					AActor* Actor = StaticMeshActors[i + j];
 					bool bIsSelected = SelectionManager.IsActorSelected(Actor);
 					Renderer->UpdateHighLightConstantBuffer(bIsSelected, rgb, 0, 0, 0, 0);
 
@@ -387,7 +391,7 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 		}
 
 		// 3. Render other actors (non-mesh, etc.) without batching
-		for (AActor* Actor : OtherActors)
+		/*for (AActor* Actor : OtherActors)
 		{
 			bool bIsSelected = SelectionManager.IsActorSelected(Actor);
 			Renderer->UpdateHighLightConstantBuffer(bIsSelected, rgb, 0, 0, 0, 0);
@@ -403,7 +407,7 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 				}
 			}
 			Renderer->OMSetBlendState(false);
-		}
+		}*/
 	}
 	else // Fallback for when culling is disabled or not applicable
 	{
@@ -557,6 +561,16 @@ bool UWorld::DestroyActor(AActor* Actor)
 	auto it = std::find(Actors.begin(), Actors.end(), Actor);
 	if (it != Actors.end())
 	{
+		// 만약 StaticMeshActor라면, 전용 배열에서도 제거
+		if (AStaticMeshActor* MeshActor = Cast<AStaticMeshActor>(Actor))
+		{
+			auto mesh_it = std::find(StaticMeshActors.begin(), StaticMeshActors.end(), MeshActor);
+			if (mesh_it != StaticMeshActors.end())
+			{
+				StaticMeshActors.erase(mesh_it);
+			}
+		}
+
 		// 옥트리에서 제거
 		OnActorDestroyed(Actor);
 
@@ -630,6 +644,7 @@ void UWorld::CreateNewScene()
 		ObjectFactory::DeleteObject(Actor);
 	}
 	Actors.Empty();
+	StaticMeshActors.Empty();
 
 	// 이름 카운터 초기화: 씬을 새로 시작할 때 각 BaseName 별 suffix를 0부터 다시 시작
 	ObjectTypeCounts.clear();
@@ -823,6 +838,8 @@ void UWorld::LoadScene(const FString& SceneName)
 			FTransform(Primitive.Location,
 				SceneRotUtil::QuatFromEulerZYX_Deg(Primitive.Rotation),
 				Primitive.Scale));
+
+		PushBackToStaticMeshActors(StaticMeshActor);
 
 		// 스폰 시점에 자동 발급된 고유 UUID (충돌 시 폴백으로 사용)
 		uint32 Assigned = StaticMeshActor->UUID;
