@@ -402,19 +402,20 @@ AActor* CPickingSystem::PerformViewportPicking(const TArray<AActor*>& Actors,
         }
     }
     uint64 LastPickTime = pickCounter.Finish();
-    double Seconds = ((double)LastPickTime) / 1000.0;
+    double Milliseconds = ((double)LastPickTime * FPlatformTime::GetSecondsPerCycle()) * 1000.0f;
+
     if (pickedActor)
     {
         char buf[160];
         sprintf_s(buf, "[Pick] Hit primitive %d at t=%.3f | time=%.6lf ms\n",
-            pickedIndex, pickedT, Seconds);
+            pickedIndex, pickedT, Milliseconds);
         UE_LOG(buf);
         return pickedActor;
     }
     else
     {
         char buf[160];
-        sprintf_s(buf, "[Pick] No hit | time=%.6f ms\n", Seconds);
+        sprintf_s(buf, "[Pick] No hit | time=%.6f ms\n", Milliseconds);
         UE_LOG(buf);
         return nullptr;
     }
