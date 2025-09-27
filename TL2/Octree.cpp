@@ -404,69 +404,10 @@ static void CreateLineDataFromAABB(
     Start.Add(v3); End.Add(v7); Color.Add(LineColor);
 }
 
-void FOctree::QueryRay(const FRay& Ray, TArray<AActor*>& OutActors) const
-{
-    if (!Bounds.IntersectsRay(Ray))
-        return;
-
-    for (AActor* Actor : Actors)
-    {
-        if (!Actor) continue;
-        FBound Box = Actor->GetBounds();
-        if (Box.IntersectsRay(Ray))
-        {
-            OutActors.Add(Actor);
-        }
-    }
-    if (Children[0])
-    {
-        for (int i = 0; i < 8; i++)
-        {
-            if (Children[i])
-            {
-                Children[i]->QueryRay(Ray, OutActors);
-            }
-        }
-    }
-}
-
-namespace {
-    inline bool RayAABB_IntersectT(const FRay& ray, const FBound& box, float& outTMin, float& outTMax)
-    {
-        float tmin = -FLT_MAX;
-        float tmax =  FLT_MAX;
-        for (int axis = 0; axis < 3; ++axis)
-        {
-            const float ro = ray.Origin[axis];
-            const float rd = ray.Direction[axis];
-            const float bmin = box.Min[axis];
-            const float bmax = box.Max[axis];
-            if (std::abs(rd) < 1e-6f)
-            {
-                if (ro < bmin || ro > bmax)
-                    return false;
-            }
-            else
-            {
-                const float inv = 1.0f / rd;
-                float t1 = (bmin - ro) * inv;
-                float t2 = (bmax - ro) * inv;
-                if (t1 > t2) std::swap(t1, t2);
-                if (t1 > tmin) tmin = t1;
-                if (t2 < tmax) tmax = t2;
-                if (tmin > tmax) return false;
-            }
-        }
-        outTMin = tmin < 0.0f ? 0.0f : tmin;
-        outTMax = tmax;
-        return true;
-    }
-}
-
-void FOctree::QueryRayOrdered(const FRay& Ray, TArray<std::pair<AActor*, float>>& OutCandidates) const
+void FOctree::QueryRayOrdered(const FRay& Ray, TArray<std::pair<AActor*, float>>& OutCandidates) 
 {
     float nodeTMin, nodeTMax;
-    if (!RayAABB_IntersectT(Ray, Bounds, nodeTMin, nodeTMax))
+    if (!Bounds.RayAABB_IntersectT(Ray, nodeTMin, nodeTMax))
         return;
 
     // Check local actors with cached bounds if possible
@@ -474,9 +415,9 @@ void FOctree::QueryRayOrdered(const FRay& Ray, TArray<std::pair<AActor*, float>>
     {
         if (!Actor) continue;
         auto it = ActorLastBounds.find(Actor);
-        const FBound box = (it != ActorLastBounds.end()) ? it->second : Actor->GetBounds();
+        FBound box = (it != ActorLastBounds.end()) ? it->second : Actor->GetBounds();
         float tmin, tmax;
-        if (RayAABB_IntersectT(Ray, box, tmin, tmax))
+        if (box.RayAABB_IntersectT(Ray, tmin, tmax))
         {
             OutCandidates.Add({ Actor, tmin });
         }
@@ -492,17 +433,7 @@ void FOctree::QueryRayOrdered(const FRay& Ray, TArray<std::pair<AActor*, float>>
         }
     }
 }
-static const FVector4 LevelColors[8] =
-{
-    FVector4(0.0f, 1.0f, 0.0f, 1.0f),   // 0: 초록
-    FVector4(0.2f, 0.8f, 1.0f, 1.0f),   // 1: 하늘색
-    FVector4(1.0f, 0.6f, 0.1f, 1.0f),   // 2: 주황
-    FVector4(1.0f, 0.0f, 0.0f, 1.0f),   // 3: 빨강
-    FVector4(0.6f, 0.0f, 1.0f, 1.0f),   // 4: 보라
-    FVector4(1.0f, 1.0f, 0.0f, 1.0f),   // 5: 노랑
-    FVector4(0.0f, 0.5f, 1.0f, 1.0f),   // 6: 파랑
-    FVector4(1.0f, 0.0f, 1.0f, 1.0f),   // 7: 핑크
-};
+
 void FOctree::DebugDraw(URenderer* InRenderer) const
 {
     if (!InRenderer)
@@ -523,18 +454,6 @@ void FOctree::DebugDraw(URenderer* InRenderer) const
     {
         FStackItem Current = Stack.Pop();
         const FOctree* CurrentNode = Current.Node;
-
-        // 깊이에 따른 색상 변경
-        //const int32 DepthIndex = Current.DepthLevel % 3;
-        //FVector4 NodeColor(0.0f, 1.0f, 0.0f, 1.0f); // 기본 초록
-        //if (DepthIndex == 1)
-        //{
-        //    NodeColor = FVector4(0.2f, 0.8f, 1.0f, 1.0f); // 하늘색
-        //}
-        //else if (DepthIndex == 2)
-        //{
-        //    NodeColor = FVector4(1.0f, 0.6f, 0.1f, 1.0f); // 주황색
-        //}
         const int32 DepthIndex = Current.DepthLevel % 8;
         FVector4 NodeColor = LevelColors[DepthIndex];
         // AABB 박스 라인 그리기

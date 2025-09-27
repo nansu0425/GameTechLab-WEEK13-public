@@ -120,14 +120,8 @@ void UWorldPartitionManager::Update(float DeltaTime, uint32 InBugetCount)
 		if (!Actor) continue;
 		if (SceneOctree) SceneOctree->Update(Actor);
 		if (BVH) BVH->Update(Actor);
-
 		++processed;
 	}
-}
-
-void UWorldPartitionManager::RayQuery(FRay InRay, OUT TArray<AActor*>& Actors)
-{
-    SceneOctree->QueryRay(InRay, Actors);
 }
 
 void UWorldPartitionManager::RayQueryOrdered(FRay InRay, OUT TArray<std::pair<AActor*, float>>& Candidates)

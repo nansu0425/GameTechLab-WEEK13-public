@@ -92,49 +92,98 @@ struct FBound
 	}
 
 	// Slab Method 
-	bool IntersectsRay(const FRay& InRay) const
+	//bool IntersectsRay(const FRay& InRay) const
+	//{
+	//	float TMin = -FLT_MAX;
+	//	float TMax = FLT_MAX;
+
+	//	// X, Y, Z 각각 검사
+	//	for (int Axis = 0; Axis < 3; ++Axis)
+	//	{
+	//		float RayOrigin = InRay.Origin[Axis];
+	//		float RayDir = InRay.Direction[Axis];
+	//		float BoundMin = Min[Axis];
+	//		float BoundMax = Max[Axis];
+
+	//		if (fabs(RayDir) < 1e-6f)
+	//		{
+	//			// 평행한 경우 → 레이가 박스 영역을 벗어나 있으면 교차 X
+	//			if (RayOrigin < BoundMin || RayOrigin > BoundMax)
+	//			{
+	//				return false;
+	//			}
+	//		}
+	//		else
+	//		{
+	//			float InvDir = 1.0f / RayDir;
+	//			float T1 = (BoundMin - RayOrigin) * InvDir;
+	//			float T2 = (BoundMax - RayOrigin) * InvDir;
+
+	//			if (T1 > T2)
+	//			{
+	//				std::swap(T1, T2); 
+	//			}
+
+	//			if (T1 > TMin) TMin = T1;
+	//			if (T2 < TMax) TMax = T2;
+
+	//			if (TMin > TMax)
+	//			{
+	//				return false; // 레이가 박스에서 벗어남
+	//			}
+	//		}
+	//	}
+	//	return true;
+	//}
+
+	inline bool RayAABB_IntersectT(const FRay& InRay, float& OutEnterDistance, float& OutExitDistance)
 	{
-		float TMin = -FLT_MAX;
-		float TMax = FLT_MAX;
+		// 레이가 박스를 통과할 수 있는 [Enter, Exit] 구간
+		float ClosestEnter = -FLT_MAX;
+		float FarthestExit = FLT_MAX;
 
-		// X, Y, Z 각각 검사
-		for (int Axis = 0; Axis < 3; ++Axis)
+		for (int32 AxisIndex = 0; AxisIndex < 3; ++AxisIndex)
 		{
-			float RayOrigin = InRay.Origin[Axis];
-			float RayDir = InRay.Direction[Axis];
-			float BoundMin = Min[Axis];
-			float BoundMax = Max[Axis];
+			const float RayOriginAxis = InRay.Origin[AxisIndex];
+			const float RayDirectionAxis = InRay.Direction[AxisIndex];
+			const float BoxMinAxis =Min[AxisIndex];
+			const float BoxMaxAxis =Max[AxisIndex];
 
-			if (fabs(RayDir) < 1e-6f)
+			if (std::abs(RayDirectionAxis) < 1e-6f)
 			{
-				// 평행한 경우 → 레이가 박스 영역을 벗어나 있으면 교차 X
-				if (RayOrigin < BoundMin || RayOrigin > BoundMax)
+				// 레이가 축에 평행한데, 박스 범위를 벗어나면 교차 불가
+				if (RayOriginAxis < BoxMinAxis || RayOriginAxis > BoxMaxAxis)
 				{
 					return false;
 				}
 			}
 			else
 			{
-				float InvDir = 1.0f / RayDir;
-				float T1 = (BoundMin - RayOrigin) * InvDir;
-				float T2 = (BoundMax - RayOrigin) * InvDir;
+				const float InvDirection = 1.0f / RayDirectionAxis;
 
-				if (T1 > T2)
+				float DistanceToMinPlane = (BoxMinAxis - RayOriginAxis) * InvDirection;
+				float DistanceToMaxPlane = (BoxMaxAxis - RayOriginAxis) * InvDirection;
+
+				if (DistanceToMinPlane > DistanceToMaxPlane)
 				{
-					std::swap(T1, T2); 
+					std::swap(DistanceToMinPlane, DistanceToMaxPlane);
 				}
 
-				if (T1 > TMin) TMin = T1;
-				if (T2 < TMax) TMax = T2;
+				if (DistanceToMinPlane > ClosestEnter)  ClosestEnter = DistanceToMinPlane;
+				if (DistanceToMaxPlane < FarthestExit) FarthestExit = DistanceToMaxPlane;
 
-				if (TMin > TMax)
+				if (ClosestEnter > FarthestExit)
 				{
-					return false; // 레이가 박스에서 벗어남
+					return false; // 레이가 박스를 관통하지 않음
 				}
 			}
 		}
+		OutEnterDistance = (ClosestEnter < 0.0f) ? 0.0f : ClosestEnter;
+		OutExitDistance = FarthestExit;
 		return true;
 	}
+
+
 };
 
 class ULine;

@@ -37,7 +37,6 @@ public:
 
     void Update(float DeltaTime, uint32 budgetItems = 256);
 
-    void RayQuery(FRay InRay, OUT TArray<AActor*>& Actors);
     void RayQueryOrdered(FRay InRay, OUT TArray<std::pair<AActor*, float>>& Candidates);
     void Query(FBound InBound, OUT TArray<AActor*>& Actors);
 
