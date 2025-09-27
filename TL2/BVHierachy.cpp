@@ -282,10 +282,23 @@ void FBVHierachy::QueryRay(FRay InRay, OUT TArray<AActor*>& Actors)
 
 void FBVHierachy::QueryFrustum(Frustum InFrustum, OUT TArray<AActor*>& Actors)
 {
-    //교차 X시 종료
+    //프러스텀 외부에 존재 시 종료
     if (!IsAABBVisible(InFrustum, Bounds))
         return;
 
+    //프러스텀 내부에 존재 시 (부분 교차가 아니라 완전 내부면)
+    if (!IsAABBIntersects(InFrustum, Bounds))
+    {
+        // 완전 내부: 현재 노드의 캐시(ActorLastBounds)에 들어있는 모든 액터를 그대로 추가
+        for (const auto& kv : ActorLastBounds)
+        {
+            AActor* A = kv.first;
+            if (A) Actors.Add(A);
+        }
+        return;
+    }
+
+    //프러스텀과 교차 시
     // 현재 노드의 액터에 대해 검증 및 추가
     for (AActor* Actor : this->Actors)
     {

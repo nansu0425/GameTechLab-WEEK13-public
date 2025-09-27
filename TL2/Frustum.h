@@ -27,4 +27,5 @@ struct Frustum
 
 Frustum CreateFrustumFromCamera(const UCameraComponent& Camera, float OverrideAspect = -1.0f);
 bool IsAABBVisible(const Frustum& Frustum, const FBound& Bound);
+bool IsAABBIntersects(const Frustum& Frustum, const FBound& Bound);
 bool Intersects(const Plane& P, const FVector4& Center, const FVector4& Extents);

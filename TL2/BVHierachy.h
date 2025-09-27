@@ -65,5 +65,5 @@ private:
 
     // 액터의 마지막 바운드 캐시 (루트 호출 기준으로 갱신)
     TMap<AActor*, FBound> ActorLastBounds;
-
+    TArray<AActor*> ActorArray;
 };
