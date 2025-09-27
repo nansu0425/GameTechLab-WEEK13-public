@@ -675,6 +675,24 @@ FBVHierachy* FBVHierachy::BuildRecursive(TArray<FBuildItem>& Items, int Depth, i
 
     node->Left = BuildRecursive(LeftItems, Depth + 1, InMaxDepth, InMaxObjects);
     node->Right = BuildRecursive(RightItems, Depth + 1, InMaxDepth, InMaxObjects);
+
+    // 자식들의 캐시(ActorLastBounds)를 부모로 누적해 루트까지 올라가도록 함
+    node->ActorLastBounds = TMap<AActor*, FBound>();
+    if (node->Left)
+    {
+        for (const auto& kv : node->Left->ActorLastBounds)
+        {
+            node->ActorLastBounds.Add(kv.first, kv.second);
+        }
+    }
+    if (node->Right)
+    {
+        for (const auto& kv : node->Right->ActorLastBounds)
+        {
+            node->ActorLastBounds.Add(kv.first, kv.second);
+        }
+    }
+
     node->Refit();
     return node;
 }

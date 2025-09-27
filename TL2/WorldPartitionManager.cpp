@@ -9,6 +9,7 @@
 #include "StaticMeshActor.h"
 #include "Frustum.h"
 
+
 namespace 
 {
 	inline bool ShouldIndexActor(const AActor* Actor)
@@ -22,6 +23,7 @@ namespace
 UWorldPartitionManager::UWorldPartitionManager()
 {
 	FBound WorldBounds(FVector(-50, -50, -50), FVector(50, 50, 50));
+	//FBound WorldBounds(FVector(-25, -25, -0), FVector(25, 25, 20));
 	SceneOctree = new FOctree(WorldBounds, 0, 8, 8);
 	// BVH도 동일 월드 바운드로 초기화 (더 깊고 작은 리프 설정)
 	BVH = new FBVHierachy(FBound(), 0, 12, 8);
@@ -126,8 +128,16 @@ void UWorldPartitionManager::Update(float DeltaTime, uint32 InBugetCount)
 
 void UWorldPartitionManager::RayQuery(FRay InRay, OUT TArray<AActor*>& Actors)
 {
-	//SceneOctree->QueryRay(InRay, Actors);
+    //SceneOctree->QueryRay(InRay, Actors);
 	BVH->QueryRay(InRay, Actors);
+}
+
+void UWorldPartitionManager::RayQueryOrdered(FRay InRay, OUT TArray<std::pair<AActor*, float>>& Candidates)
+{
+    if (SceneOctree)
+    {
+        SceneOctree->QueryRayOrdered(InRay, Candidates);
+    }
 }
 
 void UWorldPartitionManager::FrustumQuery(Frustum InFrustum, OUT TArray<AActor*>& Actors)
