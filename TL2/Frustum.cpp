@@ -4,7 +4,7 @@
 #include "Frustum.h"
 #include "AABoundingBoxComponent.h"
 #include "CameraComponent.h"
-#include <xmmintrin.h>
+#include <immintrin.h> // For SSE, AVX, FMA instructions
 
 
 inline FVector4 MakePoint4(const FVector& P) { return FVector4(P.X, P.Y, P.Z, 1.0f); }
@@ -12,25 +12,37 @@ inline FVector4 MakeDir4(const FVector& D) { return FVector4(D.X, D.Y, D.Z, 0.0f
 
 inline float     Dot3(const FVector4& A, const FVector4& B)
 {
-    __m128 mul = _mm_mul_ps(A.SimdData, B.SimdData);
-    __m128 shuffle = _mm_shuffle_ps(mul, mul, _MM_SHUFFLE(2, 1, 2, 1));
-    __m128 add = _mm_add_ss(mul, shuffle);
-    shuffle = _mm_shuffle_ps(shuffle, shuffle, _MM_SHUFFLE(0, 0, 0, 1));
-    add = _mm_add_ss(add, shuffle);
+    // Use SSE4.1's dot product instruction. It's faster than manual shuffling.
+    // 0x71 = (0111 0001b)
+    //   - Low 4 bits (0111): Multiply and sum the first three components (X, Y, Z).
+    //   - High 4 bits (0001): Store the result in the first component of the destination.
+    __m128 dp = _mm_dp_ps(A.SimdData, B.SimdData, 0x71);
     float result;
-    _mm_store_ss(&result, add);
+    _mm_store_ss(&result, dp);
     return result;
 }
 
 inline FVector4  Cross3(const FVector4& A, const FVector4& B)
 {
-    __m128 a_yzx = _mm_shuffle_ps(A.SimdData, A.SimdData, _MM_SHUFFLE(3, 0, 2, 1));
-    __m128 b_zxy = _mm_shuffle_ps(B.SimdData, B.SimdData, _MM_SHUFFLE(3, 1, 0, 2));
-    __m128 a_zxy = _mm_shuffle_ps(A.SimdData, A.SimdData, _MM_SHUFFLE(3, 1, 0, 2));
-    __m128 b_yzx = _mm_shuffle_ps(B.SimdData, B.SimdData, _MM_SHUFFLE(3, 0, 2, 1));
-    __m128 mul1 = _mm_mul_ps(a_yzx, b_zxy);
-    __m128 mul2 = _mm_mul_ps(a_zxy, b_yzx);
-    __m128 sub = _mm_sub_ps(mul1, mul2);
+    // Use shuffles and FMA (Fused Multiply-Add) for an efficient cross product.
+    // Formula:
+    // C.x = A.y * B.z - A.z * B.y
+    // C.y = A.z * B.x - A.x * B.z
+    // C.z = A.x * B.y - A.y * B.x
+
+    // Shuffle A and B to align components for multiplication
+    __m128 a_yzx = _mm_shuffle_ps(A.SimdData, A.SimdData, _MM_SHUFFLE(3, 0, 2, 1)); // (Ay, Az, Ax, Aw)
+    __m128 b_zxy = _mm_shuffle_ps(B.SimdData, B.SimdData, _MM_SHUFFLE(3, 1, 0, 2)); // (Bz, Bx, By, Bw)
+    __m128 a_zxy = _mm_shuffle_ps(A.SimdData, A.SimdData, _MM_SHUFFLE(3, 1, 0, 2)); // (Az, Ax, Ay, Aw)
+    __m128 b_yzx = _mm_shuffle_ps(B.SimdData, B.SimdData, _MM_SHUFFLE(3, 0, 2, 1)); // (By, Bz, Bx, Bw)
+
+    // term1 = (Ay*Bz, Az*Bx, Ax*By, ...)
+    __m128 term1 = _mm_mul_ps(a_yzx, b_zxy);
+
+    // result = term1 - (a_zxy * b_yzx) using FMA
+    // _mm_fnmadd_ps(a, b, c) computes c - (a * b)
+    __m128 sub = _mm_fnmadd_ps(a_zxy, b_yzx, term1);
+
     FVector4 result(sub);
     result.W = 0.0f;
     return result;
@@ -153,14 +165,11 @@ bool Intersects(const Plane& P, const FVector4& Center, const FVector4& Extents)
 	// 평면과 박스사이의 거리 (양수면 평면의 법선 방향, 음수면 반대 방향)
     const float Distance = Dot3(P.Normal, Center) - P.Distance;
     // AABB를 평면 법선 방향으로 투영했을 때의 최대 반경
-    __m128 abs_normal = _mm_andnot_ps(_mm_set1_ps(-0.0f), P.Normal.SimdData);
-    __m128 mul = _mm_mul_ps(abs_normal, Extents.SimdData);
-    __m128 shuffle = _mm_shuffle_ps(mul, mul, _MM_SHUFFLE(2, 1, 2, 1));
-    __m128 add = _mm_add_ss(mul, shuffle);
-    shuffle = _mm_shuffle_ps(shuffle, shuffle, _MM_SHUFFLE(0, 0, 0, 1));
-    add = _mm_add_ss(add, shuffle);
+    // Radius = abs(Normal.X) * Extents.X + abs(Normal.Y) * Extents.Y + abs(Normal.Z) * Extents.Z
+    __m128 abs_normal = _mm_andnot_ps(_mm_set1_ps(-0.0f), P.Normal.SimdData); // abs for all components
+    __m128 dp = _mm_dp_ps(abs_normal, Extents.SimdData, 0x71);
     float radius;
-    _mm_store_ss(&radius, add);
+    _mm_store_ss(&radius, dp);
 	//  최대 반경은 항상 양수이므로, Distance + Radius < 0 이면 절두체의 바깥
     return Distance + radius >= 0.0f;
 }
