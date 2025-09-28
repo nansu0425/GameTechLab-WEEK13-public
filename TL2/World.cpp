@@ -168,6 +168,7 @@ void UWorld::Render()
 	Renderer->EndFrame();
 }
 
+// legacy code
 void UWorld::RenderSingleViewport()
 {
 	FMatrix ViewMatrix = MainCameraActor->GetViewMatrix();
