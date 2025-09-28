@@ -124,18 +124,17 @@ void UWorldPartitionManager::Update(float DeltaTime, uint32 InBugetCount)
 	}
 }
 
-void UWorldPartitionManager::RayQueryOrdered(FRay InRay, OUT TArray<std::pair<AActor*, float>>& Candidates)
-{
-    if (SceneOctree)
-    {
-        SceneOctree->QueryRayOrdered(InRay, Candidates);
-    }
-}
+//void UWorldPartitionManager::RayQueryOrdered(FRay InRay, OUT TArray<std::pair<AActor*, float>>& Candidates)
+//{
+//    if (SceneOctree)
+//    {
+//        SceneOctree->QueryRayOrdered(InRay, Candidates);
+//    }
+//}
 
 void UWorldPartitionManager::RayQueryClosest(FRay InRay, OUT AActor*& OutActor, OUT float& OutBestT)
 {
     OutActor = nullptr;
-    OutBestT = std::numeric_limits<float>::infinity();
     if (SceneOctree)
     {
         SceneOctree->QueryRayClosest(InRay, OutActor, OutBestT);

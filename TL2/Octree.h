@@ -4,6 +4,13 @@
 #include "Renderer.h"
 #include "Picking.h"
 
+class FOctree;
+
+struct FNodeEntry {
+    FOctree* Node;
+    float TMin;
+    bool operator<(const FNodeEntry& Other) const { return TMin > Other.TMin; } // min-heap
+};
 
 static const FVector4 LevelColors[8] =
 {
@@ -36,12 +43,12 @@ public:
 	bool Remove(AActor* InActor, const FBound& ActorBounds);
     void Update(AActor* InActor, const FBound& OldBounds, const FBound& NewBounds);
 
-    void QueryRayOrdered(const FRay& Ray, TArray<std::pair<AActor*, float>>& OutCandidates) ;
+    //void QueryRayOrdered(const FRay& Ray, TArray<std::pair<AActor*, float>>& OutCandidates) ;
     // for Partition Manager Query
     void Remove(AActor* InActor);
     void Update(AActor* InActor);
 
-    void QueryRayClosest(const FRay& Ray, AActor*& OutActor, float& OutBestT);
+    void QueryRayClosest(const FRay& Ray, AActor*& OutActor,OUT float& OutBestT);
 
     // Debug draw
     void DebugDraw(URenderer* InRenderer) const;
@@ -72,9 +79,8 @@ private:
 
 	TArray<AActor*> Actors;
 	FOctree* Children[8]; // 8분할 
-
+    // TODO 리팩토링 -> 하나의 TMAP으로 관리하던 , 해야할 것 같다 . 
     TMap<AActor*, FBound> ActorLastBounds;
-    // Per-node contiguous cache aligned with Actors to avoid TMap lookups during queries
     TArray<FBound> ActorBoundsCache;
     
     // 메모리 풀링을 위한 정적 스택

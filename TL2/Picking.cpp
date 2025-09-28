@@ -354,8 +354,8 @@ AActor* CPickingSystem::PerformViewportPicking(const TArray<AActor*>& Actors,
     FRay ray = MakeRayFromViewport(View, Proj, CameraWorldPos, CameraRight, CameraUp, CameraForward,
                                    ViewportMousePos, ViewportSize, ViewportOffset);
 
-    int pickedIndex = -1;
-    float pickedT = 1e9f;
+    int PickedIndex = -1;
+    float PickedT = 1e9f;
 
     UWorldPartitionManager* PartitionManager = UWorldPartitionManager::GetInstance();
     if (PartitionManager == nullptr)
@@ -365,27 +365,25 @@ AActor* CPickingSystem::PerformViewportPicking(const TArray<AActor*>& Actors,
     }
 
     // 퍼포먼스 측정용 카운터 시작
-    FScopeCycleCounter pickCounter;
+    FScopeCycleCounter PickCounter;
 
     // 전체 Picking 횟수 누적
     ++TotalPickCount;
 
     // 베스트 퍼스트 탐색으로 가장 가까운 것을 직접 구한다
-    AActor* pickedActor = nullptr;
-    PartitionManager->RayQueryClosest(ray, pickedActor, pickedT);
-    int candidatesCount = 0; // 유지: 이전 로깅 호환용
-    UE_LOG("HIT ACTORS NUM : %d", candidatesCount);
-    uint64 LastPickTime = pickCounter.Finish();
+    AActor* PickedActor = nullptr;
+    PartitionManager->RayQueryClosest(ray, PickedActor, PickedT);
+    uint64 LastPickTime = PickCounter.Finish();
     double Milliseconds = ((double)LastPickTime * FPlatformTime::GetSecondsPerCycle()) * 1000.0f;
 
-    if (pickedActor)
+    if (PickedActor)
     {
-        pickedIndex = 0;
+        PickedIndex = 0;
         char buf[160];
         sprintf_s(buf, "[Pick] Hit primitive %d at t=%.3f | time=%.6lf ms\n",
-            pickedIndex, pickedT, Milliseconds);
+            PickedIndex, PickedT, Milliseconds);
         UE_LOG(buf);
-        return pickedActor;
+        return PickedActor;
     }
     else
     {
