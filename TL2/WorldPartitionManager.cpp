@@ -122,11 +122,12 @@ void UWorldPartitionManager::Update(float DeltaTime, uint32 InBugetCount)
 		if (!Actor) continue;
 		if (SceneOctree) SceneOctree->Update(Actor);
 		if (BVH) BVH->Update(Actor);
+
 		++processed;
 	}
 }
 
-//void UWoRayQueryOrderedrldPartitionManager::(FRay InRay, OUT TArray<std::pair<AActor*, float>>& Candidates)
+//void UWorldPartitionManager::RayQueryOrdered(FRay InRay, OUT TArray<std::pair<AActor*, float>>& Candidates)
 //{
 //    if (SceneOctree)
 //    {
@@ -141,6 +142,10 @@ void UWorldPartitionManager::RayQueryClosest(FRay InRay, OUT AActor*& OutActor, 
     {
         SceneOctree->QueryRayClosest(InRay, OutActor, OutBestT);
     }
+//	if (BVH)
+//	{
+//		BVH->QueryRayClosest(InRay, OutActor, OutBestT);
+//	}
 }
 
 void UWorldPartitionManager::FrustumQuery(Frustum InFrustum)
