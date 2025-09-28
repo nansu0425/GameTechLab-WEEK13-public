@@ -41,7 +41,6 @@ public:
     //void RayQueryOrdered(FRay InRay, OUT TArray<std::pair<AActor*, float>>& Candidates);
     void RayQueryClosest(FRay InRay, OUT AActor*& OutActor, OUT float& OutBestT);
 	void FrustumQuery(Frustum InFrustum);
-    void Query(FBound InBound, OUT TArray<AActor*>& Actors);
 
 	/** 옥트리 게터 */
 	FOctree* GetSceneOctree() const { return SceneOctree; }
