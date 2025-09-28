@@ -2,6 +2,14 @@
 #include "ShapeComponent.h"
 
 
+
+enum class EAxis : uint8
+{
+	X = 0,
+	Y = 1,
+	Z = 2
+};
+
 struct FBound
 {
 
@@ -43,7 +51,7 @@ struct FBound
 	FBound CreateOctant(int i) const
 	{
 		FVector Center = GetCenter();
-		FVector Extent = GetExtent() * 0.5f; // 자식은 부모의 절반 크기
+		FVector Extent = GetExtent() * 0.5f; 
 
 		FVector NewMin, NewMax;
 
@@ -89,7 +97,53 @@ struct FBound
 		return FBound(NewMin, NewMax);
 	}
 
-	// Slab Method 
+	inline bool RayAABB_IntersectT(const FRay& InRay, float& OutEnterDistance, float& OutExitDistance)
+	{
+		// 레이가 박스를 통과할 수 있는 [Enter, Exit] 구간
+		float ClosestEnter = -FLT_MAX;
+		float FarthestExit = FLT_MAX;
+
+		for (int32 AxisIndex = 0; AxisIndex < 3; ++AxisIndex)
+		{
+			const float RayOriginAxis = InRay.Origin[AxisIndex];
+			const float RayDirectionAxis = InRay.Direction[AxisIndex];
+			const float BoxMinAxis =Min[AxisIndex];
+			const float BoxMaxAxis =Max[AxisIndex];
+
+			if (std::abs(RayDirectionAxis) < 1e-6f)
+			{
+				// 레이가 축에 평행한데, 박스 범위를 벗어나면 교차 불가
+				if (RayOriginAxis < BoxMinAxis || RayOriginAxis > BoxMaxAxis)
+				{
+					return false;
+				}
+			}
+			else
+			{
+				const float InvDirection = 1.0f / RayDirectionAxis;
+
+				float DistanceToMinPlane = (BoxMinAxis - RayOriginAxis) * InvDirection;
+				float DistanceToMaxPlane = (BoxMaxAxis - RayOriginAxis) * InvDirection;
+
+				if (DistanceToMinPlane > DistanceToMaxPlane)
+				{
+					std::swap(DistanceToMinPlane, DistanceToMaxPlane);
+				}
+
+				if (DistanceToMinPlane > ClosestEnter)  ClosestEnter = DistanceToMinPlane;
+				if (DistanceToMaxPlane < FarthestExit) FarthestExit = DistanceToMaxPlane;
+
+				if (ClosestEnter > FarthestExit)
+				{
+					return false; // 레이가 박스를 관통하지 않음
+				}
+			}
+		}
+		OutEnterDistance = (ClosestEnter < 0.0f) ? 0.0f : ClosestEnter;
+		OutExitDistance = FarthestExit;
+		return true;
+	}
+
 	bool IntersectsRay(const FRay& InRay) const
 	{
 		float TMin = -FLT_MAX;
@@ -119,7 +173,7 @@ struct FBound
 
 				if (T1 > T2)
 				{
-					std::swap(T1, T2); 
+					std::swap(T1, T2);
 				}
 
 				if (T1 > TMin) TMin = T1;
