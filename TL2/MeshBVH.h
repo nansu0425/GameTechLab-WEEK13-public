@@ -12,7 +12,11 @@ struct FMeshBVHNode
 	bool IsLeaf() const { return Count > 0; }
 };
 
-
+struct FStackItem
+{
+	int32 NodeIndex;
+	float EntryDistance;
+};
 class FMeshBVH
 {
 public:
