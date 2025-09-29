@@ -26,7 +26,9 @@ UWorldPartitionManager::UWorldPartitionManager()
 	FBound WorldBounds(FVector(-50, -50, -50), FVector(50, 50, 50));
 	SceneOctree = new FOctree(WorldBounds, 0, 8, 10);
 	// BVH도 동일 월드 바운드로 초기화 (더 깊고 작은 리프 설정)
-	BVH = new FBVHierachy(FBound(), 0, 12, 8);
+	//BVH = new FBVHierachy(FBound(), 0, 5, 1); 
+	BVH = new FBVHierachy(FBound(), 0, 8, 1); 
+	//BVH = new FBVHierachy(FBound(), 0, 10, 3);
 }
 
 UWorldPartitionManager::~UWorldPartitionManager()
@@ -138,14 +140,14 @@ void UWorldPartitionManager::Update(float DeltaTime, uint32 InBugetCount)
 void UWorldPartitionManager::RayQueryClosest(FRay InRay, OUT AActor*& OutActor, OUT float& OutBestT)
 {
     OutActor = nullptr;
-    if (SceneOctree)
-    {
-        SceneOctree->QueryRayClosest(InRay, OutActor, OutBestT);
-    }
-	//if (BVH)
-	//{
-	//	BVH->QueryRayClosest(InRay, OutActor, OutBestT);
-	//}
+    //if (SceneOctree)
+    //{
+    //    SceneOctree->QueryRayClosest(InRay, OutActor, OutBestT);
+    //}
+	if (BVH)
+	{
+		BVH->QueryRayClosest(InRay, OutActor, OutBestT);
+	}
 }
 
 void UWorldPartitionManager::FrustumQuery(Frustum InFrustum)

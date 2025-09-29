@@ -51,7 +51,7 @@ struct FBound
 	FBound CreateOctant(int i) const
 	{
 		FVector Center = GetCenter();
-		FVector Extent = GetExtent() * 0.5f; 
+		FVector Extent = GetExtent() * 0.5f;
 
 		FVector NewMin, NewMax;
 
@@ -135,7 +135,7 @@ struct FBound
 		}
 		return true;
 	}
-	inline bool RayAABB_IntersectT(const FRay& InRay, float& OutEnterDistance, float& OutExitDistance)
+	bool RayAABB_IntersectT(const FRay& InRay, float& OutEnterDistance, float& OutExitDistance)
 	{
 		// 레이가 박스를 통과할 수 있는 [Enter, Exit] 구간
 		float ClosestEnter = -FLT_MAX;
@@ -145,12 +145,12 @@ struct FBound
 		{
 			const float RayOriginAxis = InRay.Origin[AxisIndex];
 			const float RayDirectionAxis = InRay.Direction[AxisIndex];
-			const float BoxMinAxis =Min[AxisIndex];
-			const float BoxMaxAxis =Max[AxisIndex];
+			const float BoxMinAxis = Min[AxisIndex];
+			const float BoxMaxAxis = Max[AxisIndex];
 
+			// 레이가 축에 평행한데, 박스 범위를 벗어나면 교차 불가
 			if (std::abs(RayDirectionAxis) < 1e-6f)
 			{
-				// 레이가 축에 평행한데, 박스 범위를 벗어나면 교차 불가
 				if (RayOriginAxis < BoxMinAxis || RayOriginAxis > BoxMaxAxis)
 				{
 					return false;
@@ -160,6 +160,8 @@ struct FBound
 			{
 				const float InvDirection = 1.0f / RayDirectionAxis;
 
+				// 평면과의 교차 거리 
+				// 레이가 AABB의 min 평면과 max 평면을 만나는 t 값 (거리)
 				float DistanceToMinPlane = (BoxMinAxis - RayOriginAxis) * InvDirection;
 				float DistanceToMaxPlane = (BoxMaxAxis - RayOriginAxis) * InvDirection;
 
@@ -167,16 +169,22 @@ struct FBound
 				{
 					std::swap(DistanceToMinPlane, DistanceToMaxPlane);
 				}
-
+				// ClosestEnter : AABB 안에 들어가는 시점
+				// 더 늦게 들어오는 값으로 갱신
 				if (DistanceToMinPlane > ClosestEnter)  ClosestEnter = DistanceToMinPlane;
+
+				// FarthestExit : AABB에서 나가는 시점
+				// 더 빨리 나가는 값으로 갱신 
 				if (DistanceToMaxPlane < FarthestExit) FarthestExit = DistanceToMaxPlane;
 
+				// 가장 늦게 들어오는 시점이 빠르게 나가는 시점보다 늦다는 것은 교차하지 않음을 의미한다. 
 				if (ClosestEnter > FarthestExit)
 				{
 					return false; // 레이가 박스를 관통하지 않음
 				}
 			}
 		}
+		// 레이가 박스와 실제로 만나는 구간이다 . 
 		OutEnterDistance = (ClosestEnter < 0.0f) ? 0.0f : ClosestEnter;
 		OutExitDistance = FarthestExit;
 		return true;
@@ -196,13 +204,13 @@ public:
 
 	void Render(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) override;
 
-    // Arvo 기반 월드 AABB
-    // 코너 8개 변환 방식에 비해 8배 이상 빠릅니다.
-    FBound GetWorldBound() const;
+	// Arvo 기반 월드 AABB
+	// 코너 8개 변환 방식에 비해 8배 이상 빠릅니다.
+	FBound GetWorldBound() const;
 
-    // 월드 좌표계에서의 AABB 반환
-    FBound GetWorldBoundFromCube() ;
-    //FBound GetWorldBoundFromSphere() const;
+	// 월드 좌표계에서의 AABB 반환
+	FBound GetWorldBoundFromCube();
+	//FBound GetWorldBoundFromSphere() const;
 
 	TArray<FVector4> GetLocalCorners() const;
 
@@ -221,9 +229,9 @@ private:
     // 🚀 SIMD 최적화된 벡터-매트릭스 변환
     FVector TransformVectorSIMD(const FVector& vector, const FMatrix& matrix) const;
 
-    FVector LocalMin;
-    FVector LocalMax;
+	FVector LocalMin;
+	FVector LocalMax;
 	FBound Bound;
-    EPrimitiveType PrimitiveType = EPrimitiveType::Default;
+	EPrimitiveType PrimitiveType = EPrimitiveType::Default;
 };
 

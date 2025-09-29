@@ -24,11 +24,6 @@ bool FMeshBVH::IntersectRay(const FRay& InLocalRay, const TArray<FNormalVertex>&
 		return false;
 	}
 
-	struct FStackItem
-	{
-		int32 NodeIndex;
-		float EntryDistance;
-	};
 	TArray<FStackItem> NodeStack;
 
 	float RootEntryDistance, RootExitDistance;
@@ -182,10 +177,7 @@ FBound FMeshBVH::ComputeBounds(uint32 Start, uint32 Count, const TArray<FNormalV
 }
 
 // BVH 트리 -> 재귀 구축 
-int FMeshBVH::BuildRecursive(
-	uint32 Start, uint32 Count,
-	const TArray<FNormalVertex>& Vertices,
-	const TArray<uint32>& Indices)
+int FMeshBVH::BuildRecursive(uint32 Start, uint32 Count, const TArray<FNormalVertex>& Vertices, const TArray<uint32>& Indices)
 {
 	FMeshBVHNode Node;
 	Node.Start = Start;
@@ -194,7 +186,7 @@ int FMeshBVH::BuildRecursive(
 	// 이 노드가 감싸는 AABB 계산
 	Node.Bounds = ComputeBounds(Start, Count, Vertices, Indices);
 
-	// 현재 노드 인덱스 확보 & 추가
+	// 현재 노드 인덱스 확보 & 추가 -> 자식으로 쪼갤 때 사용 
 	int NodeIndex = Nodes.Num();
 	Nodes.Add(Node);
 
@@ -229,9 +221,10 @@ int FMeshBVH::BuildRecursive(
 	// 오른쪽 구간 [nth+1, last) 에는 "큰 것들"만 놓음
 
 	// 선택된 Axis를 방향으로 왼쪽과 오른쪽으로 나눈다. 
+	// 전체를 정렬하지 않고, n번째 작은 원소를 찾아서 놓는다. 
 	std::nth_element(
 		TriIndices.begin() + Start, // 분할할 구간 시작
-		TriIndices.begin() + Mid, // 이 위치에 올 원소 (중간 값)
+		TriIndices.begin() + Mid, // 중간 값의 위치 
 		TriIndices.begin() + Start + Count, // 분할할 구간의 끝 
 		[&](uint32 A, uint32 B)			// 비교함수 
 		{
