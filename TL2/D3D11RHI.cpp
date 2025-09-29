@@ -543,6 +543,7 @@ void D3D11RHI::CreateConstantBuffer()
     hlDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     Device->CreateBuffer(&hlDesc, nullptr, &HighLightCB);
 
+    // b0
     D3D11_BUFFER_DESC billboardDesc = {};
     billboardDesc.Usage = D3D11_USAGE_DYNAMIC;
     billboardDesc.ByteWidth = sizeof(BillboardBufferType);
@@ -550,6 +551,7 @@ void D3D11RHI::CreateConstantBuffer()
     billboardDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     Device->CreateBuffer(&billboardDesc, nullptr, &BillboardCB);
 
+    // b3
     D3D11_BUFFER_DESC ColorDesc = {};
     ColorDesc.Usage = D3D11_USAGE_DYNAMIC;
     ColorDesc.ByteWidth = sizeof(ColorBufferType);

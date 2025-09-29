@@ -14,7 +14,10 @@ UStaticMeshComponent::UStaticMeshComponent()
 
 UStaticMeshComponent::~UStaticMeshComponent()
 {
-
+    if (StaticMesh != nullptr)
+    {
+        StaticMesh->EraseUsingComponets(this);
+    }
 }
 
 void UStaticMeshComponent::Render(URenderer* Renderer, const FMatrix& ViewMatrix, const FMatrix& ProjectionMatrix)
@@ -26,7 +29,12 @@ void UStaticMeshComponent::Render(URenderer* Renderer, const FMatrix& ViewMatrix
 
 void UStaticMeshComponent::SetStaticMesh(const FString& PathFileName)
 {
+    if (StaticMesh != nullptr)
+    {
+        StaticMesh->EraseUsingComponets(this);
+    }
 	StaticMesh = FObjManager::LoadObjStaticMesh(PathFileName);
+    StaticMesh->AddUsingComponents(this);
     
     const TArray<FGroupInfo>& GroupInfos = StaticMesh->GetMeshGroupInfo();
     if (MaterailSlots.size() < GroupInfos.size())

@@ -61,7 +61,17 @@ public:
     void SetIsPicked(bool picked) { bIsPicked = picked; }
     bool GetIsPicked() { return bIsPicked; }
 
-    void SetCulled(bool InCulled) { bIsCulled = InCulled; }
+    void SetCulled(bool InCulled) 
+    { 
+        bIsCulled = InCulled;
+        for (USceneComponent* Component : Components)
+        {
+            if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
+            {
+                Primitive->SetCulled(InCulled);
+            }
+        }
+    }
     bool GetCulled() { return bIsCulled; }
 
     //-----------------------------

@@ -121,7 +121,10 @@ public:
 
     void PushBackToStaticMeshActors(AStaticMeshActor* InStaticMeshActor) { StaticMeshActors.push_back(InStaticMeshActor); }
 
-    
+    void SetStaticMeshs()
+    {
+        StaticMeshs = ResourceManager.GetAll<UStaticMesh>();
+    }
     /** === 레벨 / 월드 구성 === */
     // TArray<ULevel*> Levels;
 
@@ -162,6 +165,8 @@ private:
     /** A dedicated array for static mesh actors to optimize culling. */
     TArray<class AStaticMeshActor*> StaticMeshActors;
     
+    TArray<UStaticMesh*> StaticMeshs;
+
     // Object naming system
     std::map<FString, int32> ObjectTypeCounts;
     
