@@ -318,6 +318,8 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 		Actor->SetCulled(true);
 	UWorldPartitionManager::GetInstance()->FrustumQuery(ViewFrustum);
 
+	Renderer->UpdateHighLightConstantBuffer(false, rgb, 0, 0, 0, 0);
+
 	// ---------------------- CPU HZB Occlusion ----------------------
 	if (bUseCPUOcclusion)
 	{
@@ -359,7 +361,7 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 				uint32_t id = Actor->UUID;
 				if (id < VisibleFlags.size() && VisibleFlags[id] == 0)
 				{
-					continue; // 가려짐 → 스킵
+					continue; // 가려짐 → 스킵c
 				}
 			}
 
@@ -368,17 +370,14 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 				continue;
 			}
 
-			bool bIsSelected = SelectionManager.IsActorSelected(Actor);
-			Renderer->UpdateHighLightConstantBuffer(bIsSelected, rgb, 0, 0, 0, 0);
+			if (SelectionManager.IsActorSelected(Actor))
+				continue;
 
 			for (USceneComponent* Component : Actor->GetComponents())
 			{
 				if (!Component) continue;
 				if (UActorComponent* ActorComp = Cast<UActorComponent>(Component))
 					if (!ActorComp->IsActive()) continue;
-
-				if (Cast<UTextRenderComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BillboardText)) continue;
-				if (Cast<UAABoundingBoxComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BoundingBoxes)) continue;
 
 				if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
 				{
@@ -393,6 +392,7 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 					Renderer->SetViewModeType(ViewModeIndex);
 					Primitive->Render(Renderer, ViewMatrix, ProjectionMatrix);
 					Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+					
 					visibleCount++;
 				}
 			}
@@ -499,7 +499,6 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 		}
 		
 	}
-
 	// 엔진 액터들 (그리드 등)
 	for (AActor* EngineActor : EngineActors)
 	{
@@ -539,6 +538,35 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 			}
 		}
 		Renderer->OMSetBlendState(false);
+	}
+
+	for (AActor* SelectedActor : SelectionManager.GetSelectedActors())
+	{
+		if (!SelectedActor) continue;
+		if (SelectedActor->GetActorHiddenInGame()) continue;
+		if (Cast<AStaticMeshActor>(SelectedActor) && !IsShowFlagEnabled(EEngineShowFlags::SF_StaticMeshes))
+			continue;
+
+		for (USceneComponent* Component : SelectedActor->GetComponents())
+		{
+			if (!Component) continue;
+			if (UActorComponent* ActorComp = Cast<UActorComponent>(Component))
+				if (!ActorComp->IsActive()) continue;
+
+			if (Cast<UTextRenderComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BillboardText)) continue;
+			if (Cast<UAABoundingBoxComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BoundingBoxes)) continue;
+
+			if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
+			{
+				if (Cast<UStaticMeshComponent>(Primitive))
+				{
+					continue;
+				}
+				Renderer->SetViewModeType(ViewModeIndex);
+				Primitive->Render(Renderer, ViewMatrix, ProjectionMatrix);
+				Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+			}
+		}
 	}
 
 	// Debug draw (exclusive: BVH first, else Octree)
