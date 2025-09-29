@@ -320,7 +320,7 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 	UWorldPartitionManager::GetInstance()->FrustumQuery(ViewFrustum);
 
 	// ---------------------- CPU HZB Occlusion ----------------------
-	if (bUseCPUOcclusion)
+	if (false)
 	{
 		// 1) 그리드 사이즈 보정(해상도 변화 대응)
 		UpdateOcclusionGridSizeForViewport(Viewport);
@@ -355,7 +355,7 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 			if (Actor->GetCulled()) continue; // 컬링된 액터는 스킵
 
 			// ★★★ CPU 오클루전 컬링: UUID로 보임 여부 확인
-			if (bUseCPUOcclusion)
+			if (false)
 			{
 				uint32_t id = Actor->UUID;
 				if (id < VisibleFlags.size() && VisibleFlags[id] == 0)
@@ -457,7 +457,7 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 
 	Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
 	Renderer->UpdateHighLightConstantBuffer(false, rgb, 0, 0, 0, 0);
-	UE_LOG("Obj count: %d, Visible count: %d\r\n", objCount, visibleCount);
+	//UE_LOG("Obj count: %d, Visible count: %d\r\n", objCount, visibleCount);
 }
 
 
@@ -979,6 +979,18 @@ void UWorld::BuildCpuOcclusionSets(
 	OutOccluders.clear();
 	OutOccludees.clear();
 
+	size_t estimatedCount = 0;
+	for (AActor* Actor : Actors)
+	{
+		if (Actor && !Actor->GetActorHiddenInGame() && !Actor->GetCulled())
+		{
+			if (Actor->IsA<AStaticMeshActor>()) estimatedCount++;
+		}
+	}
+	OutOccluders.reserve(estimatedCount);
+	OutOccludees.reserve(estimatedCount);
+	//
+
 	const FMatrix VP = View * Proj; // 행벡터: p_world * View * Proj
 
 	for (AActor* Actor : Actors)
@@ -993,15 +1005,15 @@ void UWorld::BuildCpuOcclusionSets(
 		UAABoundingBoxComponent* Box = Cast<UAABoundingBoxComponent>(SMA->CollisionComponent);
 		if (!Box) continue;
 
-		FCandidateDrawable C{};
-		C.ActorIndex = Actor->UUID;
-		C.Bound = Box->GetWorldBound(); // world-space AABB
-		C.WorldViewProj = VP;                   // p_world * View * Proj
-		C.WorldView = View;                 // p_world * View → view-space
-		C.ZNear = ZNear;                // ★
-		C.ZFar = ZFar;                 // ★
+		OutOccluders.emplace_back();
+		FCandidateDrawable& occluder = OutOccluders.back();
+		occluder.ActorIndex = Actor->UUID;
+		occluder.Bound = Box->GetWorldBound();
+		occluder.WorldViewProj = VP;
+		occluder.WorldView = View;
+		occluder.ZNear = ZNear;
+		occluder.ZFar = ZFar;
 
-		OutOccluders.push_back(C);
-		OutOccludees.push_back(C);
+		OutOccludees.emplace_back(occluder);
 	}
 }
