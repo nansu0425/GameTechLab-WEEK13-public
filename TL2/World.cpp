@@ -170,6 +170,7 @@ void UWorld::Render()
 
 void UWorld::RenderSingleViewport()
 {
+
 	FMatrix ViewMatrix = MainCameraActor->GetViewMatrix();
 	FMatrix ProjectionMatrix = MainCameraActor->GetProjectionMatrix();
 	FMatrix ModelMatrix;
@@ -284,7 +285,8 @@ void UWorld::RenderSingleViewport()
 
 void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 {
-
+	int objCount = static_cast<int>(Actors.size());
+	int visibleCount = 0;
 	// 뷰포트의 실제 크기로 aspect ratio 계산
 	float ViewportAspectRatio = static_cast<float>(Viewport->GetSizeX()) / static_cast<float>(Viewport->GetSizeY());
 	if (Viewport->GetSizeY() == 0) ViewportAspectRatio = 1.0f; // 0으로 나누기 방지
@@ -416,6 +418,7 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 					Renderer->SetViewModeType(ViewModeIndex);
 					Primitive->Render(Renderer, ViewMatrix, ProjectionMatrix);
 					Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+					visibleCount++;
 				}
 			}
 			Renderer->OMSetBlendState(false);
@@ -487,7 +490,7 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 
 	Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
 	Renderer->UpdateHighLightConstantBuffer(false, rgb, 0, 0, 0, 0);
-
+	UE_LOG("Obj count: %d, Visible count: %d\r\n", objCount, visibleCount);
 }
 
 

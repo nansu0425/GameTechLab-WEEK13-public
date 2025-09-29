@@ -49,7 +49,7 @@ bool FOcclusionCullingManagerCPU::ComputeRectAndMinZ(
 		// ndcZ = To01(ndcZ); // GL식이면 켜기
 
 		float u = 0.5f * (ndcX + 1.0f);
-		float v = 0.5f * (1.0f - ndcY);
+		float v = 0.5f * (ndcY + 1.0f);
 
 		MinX = std::min(MinX, u); MinY = std::min(MinY, v);
 		MaxX = std::max(MaxX, u); MaxY = std::max(MaxY, v);
@@ -96,8 +96,7 @@ void FOcclusionCullingManagerCPU::BuildOccluderDepth(
 		minPX -= dilate; minPY -= dilate;
 		maxPX += dilate; maxPY += dilate;
 
-		// ✨ 핵심: 오클루더는 '가장 먼' 깊이로 기록
-		Grid.RasterizeRectDepthMax(minPX, minPY, maxPX, maxPY, R.MaxZ);
+		Grid.RasterizeRectDepthMin(minPX, minPY, maxPX, maxPY, R.MinZ);
 	}
 }
 
@@ -138,14 +137,14 @@ void FOcclusionCullingManagerCPU::TestOcclusion(const TArray<FCandidateDrawable>
 		const float pxH = rh * ViewH;
 
 		// --- 작은 사각형 가드: 한 변이라도 2px 미만이면 컬링하지 않음 ---
-		if (std::min(pxW, pxH) < 2.0f)
-		{
-			OutVisibleFlags[id] = 1;
-			VisibleStreak[id] = std::min<uint8_t>(255, VisibleStreak[id] + 1);
-			OccludedStreak[id] = 0;
-			LastState[id] = 1;
-			continue;
-		}
+		//if (std::min(pxW, pxH) < 2.0f)
+		//{
+		//	OutVisibleFlags[id] = 1;
+		//	VisibleStreak[id] = std::min<uint8_t>(255, VisibleStreak[id] + 1);
+		//	OccludedStreak[id] = 0;
+		//	LastState[id] = 1;
+		//	continue;
+		//}
 
 		// --- 보수적 mip 선택 ---
 		int mip = std::max(0, Grid.ChooseMip(rw, rh) - 1);
@@ -158,11 +157,11 @@ void FOcclusionCullingManagerCPU::TestOcclusion(const TArray<FCandidateDrawable>
 		bool occluded = ((hzbMax + eps) <= R.MinZ);
 
 		// --- 레벨0 정밀 재검증(occluded일 때만) ---
-		if (occluded)
-		{
-			if (!Grid.FullyOccludedAtLevel0(R.MinX, R.MinY, R.MaxX, R.MaxY, R.MinZ, eps2))
-				occluded = false;
-		}
+		//if (occluded)
+		//{
+		//	if (!Grid.FullyOccludedAtLevel0(R.MinX, R.MinY, R.MaxX, R.MaxY, R.MinZ, eps2))
+		//		occluded = false;
+		//}
 
 		// --- 양방향 히스테리시스(2~3프레임 연속일 때만 상태 전환) ---
 		const int thresh = 2; // 2~3 추천

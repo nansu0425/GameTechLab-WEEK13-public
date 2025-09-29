@@ -39,8 +39,8 @@ public:
         BuildLevels.clear();
     }
 
-    // 교체 (가장 먼 Z를 기록)
-    void RasterizeRectDepthMax(int MinPX, int MinPY, int MaxPX, int MaxPY, float MaxZ)
+
+    void RasterizeRectDepthMin(int MinPX, int MinPY, int MaxPX, int MaxPY, float MinZ)
     {
         MinPX = std::max(0, MinPX); MinPY = std::max(0, MinPY);
         MaxPX = std::min(Width - 1, MaxPX); MaxPY = std::min(Height - 1, MaxPY);
@@ -49,7 +49,7 @@ public:
             float* Row = &Depth[size_t(y) * Width];
             for (int x = MinPX; x <= MaxPX; ++x)
             {
-                Row[x] = std::min(Row[x], MaxZ); // 여전히 MIN 연산이지만 값은 '멀리'라 안전
+                Row[x] = std::min(Row[x], MinZ); // 가장 가까운 깊이로 갱신
             }
         }
     }
