@@ -43,10 +43,10 @@ void URenderer::BeginFrame()
 
     // TODO - 한 종류 메쉬만 스폰했을 때 깨지는 현상 방지 임시이므로 고쳐야합니다
     // ★ 캐시 무효화
-    PreShader = nullptr;
-    PreUMaterial = nullptr;
-    PreStaticMesh = nullptr;
-    PreViewModeIndex = EViewModeIndex::VMI_Wireframe; // 어차피 SetViewModeType이 다시 셋
+    //PreShader = nullptr;
+    //PreUMaterial = nullptr; // 이거 주석 처리 시: 피킹하면 그 UStatucjMesh의 텍스쳐가 전부 사라짐
+    //PreStaticMesh = nullptr; // 이거 주석 처리 시: 메시가 이상해짐
+    //PreViewModeIndex = EViewModeIndex::VMI_Wireframe; // 어차피 SetViewModeType이 다시 셋
 }
 
 void URenderer::PrepareShader(FShader& InShader)
@@ -145,21 +145,16 @@ void URenderer::DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITI
     uint32 VertexCount = InMesh->GetVertexCount();
     uint32 IndexCount = InMesh->GetIndexCount();
 
-    if (PreStaticMesh != InMesh)
-    {
-        RHIDevice->GetDeviceContext()->IASetVertexBuffers(
-            0, 1, &VertexBuffer, &stride, &offset
-        );
+    RHIDevice->GetDeviceContext()->IASetVertexBuffers(
+        0, 1, &VertexBuffer, &stride, &offset
+    );
 
-        RHIDevice->GetDeviceContext()->IASetIndexBuffer(
-            IndexBuffer, DXGI_FORMAT_R32_UINT, 0
-        );
+    RHIDevice->GetDeviceContext()->IASetIndexBuffer(
+        IndexBuffer, DXGI_FORMAT_R32_UINT, 0
+    );
 
-        RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(InTopology);
-        RHIDevice->PSSetDefaultSampler(0);
-
-        PreStaticMesh = InMesh;
-    }
+    RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(InTopology);
+    RHIDevice->PSSetDefaultSampler(0);
 
     if (InMesh->HasMaterial())
     {
@@ -168,19 +163,15 @@ void URenderer::DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITI
         for (uint32 i = 0; i < NumMeshGroupInfos; ++i)
         {
             UMaterial* const Material = UResourceManager::GetInstance().Get<UMaterial>(InComponentMaterialSlots[i].MaterialName);
-            if (PreUMaterial != Material)
+            const FObjMaterialInfo& MaterialInfo = Material->GetMaterialInfo();
+            bool bHasTexture = !(MaterialInfo.DiffuseTextureFileName.empty());
+            if (bHasTexture)
             {
-                const FObjMaterialInfo& MaterialInfo = Material->GetMaterialInfo();
-                bool bHasTexture = !(MaterialInfo.DiffuseTextureFileName.empty());
-                if (bHasTexture)
-                {
-                    FWideString WTextureFileName(MaterialInfo.DiffuseTextureFileName.begin(), MaterialInfo.DiffuseTextureFileName.end()); // 단순 ascii라고 가정
-                    FTextureData* TextureData = UResourceManager::GetInstance().CreateOrGetTextureData(WTextureFileName);
-                    RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &(TextureData->TextureSRV));
-                }
-                RHIDevice->UpdatePixelConstantBuffers(MaterialInfo, true, bHasTexture); // PSSet도 해줌
-                PreUMaterial = Material;
+                FWideString WTextureFileName(MaterialInfo.DiffuseTextureFileName.begin(), MaterialInfo.DiffuseTextureFileName.end()); // 단순 ascii라고 가정
+                FTextureData* TextureData = UResourceManager::GetInstance().CreateOrGetTextureData(WTextureFileName);
+                RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &(TextureData->TextureSRV));
             }
+            RHIDevice->UpdatePixelConstantBuffers(MaterialInfo, true, bHasTexture); // PSSet도 해줌
             
             RHIDevice->GetDeviceContext()->DrawIndexed(MeshGroupInfos[i].IndexCount, MeshGroupInfos[i].StartIndex, 0);
         }
@@ -201,7 +192,6 @@ void URenderer::DrawIndexedPrimitiveComponent(UTextRenderComponent* Comp, D3D11_
 
     RHIDevice->GetDeviceContext()->IASetInputLayout(Comp->GetMaterial()->GetShader()->GetInputLayout());
 
-    
     UINT offset = 0;
     RHIDevice->GetDeviceContext()->IASetVertexBuffers(
         0, 1, &VertexBuff, &Stride, &offset
@@ -209,6 +199,7 @@ void URenderer::DrawIndexedPrimitiveComponent(UTextRenderComponent* Comp, D3D11_
     RHIDevice->GetDeviceContext()->IASetIndexBuffer(
         IndexBuff, DXGI_FORMAT_R32_UINT, 0
     );
+    
 
     ID3D11ShaderResourceView* TextureSRV = Comp->GetMaterial()->GetTexture()->GetShaderResourceView();
     RHIDevice->PSSetDefaultSampler(0);
