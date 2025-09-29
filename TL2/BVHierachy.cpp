@@ -408,7 +408,7 @@ void FBVHierachy::QueryRayClosest(const FRay& Ray, AActor*& OutActor, OUT float&
     heap.push({ 0, tminRoot });
 
     const float Epsilon = 1e-3f;
-
+    bool isPick = false;
     while (!heap.empty())
     {
         HeapItem entry = heap.top();
@@ -442,12 +442,16 @@ void FBVHierachy::QueryRayClosest(const FRay& Ray, AActor*& OutActor, OUT float&
                     {
                         OutBestT = hitDistance;
                         OutActor = A;
+                        isPick = true;
                     }
                 }
             }
             continue;
         }
-
+        if (isPick == true)
+        {
+            break;
+        }
         // Internal node: push children if intersected and promising
         if (node.Left >= 0)
         {

@@ -17,96 +17,176 @@ void FMeshBVH::Build(const TArray<FNormalVertex>& Vertices, const TArray<uint32>
 
 // 삼각형과 맞을 경우 , BVH를 따라 내려가면서 교차 가능성 있는 노드만 검사한다. 
 // Möller–Trumbore로 교차 체크 ! 
-bool FMeshBVH::IntersectRay(const FRay& InLocalRay, const TArray<FNormalVertex>& InVertices, const TArray<uint32>& InIndices, float& OutHitDistance)
+bool FMeshBVH::IntersectRay(const FRay& InLocalRay,
+	const TArray<FNormalVertex>& InVertices,
+	const TArray<uint32>& InIndices,
+	float& OutHitDistance)
 {
 	if (Nodes.Num() == 0)
 	{
 		return false;
 	}
 
-	TArray<FStackItem> NodeStack;
-
-	float RootEntryDistance, RootExitDistance;
-	// 루트 노드가 안맞으면 바로 리턴 
-	if (!Nodes[0].Bounds.RayAABB_IntersectT(InLocalRay, RootEntryDistance, RootExitDistance))
+	float RootEntry, RootExit;
+	if (!Nodes[0].Bounds.RayAABB_IntersectT(InLocalRay, RootEntry, RootExit))
 	{
 		return false;
 	}
-	// 가장 늦게 나간 RootEntryDistance
-	// 삼각형 리스트 인덱스 , 디스턴스 값 저장 
-	NodeStack.Add({ 0, RootEntryDistance });
-	bool bHasHit = false;
-	float ClosestHitDistance = std::numeric_limits<float>::infinity();
 
-	// 깊이 우선 탐색 (DFS). 
-	// 이미 더 가까운 교차가 있으면 멀리 있는 노드는 스킵.
-	while (!NodeStack.IsEmpty())
+	struct FHeapItem
 	{
-		const FStackItem CurrentItem = NodeStack.Pop();
-		// 이미 가까운 교차가 있으면 무시 
-		if (CurrentItem.EntryDistance > ClosestHitDistance)
+		int NodeIndex;
+		float EntryDistance;
+
+		bool operator>(const FHeapItem& Other) const
 		{
-			continue;
+			return EntryDistance > Other.EntryDistance; // 최소 힙
 		}
+	};
 
-		const FMeshBVHNode& CurrentNode = Nodes[CurrentItem.NodeIndex];
-		if (CurrentNode.IsLeaf())
+	std::priority_queue<FHeapItem, TArray<FHeapItem>, std::greater<FHeapItem>> Heap;
+	Heap.push({ 0, RootEntry });
+
+	while (!Heap.empty())
+	{
+		FHeapItem Current = Heap.top();
+		Heap.pop();
+
+		const FMeshBVHNode& Node = Nodes[Current.NodeIndex];
+		if (Node.IsLeaf())
 		{
-			// 총 삼각형의 개수 만큼 돈다. 
-			for (uint32 TriangleOffset = 0; TriangleOffset < CurrentNode.Count; ++TriangleOffset)
+			for (uint32 TriOffset = 0; TriOffset < Node.Count; ++TriOffset)
 			{
-				// 삼각형 배열에서 시작 위치 Start, TriangleOffset 삼각형의 총 개수만큼 돈다. 
-				// 그쪽 영역의 삼각형이기 때문이다
-				const uint32 TriangleID = TriIndices[CurrentNode.Start + TriangleOffset];
+				const uint32 TriangleID = TriIndices[Node.Start + TriOffset];
+				const uint32 V0 = InIndices[3 * TriangleID + 0];
+				const uint32 V1 = InIndices[3 * TriangleID + 1];
+				const uint32 V2 = InIndices[3 * TriangleID + 2];
 
-				const uint32 VertexIndex0 = InIndices[3 * TriangleID + 0];
-				const uint32 VertexIndex1 = InIndices[3 * TriangleID + 1];
-				const uint32 VertexIndex2 = InIndices[3 * TriangleID + 2];
+				const FVector& A = InVertices[V0].pos;
+				const FVector& B = InVertices[V1].pos;
+				const FVector& C = InVertices[V2].pos;
 
-				const FVector& VertexA = InVertices[VertexIndex0].pos;
-				const FVector& VertexB = InVertices[VertexIndex1].pos;
-				const FVector& VertexC = InVertices[VertexIndex2].pos;
-
-				float HitDistance = 0.0f;
-				if (IntersectRayTriangleMT(InLocalRay, VertexA, VertexB, VertexC, HitDistance))
+				float HitT = 0.0f;
+				if (IntersectRayTriangleMT(InLocalRay, A, B, C, HitT))
 				{
-					if (HitDistance < ClosestHitDistance)
-					{
-						ClosestHitDistance = HitDistance;
-						bHasHit = true;
-					}
+					OutHitDistance = HitT;
+					return true; // 🚀 첫 번째 히트 → 바로 종료
 				}
 			}
-			continue;
 		}
-
-		// 내부 노드 → 자식 검사
-		// 삼각형에 맞으면, 검사 영역에 넣어주고 맞지 않으면 넣어주지 않는다. 
-		if (CurrentNode.Left >= 0)
+		else
 		{
-			float ChildEntry, ChildExit;
-			if (Nodes[CurrentNode.Left].Bounds.RayAABB_IntersectT(InLocalRay, ChildEntry, ChildExit))
+			if (Node.Left >= 0)
 			{
-				NodeStack.Add({ CurrentNode.Left, ChildEntry });
+				float ChildEntry, ChildExit;
+				if (Nodes[Node.Left].Bounds.RayAABB_IntersectT(InLocalRay, ChildEntry, ChildExit))
+				{
+					Heap.push({ Node.Left, ChildEntry });
+				}
 			}
-		}
-		if (CurrentNode.Right >= 0)
-		{
-			float ChildEntry, ChildExit;
-			if (Nodes[CurrentNode.Right].Bounds.RayAABB_IntersectT(InLocalRay, ChildEntry, ChildExit))
+			if (Node.Right >= 0)
 			{
-				NodeStack.Add({ CurrentNode.Right, ChildEntry });
+				float ChildEntry, ChildExit;
+				if (Nodes[Node.Right].Bounds.RayAABB_IntersectT(InLocalRay, ChildEntry, ChildExit))
+				{
+					Heap.push({ Node.Right, ChildEntry });
+				}
 			}
 		}
 	}
 
-	if (bHasHit)
-	{
-		OutHitDistance = ClosestHitDistance;
-		return true;
-	}
 	return false;
 }
+//bool FMeshBVH::IntersectRay(const FRay& InLocalRay, const TArray<FNormalVertex>& InVertices, const TArray<uint32>& InIndices, float& OutHitDistance)
+//{
+//	if (Nodes.Num() == 0)
+//	{
+//		return false;
+//	}
+//
+//	TArray<FStackItem> NodeStack;
+//
+//	float RootEntryDistance, RootExitDistance;
+//	// 루트 노드가 안맞으면 바로 리턴 
+//	if (!Nodes[0].Bounds.RayAABB_IntersectT(InLocalRay, RootEntryDistance, RootExitDistance))
+//	{
+//		return false;
+//	}
+//	// 가장 늦게 나간 RootEntryDistance
+//	// 삼각형 리스트 인덱스 , 디스턴스 값 저장 
+//	NodeStack.Add({ 0, RootEntryDistance });
+//	bool bHasHit = false;
+//	float ClosestHitDistance = std::numeric_limits<float>::infinity();
+//
+//	// 깊이 우선 탐색 (DFS). 
+//	// 이미 더 가까운 교차가 있으면 멀리 있는 노드는 스킵.
+//	while (!NodeStack.IsEmpty())
+//	{
+//		const FStackItem CurrentItem = NodeStack.Pop();
+//		// 이미 가까운 교차가 있으면 무시 
+//		if (CurrentItem.EntryDistance > ClosestHitDistance)
+//		{
+//			continue;
+//		}
+//
+//		const FMeshBVHNode& CurrentNode = Nodes[CurrentItem.NodeIndex];
+//		if (CurrentNode.IsLeaf())
+//		{
+//			// 총 삼각형의 개수 만큼 돈다. 
+//			for (uint32 TriangleOffset = 0; TriangleOffset < CurrentNode.Count; ++TriangleOffset)
+//			{
+//				// 삼각형 배열에서 시작 위치 Start, TriangleOffset 삼각형의 총 개수만큼 돈다. 
+//				// 그쪽 영역의 삼각형이기 때문이다
+//				const uint32 TriangleID = TriIndices[CurrentNode.Start + TriangleOffset];
+//
+//				const uint32 VertexIndex0 = InIndices[3 * TriangleID + 0];
+//				const uint32 VertexIndex1 = InIndices[3 * TriangleID + 1];
+//				const uint32 VertexIndex2 = InIndices[3 * TriangleID + 2];
+//
+//				const FVector& VertexA = InVertices[VertexIndex0].pos;
+//				const FVector& VertexB = InVertices[VertexIndex1].pos;
+//				const FVector& VertexC = InVertices[VertexIndex2].pos;
+//
+//				float HitDistance = 0.0f;
+//				if (IntersectRayTriangleMT(InLocalRay, VertexA, VertexB, VertexC, HitDistance))
+//				{
+//					if (HitDistance < ClosestHitDistance)
+//					{
+//						ClosestHitDistance = HitDistance;
+//						bHasHit = true;
+//					}
+//				}
+//			}
+//			continue;
+//		}
+//
+//		// 내부 노드 → 자식 검사
+//		// 삼각형에 맞으면, 검사 영역에 넣어주고 맞지 않으면 넣어주지 않는다. 
+//		if (CurrentNode.Left >= 0)
+//		{
+//			float ChildEntry, ChildExit;
+//			if (Nodes[CurrentNode.Left].Bounds.RayAABB_IntersectT(InLocalRay, ChildEntry, ChildExit))
+//			{
+//				NodeStack.Add({ CurrentNode.Left, ChildEntry });
+//			}
+//		}
+//		if (CurrentNode.Right >= 0)
+//		{
+//			float ChildEntry, ChildExit;
+//			if (Nodes[CurrentNode.Right].Bounds.RayAABB_IntersectT(InLocalRay, ChildEntry, ChildExit))
+//			{
+//				NodeStack.Add({ CurrentNode.Right, ChildEntry });
+//			}
+//		}
+//	}
+//
+//	if (bHasHit)
+//	{
+//		OutHitDistance = ClosestHitDistance;
+//		return true;
+//	}
+//	return false;
+//}
 
 FBound FMeshBVH::ComputeTriBounds(uint32 TriangleID, const TArray<FNormalVertex>& Vertices, const TArray<uint32>& Indices) const
 {
