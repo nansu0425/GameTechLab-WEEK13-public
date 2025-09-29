@@ -399,6 +399,12 @@
     <ClCompile Include="Occlusion.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="PipelineStateObject.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="PipelineStateManager.cpp">
+      <Filter>소스 파일\Manager</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Primitive.hlsl">
@@ -734,6 +740,12 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="Occlusion.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="PipelineStateManager.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="PipelineStateObject.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

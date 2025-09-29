@@ -36,6 +36,19 @@ public:
     // BVH GETTER 
     const FMeshBVH* GetBVH() const { return MeshBVH; }
 
+    bool EraseUsingComponets(UStaticMeshComponent* InStaticMeshComponent);
+    bool AddUsingComponents(UStaticMeshComponent* InStaticMeshComponent);
+
+    /*const TArray<UStaticMeshComponent*>& GetUsingComponents() const
+    {
+        return UsingComponents;
+    }*/
+
+    TArray<UStaticMeshComponent*>& GetUsingComponents()
+    {
+        return UsingComponents;
+    }
+
 private:
     void CreateVertexBuffer(FMeshData* InMeshData, ID3D11Device* InDevice, EVertexLayoutType InVertexType);
 	void CreateVertexBuffer(FStaticMesh* InStaticMesh, ID3D11Device* InDevice, EVertexLayoutType InVertexType);
@@ -55,4 +68,6 @@ private:
 
     // 메시 단위 BVH (ResourceManager에서 캐싱, 소유)
     FMeshBVH* MeshBVH = nullptr;
+
+    TArray<UStaticMeshComponent*> UsingComponents; // 유저에 의해 Material이 안 바뀐 이 Mesh를 사용 중인 Component들(render state sorting 위함)
 };

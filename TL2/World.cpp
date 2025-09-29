@@ -169,119 +169,118 @@ void UWorld::Render()
 }
 
 // legacy code
-void UWorld::RenderSingleViewport()
-{
-
-	FMatrix ViewMatrix = MainCameraActor->GetViewMatrix();
-	FMatrix ProjectionMatrix = MainCameraActor->GetProjectionMatrix();
-	FMatrix ModelMatrix;
-	FVector rgb(1.0f, 1.0f, 1.0f);
-
-	if (!Renderer) return;
-	// === Begin Frame ===
-	Renderer->BeginFrame();
-
-	// === Begin Line Batch for all actors ===
-	Renderer->BeginLineBatch();
-
-    // === Draw Actors with Show Flag checks ===
-    Renderer->SetViewModeType(ViewModeIndex);
-
-	// 일반 액터들 렌더링 (Primitives Show Flag 체크)
-	if (IsShowFlagEnabled(EEngineShowFlags::SF_Primitives))
-	{
-		for (AActor* Actor : Actors)
-		{
-			if (!Actor) continue;
-			if (Actor->GetActorHiddenInGame()) continue;
-
-			// StaticMesh Show Flag 체크
-			if (Cast<AStaticMeshActor>(Actor) && !IsShowFlagEnabled(EEngineShowFlags::SF_StaticMeshes))
-				continue;
-
-			bool bIsSelected = SelectionManager.IsActorSelected(Actor);
-			if (bIsSelected) {
-				Renderer->OMSetDepthStencilState(EComparisonFunc::Always);
-			}
-			Renderer->UpdateHighLightConstantBuffer(bIsSelected, rgb, 0, 0, 0, 0);
-
-			for (USceneComponent* Component : Actor->GetComponents())
-			{
-				if (!Component) continue;
-
-				if (UActorComponent* ActorComp = Cast<UActorComponent>(Component))
-				{
-					if (!ActorComp->IsActive()) continue;
-				}
-
-				// Text Render Component Show Flag 체크
-				if (Cast<UTextRenderComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BillboardText))
-					continue;
-
-				// Bounding Box Show Flag 체크  
-				if (Cast<UAABoundingBoxComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BoundingBoxes))
-					continue;
-
-				if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
-				{
-					Renderer->SetViewModeType(ViewModeIndex);
-					Primitive->Render(Renderer, ViewMatrix, ProjectionMatrix);
-					Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
-				}
-			}
-			// 블랜드 스테이드 종료
-			Renderer->OMSetBlendState(false);
-		}
-	}
-
-	// Engine Actors (그리드 등) 렌더링
-	for (AActor* EngineActor : EngineActors)
-	{
-		if (!EngineActor) continue;
-		if (EngineActor->GetActorHiddenInGame()) continue;
-
-		// Grid Show Flag 체크
-		if (Cast<AGridActor>(EngineActor) && !IsShowFlagEnabled(EEngineShowFlags::SF_Grid))
-			continue;
-
-		for (USceneComponent* Component : EngineActor->GetComponents())
-		{
-			if (!Component) continue;
-
-			if (UActorComponent* ActorComp = Cast<UActorComponent>(Component))
-			{
-				if (!ActorComp->IsActive()) continue;
-			}
-			if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
-			{
-				Renderer->SetViewModeType(ViewModeIndex);
-				Primitive->Render(Renderer, ViewMatrix, ProjectionMatrix);
-				Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
-			}
-		}
-		// 블랜드 스테이드 종료
-		Renderer->OMSetBlendState(false);
-	}
-    // Octree debug draw (draw as overlay: depth test always, no write)
-    if (IsShowFlagEnabled(EEngineShowFlags::SF_OctreeDebug))
-    {
-        if (FOctree* Octree = UWorldPartitionManager::GetInstance()->GetSceneOctree())
-        {
-            Renderer->OMSetDepthStencilState(EComparisonFunc::Always);
-            Octree->DebugDraw(Renderer);
-            Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
-        }
-    }
-
-    Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
-
-
-
-	Renderer->UpdateHighLightConstantBuffer(false, rgb, 0, 0, 0, 0);
-	UIManager.Render();
-	// === End Frame ===
-	Renderer->EndFrame();
-}
+//void UWorld::RenderSingleViewport()
+//{
+//	FMatrix ViewMatrix = MainCameraActor->GetViewMatrix();
+//	FMatrix ProjectionMatrix = MainCameraActor->GetProjectionMatrix();
+//	FMatrix ModelMatrix;
+//	FVector rgb(1.0f, 1.0f, 1.0f);
+//
+//	if (!Renderer) return;
+//	// === Begin Frame ===
+//	Renderer->BeginFrame();
+//
+//	// === Begin Line Batch for all actors ===
+//	Renderer->BeginLineBatch();
+//
+//    // === Draw Actors with Show Flag checks ===
+//    Renderer->SetViewModeType(ViewModeIndex);
+//
+//	// 일반 액터들 렌더링 (Primitives Show Flag 체크)
+//	if (IsShowFlagEnabled(EEngineShowFlags::SF_Primitives))
+//	{
+//		for (AActor* Actor : Actors)
+//		{
+//			if (!Actor) continue;
+//			if (Actor->GetActorHiddenInGame()) continue;
+//
+//			// StaticMesh Show Flag 체크
+//			if (Cast<AStaticMeshActor>(Actor) && !IsShowFlagEnabled(EEngineShowFlags::SF_StaticMeshes))
+//				continue;
+//
+//			bool bIsSelected = SelectionManager.IsActorSelected(Actor);
+//			if (bIsSelected) {
+//				Renderer->OMSetDepthStencilState(EComparisonFunc::Always);
+//			}
+//			Renderer->UpdateHighLightConstantBuffer(bIsSelected, rgb, 0, 0, 0, 0);
+//
+//			for (USceneComponent* Component : Actor->GetComponents())
+//			{
+//				if (!Component) continue;
+//
+//				if (UActorComponent* ActorComp = Cast<UActorComponent>(Component))
+//				{
+//					if (!ActorComp->IsActive()) continue;
+//				}
+//
+//				// Text Render Component Show Flag 체크
+//				if (Cast<UTextRenderComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BillboardText))
+//					continue;
+//
+//				// Bounding Box Show Flag 체크  
+//				if (Cast<UAABoundingBoxComponent>(Component) && !IsShowFlagEnabled(EEngineShowFlags::SF_BoundingBoxes))
+//					continue;
+//
+//				if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
+//				{
+//					Renderer->SetViewModeType(ViewModeIndex);
+//					Primitive->Render(Renderer, ViewMatrix, ProjectionMatrix);
+//					Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+//				}
+//			}
+//			// 블랜드 스테이드 종료
+//			Renderer->OMSetBlendState(false);
+//		}
+//	}
+//
+//	// Engine Actors (그리드 등) 렌더링
+//	for (AActor* EngineActor : EngineActors)
+//	{
+//		if (!EngineActor) continue;
+//		if (EngineActor->GetActorHiddenInGame()) continue;
+//
+//		// Grid Show Flag 체크
+//		if (Cast<AGridActor>(EngineActor) && !IsShowFlagEnabled(EEngineShowFlags::SF_Grid))
+//			continue;
+//
+//		for (USceneComponent* Component : EngineActor->GetComponents())
+//		{
+//			if (!Component) continue;
+//
+//			if (UActorComponent* ActorComp = Cast<UActorComponent>(Component))
+//			{
+//				if (!ActorComp->IsActive()) continue;
+//			}
+//			if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
+//			{
+//				Renderer->SetViewModeType(ViewModeIndex);
+//				Primitive->Render(Renderer, ViewMatrix, ProjectionMatrix);
+//				Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+//			}
+//		}
+//		// 블랜드 스테이드 종료
+//		Renderer->OMSetBlendState(false);
+//	}
+//    // Octree debug draw (draw as overlay: depth test always, no write)
+//    if (IsShowFlagEnabled(EEngineShowFlags::SF_OctreeDebug))
+//    {
+//        if (FOctree* Octree = UWorldPartitionManager::GetInstance()->GetSceneOctree())
+//        {
+//            Renderer->OMSetDepthStencilState(EComparisonFunc::Always);
+//            Octree->DebugDraw(Renderer);
+//            Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+//        }
+//    }
+//
+//    Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
+//
+//
+//
+//	Renderer->UpdateHighLightConstantBuffer(false, rgb, 0, 0, 0, 0);
+//	UIManager.Render();
+//	// === End Frame ===
+//	Renderer->EndFrame();
+//}
 
 
 void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
@@ -383,6 +382,14 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 
 				if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
 				{
+					if (Cast<UStaticMeshComponent>(Primitive))
+					{
+						// UStaticMeshComponent는 따로 sorting rendering
+						continue;
+					}
+					// Actor가 textCmp도 가지고 있고, bounding box도 가지고 있고,
+					// TODO: StaticMeshComp이면 분기해서, 어떤 sorting 자료구조에 넣고 나중에 렌더링 ㄱ?
+					// StatcMeshCmp면 이것의 dirtyflag를 보고, dirtyflag가 true면 tree탐색(이미 바꼇는데 그거 기반으로 어떻게 탐색해?)으로 state tree의 해당 cmp를 다른 곳으로 옮기기
 					Renderer->SetViewModeType(ViewModeIndex);
 					Primitive->Render(Renderer, ViewMatrix, ProjectionMatrix);
 					Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
@@ -390,6 +397,107 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 				}
 			}
 		}
+
+		// TODO: StaticCmp를 State tree 이용해서 렌더(showFlag 확인 필요)
+		if (IsShowFlagEnabled(EEngineShowFlags::SF_StaticMeshes))
+		{
+			for (UStaticMesh* StaticMesh : StaticMeshs)
+			{
+				UINT stride = 0;
+				stride = sizeof(FVertexDynamic);
+				UINT offset = 0;
+
+				ID3D11Buffer* VertexBuffer = StaticMesh->GetVertexBuffer();
+				ID3D11Buffer* IndexBuffer = StaticMesh->GetIndexBuffer();
+				uint32 VertexCount = StaticMesh->GetVertexCount();
+				uint32 IndexCount = StaticMesh->GetIndexCount();
+
+				URHIDevice* RHIDevice = Renderer->GetRHIDevice();
+
+				RHIDevice->GetDeviceContext()->IASetVertexBuffers(
+					0, 1, &VertexBuffer, &stride, &offset
+				);
+
+				RHIDevice->GetDeviceContext()->IASetIndexBuffer(
+					IndexBuffer, DXGI_FORMAT_R32_UINT, 0
+				);
+
+				RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+				RHIDevice->PSSetDefaultSampler(0);
+
+				if (StaticMesh->HasMaterial())
+				{
+					for (const FGroupInfo& GroupInfo : StaticMesh->GetMeshGroupInfo())
+					{
+						if (StaticMesh->GetUsingComponents().empty())
+						{
+							continue;
+						}
+						UMaterial* const Material = UResourceManager::GetInstance().Get<UMaterial>(GroupInfo.InitialMaterialName);
+						const FObjMaterialInfo& MaterialInfo = Material->GetMaterialInfo();
+						bool bHasTexture = !(MaterialInfo.DiffuseTextureFileName.empty());
+						if (bHasTexture)
+						{
+							FWideString WTextureFileName(MaterialInfo.DiffuseTextureFileName.begin(), MaterialInfo.DiffuseTextureFileName.end()); // 단순 ascii라고 가정
+							FTextureData* TextureData = UResourceManager::GetInstance().CreateOrGetTextureData(WTextureFileName);
+							RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &(TextureData->TextureSRV));
+						}
+						RHIDevice->UpdatePixelConstantBuffers(MaterialInfo, true, bHasTexture); // PSSet도 해줌
+
+						for (UStaticMeshComponent* Component : StaticMesh->GetUsingComponents())
+						{
+							if (Component->GetCulled() == false)
+							{
+								// ★★★ CPU 오클루전 컬링: UUID로 보임 여부 확인
+								if (bUseCPUOcclusion)
+								{
+									uint32_t id = Component->GetOwner()->UUID;
+									if (id < VisibleFlags.size() && VisibleFlags[id] == 0)
+									{
+										continue; // 가려짐 → 스킵
+									}
+								}
+
+								Renderer->UpdateConstantBuffer(Component->GetWorldMatrix(), ViewMatrix, ProjectionMatrix);
+								Renderer->PrepareShader(Component->GetMaterial()->GetShader());
+								RHIDevice->GetDeviceContext()->DrawIndexed(GroupInfo.IndexCount, GroupInfo.StartIndex, 0);
+							}
+						}
+					}
+				}
+				else
+				{
+
+					for (UStaticMeshComponent* Component : StaticMesh->GetUsingComponents())
+					{
+						if (!Component->GetCulled() && !Cast<AGizmoActor>(Component->GetOwner()))
+						{
+							// ★★★ CPU 오클루전 컬링: UUID로 보임 여부 확인
+							if (bUseCPUOcclusion)
+							{
+								uint32_t id = Component->GetOwner()->UUID;
+								if (id < VisibleFlags.size() && VisibleFlags[id] == 0)
+								{
+									continue; // 가려짐 → 스킵
+								}
+							}
+
+							FObjMaterialInfo ObjMaterialInfo;
+							RHIDevice->UpdatePixelConstantBuffers(ObjMaterialInfo, false, false); // PSSet도 해줌
+
+							Renderer->UpdateConstantBuffer(Component->GetWorldMatrix(), ViewMatrix, ProjectionMatrix);
+							Renderer->PrepareShader(Component->GetMaterial()->GetShader());
+							RHIDevice->GetDeviceContext()->DrawIndexed(IndexCount, 0, 0);
+						}
+					}
+					//FObjMaterialInfo ObjMaterialInfo;
+					//RHIDevice->UpdatePixelConstantBuffers(ObjMaterialInfo, false, false); // PSSet도 해줌
+					//RHIDevice->GetDeviceContext()->DrawIndexed(IndexCount, 0, 0);
+				}
+
+			}
+		}
+		
 	}
 
 	// 엔진 액터들 (그리드 등)

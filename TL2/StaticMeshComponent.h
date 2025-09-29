@@ -10,7 +10,7 @@ struct FPrimitiveData;
 
 struct FMaterialSlot
 {
-    FString MaterialName;
+    FName MaterialName;
     bool bChangedByUser = false; // user에 의해 직접 Material이 바뀐 적이 있는지.
 };
 

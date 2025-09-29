@@ -32,7 +32,7 @@ void URenderer::BeginFrame()
     // 백버퍼/깊이버퍼를 클리어
     RHIDevice->ClearBackBuffer();  // 배경색
     RHIDevice->ClearDepthBuffer(1.0f, 0);                 // 깊이값 초기화
-    RHIDevice->CreateBlendState();
+    //RHIDevice->CreateBlendState();
     RHIDevice->IASetPrimitiveTopology();
     // RS
     RHIDevice->RSSetViewport();
@@ -162,7 +162,7 @@ void URenderer::DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITI
         const uint32 NumMeshGroupInfos = static_cast<uint32>(MeshGroupInfos.size());
         for (uint32 i = 0; i < NumMeshGroupInfos; ++i)
         {
-            UMaterial* const Material = UResourceManager::GetInstance().Get<UMaterial>(InComponentMaterialSlots[i].MaterialName);
+            UMaterial* const Material = UResourceManager::GetInstance().Get<UMaterial>(InComponentMaterialSlots[i].MaterialName.ToString());
             const FObjMaterialInfo& MaterialInfo = Material->GetMaterialInfo();
             bool bHasTexture = !(MaterialInfo.DiffuseTextureFileName.empty());
             if (bHasTexture)
@@ -205,7 +205,9 @@ void URenderer::DrawIndexedPrimitiveComponent(UTextRenderComponent* Comp, D3D11_
     RHIDevice->PSSetDefaultSampler(0);
     RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &TextureSRV);
     RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(InTopology);
-    RHIDevice->GetDeviceContext()->DrawIndexed(Comp->GetStaticMesh()->GetIndexCount(), 0, 0);
+    const uint32 indexCnt = Comp->GetStaticMesh()->GetIndexCount();
+    //UE_LOG("draw billboard. indexCount: %d", indexCnt);
+    RHIDevice->GetDeviceContext()->DrawIndexed(indexCnt, 0, 0);
 }
 
 void URenderer::SetViewModeType(EViewModeIndex ViewModeIndex)

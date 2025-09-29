@@ -160,6 +160,8 @@
     <ClCompile Include="BVHierachy.cpp" />
     <ClCompile Include="MeshBVH.cpp" />
     <ClCompile Include="Occlusion.cpp" />
+    <ClCompile Include="PipelineStateManager.cpp" />
+    <ClCompile Include="PipelineStateObject.cpp" />
     <ClCompile Include="PlatformTime.cpp" />
     <ClCompile Include="WorldPartitionManager.cpp" />
     <ClCompile Include="AllClassesRegistration.cpp" />
@@ -331,6 +333,8 @@
     <ClInclude Include="BVHierachy.h" />
     <ClInclude Include="MeshBVH.h" />
     <ClInclude Include="Occlusion.h" />
+    <ClInclude Include="PipelineStateManager.h" />
+    <ClInclude Include="PipelineStateObject.h" />
     <ClInclude Include="PlatformTime.h" />
     <ClInclude Include="WorldPartitionManager.h" />
     <ClInclude Include="AABoundingBoxComponent.h" />

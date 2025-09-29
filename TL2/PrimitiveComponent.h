@@ -23,6 +23,17 @@ public:
 
     virtual void Render(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) {}
 
+    void SetCulled(bool InCulled)
+    {
+        bIsCulled = InCulled;
+    }
+
+    bool GetCulled() const
+    {
+        return bIsCulled;
+    }
+
 protected:
     UMaterial* Material = nullptr;
+    bool bIsCulled = false;
 };

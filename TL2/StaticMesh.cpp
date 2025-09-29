@@ -50,6 +50,23 @@ void UStaticMesh::Load(FMeshData* InData, ID3D11Device* InDevice, EVertexLayoutT
     IndexCount = static_cast<uint32>(InData->Indices.size());
 }
 
+bool UStaticMesh::EraseUsingComponets(UStaticMeshComponent* InStaticMeshComponent)
+{
+    auto it = std::find(UsingComponents.begin(), UsingComponents.end(), InStaticMeshComponent);
+    if (it != UsingComponents.end())
+    {
+        UsingComponents.erase(it);
+        return true;
+    }
+    return false;
+}
+
+bool UStaticMesh::AddUsingComponents(UStaticMeshComponent* InStaticMeshComponent)
+{
+    UsingComponents.Add(InStaticMeshComponent);
+    return true;
+}
+
 void UStaticMesh::CreateVertexBuffer(FMeshData* InMeshData, ID3D11Device* InDevice, EVertexLayoutType InVertexType)
 {
     HRESULT hr;
