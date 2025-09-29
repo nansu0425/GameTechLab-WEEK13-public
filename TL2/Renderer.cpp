@@ -4,6 +4,7 @@
 #include "StaticMesh.h"
 #include "TextQuad.h"
 #include "StaticMeshComponent.h"
+#include <Windows.h>
 
 
 URenderer::URenderer(URHIDevice* InDevice) : RHIDevice(InDevice)
@@ -163,15 +164,30 @@ void URenderer::DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITI
         for (uint32 i = 0; i < NumMeshGroupInfos; ++i)
         {
             UMaterial* const Material = UResourceManager::GetInstance().Get<UMaterial>(InComponentMaterialSlots[i].MaterialName.ToString());
-            const FObjMaterialInfo& MaterialInfo = Material->GetMaterialInfo();
-            bool bHasTexture = !(MaterialInfo.DiffuseTextureFileName.empty());
-            if (bHasTexture)
+const FObjMaterialInfo& MaterialInfo = Material->GetMaterialInfo();
+            ID3D11ShaderResourceView* srv = nullptr;
+            bool bHasTexture = false;
+            if (!MaterialInfo.DiffuseTextureFileName.empty())
             {
-                FWideString WTextureFileName(MaterialInfo.DiffuseTextureFileName.begin(), MaterialInfo.DiffuseTextureFileName.end()); // 단순 ascii라고 가정
-                FTextureData* TextureData = UResourceManager::GetInstance().CreateOrGetTextureData(WTextureFileName);
-                RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &(TextureData->TextureSRV));
+                // UTF-8 -> UTF-16 변환 (Windows)
+                int needW = ::MultiByteToWideChar(CP_UTF8, 0, MaterialInfo.DiffuseTextureFileName.c_str(), -1, nullptr, 0);
+                std::wstring WTextureFileName;
+                if (needW > 0)
+                {
+                    WTextureFileName.resize(needW - 1);
+                    ::MultiByteToWideChar(CP_UTF8, 0, MaterialInfo.DiffuseTextureFileName.c_str(), -1, WTextureFileName.data(), needW);
+                }
+                if (FTextureData* TextureData = UResourceManager::GetInstance().CreateOrGetTextureData(WTextureFileName))
+                {
+                    if (TextureData->TextureSRV)
+                    {
+                        srv = TextureData->TextureSRV;
+                        bHasTexture = true;
+                    }
+                }
             }
-            RHIDevice->UpdatePixelConstantBuffers(MaterialInfo, true, bHasTexture); // PSSet도 해줌
+            RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &srv);
+            RHIDevice->UpdatePixelConstantBuffers(MaterialInfo, true, bHasTexture); // 성공 여부 기반
             
             RHIDevice->GetDeviceContext()->DrawIndexed(MeshGroupInfos[i].IndexCount, MeshGroupInfos[i].StartIndex, 0);
         }

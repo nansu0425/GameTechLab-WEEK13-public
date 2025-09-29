@@ -130,6 +130,29 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
             FWindowsBinReader MatReader(StemPath + "Mat.bin");
             Serialization::ReadArray<FObjMaterialInfo>(MatReader, MaterialInfos);
             MatReader.Close();
+
+            // 상대경로를 OBJ 디렉터리 기준 절대경로로 보정
+            std::filesystem::path baseDir = std::filesystem::path(StemPath).parent_path();
+            for (auto& mi : MaterialInfos)
+            {
+                auto fix = [&](std::string& s){
+                    if (s.empty()) return;
+                    std::filesystem::path p = std::filesystem::path(s);
+                    if (!p.is_absolute())
+                    {
+                        std::filesystem::path abs = baseDir / p;
+                        std::string norm = abs.string();
+                        std::replace(norm.begin(), norm.end(), '\\', '/');
+                        s = norm;
+                    }
+                };
+                fix(mi.DiffuseTextureFileName);
+                fix(mi.TransparencyTextureFileName);
+                fix(mi.AmbientTextureFileName);
+                fix(mi.SpecularTextureFileName);
+                fix(mi.SpecularExponentTextureFileName);
+                fix(mi.EmissiveTextureFileName);
+            }
         }  
     }
     else

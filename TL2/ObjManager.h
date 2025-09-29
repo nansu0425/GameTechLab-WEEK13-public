@@ -328,85 +328,43 @@ public:
 
                 OutMaterialInfos[MatCount - 1].IlluminationModel = static_cast<int32>(value);
             }
-            else if (line.rfind("map_Kd ", 0) == 0)
-            {
-                FString TextureFileName;
-                if (line.substr(7).rfind(objDir) != 0)
-                {
-                    TextureFileName = objDir + line.substr(7);
-                }
-                else
-                {
-                    TextureFileName = line.substr(7);
-                }
-                std::replace(TextureFileName.begin(), TextureFileName.end(), '\\', '/');
-                OutMaterialInfos[MatCount - 1].DiffuseTextureFileName = TextureFileName;
-            }
-            else if (line.rfind("map_d ", 0) == 0)
-            {
-                FString TextureFileName;
-                if (line.substr(7).rfind(objDir) != 0)
-                {
-                    TextureFileName = objDir + line.substr(7);
-                }
-                else
-                {
-                    TextureFileName = line.substr(7);
-                }
-                OutMaterialInfos[MatCount - 1].TransparencyTextureFileName = TextureFileName;
-            }
-            else if (line.rfind("map_Ka ", 0) == 0)
-            {
-                FString TextureFileName;
-                if (line.substr(7).rfind(objDir) != 0)
-                {
-                    TextureFileName = objDir + line.substr(7);
-                }
-                else
-                {
-                    TextureFileName = line.substr(7);
-                }
-                OutMaterialInfos[MatCount - 1].AmbientTextureFileName = TextureFileName;
-            }
-            else if (line.rfind("map_Ks ", 0) == 0)
-            {
-                FString TextureFileName;
-                if (line.substr(7).rfind(objDir) != 0)
-                {
-                    TextureFileName = objDir + line.substr(7);
-                }
-                else
-                {
-                    TextureFileName = line.substr(7);
-                }
-                OutMaterialInfos[MatCount - 1].SpecularTextureFileName = TextureFileName;
-            }
-            else if (line.rfind("map_Ns ", 0) == 0)
-            {
-                FString TextureFileName;
-                if (line.substr(7).rfind(objDir) != 0)
-                {
-                    TextureFileName = objDir + line.substr(7);
-                }
-                else
-                {
-                    TextureFileName = line.substr(7);
-                }
-                OutMaterialInfos[MatCount - 1].SpecularExponentTextureFileName = TextureFileName;
-            }
-            else if (line.rfind("map_Ke ", 0) == 0)
-            {
-                FString TextureFileName;
-                if (line.substr(7).rfind(objDir) != 0)
-                {
-                    TextureFileName = objDir + line.substr(7);
-                }
-                else
-                {
-                    TextureFileName = line.substr(7);
-                }
-                OutMaterialInfos[MatCount - 1].EmissiveTextureFileName = TextureFileName;
-            }
+else if (line.rfind("map_Kd ", 0) == 0)
+{
+    // 상대경로 그대로 저장 (배포 환경에서 OBJ 디렉터리 기준으로 절대화)
+    FString TextureRel = line.substr(7);
+    std::replace(TextureRel.begin(), TextureRel.end(), '\\', '/');
+    OutMaterialInfos[MatCount - 1].DiffuseTextureFileName = TextureRel;
+}
+else if (line.rfind("map_d ", 0) == 0)
+{
+    FString TextureRel = line.substr(7);
+    std::replace(TextureRel.begin(), TextureRel.end(), '\\', '/');
+    OutMaterialInfos[MatCount - 1].TransparencyTextureFileName = TextureRel;
+}
+else if (line.rfind("map_Ka ", 0) == 0)
+{
+    FString TextureRel = line.substr(7);
+    std::replace(TextureRel.begin(), TextureRel.end(), '\\', '/');
+    OutMaterialInfos[MatCount - 1].AmbientTextureFileName = TextureRel;
+}
+else if (line.rfind("map_Ks ", 0) == 0)
+{
+    FString TextureRel = line.substr(7);
+    std::replace(TextureRel.begin(), TextureRel.end(), '\\', '/');
+    OutMaterialInfos[MatCount - 1].SpecularTextureFileName = TextureRel;
+}
+else if (line.rfind("map_Ns ", 0) == 0)
+{
+    FString TextureRel = line.substr(7);
+    std::replace(TextureRel.begin(), TextureRel.end(), '\\', '/');
+    OutMaterialInfos[MatCount - 1].SpecularExponentTextureFileName = TextureRel;
+}
+else if (line.rfind("map_Ke ", 0) == 0)
+{
+    FString TextureRel = line.substr(7);
+    std::replace(TextureRel.begin(), TextureRel.end(), '\\', '/');
+    OutMaterialInfos[MatCount - 1].EmissiveTextureFileName = TextureRel;
+}
             else if (line.rfind("newmtl ", 0) == 0)
             {
                 FObjMaterialInfo TempMatInfo;

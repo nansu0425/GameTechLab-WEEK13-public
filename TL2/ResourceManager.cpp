@@ -7,6 +7,8 @@
 #include "TextQuad.h"
 #include "MeshBVH.h"
 #include "Enums.h"
+#include <filesystem>
+#include <cwctype>
 
 #define GRIDNUM 100
 #define AXISLENGTH 100
@@ -488,16 +490,20 @@ void UResourceManager::UpdateDynamicVertexBuffer(const FString& Name, TArray<FBi
 FTextureData* UResourceManager::CreateOrGetTextureData(const FWideString& FilePath)
 {
     auto it = TextureMap.find(FilePath);
-    if (it!=TextureMap.end())
+    if (it != TextureMap.end())
     {
         return it->second;
     }
 
     FTextureData* Data = new FTextureData();
 
-    const FWideString& FileExtension = FilePath.substr(FilePath.size() - 3);
-    HRESULT hr;
-    if (FileExtension == L"dds")
+    // 확장자 판별 (안전)
+    std::filesystem::path realPath(FilePath);
+    std::wstring ext = realPath.has_extension() ? realPath.extension().wstring() : L"";
+for (auto& ch : ext) ch = static_cast<wchar_t>(::towlower(ch));
+
+    HRESULT hr = E_FAIL;
+    if (ext == L".dds")
     {
         hr = DirectX::CreateDDSTextureFromFile(Device, FilePath.c_str(), &Data->Texture, &Data->TextureSRV, 0, nullptr);
     }
@@ -506,8 +512,39 @@ FTextureData* UResourceManager::CreateOrGetTextureData(const FWideString& FilePa
         hr = DirectX::CreateWICTextureFromFile(Device, Context, FilePath.c_str(), &Data->Texture, &Data->TextureSRV);
     }
 
-    D3D11_BLEND_DESC blendDesc;
-    ZeroMemory(&blendDesc, sizeof(blendDesc));
+    if (FAILED(hr) || Data->TextureSRV == nullptr)
+    {
+        // Fallback: Data 디렉토리 아래에서 파일명 일치 검색
+        std::filesystem::path fname = std::filesystem::path(FilePath).filename();
+        std::filesystem::path dataRoot = std::filesystem::absolute("Data");
+        bool retried = false;
+        try {
+            for (auto& entry : std::filesystem::recursive_directory_iterator(dataRoot))
+            {
+                if (!entry.is_regular_file()) continue;
+                if (entry.path().filename() == fname)
+                {
+                    retried = true;
+                    if (ext == L".dds")
+                        hr = DirectX::CreateDDSTextureFromFile(Device, entry.path().c_str(), &Data->Texture, &Data->TextureSRV, 0, nullptr);
+                    else
+                        hr = DirectX::CreateWICTextureFromFile(Device, Context, entry.path().c_str(), &Data->Texture, &Data->TextureSRV);
+                    if (SUCCEEDED(hr) && Data->TextureSRV) break;
+                }
+            }
+        } catch(...) {}
+
+        if (!retried || FAILED(hr) || Data->TextureSRV == nullptr)
+        {
+            if (Data->Texture) { Data->Texture->Release(); Data->Texture = nullptr; }
+            if (Data->BlendState) { Data->BlendState->Release(); Data->BlendState = nullptr; }
+            delete Data;
+            UE_LOG("CreateOrGetTextureData failed: %ls\r\n", FilePath.c_str());
+            return nullptr; // 실패 시 맵에 넣지 않음
+        }
+    }
+
+    D3D11_BLEND_DESC blendDesc{};
     blendDesc.RenderTarget[0].BlendEnable = TRUE;
     blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
     blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
@@ -517,12 +554,11 @@ FTextureData* UResourceManager::CreateOrGetTextureData(const FWideString& FilePa
     blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
     blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 
-    // 멤버 변수 m_pAlphaBlendState에 저장
-    hr = Device->CreateBlendState(&blendDesc, &Data->BlendState);
-    if (FAILED(hr))
+    if (FAILED(Device->CreateBlendState(&blendDesc, &Data->BlendState)))
     {
-
+        Data->BlendState = nullptr;
     }
+
     TextureMap[FilePath] = Data;
-    return TextureMap[FilePath];
+    return Data;
 }
