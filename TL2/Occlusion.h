@@ -10,6 +10,9 @@ struct FCandidateDrawable
     uint32_t ActorIndex;   // VisibleFlags 인덱스
     FBound   Bound;        // 월드 AABB (Min/Max)
     FMatrix  WorldViewProj;// 행벡터 기준 WVP
+    FMatrix  WorldView;    // ★ 추가: World-space * View  (여기서는 View만 주면 됨)
+    float    ZNear;        // ★ 추가
+    float    ZFar;         // ★ 추가
 };
 
 // 교체 (MaxZ 추가)
@@ -140,8 +143,8 @@ public:
             };
 
         // 샘플 밀도: 화면 픽셀 크기에 비례 (최대 5x5)
-        const int grid = ((MaxX01 - MinX01) * Width + (MaxY01 - MinY01) * Height > 80) ? 5 :
-            ((MaxX01 - MinX01) * Width + (MaxY01 - MinY01) * Height > 30) ? 4 : 3;
+        const int grid = ((MaxX01 - MinX01) * Width + (MaxY01 - MinY01) * Height > 60) ? 5 :
+            ((MaxX01 - MinX01) * Width + (MaxY01 - MinY01) * Height > 20) ? 4 : 3;
 
         float best = 0.0f; // MAX 피라미드이므로 최댓값을 모음
         for (int j = 0; j < grid; j++)
@@ -225,7 +228,7 @@ public:
     const FOcclusionGrid& GetGrid() const { return Grid; }
 
 private:
-    // AABB(Min/Max) → 화면 사각형 + MinZ (NDC Z 0..1 전제)
+    // AABB(Min/Max) → 화면 사각형 + MinZ (★이제 MinZ는 '선형 깊이 0..1')
     static bool ComputeRectAndMinZ(const FCandidateDrawable& D, int ViewW, int ViewH, FOcclusionRect& OutRect);
 
     // 행벡터: Out = In(1x4) * M(4x4)

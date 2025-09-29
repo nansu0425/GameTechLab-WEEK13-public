@@ -287,6 +287,7 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 {
 	int objCount = static_cast<int>(Actors.size());
 	int visibleCount = 0;
+	float zNear = 0.1f, zFar = 1000.f;
 	// 뷰포트의 실제 크기로 aspect ratio 계산
 	float ViewportAspectRatio = static_cast<float>(Viewport->GetSizeX()) / static_cast<float>(Viewport->GetSizeY());
 	if (Viewport->GetSizeY() == 0) ViewportAspectRatio = 1.0f; // 0으로 나누기 방지
@@ -299,6 +300,8 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 	if (CamComp = Camera->GetCameraComponent())
 	{
 		ViewFrustum = CreateFrustumFromCamera(*CamComp, ViewportAspectRatio);
+		zNear = CamComp->GetNearClip();
+		zFar = CamComp->GetFarClip();
 	}
 	if (!Renderer) return;
 
@@ -327,7 +330,8 @@ void UWorld::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 
 		// 2) 오클루더/오클루디 수집
 		TArray<FCandidateDrawable> Occluders, Occludees;
-		BuildCpuOcclusionSets(ViewFrustum, ViewMatrix, ProjectionMatrix, Occluders, Occludees);
+		BuildCpuOcclusionSets(ViewFrustum, ViewMatrix, ProjectionMatrix, zNear, zFar,
+			Occluders, Occludees);
 
 		// 3) 오클루더로 저해상도 깊이 빌드 + HZB
 		OcclusionCPU.BuildOccluderDepth(Occluders, Viewport->GetSizeX(), Viewport->GetSizeY());
@@ -1005,37 +1009,35 @@ void UWorld::UpdateOcclusionGridSizeForViewport(FViewport* Viewport)
 void UWorld::BuildCpuOcclusionSets(
 	const Frustum& ViewFrustum,
 	const FMatrix& View, const FMatrix& Proj,
+	float ZNear, float ZFar,                       // ★ 추가
 	TArray<FCandidateDrawable>& OutOccluders,
 	TArray<FCandidateDrawable>& OutOccludees)
 {
 	OutOccluders.clear();
 	OutOccludees.clear();
 
-	const FMatrix VP = View * Proj;
+	const FMatrix VP = View * Proj; // 행벡터: p_world * View * Proj
 
-	// 간단 정책:
-	//  - 화면 투영 면적이 큰 상위 물체를 오클루더로(보수적으로는 '모두'를 오클루더로 써도 됨)
-	//  - 본문은 모두 Occludee에 넣음
-	//  - 둘 다 동일 세트로 써도 동작 (속도-정확도는 씬에 맞춰 조절)
 	for (AActor* Actor : Actors)
 	{
 		if (!Actor) continue;
 		if (Actor->GetActorHiddenInGame()) continue;
-		if (Actor->GetCulled()) continue; // 프러스텀 제외
+		if (Actor->GetCulled()) continue;
 
 		AStaticMeshActor* SMA = Cast<AStaticMeshActor>(Actor);
 		if (!SMA) continue;
 
-		// 충돌/바운딩 박스 컴포넌트
 		UAABoundingBoxComponent* Box = Cast<UAABoundingBoxComponent>(SMA->CollisionComponent);
 		if (!Box) continue;
 
 		FCandidateDrawable C{};
-		C.ActorIndex = Actor->UUID;          // UUID로 직접 인덱싱
-		C.Bound = Box->GetWorldBound(); // Min/Max 보유
-		C.WorldViewProj = VP;
+		C.ActorIndex = Actor->UUID;
+		C.Bound = Box->GetWorldBound(); // world-space AABB
+		C.WorldViewProj = VP;                   // p_world * View * Proj
+		C.WorldView = View;                 // p_world * View → view-space
+		C.ZNear = ZNear;                // ★
+		C.ZFar = ZFar;                 // ★
 
-		// 간단히 모두를 양쪽에 다 넣자(먼저 전체 동작 확인 → 이후 Top-K 정책으로 최적화)
 		OutOccluders.push_back(C);
 		OutOccludees.push_back(C);
 	}

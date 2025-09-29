@@ -8,8 +8,8 @@ extern float CLIENTHEIGHT;
 UCameraComponent::UCameraComponent()
     : FieldOfView(60.0f)
     , AspectRatio(1.0f / 1.0f)
-    , NearClip(1.0f)
-    , FarClip(1000.0f)
+    , NearClip(0.1f)
+    , FarClip(100.0f)
     , ProjectionMode(ECameraProjectionMode::Perspective)
     , ZooMFactor(1.0f)
 

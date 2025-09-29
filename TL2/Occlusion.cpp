@@ -7,6 +7,13 @@
 // static inline float To01(float z_ndc) { return z_ndc * 0.5f + 0.5f; }
 static inline void Clamp01(float& v) { v = std::max(0.0f, std::min(1.0f, v)); }
 
+// 헬퍼: 뷰공간 Z → [0..1] 선형
+static inline float LinearizeZ01(float zView, float zNear, float zFar) {
+	// LH 기준, 카메라 앞 z가 + 방향일 때
+	float z = (zView - zNear) / (zFar - zNear);
+	return std::max(0.f, std::min(1.f, z));
+}
+
 // FBound(Min/Max) → 8코너
 static inline void MakeAabbCornersMinMax(const FBound& B, FVector Corners[8])
 {
@@ -29,46 +36,50 @@ bool FOcclusionCullingManagerCPU::ComputeRectAndMinZ(
 	MakeAabbCornersMinMax(D.Bound, C);
 
 	float MinX = +1e9f, MinY = +1e9f, MaxX = -1e9f, MaxY = -1e9f;
-	float MinZ = +1e9f, MaxZ = -1e9f;
+	float MinZLin = +1e9f, MaxZLin = -1e9f; // ★ 선형 깊이(0..1)
 
-	int used = 0;          // ★ 사용된 코너 수
+	int used = 0;
 	for (int i = 0; i < 8; i++)
 	{
-		const float p[4] = { C[i].X,C[i].Y,C[i].Z,1.0f };
+		const float p[4] = { C[i].X, C[i].Y, C[i].Z, 1.0f };
+
+		// 1) 화면 사각형용: WVP → NDC
 		float c[4];
 		MulPointRow(p, D.WorldViewProj, c);
-
-		if (c[3] <= 0.0f)  // ★ 카메라 뒤면 제외
-			continue;
+		if (c[3] <= 0.0f) continue;
 
 		const float invW = 1.0f / c[3];
-		float ndcX = c[0] * invW; // -1..1
-		float ndcY = c[1] * invW; // -1..1
-		float ndcZ = c[2] * invW; // D3D면 0..1, GL식이면 To01 적용
+		const float ndcX = c[0] * invW;  // -1..1
+		const float ndcY = c[1] * invW;  // -1..1
+		// const float ndcZ = c[2] * invW; // 깊이는 쓰지 않음
 
-		// ndcZ = To01(ndcZ); // GL식이면 켜기
-
-		float u = 0.5f * (ndcX + 1.0f);
-		float v = 0.5f * (ndcY + 1.0f);
+		const float u = 0.5f * (ndcX + 1.0f);
+		const float v = 0.5f * (ndcY + 1.0f);
 
 		MinX = std::min(MinX, u); MinY = std::min(MinY, v);
 		MaxX = std::max(MaxX, u); MaxY = std::max(MaxY, v);
-		MinZ = std::min(MinZ, ndcZ);
-		MaxZ = std::max(MaxZ, ndcZ);
+
+		// 2) 깊이: WorldView로 뷰 공간 z → 선형 0..1
+		float v4[4];
+		MulPointRow(p, D.WorldView, v4);     // p_world * (World*View) == p_world * View (월드좌표니까 View만 와도 OK)
+		const float zView = v4[2];          // LH: +Z 앞
+		const float zLin01 = LinearizeZ01(zView, D.ZNear, D.ZFar);
+
+		MinZLin = std::min(MinZLin, zLin01);
+		MaxZLin = std::max(MaxZLin, zLin01);
+
 		used++;
 	}
 
-	if (used == 0) return false; // ★ 전부 w<=0 → 스킵
-
-	// 화면 밖 완전 스킵 (원래 로직 유지)
-	if (MaxX < 0 || MaxY < 0 || MinX > 1 || MinY > 1)
-		return false;
+	if (used == 0) return false;
+	if (MaxX < 0 || MaxY < 0 || MinX > 1 || MinY > 1) return false;
 
 	Clamp01(MinX); Clamp01(MinY); Clamp01(MaxX); Clamp01(MaxY);
-	Clamp01(MinZ); Clamp01(MaxZ);
+	Clamp01(MinZLin); Clamp01(MaxZLin);
 
 	OutR.MinX = MinX; OutR.MinY = MinY; OutR.MaxX = MaxX; OutR.MaxY = MaxY;
-	OutR.MinZ = MinZ; OutR.MaxZ = MaxZ;
+	OutR.MinZ = MinZLin;   // ★ 선형 깊이
+	OutR.MaxZ = MaxZLin;
 	OutR.ActorIndex = D.ActorIndex;
 	return true;
 }
@@ -103,9 +114,6 @@ void FOcclusionCullingManagerCPU::BuildOccluderDepth(
 // 2) 후보 가시성 판정(HZB 샘플)
 void FOcclusionCullingManagerCPU::TestOcclusion(const TArray<FCandidateDrawable>& Candidates, int ViewW, int ViewH, TArray<uint8_t>& OutVisibleFlags)
 {
-	const float eps = 2e-3f;  // 1차 바이어스
-	const float eps2 = 4e-3f;  // 레벨0 재검증 바이어스(조금 더 큼)
-
 	// --- 크기 보장 ---
 	uint32_t maxId = 0;
 	for (auto& c : Candidates) maxId = std::max(maxId, c.ActorIndex);
@@ -137,19 +145,31 @@ void FOcclusionCullingManagerCPU::TestOcclusion(const TArray<FCandidateDrawable>
 		const float pxH = rh * ViewH;
 
 		// --- 작은 사각형 가드: 한 변이라도 2px 미만이면 컬링하지 않음 ---
-		//if (std::min(pxW, pxH) < 2.0f)
-		//{
-		//	OutVisibleFlags[id] = 1;
-		//	VisibleStreak[id] = std::min<uint8_t>(255, VisibleStreak[id] + 1);
-		//	OccludedStreak[id] = 0;
-		//	LastState[id] = 1;
-		//	continue;
-		//}
+		if (std::min(pxW, pxH) < 2.0f)
+		{
+			OutVisibleFlags[id] = 1;
+			VisibleStreak[id] = std::min<uint8_t>(255, VisibleStreak[id] + 1);
+			OccludedStreak[id] = 0;
+			LastState[id] = 1;
+			continue;
+		}
 
 		// --- 보수적 mip 선택 ---
 		int mip = std::max(0, Grid.ChooseMip(rw, rh) - 1);
 		if (pxW < 24.0f || pxH < 24.0f)
 			mip = std::max(0, mip - 1);
+
+		// ★★★ 가변 eps 계산 (mip/화면크기/거리 기반)
+	    // 튜닝 상수
+		const float kBase = 1.0e-3f;   // 기본 바이어스
+		const float kPerMip = 7.5e-4f;   // mip 하나 올라갈 때마다 가산
+		const float kPerPxMax = 1.0e-5f;   // 화면상 큰 변(px)에 비례 가산
+		const float kPerDepth = 2.5e-3f;   // 선형 깊이(R.MinZ: 0..1)에 비례 가산
+
+		const float pxMax = std::max(pxW, pxH);
+		float eps = kBase + kPerMip * float(mip) + kPerPxMax * pxMax + kPerDepth * R.MinZ;
+		eps = std::min(eps, 2.0e-2f);  // 상한 클램프 (과도한 바이어스 방지)
+		float eps2 = std::min(eps * 2.0f, 4.0e-2f); // 레벨0 재검증은 조금 더 큼
 
 		// --- MAX HZB 적응형 샘플 ---
 		const float hzbMax = Grid.SampleMaxRectAdaptive(R.MinX, R.MinY, R.MaxX, R.MaxY, mip);
@@ -157,11 +177,11 @@ void FOcclusionCullingManagerCPU::TestOcclusion(const TArray<FCandidateDrawable>
 		bool occluded = ((hzbMax + eps) <= R.MinZ);
 
 		// --- 레벨0 정밀 재검증(occluded일 때만) ---
-		//if (occluded)
-		//{
-		//	if (!Grid.FullyOccludedAtLevel0(R.MinX, R.MinY, R.MaxX, R.MaxY, R.MinZ, eps2))
-		//		occluded = false;
-		//}
+		if (occluded)
+		{
+			if (!Grid.FullyOccludedAtLevel0(R.MinX, R.MinY, R.MaxX, R.MaxY, R.MinZ, eps2))
+				occluded = false;
+		}
 
 		// --- 양방향 히스테리시스(2~3프레임 연속일 때만 상태 전환) ---
 		const int thresh = 2; // 2~3 추천

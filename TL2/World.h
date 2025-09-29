@@ -185,6 +185,7 @@ private:
     void BuildCpuOcclusionSets(
         const Frustum& ViewFrustum,
         const FMatrix& View, const FMatrix& Proj,
+        float ZNear, float ZFar,                       // ★ 추가
         TArray<FCandidateDrawable>& OutOccluders,
         TArray<FCandidateDrawable>& OutOccludees);
    
