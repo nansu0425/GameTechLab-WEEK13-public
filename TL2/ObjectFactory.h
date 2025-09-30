@@ -38,7 +38,7 @@ namespace ObjectFactory
     template<class T>
     inline T* DuplicateObject(UObject* Source)
     {
-        T* Dest = new T(*Source);
+        UObject* Dest = new T(*Source);
         return static_cast<T*>(AddToGUObjectArray(T::StaticClass(), Dest));
     }
 

@@ -73,6 +73,11 @@ public:
     // UUID 발급기: 현재 카운터를 반환하고 1 증가
     static uint32 GenerateUUID() { return GUUIDCounter++; }
 
+    // ───── 복사 관련 ────────────────────────────
+    virtual void DuplicateSubObjects();
+    virtual UObject* Duplicate();
+
+
 private:
     // 전역 UUID 카운터(초기값 1)
     inline static uint32 GUUIDCounter = 1;
