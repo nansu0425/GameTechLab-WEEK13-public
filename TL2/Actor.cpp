@@ -245,3 +245,13 @@ void AActor::AddComponent(USceneComponent* Component)
 
 	// Registration is handled at actor spawn time; no per-component registration needed here.
 }
+void AActor::RemoveComponent(USceneComponent* Component)
+{
+	if (!Component || Component == RootComponent)
+		return;
+
+	Components.Remove(Component);
+	Component->DetachFromParent(true);
+	ObjectFactory::DeleteObject(Component);
+	MarkPartitionDirty();
+}
