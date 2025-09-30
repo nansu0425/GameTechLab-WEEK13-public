@@ -114,6 +114,9 @@
     <ClCompile Include="main.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="EditorEngine.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
     <ClCompile Include="WorldPartitionManager.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
@@ -681,6 +684,9 @@
     </ClInclude>
     <ClInclude Include="FViewport.h">
       <Filter>소스 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="EditorEngine.h">
+      <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="FViewportClient.h">
       <Filter>헤더 파일</Filter>

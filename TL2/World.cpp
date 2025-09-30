@@ -67,7 +67,6 @@ void UWorld::Initialize()
 	InitializeGizmo();
 }
 
-
 void UWorld::InitializeGrid()
 {
 	GridActor = NewObject<AGridActor>();
@@ -86,6 +85,7 @@ void UWorld::InitializeGizmo()
 
 	UI.SetGizmoActor(GizmoActor);
 }
+
 void UWorld::SetRenderer(URenderer* InRenderer)
 {
 	Renderer = InRenderer;

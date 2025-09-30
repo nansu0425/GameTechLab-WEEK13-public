@@ -34,9 +34,6 @@ public:
     ~UWorld() override;
     static UWorld& GetInstance();
 
-protected:
-
-
 public:
     /** 초기화 */
     void Initialize();
