@@ -37,6 +37,10 @@ public:
     }
     AActor* GetOwner() const { return Owner; }
 
+    // ───── 복사 관련 ────────────────────────────
+    void DuplicateSubObjects() override;
+    DECLARE_DUPLICATE(UActorComponent)
+
 protected:
     AActor* Owner = nullptr;  // 자신을 보유한 액터
     bool bIsActive = true;    // 활성 상태
