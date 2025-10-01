@@ -5,7 +5,8 @@ class URenderer;
 class D3D11RHI;
 class UWorld;
 
-class UEditorEngine final {
+class UEditorEngine final 
+{
 public:
     UEditorEngine();
     ~UEditorEngine();
@@ -51,7 +52,3 @@ private:
     static float ClientWidth;
     static float ClientHeight;
 };
-
-#ifdef _EDITOR
-extern UEditorEngine GEngine;
-#endif

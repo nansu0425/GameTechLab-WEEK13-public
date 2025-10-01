@@ -36,7 +36,6 @@ public:
 
 public:
     /** 초기화 */
-    void Initialize();
     void InitializeGrid();
     void InitializeGizmo();
 
@@ -68,7 +67,7 @@ public:
     /** === 필요한 엑터 게터 === */
     const TArray<AActor*>& GetActors() { return Actors; }
     const TArray<AActor*>& GetEditorActors() { return EditorActors; }
-    AGizmoActor* GetGizmoActor();
+    AGizmoActor* GetGizmoActor() { return GizmoActor; }
     AGridActor* GetGridActor() { return GridActor; }
     UWorldPartitionManager* GetPartitionManager() { return Partition.get(); }
 

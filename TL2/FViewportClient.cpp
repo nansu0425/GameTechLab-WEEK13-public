@@ -16,7 +16,6 @@ FViewportClient::FViewportClient()
 {
     ViewportType = EViewportType::Perspective;
     // 직교 뷰별 기본 카메라 설정
-    extern UEditorEngine GEngine;
     Camera = NewObject<ACameraActor>();
     SetupCameraMode();
 }

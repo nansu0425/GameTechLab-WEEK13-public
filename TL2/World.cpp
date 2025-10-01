@@ -28,6 +28,11 @@
 UWorld::UWorld()
 	: Partition(new UWorldPartitionManager())
 {
+	FObjManager::Preload();
+	CreateNewScene();
+
+	InitializeGrid();
+	InitializeGizmo();
 }
 
 UWorld::~UWorld()
@@ -37,19 +42,14 @@ UWorld::~UWorld()
 		ObjectFactory::DeleteObject(Actor);
 	}
 	Actors.clear();
+	for (AActor* Actor : EditorActors)
+	{
+		ObjectFactory::DeleteObject(Actor);
+	}
+	EditorActors.clear();
 
-	// Grid 정리 
-	ObjectFactory::DeleteObject(GridActor);
 	GridActor = nullptr;
-}
-
-void UWorld::Initialize()
-{
-	FObjManager::Preload();
-	CreateNewScene();
-
-	InitializeGrid();
-	InitializeGizmo();
+	GizmoActor = nullptr;
 }
 
 void UWorld::InitializeGrid()
@@ -407,10 +407,5 @@ void UWorld::SaveScene(const FString& SceneName)
 
     // Scene 디렉터리에 저장
     FSceneLoader::Save(Primitives, CamPtr, SceneName);
-}
-
-AGizmoActor* UWorld::GetGizmoActor()
-{
-	return GizmoActor;
 }
 

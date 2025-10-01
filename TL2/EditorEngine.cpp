@@ -6,10 +6,6 @@
 float UEditorEngine::ClientWidth = 1024.0f;
 float UEditorEngine::ClientHeight = 1024.0f;
 
-#ifdef _EDITOR
-UEditorEngine GEngine;
-#endif
-
 static void LoadIniFile()
 {
     std::ifstream infile("editor.ini");
@@ -167,7 +163,6 @@ bool UEditorEngine::Startup(HINSTANCE hInstance)
     ///////////////////////////////////
     //@TODO 월드 수정 필
     World = NewObject<UWorld>();
-    World->Initialize();
     ///////////////////////////////////
 
 

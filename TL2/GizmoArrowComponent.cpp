@@ -52,7 +52,6 @@ void UGizmoArrowComponent::Render(URenderer* Renderer, const FMatrix& View, cons
     if (!IsActive()) return;
 
     // 모드/상태 적용(오버레이)
-    extern UEditorEngine GEngine;
     auto& RS = GEngine.GetDefaultWorld()->GetRenderSettings();
     EViewModeIndex saved = RS.GetViewModeIndex();
     Renderer->SetViewModeType(EViewModeIndex::VMI_Unlit);

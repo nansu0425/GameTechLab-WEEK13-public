@@ -1,5 +1,8 @@
 ﻿#pragma once
 
+//CUR ENGINE MODE
+#define _EDITOR
+
 // Linker
 #pragma comment(lib, "user32")
 #pragma comment(lib, "d3d11")
@@ -76,7 +79,15 @@
 //@TODO Partition Manager 싱글톤 배제 (월드 별 소유)
 //#define PARTITION UWorldPartitionManager::GetInstance()
 
-//CUR ENGINE MODE
-#define _EDITOR
-
 extern TMap<FString, FString> EditorINI;
+
+//Editor
+#include "EditorEngine.h"
+
+#ifdef _EDITOR
+extern UEditorEngine GEngine;
+#endif
+
+#ifdef _GAME
+extern UGameEngine GEngine;
+#endif

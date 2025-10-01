@@ -56,7 +56,6 @@ void URenderManager::Render(UWorld* InWorld, FViewport* Viewport)
 	//엔진 접근 수정
 	if (!Renderer)
 	{
-		extern UEditorEngine GEngine;
 		Renderer = GEngine.GetRenderer();
 	}
 
