@@ -103,7 +103,13 @@ void URenderManager::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 	Renderer->BeginLineBatch();
 
 	// === Draw Actors with Show Flag checks ===
-	Renderer->SetViewModeType(World->GetRenderSettings().GetViewModeIndex());
+	// Compute effective view mode with ShowFlag override for wireframe
+	EViewModeIndex EffectiveViewMode = World->GetRenderSettings().GetViewModeIndex();
+	if (World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Wireframe))
+	{
+		EffectiveViewMode = EViewModeIndex::VMI_Wireframe;
+	}
+	Renderer->SetViewModeType(EffectiveViewMode);
 
 	// ============ Culling Logic Dispatch ========= //
 	//for (AActor* Actor : World->GetActors())
@@ -180,7 +186,7 @@ void URenderManager::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 						// Actor가 textCmp도 가지고 있고, bounding box도 가지고 있고,
 						// TODO: StaticMeshComp이면 분기해서, 어떤 sorting 자료구조에 넣고 나중에 렌더링 ㄱ?
 						// StatcMeshCmp면 이것의 dirtyflag를 보고, dirtyflag가 true면 tree탐색(이미 바꼇는데 그거 기반으로 어떻게 탐색해?)으로 state tree의 해당 cmp를 다른 곳으로 옮기기
-						Renderer->SetViewModeType(World->GetRenderSettings().GetViewModeIndex());
+						Renderer->SetViewModeType(EffectiveViewMode);
 						Primitive->Render(Renderer, ViewMatrix, ProjectionMatrix);
 						Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
 
@@ -306,7 +312,7 @@ void URenderManager::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 				continue;
 			if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
 			{
-				Renderer->SetViewModeType(World->GetRenderSettings().GetViewModeIndex());
+				Renderer->SetViewModeType(EffectiveViewMode);
 				Primitive->Render(Renderer, ViewMatrix, ProjectionMatrix);
 				Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
 			}

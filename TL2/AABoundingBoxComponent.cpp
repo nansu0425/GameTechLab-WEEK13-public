@@ -38,14 +38,16 @@ void UAABoundingBoxComponent::SetFromVertices(const TArray<FNormalVertex>& Verts
 
 void UAABoundingBoxComponent::Render(URenderer* Renderer, const FMatrix& ViewMatrix, const FMatrix& ProjectionMatrix)
 {
-    if (GetOwner() && GetOwner()->GetWorld() &&
-        GetOwner()->GetWorld()->GetSelectionManager()->GetSelectedActor() == GetOwner())
+    UWorld* World = GetOwner() ? GetOwner()->GetWorld() : nullptr;
+    const bool bShowBounds = World && World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_BoundingBoxes);
+    const bool bSelected = (World && World->GetSelectionManager()->GetSelectedActor() == GetOwner());
+
+    if (bShowBounds && bSelected)
     {
         TArray<FVector> Start;
         TArray<FVector> End;
         TArray<FVector4> Color;
 
-        // FBound WorldBound = GetWorldBoundFromCube();
         // Arvo 방식으로 월드 AABB
         FBound WorldBound = GetWorldBound();
         CreateLineData(WorldBound.Min, WorldBound.Max, Start, End, Color);
