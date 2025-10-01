@@ -25,9 +25,6 @@
 #include "StaticMeshComponent.h"
 #include "Frustum.h"
 
-extern float CLIENTWIDTH;
-extern float CLIENTHEIGHT;
-
 UWorld& UWorld::GetInstance()
 {
 	static UWorld* Instance = nullptr;
@@ -81,7 +78,7 @@ void UWorld::InitializeGizmo()
 	GizmoActor->SetActorTransform(FTransform(FVector{ 0, 0, 0 }, FQuat::MakeFromEuler(FVector{ 0, -90, 0 }),
 		FVector{ 1, 1, 1 }));
 
-	UI.SetGizmoActor(GizmoActor);
+	EditorActors.push_back(GizmoActor);
 }
 
 void UWorld::Tick(float DeltaSeconds)
@@ -97,7 +94,6 @@ void UWorld::Tick(float DeltaSeconds)
 	{
 		if (EngineActor) EngineActor->Tick(DeltaSeconds);
 	}
-	GizmoActor->Tick(DeltaSeconds);
 }
 
 float UWorld::GetTimeSeconds() const

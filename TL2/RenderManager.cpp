@@ -83,6 +83,9 @@ void URenderManager::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 	float ViewportAspectRatio = static_cast<float>(Viewport->GetSizeX()) / static_cast<float>(Viewport->GetSizeY());
 	if (Viewport->GetSizeY() == 0) ViewportAspectRatio = 1.0f; // 0으로 나누기 방지
 
+	// Provide per-viewport size to renderer (used by overlay/gizmo scaling)
+	Renderer->SetCurrentViewportSize(Viewport->GetSizeX(), Viewport->GetSizeY());
+
 	FMatrix ViewMatrix = Camera->GetViewMatrix();
 	FMatrix ProjectionMatrix = Camera->GetProjectionMatrix(ViewportAspectRatio, Viewport);
 
@@ -287,46 +290,6 @@ void URenderManager::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 		}
 
 	}
-	// 엔진 액터들 (그리드 등)
-	for (AActor* EngineActor : World->GetEditorActors())
-	{
-		if (!EngineActor)
-		{
-			continue;
-		}
-		if (EngineActor->GetActorHiddenInGame())
-		{
-			continue;
-		}
-
-		if (Cast<AGridActor>(EngineActor) && !World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Grid))
-		{
-			continue;
-		}
-
-		for (USceneComponent* Component : EngineActor->GetComponents())
-		{
-			if (!Component)
-			{
-				continue;
-			}
-			if (UActorComponent* ActorComp = Cast<UActorComponent>(Component))
-			{
-				if (!ActorComp->IsActive())
-				{
-					continue;
-				}
-			}
-
-			if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
-			{
-				Renderer->SetViewModeType(World->GetRenderSettings().GetViewModeIndex());
-				Primitive->Render(Renderer, ViewMatrix, ProjectionMatrix);
-				Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
-			}
-		}
-		Renderer->OMSetBlendState(false);
-	}
 
 	for (AActor* SelectedActor : SELECTION.GetSelectedActors())
 	{
@@ -358,6 +321,29 @@ void URenderManager::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 		}
 	}
 
+	// 엔진 액터들 (그리드 등)
+	for (AActor* EngineActor : World->GetEditorActors())
+	{
+		if (!EngineActor || EngineActor->GetActorHiddenInGame())
+			continue;
+
+		if (Cast<AGridActor>(EngineActor) && !World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Grid))
+			continue;
+
+		for (USceneComponent* Component : EngineActor->GetComponents())
+		{
+			if (!Component || !Component->IsActive())
+				continue;
+			if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
+			{
+				Renderer->SetViewModeType(World->GetRenderSettings().GetViewModeIndex());
+				Primitive->Render(Renderer, ViewMatrix, ProjectionMatrix);
+				Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+			}
+		}
+		Renderer->OMSetBlendState(false);
+	}
+
 	// Debug draw (exclusive: BVH first, else Octree)
 	if (World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_BVHDebug) &&
 		World->GetPartitionManager())
@@ -378,8 +364,7 @@ void URenderManager::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 
 	Renderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
 
-	//기즈모 렌더
-	World->GetGizmoActor()->Render(Camera, Viewport);
+	// 기즈모는 각 컴포넌트의 Render 오버라이드를 통해 일반 경로로 렌더됩니다.
 
 	Renderer->UpdateHighLightConstantBuffer(false, rgb, 0, 0, 0, 0);
 	if (World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Culling))

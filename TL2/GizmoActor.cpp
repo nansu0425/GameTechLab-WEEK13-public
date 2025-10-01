@@ -38,9 +38,9 @@ AGizmoActor::AGizmoActor()
 	ArrowY->SetupAttachment(RootComponent);
 	ArrowZ->SetupAttachment(RootComponent);
 
-	ArrowX->SetRelativeScale({ 1, 1, 3 });
-	ArrowY->SetRelativeScale({ 1, 1, 3 });
-	ArrowZ->SetRelativeScale({ 1, 1, 3 });
+	ArrowX->SetDefaultScale({ 1, 1, 3 });
+	ArrowY->SetDefaultScale({ 1, 1, 3 });
+	ArrowZ->SetDefaultScale({ 1, 1, 3 });
 
 	if (ArrowX) ArrowX->SetRelativeRotation(FQuat::MakeFromEuler(FVector(0, 0, 0)));
 	if (ArrowY) ArrowY->SetRelativeRotation(FQuat::MakeFromEuler(FVector(0, 0, 90)));
@@ -71,9 +71,9 @@ AGizmoActor::AGizmoActor()
 	RotateY->SetupAttachment(RootComponent);
 	RotateZ->SetupAttachment(RootComponent);
 
-	RotateX->SetRelativeScale({ 0.02f, 0.02f, 0.02f });
-	RotateY->SetRelativeScale({ 0.02f, 0.02f, 0.02f });
-	RotateZ->SetRelativeScale({ 0.02f, 0.02f, 0.02f });
+	RotateX->SetDefaultScale({ 0.03f, 0.03f, 0.03f });
+	RotateY->SetDefaultScale({ 0.03f, 0.03f, 0.03f });
+	RotateZ->SetDefaultScale({ 0.03f, 0.03f, 0.03f });
 
 	AddComponent(RotateX);
 	AddComponent(RotateY);
@@ -103,9 +103,9 @@ AGizmoActor::AGizmoActor()
 	ScaleY->SetupAttachment(RootComponent);
 	ScaleZ->SetupAttachment(RootComponent);
 
-	ScaleX->SetRelativeScale({ 0.02f, 0.02f, 0.02f });
-	ScaleY->SetRelativeScale({ 0.02f, 0.02f, 0.02f });
-	ScaleZ->SetRelativeScale({ 0.02f, 0.02f, 0.02f });
+	ScaleX->SetDefaultScale({ 0.03f, 0.03f, 0.03f });
+	ScaleY->SetDefaultScale({ 0.03f, 0.03f, 0.03f });
+	ScaleZ->SetDefaultScale({ 0.03f, 0.03f, 0.03f });
 
 	if (ScaleX) ScaleX->SetRelativeRotation(FQuat::MakeFromEuler(FVector(0, 90, 0)));
 	if (ScaleY) ScaleY->SetRelativeRotation(FQuat::MakeFromEuler(FVector(-90, 0, 0)));
@@ -149,80 +149,6 @@ void AGizmoActor::Tick(float DeltaSeconds)
 		TargetActor = nullptr;
 	}
 	UpdateComponentVisibility();
-}
-
-void AGizmoActor::Render(ACameraActor* Camera, FViewport* Viewport)
-{
-	UpdateConstantScreenScale(Camera, Viewport);
-
-	TArray<USceneComponent*>* Components = GetGizmoComponents();
-	if (!Components) return;
-
-
-	float ViewportAspectRatio = static_cast<float>(Viewport->GetSizeX()) / static_cast<float>(Viewport->GetSizeY());
-	if (Viewport->GetSizeY() == 0) ViewportAspectRatio = 1.0f; // 0으로 나누기 방지
-
-	EViewModeIndex ViewModeIndex = World->GetRenderSettings().GetViewModeIndex();
-
-
-	//@TODO 기즈모 액터에서 렌더러 접근 수정 필요
-	extern UEditorEngine GEngine;
-	URenderer* Renderer = GEngine.GetRenderer();
-
-
-	if (!SELECTION.HasSelection()) return;
-	FMatrix ViewMatrix = Camera->GetViewMatrix();
-	FMatrix ProjectionMatrix = Camera->GetProjectionMatrix(ViewportAspectRatio, Viewport);
-	FMatrix ModelMatrix;
-	FVector rgb(1.0f, 1.0f, 1.0f);
-	FVector2D ViewportSize(static_cast<float>(Viewport->GetSizeX()), static_cast<float>(Viewport->GetSizeY()));
-	FVector2D ViewportOffset(static_cast<float>(Viewport->GetStartX()), static_cast<float>(Viewport->GetStartY()));
-	FVector2D ViewportMousePos(static_cast<float>(UInputManager::GetInstance().GetMousePosition().X) + ViewportOffset.X,
-		static_cast<float>(UInputManager::GetInstance().GetMousePosition().Y) + ViewportOffset.Y);
-
-
-
-	for (int32 i = 0; i < Components->Num(); ++i)
-	{
-		USceneComponent* Component = (*Components)[i];
-		if (!Component) continue;
-		// 컴포넌트 활성 상태 확인
-		if (UActorComponent* ActorComp = Cast<UActorComponent>(Component))
-		{
-			if (!ActorComp->IsActive()) continue;
-		}
-
-		ModelMatrix = Component->GetWorldMatrix();
-		Renderer->UpdateConstantBuffer(ModelMatrix, ViewMatrix, ProjectionMatrix);
-
-
-		if (GizmoAxis == i + 1)
-		{
-			Renderer->UpdateHighLightConstantBuffer(true, rgb, i + 1, 1, 0, 1);
-		}
-		else
-		{
-			Renderer->UpdateHighLightConstantBuffer(true, rgb, i + 1, 0, 0, 1);
-		}
-
-
-		if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
-		{
-			Renderer->SetViewModeType(EViewModeIndex::VMI_Unlit);
-			Renderer->OMSetDepthStencilState(EComparisonFunc::Always);
-			Renderer->OMSetBlendState(true); // 필요 시
-
-			Primitive->Render(Renderer, ViewMatrix, ProjectionMatrix);
-			// 상태 복구
-			Renderer->OMSetBlendState(false);
-			Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
-			Renderer->SetViewModeType(ViewModeIndex);
-		}
-	}
-	//Renderer->UpdateHighLightConstantBuffer(false, rgb, 0, 0, 0, 0);
-
-	// 알파 블랜딩을 위한 blendstate
-	Renderer->OMSetBlendState(true);
 }
 
 AGizmoActor::~AGizmoActor()
@@ -608,9 +534,6 @@ void AGizmoActor::ProcessGizmoInteraction(ACameraActor* Camera, FViewport* Viewp
 {
 	if (!TargetActor || !Camera) return;
 
-
-	UpdateConstantScreenScale(Camera, Viewport);
-
 	ProcessGizmoModeSwitch();
 
 	// 기즈모 드래그
@@ -683,52 +606,21 @@ void AGizmoActor::UpdateComponentVisibility()
 
 	// Arrow Components (Translate 모드)
 	bool bShowArrows = bHasSelection && (CurrentMode == EGizmoMode::Translate);
-	if (ArrowX) ArrowX->SetActive(bShowArrows);
-	if (ArrowY) ArrowY->SetActive(bShowArrows);
-	if (ArrowZ) ArrowZ->SetActive(bShowArrows);
+	if (ArrowX) { ArrowX->SetActive(bShowArrows); ArrowX->SetHighlighted(GizmoAxis == 1, 1); }
+	if (ArrowY) { ArrowY->SetActive(bShowArrows); ArrowY->SetHighlighted(GizmoAxis == 2, 2); }
+	if (ArrowZ) { ArrowZ->SetActive(bShowArrows); ArrowZ->SetHighlighted(GizmoAxis == 3, 3); }
 
 	// Rotate Components (Rotate 모드)
 	bool bShowRotates = bHasSelection && (CurrentMode == EGizmoMode::Rotate);
-	if (RotateX) RotateX->SetActive(bShowRotates);
-	if (RotateY) RotateY->SetActive(bShowRotates);
-	if (RotateZ) RotateZ->SetActive(bShowRotates);
+	if (RotateX) { RotateX->SetActive(bShowRotates); RotateX->SetHighlighted(GizmoAxis == 1, 1); }
+	if (RotateY) { RotateY->SetActive(bShowRotates); RotateY->SetHighlighted(GizmoAxis == 2, 2); }
+	if (RotateZ) { RotateZ->SetActive(bShowRotates); RotateZ->SetHighlighted(GizmoAxis == 3, 3); }
 
 	// Scale Components (Scale 모드)
 	bool bShowScales = bHasSelection && (CurrentMode == EGizmoMode::Scale);
-	if (ScaleX) ScaleX->SetActive(bShowScales);
-	if (ScaleY) ScaleY->SetActive(bShowScales);
-	if (ScaleZ) ScaleZ->SetActive(bShowScales);
-}
-
-void AGizmoActor::UpdateConstantScreenScale(ACameraActor* Camera, FViewport* Viewport)
-{
-	if (!Camera || !Viewport) return;
-	float h = static_cast<float>(Viewport->GetSizeY());
-	if (h <= 0.0f) h = 1.0f;
-	float w = static_cast<float>(Viewport->GetSizeX());
-	float aspect = w / h;
-	FMatrix Proj = Camera->GetProjectionMatrix(aspect, Viewport);
-	bool bOrtho = std::fabs(Proj.M[3][3] - 1.0f) < KINDA_SMALL_NUMBER;
-	float targetPx = 30.0f;
-	float scale = 1.0f;
-	if (bOrtho)
-	{
-		float halfH = 1.0f / Proj.M[1][1];
-		scale = (targetPx * 2.0f * halfH) / h;
-	}
-	else
-	{
-		float yScale = Proj.M[1][1];
-		FVector camPos = Camera->GetActorLocation();
-		FVector gizPos = GetActorLocation();
-		FVector camF = Camera->GetForward();
-		float z = FVector::Dot(gizPos - camPos, camF);
-		if (z < 1.0f) z = 1.0f;
-		scale = (targetPx * 2.0f * z) / (h * yScale);
-	}
-	if (scale < 0.001f) scale = 0.001f;
-	if (scale > 10000.0f) scale = 10000.0f;
-	SetActorScale(FVector(scale, scale, scale));
+	if (ScaleX) { ScaleX->SetActive(bShowScales); ScaleX->SetHighlighted(GizmoAxis == 1, 1); }
+	if (ScaleY) { ScaleY->SetActive(bShowScales); ScaleY->SetHighlighted(GizmoAxis == 2, 2); }
+	if (ScaleZ) { ScaleZ->SetActive(bShowScales); ScaleZ->SetHighlighted(GizmoAxis == 3, 3); }
 }
 
 void AGizmoActor::OnDrag(AActor* Target, uint32 GizmoAxis, float MouseDeltaX, float MouseDeltaY, const ACameraActor* Camera)
