@@ -92,3 +92,5 @@ extern UEditorEngine GEngine;
 #ifdef _GAME
 extern UGameEngine GEngine;
 #endif
+
+extern UWorld* GWorld;

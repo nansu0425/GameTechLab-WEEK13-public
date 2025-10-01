@@ -37,6 +37,11 @@ public:
     UWorld* GetDefaultWorld();
     const TArray<FWorldContext>& GetWorldContexts() { return WorldContexts; }
 
+    void AddWorldContext(const FWorldContext& InWorldContext)
+    {
+        WorldContexts.push_back(InWorldContext);
+    }
+
 private:
     bool CreateMainWindow(HINSTANCE hInstance);
     static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);

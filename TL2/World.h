@@ -65,7 +65,7 @@ public:
     FString GenerateUniqueActorName(const FString& ActorType);
 
     /** === 타임 / 틱 === */
-    virtual void Tick(float DeltaSeconds);
+    virtual void Tick(float DeltaSeconds, EWorldType InWorldType);
 
     /** === 필요한 엑터 게터 === */
     const TArray<AActor*>& GetActors() { static TArray<AActor*> Empty; return Level ? Level->GetActors() : Empty; }
@@ -80,6 +80,9 @@ public:
 
     // Per-world SelectionManager accessor
     USelectionManager* GetSelectionManager() { return SelectionMgr.get(); }
+
+    // PIE용 World 생성
+    static UWorld* DuplicateWorldForPIE(UWorld* InEditorWorld);
 
 private:
     /** === 에디터 특수 액터 관리 === */

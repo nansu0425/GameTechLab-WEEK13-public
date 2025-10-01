@@ -119,6 +119,11 @@ public:
     bool GetActorHiddenInGame() const { return bHiddenInGame; }
     bool IsActorVisible() const { return !bHiddenInGame; }
 
+    bool CanTickInEditor() const
+    {
+        return bTickInEditor;
+    }
+
     // ───── 복사 관련 ────────────────────────────
     void DuplicateSubObjects() override;
     DECLARE_DUPLICATE(AActor)
@@ -139,6 +144,7 @@ protected:
     bool bPendingDestroy = false;
 
     bool bIsPicked = false;
+    bool bCanEverTick = true;
     bool bIsCulled = false;
 
 

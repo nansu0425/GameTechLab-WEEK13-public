@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "Actor.h"
 #include "SceneComponent.h"
 #include "ObjectFactory.h"
@@ -110,6 +110,7 @@ void AActor::SetRootComponent(USceneComponent* InRoot)
 
 void AActor::AddOwnedComponent(UActorComponent* Component)
 {
+	
 	if (!Component)
 	{
 		return;
