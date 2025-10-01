@@ -146,7 +146,10 @@ void UTextRenderComponent::Render(URenderer* Renderer, const FMatrix& View, cons
         UResourceManager::GetInstance().UpdateDynamicVertexBuffer("TextBillboard", vertices);
 
         Renderer->OMSetDepthStencilState(EComparisonFunc::Always);
-        Renderer->RSSetState(EViewModeIndex::VMI_Unlit);
+        // 텍스트 빌보드도 이 구간에서만 백페이스 컬링 비활성화
+        Renderer->RSSetNoCullState();
         Renderer->DrawIndexedPrimitiveComponent(this, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        // 상태 복원
+        Renderer->RSSetState(EViewModeIndex::VMI_Unlit);
     }
 }

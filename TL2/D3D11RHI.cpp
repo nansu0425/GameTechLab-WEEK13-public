@@ -383,6 +383,11 @@ void D3D11RHI::RSSetState(EViewModeIndex ViewModeIndex)
     }
 }
 
+void D3D11RHI::RSSetNoCullState()
+{
+    DeviceContext->RSSetState(NoCullRasterizerState);
+}
+
 void D3D11RHI::RSSetViewport()
 {
     DeviceContext->RSSetViewports(1, &ViewportInfo);
@@ -504,6 +509,13 @@ void D3D11RHI::CreateRasterizerState()
     wireframerasterizerdesc.DepthClipEnable = TRUE; // 근/원거리 평면 클리핑
 
     Device->CreateRasterizerState(&wireframerasterizerdesc, &WireFrameRasterizerState);
+
+    D3D11_RASTERIZER_DESC nocullRasterizerDesc = {};
+    nocullRasterizerDesc.FillMode = D3D11_FILL_SOLID;
+    nocullRasterizerDesc.CullMode = D3D11_CULL_NONE;
+    nocullRasterizerDesc.DepthClipEnable = TRUE;
+
+    Device->CreateRasterizerState(&nocullRasterizerDesc, &NoCullRasterizerState);
 }
 
 void D3D11RHI::CreateConstantBuffer()
@@ -623,6 +635,11 @@ void D3D11RHI::ReleaseRasterizerState()
     {
         WireFrameRasterizerState->Release();
         WireFrameRasterizerState = nullptr;
+    }
+    if (NoCullRasterizerState)
+    {
+        NoCullRasterizerState->Release();
+        NoCullRasterizerState = nullptr;
     }
     DeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
 }

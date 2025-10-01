@@ -28,6 +28,7 @@ public:
     void OMSetBlendState(bool bIsChecked);
 
     void RSSetState(EViewModeIndex ViewModeIndex);
+    void RSSetNoCullState();
 
     void UpdateConstantBuffer(const FMatrix& ModelMatrix, const FMatrix& ViewMatrix, const FMatrix& ProjMatrix);
 

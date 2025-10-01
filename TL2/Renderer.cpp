@@ -91,6 +91,11 @@ void URenderer::RSSetState(EViewModeIndex ViewModeIndex)
 	RHIDevice->RSSetState(ViewModeIndex);
 }
 
+void URenderer::RSSetNoCullState()
+{
+	RHIDevice->RSSetNoCullState();
+}
+
 void URenderer::UpdateConstantBuffer(const FMatrix& ModelMatrix, const FMatrix& ViewMatrix, const FMatrix& ProjMatrix)
 {
 	RHIDevice->UpdateConstantBuffers(ModelMatrix, ViewMatrix, ProjMatrix);

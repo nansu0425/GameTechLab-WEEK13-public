@@ -59,6 +59,7 @@ public:
     void OMSetBlendState(bool bIsBlendMode) override;
     void Present() override;
 	void PSSetDefaultSampler(UINT StartSlot) override;
+    void RSSetNoCullState() override;
 
     void CreateShader(ID3D11InputLayout** OutSimpleInputLayout, ID3D11VertexShader** OutSimpleVertexShader, ID3D11PixelShader** OutSimplePixelShader) override;
 
@@ -115,6 +116,7 @@ private:
 
     ID3D11RasterizerState* DefaultRasterizerState{};//
     ID3D11RasterizerState* WireFrameRasterizerState{};//
+    ID3D11RasterizerState* NoCullRasterizerState{};//
 
     ID3D11DepthStencilState* DepthStencilState{};
 

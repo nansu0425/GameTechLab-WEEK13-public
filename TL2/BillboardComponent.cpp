@@ -58,7 +58,8 @@ void UBillboardComponent::Render(URenderer* Renderer, const FMatrix& View, const
 
     Renderer->PrepareShader(Material->GetShader());
     Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
-    Renderer->RSSetState(EViewModeIndex::VMI_Unlit);
+    Renderer->RSSetNoCullState();
     Renderer->DrawIndexedPrimitiveComponent(this, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    //Renderer->RSSetState(EViewModeIndex::VMI_Unlit);
 }
 
