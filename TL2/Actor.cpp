@@ -237,7 +237,17 @@ void AActor::DuplicateSubObjects()
 	CollisionComponent = CollisionComponent->Duplicate();
 	TextComp = TextComp->Duplicate();
 
+	RootComponent->SetOwner(this);
+	CollisionComponent->SetOwner(this);
+	TextComp->SetOwner(this);
+
 	World = nullptr; // TODO: World를 PIE World로 할당해야 함.
+
+	for (USceneComponent*& Component : Components)
+	{
+		Component = Component->Duplicate();
+		Component->SetOwner(this);
+	}
 }
 
 //AActor* AActor::Duplicate()

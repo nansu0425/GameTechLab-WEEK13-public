@@ -35,7 +35,7 @@ public:
 
     // ───── 복사 관련 ────────────────────────────
     void DuplicateSubObjects() override;
-    DECLARE_DUPLICATE(UAABoundingBoxComponent)
+    DECLARE_DUPLICATE(UPrimitiveComponent)
 
 protected:
     UMaterial* Material = nullptr;

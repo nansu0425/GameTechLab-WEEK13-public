@@ -42,5 +42,5 @@ void UActorComponent::DuplicateSubObjects()
     Super::DuplicateSubObjects();
 
     bCanEverTick = true; // 매 프레임 Tick 가능 여부
-    Owner = nullptr; // TODO: 아마 Actor에서 이거 설정해줄 듯?
+    Owner = nullptr; // Actor에서 이거 설정해 줌
 }
