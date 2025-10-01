@@ -307,8 +307,9 @@ enum class EVertexLayoutType : uint8
     PositionColor,
     PositionColorTexturNormal,
 
-    PositionBillBoard,
+    PositionTextBillBoard,
     PositionCollisionDebug,
+    PositionBillBoard,
 
     End,
 };

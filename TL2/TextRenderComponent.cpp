@@ -15,11 +15,9 @@ UTextRenderComponent::UTextRenderComponent()
     }
     else
     {
-
         Material = NewObject<UMaterial>();
         RM.Add<UMaterial>("TextBillboard", Material);
     }
-
     InitCharInfoMap();
 }
 

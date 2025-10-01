@@ -13,26 +13,41 @@ UBillboardComponent::UBillboardComponent()
 {
 	auto& RM = UResourceManager::GetInstance();
 	Quad = RM.Get<UQuad>("BillboardQuad");
+	if (Quad == nullptr)
+	{
+		UE_LOG("Quad is nullptr");
+		return;
+	}
 
-    if (auto* M = RM.Get<UMaterial>("BillboardQuad"))
-    {
-        Material = M;
-    }
-    else
-    {
+	// HSLS 설정 
+	SetMaterial("Billboard.hlsl", EVertexLayoutType::PositionBillBoard);
+	//Material->SetShader(".hlsl", EVertexLayoutType::PositionColorTexturNormal);
 
-        Material = NewObject<UMaterial>();
-        RM.Add<UMaterial>("BillboardQuad", Material);
-    }
+	// 일단 디폴트 텍스쳐로 설정하기 .
+	SetTexture("Editor/Pawn_64x.png");
 }
 
+
+// 기존 작업에서 , Renderer 단계에서 리소스 매니저에 요청해서 찾아오는 작업으로 되어있기에, 
+// 일단 텍스쳐 이름만 저장하는 방안으로 두어  랜더링 단게에서 Texture를 로드 하는 방법 선택 ...
+// 리팩토링 필요 
 void UBillboardComponent::SetTexture(const FString& TexturePath)
 {
-  
+    Material->SetTexture(TexturePath);
 }
 
 void UBillboardComponent::Render(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj)
 {
-  
+	// 빌보드를 위한 업데이트 ! 
+	ACameraActor* CameraActor = GetOwner()->GetWorld()->GetCameraActor();
+	FVector CamRight = CameraActor->GetActorRight();
+	FVector CamUp = CameraActor->GetActorUp();
+	FVector cameraPosition = CameraActor->GetActorLocation();
+	Renderer->UpdateBillboardConstantBuffers(Owner->GetActorLocation() + FVector(0.f, 0.f, 1.f) * Owner->GetActorScale().Z, View, Proj, CamRight, CamUp);
+	
+	Renderer->PrepareShader(Material->GetShader());
+	Renderer->OMSetDepthStencilState(EComparisonFunc::Always);
+	Renderer->RSSetState(EViewModeIndex::VMI_Unlit);
+	Renderer->DrawIndexedPrimitiveComponent(this, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 

@@ -115,6 +115,7 @@ private:
     TMap<FString, FMeshBVH*> MeshBVHCache;
 };
 //-----definition
+// 리소스 매니저에 새로운 리소스 등록하는 함수이다. 
 template<typename T>
 bool UResourceManager::Add(const FString& InFilePath, UObject* InObject)
 {
@@ -123,6 +124,7 @@ bool UResourceManager::Add(const FString& InFilePath, UObject* InObject)
     if (iter == Resources[typeIndex].end())
     {
         Resources[typeIndex][InFilePath] = static_cast<T*>(InObject);
+        // 경로 저장 
         Resources[typeIndex][InFilePath]->SetFilePath(InFilePath);
         return true;
     }

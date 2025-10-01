@@ -9,7 +9,6 @@ cbuffer CameraInfo : register(b0)
     //float3 cameraUp_worldspace;
 };
 
-// C++의 BillboardCharInfo와 레이아웃이 동일해야 하는 입력 구조체
 struct VS_INPUT
 {
     float3 centerPos : WORLDPOSITION;

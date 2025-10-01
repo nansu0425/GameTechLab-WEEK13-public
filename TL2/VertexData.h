@@ -84,3 +84,11 @@ struct FBillboardVertexInfo_GPU {
         UVRect[3] = src.color.W;
     }
 };
+
+// 빌보드 전용: 위치 + UV만 있으면 충분
+struct FBillboardVertex
+{
+    FVector WorldPosition;  // 정점 위치 (로컬 좌표, -0.5~0.5 기준 쿼드)
+    FVector2D UV;        // 텍스처 좌표 (0~1)
+};
+

@@ -19,6 +19,7 @@ public:
     UShader* GetShader();
 
     void SetTexture(UTexture* TextureResource);
+    void SetTexture(const FString& TexturePath);
     UTexture* GetTexture();
 
     void SetMaterialInfo(const FObjMaterialInfo& InMaterialInfo) { MaterialInfo = InMaterialInfo; }

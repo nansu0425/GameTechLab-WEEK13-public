@@ -42,9 +42,8 @@ void UResourceManager::Initialize(ID3D11Device* InDevice, ID3D11DeviceContext* I
     InitTexToShaderMap();
 
     CreateTextBillboardMesh();//"TextBillboard"
-
+    CreateBillboardMesh(); // Billboard
     CreateTextBillboardTexture();
-
     CreateDefaultShader();
     
 }
@@ -454,7 +453,7 @@ void UResourceManager::CreateDefaultShader()
     // 템플릿 Load 멤버함수 호출해서 Resources[UShader의 typeIndex][shader 파일 이름]에 UShader 포인터 할당
     Load<UShader>("Primitive.hlsl", EVertexLayoutType::PositionColor);
     Load<UShader>("StaticMeshShader.hlsl", EVertexLayoutType::PositionColorTexturNormal);
-    Load<UShader>("TextBillboard.hlsl", EVertexLayoutType::PositionBillBoard);
+    Load<UShader>("TextBillboard.hlsl", EVertexLayoutType::PositionTextBillBoard);
     Load<UShader>("Billboard.hlsl", EVertexLayoutType::PositionBillBoard);
 }
 
@@ -479,7 +478,17 @@ void UResourceManager::InitShaderILMap()
     layout.Add({ "SIZE", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 });
     layout.Add({ "UVRECT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 20, D3D11_INPUT_PER_VERTEX_DATA, 0 });
     ShaderToInputLayoutMap["TextBillboard.hlsl"] = layout;
+    layout.clear();
+
+    // ────────────────────────────────
+    // 일반 빌보드 (Position + UV)
+    // ────────────────────────────────
+    layout.Add({ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
+                 D3D11_INPUT_PER_VERTEX_DATA, 0 });
+    layout.Add({ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 12,
+                 D3D11_INPUT_PER_VERTEX_DATA, 0 });
     ShaderToInputLayoutMap["Billboard.hlsl"] = layout;
+    layout.clear();
 }
 
 TArray<D3D11_INPUT_ELEMENT_DESC>& UResourceManager::GetProperInputLayout(const FString& InShaderName)
@@ -533,6 +542,7 @@ void UResourceManager::UpdateDynamicVertexBuffer(const FString& Name, TArray<FBi
     Context->Unmap(Mesh->GetVertexBuffer(), 0);
 }
 
+// 여기서 텍스처 데이터 로드 및 
 FTextureData* UResourceManager::CreateOrGetTextureData(const FWideString& FilePath)
 {
     auto it = TextureMap.find(FilePath);

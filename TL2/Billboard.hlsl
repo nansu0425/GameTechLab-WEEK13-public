@@ -1,7 +1,7 @@
 // Generic textured billboard shader
 cbuffer CameraInfo : register(b0)
 {
-    float3 textWorldPos;
+    float3 WorldPos;
     row_major matrix viewMatrix;
     row_major matrix projectionMatrix;
     row_major matrix viewInverse;
@@ -10,9 +10,8 @@ cbuffer CameraInfo : register(b0)
 struct VS_INPUT
 {
     float3 centerPos : WORLDPOSITION;
-    float2 size      : SIZE;
-    float4 uvRect    : UVRECT;     // we use xy as per-vertex UV
-    uint   vertexId  : SV_VertexID; // not used, but kept for parity
+    float4 uvRect    : UVRECT;     
+    uint   vertexId  : SV_VertexID;
 };
 
 struct PS_INPUT
@@ -29,7 +28,7 @@ PS_INPUT mainVS(VS_INPUT input)
     PS_INPUT o;
     // Align quad corners with camera (ignore camera rotation)
     float3 posAligned = mul(float4(input.centerPos, 0.0f), viewInverse).xyz;
-    float3 worldPos   = textWorldPos + posAligned;
+    float3 worldPos   = WorldPos + posAligned;
 
     o.pos = mul(float4(worldPos, 1.0f), mul(viewMatrix, projectionMatrix));
     o.uv  = input.uvRect.xy;

@@ -27,8 +27,10 @@ public:
 
 
 private:
+    // 버텍스랑 인덱스 정보 
     UQuad* Quad = nullptr;
-    UMaterial* BillboardMaterial = nullptr;
+
+    // 텍스쳐 & 셰이더 
 
     float Width = 100.f;
     float Height = 100.f;
