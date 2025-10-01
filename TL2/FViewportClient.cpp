@@ -8,13 +8,15 @@
 #include "SelectionManager.h"
 #include"GizmoActor.h"
 #include "RenderManager.h"
+#include <EditorEngine.h>
 FVector FViewportClient::CameraAddPosition{};
 
 FViewportClient::FViewportClient()
 {
     ViewportType = EViewportType::Perspective;
     // 직교 뷰별 기본 카메라 설정
-    Camera = NewObject<ACameraActor>();
+    extern UEditorEngine GEngine;
+    Camera = GEngine.GetDefaultWorld()->SpawnActor<ACameraActor>();
     ViewPortCamera = Camera;
     SetupCameraMode();
 }

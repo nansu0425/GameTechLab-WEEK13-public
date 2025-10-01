@@ -18,6 +18,7 @@ public:
     
     URenderer* GetRenderer() const { return Renderer.get(); }
     D3D11RHI* GetRHIDevice() { return &RHIDevice; }
+    UWorld* GetDefaultWorld() { return World; }
 
 private:
     bool CreateMainWindow(HINSTANCE hInstance);

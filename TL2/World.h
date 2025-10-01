@@ -81,6 +81,7 @@ public:
     const TArray<AActor*>& GetEditorActors() { return EditorActors; }
     AGizmoActor* GetGizmoActor();
     AGridActor* GetGridActor() { return GridActor; }
+    UWorldPartitionManager* GetPartitionManager() { return Partition.get(); }
 
     void SetStaticMeshs();
     const TArray<UStaticMesh*>& GetStaticMeshs() { return StaticMeshs; }
@@ -108,6 +109,9 @@ private:
     EEngineShowFlags ShowFlags = EEngineShowFlags::SF_DefaultEnabled;
 
     EViewModeIndex ViewModeIndex = EViewModeIndex::VMI_Unlit;
+
+    //partition
+    std::unique_ptr<UWorldPartitionManager> Partition = nullptr;
 };
 
 template<class T>

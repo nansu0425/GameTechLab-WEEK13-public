@@ -104,7 +104,8 @@ void URenderManager::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 	// ============ Culling Logic Dispatch ========= //
 	for (AActor* Actor : World->GetActors())
 		Actor->SetCulled(true);
-	PARTITION.FrustumQuery(ViewFrustum);
+	if(World->GetPartitionManager())
+		World->GetPartitionManager()->FrustumQuery(ViewFrustum);
 
 	Renderer->UpdateHighLightConstantBuffer(false, rgb, 0, 0, 0, 0);
 
@@ -360,16 +361,18 @@ void URenderManager::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 	}
 
 	// Debug draw (exclusive: BVH first, else Octree)
-	if (World->IsShowFlagEnabled(EEngineShowFlags::SF_BVHDebug))
+	if (World->IsShowFlagEnabled(EEngineShowFlags::SF_BVHDebug) &&
+		World->GetPartitionManager())
 	{
-		if (FBVHierachy* BVH = PARTITION.GetBVH())
+		if (FBVHierachy* BVH = World->GetPartitionManager()->GetBVH())
 		{
 			BVH->DebugDraw(Renderer);
 		}
 	}
-	else if (World->IsShowFlagEnabled(EEngineShowFlags::SF_OctreeDebug))
+	else if (World->IsShowFlagEnabled(EEngineShowFlags::SF_OctreeDebug) &&
+		World->GetPartitionManager())
 	{
-		if (FOctree* Octree = PARTITION.GetSceneOctree())
+		if (FOctree* Octree = World->GetPartitionManager()->GetSceneOctree())
 		{
 			Octree->DebugDraw(Renderer);
 		}

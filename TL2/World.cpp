@@ -39,6 +39,7 @@ UWorld& UWorld::GetInstance()
 }
 
 UWorld::UWorld()
+	: Partition(new UWorldPartitionManager())
 {
 }
 
@@ -88,7 +89,7 @@ void UWorld::InitializeGizmo()
 
 void UWorld::Tick(float DeltaSeconds)
 {
-	PARTITION.Update(DeltaSeconds, /*budget*/256);
+	Partition->Update(DeltaSeconds, /*budget*/256);
 
 	//순서 바꾸면 안댐
 	for (AActor* Actor : Actors)
@@ -162,7 +163,7 @@ void UWorld::OnActorSpawned(AActor* Actor)
 {
 	if (Actor)
 	{
-		PARTITION.Register(Actor);
+		Partition->Register(Actor);
 	}
 }
 
@@ -170,7 +171,7 @@ void UWorld::OnActorDestroyed(AActor* Actor)
 {
 	if (Actor)
 	{
-		PARTITION.Unregister(Actor);
+		Partition->Unregister(Actor);
 	}
 }
 
@@ -213,7 +214,7 @@ void UWorld::CreateNewScene()
 	// 이름 카운터 초기화: 씬을 새로 시작할 때 각 BaseName 별 suffix를 0부터 다시 시작
 	ObjectTypeCounts.clear();
 
-	PARTITION.Clear();
+	Partition->Clear();
 }
 
 void UWorld::LoadScene(const FString& SceneName)
@@ -359,7 +360,7 @@ void UWorld::LoadScene(const FString& SceneName)
 	if (!SpawnedActors.empty())
 	{
 		UE_LOG("LoadScene: Using bulk registration for %zu actors\r\n", SpawnedActors.size());
-		PARTITION.BulkRegister(SpawnedActors);
+		Partition->BulkRegister(SpawnedActors);
 	}
 
 	// 3) 최종 보정: 전역 카운터는 절대 하향 금지 + 현재 사용된 최대값 이후로 설정

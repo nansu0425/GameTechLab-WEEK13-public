@@ -71,9 +71,10 @@
 #define UI UUIManager::GetInstance()
 #define INPUT UInputManager::GetInstance()
 #define SELECTION USelectionManager::GetInstance()
-//@TODO Partition Manager 싱글톤 배제 (월드 별 소유)
-#define PARTITION UWorldPartitionManager::GetInstance()
 #define RENDER URenderManager::GetInstance()
 #define SLATE USlateManager::GetInstance()
+//@TODO Partition Manager 싱글톤 배제 (월드 별 소유)
+//#define PARTITION UWorldPartitionManager::GetInstance()
+
 
 extern TMap<FString, FString> EditorINI;
