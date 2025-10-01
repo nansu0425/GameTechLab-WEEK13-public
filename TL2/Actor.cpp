@@ -7,6 +7,7 @@
 #include "MeshComponent.h"
 #include "TextRenderComponent.h"
 #include "WorldPartitionManager.h"
+#include "BillboardComponent.h"
 
 #include "World.h"
 AActor::AActor()
@@ -15,6 +16,7 @@ AActor::AActor()
 	RootComponent = CreateDefaultSubobject<USceneComponent>(FName("SceneComponent"));
 	CollisionComponent = CreateDefaultSubobject<UAABoundingBoxComponent>(FName("CollisionBox"));
 	TextComp = CreateDefaultSubobject<UTextRenderComponent>("TextBox");
+	BillboardComp = CreateDefaultSubobject<UBillboardComponent>("BillboardBox");
 }
 
 AActor::~AActor()

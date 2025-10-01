@@ -9,9 +9,8 @@ cbuffer CameraInfo : register(b0)
 
 struct VS_INPUT
 {
-    float3 centerPos : WORLDPOSITION;
-    float4 uvRect    : UVRECT;     
-    uint   vertexId  : SV_VertexID;
+    float3 localPos : POSITION;   // quad local offset (-0.5~0.5)
+    float2 uv       : TEXCOORD0;  // per-vertex UV
 };
 
 struct PS_INPUT
@@ -26,19 +25,17 @@ SamplerState LinearSamp : register(s0);
 PS_INPUT mainVS(VS_INPUT input)
 {
     PS_INPUT o;
-    // Align quad corners with camera (ignore camera rotation)
-    float3 posAligned = mul(float4(input.centerPos, 0.0f), viewInverse).xyz;
+    // Face the camera by transforming local offsets using inverse view rotation
+    float3 posAligned = mul(float4(input.localPos, 0.0f), viewInverse).xyz;
     float3 worldPos   = WorldPos + posAligned;
 
     o.pos = mul(float4(worldPos, 1.0f), mul(viewMatrix, projectionMatrix));
-    o.uv  = input.uvRect.xy;
+    o.uv  = input.uv;
     return o;
 }
 
 float4 mainPS(PS_INPUT i) : SV_Target
 {
     float4 c = BillboardTex.Sample(LinearSamp, i.uv);
-    // Optional alpha clip for cutout textures
-    // clip(c.a - 0.05f);
     return c;
 }

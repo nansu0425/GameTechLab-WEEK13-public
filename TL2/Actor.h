@@ -7,6 +7,7 @@ class USceneComponent;
 class UAABoundingBoxComponent;
 class UShapeComponent;
 class UTextRenderComponent;
+class UBillboardComponent;
 
 class AActor : public UObject
 {
@@ -94,6 +95,7 @@ public:
     USceneComponent* RootComponent = nullptr;
     UAABoundingBoxComponent* CollisionComponent = nullptr;
     UTextRenderComponent* TextComp = nullptr;
+    UBillboardComponent* BillboardComp = nullptr;
 
     UWorld* World = nullptr;
     

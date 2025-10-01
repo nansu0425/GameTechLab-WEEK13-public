@@ -235,46 +235,39 @@ void URenderer::DrawIndexedPrimitiveComponent(UBillboardComponent* Comp, D3D11_P
 	ID3D11Buffer* VertexBuff = Comp->GetStaticMesh()->GetVertexBuffer();
 	ID3D11Buffer* IndexBuff = Comp->GetStaticMesh()->GetIndexBuffer();
 
-	// OK 
+	// Input layout comes from the shader bound to the material
 	RHIDevice->GetDeviceContext()->IASetInputLayout(Comp->GetMaterial()->GetShader()->GetInputLayout());
 
 	UINT offset = 0;
-	RHIDevice->GetDeviceContext()->IASetVertexBuffers(
-		0, 1, &VertexBuff, &Stride, &offset
-	);
-	RHIDevice->GetDeviceContext()->IASetIndexBuffer(
-		IndexBuff, DXGI_FORMAT_R32_UINT, 0
-	);
-	// 여기서 머터리얼 세팅 필요
-	ID3D11ShaderResourceView* srv = nullptr;
+	RHIDevice->GetDeviceContext()->IASetVertexBuffers(0, 1, &VertexBuff, &Stride, &offset);
+	RHIDevice->GetDeviceContext()->IASetIndexBuffer(IndexBuff, DXGI_FORMAT_R32_UINT, 0);
 
-	//Comp->GetMaterial()->GetTexture()->GetTextureName()
-	// UTF-8 -> UTF-16 변환 (Windows)
-	FString TextName = Comp->GetMaterial()->GetTexture()->GetTextureName();
-	if (TextName.empty())
-	{
-		UE_LOG("TextName is empty");
-		return;
-	}
-	int needW = ::MultiByteToWideChar(CP_UTF8, 0, TextName.c_str(), -1, nullptr, 0);
-	std::wstring WTextureFileName;
-	if (needW > 0)
-	{
-		WTextureFileName.resize(needW - 1);
-		::MultiByteToWideChar(CP_UTF8, 0, TextName.c_str(), -1, WTextureFileName.data(), needW);
-	}
-	// 반환 여기서 로드 
-	if (FTextureData* TextureData = UResourceManager::GetInstance().CreateOrGetTextureData(WTextureFileName))
-	{
-		if (TextureData->TextureSRV)
-		{
-			srv = TextureData->TextureSRV;
-		}
-	}
-	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &srv);
-	ID3D11ShaderResourceView* TextureSRV = Comp->GetMaterial()->GetTexture()->GetShaderResourceView();
-	RHIDevice->PSSetDefaultSampler(0);
-	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &TextureSRV);
+    // Bind texture via ResourceManager to support DDS/PNG
+    ID3D11ShaderResourceView* srv = nullptr;
+    if (Comp->GetMaterial())
+    {
+        const FString& TextName = Comp->GetMaterial()->GetTextName();
+        if (!TextName.empty())
+        {
+            int needW = ::MultiByteToWideChar(CP_UTF8, 0, TextName.c_str(), -1, nullptr, 0);
+            std::wstring WTextureFileName;
+            if (needW > 0)
+            {
+                WTextureFileName.resize(needW - 1);
+                ::MultiByteToWideChar(CP_UTF8, 0, TextName.c_str(), -1, WTextureFileName.data(), needW);
+            }
+            if (FTextureData* TextureData = UResourceManager::GetInstance().CreateOrGetTextureData(WTextureFileName))
+            {
+                if (TextureData->TextureSRV)
+                {
+                    srv = TextureData->TextureSRV;
+                }
+            }
+        }
+    }
+    RHIDevice->PSSetDefaultSampler(0);
+    RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &srv);
+
 	RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(InTopology);
 	const uint32 indexCnt = Comp->GetStaticMesh()->GetIndexCount();
 	RHIDevice->GetDeviceContext()->DrawIndexed(indexCnt, 0, 0);
