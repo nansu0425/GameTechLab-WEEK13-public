@@ -7,6 +7,7 @@ class USceneComponent;
 class UAABoundingBoxComponent;
 class UShapeComponent;
 class UTextRenderComponent;
+class UBillboardComponent;
 
 class AActor : public UObject
 {
@@ -129,6 +130,7 @@ public:
     USceneComponent* RootComponent = nullptr;
     UAABoundingBoxComponent* CollisionComponent = nullptr;
     UTextRenderComponent* TextComp = nullptr;
+    UBillboardComponent* BillboardComp = nullptr;
 
 protected:
     TSet<UActorComponent*> OwnedComponents;   // 모든 컴포넌트 (씬/비씬)

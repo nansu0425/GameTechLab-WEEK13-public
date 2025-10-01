@@ -7,6 +7,7 @@
 #include "MeshComponent.h"
 #include "TextRenderComponent.h"
 #include "WorldPartitionManager.h"
+#include "BillboardComponent.h"
 
 #include "World.h"
 AActor::AActor()
@@ -15,6 +16,7 @@ AActor::AActor()
 	RootComponent = CreateDefaultSubobject<USceneComponent>(FName("SceneComponent"));
 	CollisionComponent = CreateDefaultSubobject<UAABoundingBoxComponent>(FName("CollisionBox"));
 	TextComp = CreateDefaultSubobject<UTextRenderComponent>("TextBox");
+	BillboardComp = CreateDefaultSubobject<UBillboardComponent>("BillboardBox");
 
 	// TODO (동민) - 임시로 루트 컴포넌트에 붙임. 추후 계층 구조 관리 기능 구현 필요
 	if (CollisionComponent)
