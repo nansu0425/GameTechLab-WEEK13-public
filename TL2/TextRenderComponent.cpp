@@ -150,6 +150,6 @@ void UTextRenderComponent::Render(URenderer* Renderer, const FMatrix& View, cons
         Renderer->RSSetNoCullState();
         Renderer->DrawIndexedPrimitiveComponent(this, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         // 상태 복원
-        Renderer->RSSetState(EViewModeIndex::VMI_Unlit);
+        //Renderer->RSSetState(EViewModeIndex::VMI_Unlit);
     }
 }
