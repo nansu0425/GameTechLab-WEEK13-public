@@ -249,7 +249,8 @@ FVector AActor::GetActorLocation() const
 
 void AActor::MarkPartitionDirty()
 {
-	PARTITION.MarkDirty(this);
+	if(GetWorld() && GetWorld()->GetPartitionManager())
+		GetWorld()->GetPartitionManager()->MarkDirty(this);
 }
 
 void AActor::SetActorRotation(const FVector& EulerDegree)
@@ -351,10 +352,8 @@ void AActor::AddActorLocalRotation(const FQuat& DeltaRotation)
 	if (RootComponent && !DeltaRotation.IsIdentity()) // 단위 쿼터니온이 아닐 때만
 	{
 		RootComponent->AddLocalRotation(DeltaRotation);
-		if (World)
-		{
-			PARTITION.MarkDirty(this);
-		}
+		if (GetWorld() && GetWorld()->GetPartitionManager())
+			GetWorld()->GetPartitionManager()->MarkDirty(this);
 	}
 }
 
@@ -367,7 +366,40 @@ void AActor::AddActorLocalLocation(const FVector& DeltaLocation)
 	}
 }
 
+void AActor::DuplicateSubObjects()
+{
+	Super::DuplicateSubObjects();
 
+	bool bIsPicked = false;
+	bool bCanEverTick = true;
+	bool bHiddenInGame = false;
+	bool bIsCulled = false;
+
+	RootComponent = RootComponent->Duplicate();
+	CollisionComponent = CollisionComponent->Duplicate();
+	TextComp = TextComp->Duplicate();
+
+	RootComponent->SetOwner(this);
+	CollisionComponent->SetOwner(this);
+	TextComp->SetOwner(this);
+
+	World = nullptr; // TODO: World를 PIE World로 할당해야 함.
+
+	for (USceneComponent*& Component : SceneComponents)
+	{
+		Component = Component->Duplicate();
+		Component->SetOwner(this);
+	}
+}
+
+//AActor* AActor::Duplicate()
+//{
+//	AActor* NewActor = ObjectFactory::DuplicateObject<AActor>(this); // 모든 멤버 얕은 복사
+//
+//	NewActor->DuplicateSubObjects();
+//
+//	return nullptr;
+//}
 
 void AActor::RegisterComponentTree(USceneComponent* SceneComp)
 {

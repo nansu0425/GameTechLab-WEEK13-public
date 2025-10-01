@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "Object.h"
+
 class AActor;
 class UWorld;
 
@@ -61,6 +62,10 @@ public:
     bool IsRegistered()    const { return bRegistered; }
     bool HasBegunPlay()    const { return bHasBegunPlay; }
     bool IsPendingDestroy()const { return bPendingDestroy; }
+
+    // ───── 복사 관련 ────────────────────────────
+    void DuplicateSubObjects() override;
+    DECLARE_DUPLICATE(UActorComponent)
 
 protected:
     AActor* Owner = nullptr;     // 소유 액터
