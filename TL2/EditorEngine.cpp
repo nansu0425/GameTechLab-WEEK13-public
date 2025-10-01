@@ -174,6 +174,7 @@ bool UEditorEngine::Startup(HINSTANCE hInstance)
 
     ///////////////////////////////////
     WorldContexts.Add(FWorldContext(NewObject<UWorld>(), EWorldType::Editor));
+    WorldContexts[0].World->Initialize();
     ///////////////////////////////////
 
     GWorld = WorldContexts[0].World;

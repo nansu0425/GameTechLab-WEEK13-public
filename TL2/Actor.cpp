@@ -376,18 +376,10 @@ void AActor::DuplicateSubObjects()
 {
 	Super::DuplicateSubObjects();
 
-	bool bIsPicked = false;
-	bool bCanEverTick = true;
-	bool bHiddenInGame = false;
-	bool bIsCulled = false;
-
-	RootComponent = RootComponent->Duplicate();
-	CollisionComponent = CollisionComponent->Duplicate();
-	TextComp = TextComp->Duplicate();
-
-	RootComponent->SetOwner(this);
-	CollisionComponent->SetOwner(this);
-	TextComp->SetOwner(this);
+	bIsPicked = false;
+	bCanEverTick = true;
+	bHiddenInGame = false;
+	bIsCulled = false;
 
 	World = nullptr; // TODO: World를 PIE World로 할당해야 함.
 

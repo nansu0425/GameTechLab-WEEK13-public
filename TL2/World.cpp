@@ -31,11 +31,7 @@ UWorld::UWorld()
 {
 	SelectionMgr = std::make_unique<USelectionManager>();
 	Level = std::make_unique<ULevel>();
-	//FObjManager::Preload();
 	CreateLevel();
-
-	InitializeGrid();
-	InitializeGizmo();
 }
 
 UWorld::~UWorld()
@@ -56,6 +52,14 @@ if (Level)
 
 	GridActor = nullptr;
 	GizmoActor = nullptr;
+}
+
+void UWorld::Initialize()
+{
+	CreateLevel();
+
+	InitializeGrid();
+	InitializeGizmo();
 }
 
 void UWorld::InitializeGrid()
@@ -129,6 +133,7 @@ UWorld* UWorld::DuplicateWorldForPIE(UWorld* InEditorWorld)
 			continue;
 		}
 		PIEWorld->AddActorToLevel(NewActor);
+		NewActor->SetWorld(PIEWorld);
 	}
 
 	return PIEWorld;

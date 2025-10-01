@@ -39,6 +39,7 @@ public:
 
 public:
     /** 초기화 */
+    void Initialize();
     void InitializeGrid();
     void InitializeGizmo();
 

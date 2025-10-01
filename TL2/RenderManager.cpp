@@ -65,7 +65,9 @@ void URenderManager::Render(UWorld* InWorld, FViewport* Viewport)
     if (!Camera) return;
 
 	//기즈모 카메라 설정
-	World->GetGizmoActor()->SetCameraActor(Camera);
+	if(World->GetGizmoActor())
+		World->GetGizmoActor()->SetCameraActor(Camera);
+	
 	World->GetRenderSettings().SetViewModeIndex(Client->GetViewModeIndex());
     RenderViewports(Camera, Viewport);
 }
@@ -104,10 +106,10 @@ void URenderManager::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 	Renderer->SetViewModeType(World->GetRenderSettings().GetViewModeIndex());
 
 	// ============ Culling Logic Dispatch ========= //
-	for (AActor* Actor : World->GetActors())
-		Actor->SetCulled(true);
-	if (World->GetPartitionManager())
-		World->GetPartitionManager()->FrustumQuery(ViewFrustum);
+	//for (AActor* Actor : World->GetActors())
+	//	Actor->SetCulled(true);
+	//if (World->GetPartitionManager())
+	//	World->GetPartitionManager()->FrustumQuery(ViewFrustum);
 
 	Renderer->UpdateHighLightConstantBuffer(false, rgb, 0, 0, 0, 0);
 
