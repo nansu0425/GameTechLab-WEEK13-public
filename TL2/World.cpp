@@ -123,39 +123,41 @@ FString UWorld::GenerateUniqueActorName(const FString& ActorType)
 //
 bool UWorld::DestroyActor(AActor* Actor)
 {
-	if (!Actor)
-	{
-		return false; // nullptr 들어옴 → 실패
-	}
+	if (!Actor) return false;
 
-	// SelectionManager에서 선택 해제 (메모리 해제 전에 하자)
+	// 재진입 가드
+	if (Actor->IsPendingDestroy()) return false;
+	Actor->MarkPendingDestroy();
+
+	// 선택/UI 해제
 	SELECTION.DeselectActor(Actor);
-
-	// UIManager에서 픽된 액터 정리
 	if (UI.GetPickedActor() == Actor)
-	{
 		UI.ResetPickedActor();
-	}
 
-	// 배열에서 제거 시도
+	// 게임 수명 종료
+	Actor->EndPlay(EEndPlayReason::Destroyed);
+
+	// 컴포넌트 정리 (등록 해제 → 파괴)
+	Actor->UnregisterAllComponents(/*bCallEndPlayOnBegun=*/true);
+	Actor->DestroyAllComponents();
+	Actor->ClearSceneComponentCaches();
+
+	// 월드 자료구조에서 제거 (옥트리/파티션/렌더 캐시 등)
+	OnActorDestroyed(Actor);
+
+	// 배열에서 제거
 	auto it = std::find(Actors.begin(), Actors.end(), Actor);
 	if (it != Actors.end())
-	{
-		// 옥트리에서 제거
-		OnActorDestroyed(Actor);
-
 		Actors.erase(it);
 
-		// 메모리 해제
-		ObjectFactory::DeleteObject(Actor);
+	// 월드 참조 끊기
+	Actor->SetWorld(nullptr);
 
-		// 삭제된 액터 정리
-		SELECTION.CleanupInvalidActors();
+	// 최종 삭제
+	ObjectFactory::DeleteObject(Actor);
 
-		return true; // 성공적으로 삭제
-	}
-
-	return false; // 월드에 없는 액터
+	SELECTION.CleanupInvalidActors();
+	return true;
 }
 
 void UWorld::OnActorSpawned(AActor* Actor)

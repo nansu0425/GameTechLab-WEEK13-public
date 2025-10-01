@@ -161,7 +161,7 @@ void URenderManager::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 			if (SELECTION.IsActorSelected(Actor))
 				continue;
 
-			for (USceneComponent* Component : Actor->GetComponents())
+			for (USceneComponent* Component : Actor->GetSceneComponents())
 			{
 				if (!Component) continue;
 				if (UActorComponent* ActorComp = Cast<UActorComponent>(Component))
@@ -305,7 +305,7 @@ void URenderManager::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 			continue;
 		}
 
-		for (USceneComponent* Component : EngineActor->GetComponents())
+		for (USceneComponent* Component : EngineActor->GetSceneComponents())
 		{
 			if (!Component)
 			{
@@ -336,7 +336,7 @@ void URenderManager::RenderViewports(ACameraActor* Camera, FViewport* Viewport)
 		if (Cast<AStaticMeshActor>(SelectedActor) && !World->IsShowFlagEnabled(EEngineShowFlags::SF_StaticMeshes))
 			continue;
 
-		for (USceneComponent* Component : SelectedActor->GetComponents())
+		for (USceneComponent* Component : SelectedActor->GetSceneComponents())
 		{
 			if (!Component) continue;
 			if (UActorComponent* ActorComp = Cast<UActorComponent>(Component))
