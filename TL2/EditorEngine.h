@@ -5,6 +5,12 @@ class URenderer;
 class D3D11RHI;
 class UWorld;
 
+struct FWorldContext
+{
+    UWorld* World;
+    EWorldType WorldType;
+};
+
 class UEditorEngine final 
 {
 public:
@@ -15,11 +21,15 @@ public:
     void MainLoop();
     void Shutdown();
 
+    void StartPIE();
+    void EndPIE();
+    bool IsPIEActive() const { return bPIEActive; }
+    
     HWND GetHWND() const { return HWnd; }
     
     URenderer* GetRenderer() const { return Renderer.get(); }
     D3D11RHI* GetRHIDevice() { return &RHIDevice; }
-    UWorld* GetDefaultWorld() { return World; }
+    UWorld* GetDefaultWorld();
 
 private:
     bool CreateMainWindow(HINSTANCE hInstance);
@@ -40,11 +50,12 @@ private:
     std::unique_ptr<URenderer> Renderer;
     
     //월드 핸들
-    UWorld* World = nullptr;
+    TArray<FWorldContext> WorldContexts;
 
     //틱 상태
     bool bRunning = false;
     bool bUVScrollPaused = true;
+    bool bPIEActive = false;
     float UVScrollTime = 0.0f;
     FVector2D UVScrollSpeed = FVector2D(0.5f, 0.5f);
 
