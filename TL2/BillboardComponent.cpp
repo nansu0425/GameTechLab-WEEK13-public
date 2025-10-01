@@ -46,6 +46,7 @@ void UBillboardComponent::SetTexture( FString TexturePath)
     Material->SetTextName(TexturePath);
 }
 
+// 여기서만 Cull_Back을 꺼야함. 
 void UBillboardComponent::Render(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj)
 {
 	// 빌보드를 위한 업데이트 ! 
@@ -56,7 +57,6 @@ void UBillboardComponent::Render(URenderer* Renderer, const FMatrix& View, const
     Renderer->UpdateBillboardConstantBuffers(Owner->GetActorLocation() + FVector(0.f, 0.f, 1.f) * Owner->GetActorScale().Z, View, Proj, CamRight, CamUp);
 
     Renderer->PrepareShader(Material->GetShader());
-    // Depth-test against scene so floor/geometry don’t overdraw later
     Renderer->OMSetDepthStencilState(EComparisonFunc::LessEqual);
     Renderer->RSSetState(EViewModeIndex::VMI_Unlit);
     Renderer->DrawIndexedPrimitiveComponent(this, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
