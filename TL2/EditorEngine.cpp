@@ -114,6 +114,15 @@ LRESULT CALLBACK UEditorEngine::WndProc(HWND hWnd, UINT message, WPARAM wParam, 
     return 0;
 }
 
+UWorld* UEditorEngine::GetDefaultWorld()
+{
+    if (!WorldContexts.IsEmpty() && WorldContexts[0].World)
+    {
+        return WorldContexts[0].World;
+    }
+    return nullptr;
+}
+
 bool UEditorEngine::CreateMainWindow(HINSTANCE hInstance)
 {
     // 윈도우 생성
@@ -161,17 +170,18 @@ bool UEditorEngine::Startup(HINSTANCE hInstance)
     INPUT.Initialize(HWnd);
 
     ///////////////////////////////////
-    //@TODO 월드 수정 필
-    World = NewObject<UWorld>();
+    WorldContexts.Add(FWorldContext());
+    WorldContexts[0].World = NewObject<UWorld>();
+    WorldContexts[0].WorldType = EWorldType::Editor;
     ///////////////////////////////////
 
 
     // 슬레이트 매니저 (singleton)
     FRect ScreenRect(0, 0, ClientWidth, ClientHeight);
-    SLATE.Initialize(RHIDevice.GetDevice(), World, ScreenRect);
+    SLATE.Initialize(RHIDevice.GetDevice(), WorldContexts[0].World, ScreenRect);
 
     //스폰을 위한 월드셋
-    UI.SetWorld(World);
+    UI.SetWorld(WorldContexts[0].World);
 
     bRunning = true;
     return true;
@@ -182,8 +192,14 @@ void UEditorEngine::Tick(float DeltaSeconds)
     //@TODO UV 스크롤 입력 처리 로직 이동
     HandleUVInput(DeltaSeconds);
 
-    World->Tick(DeltaSeconds);
-
+    for (auto& WorldContext : WorldContexts)
+    {
+        if (WorldContext.World)
+        {
+            WorldContext.World->Tick(DeltaSeconds);
+        }
+    }
+    
     SLATE.Update(DeltaSeconds);
     UI.Update(DeltaSeconds);
     INPUT.Update();
@@ -266,4 +282,34 @@ void UEditorEngine::Shutdown()
     UUIManager::GetInstance().Release();
     ObjectFactory::DeleteAll(true);
     SaveIniFile();
+}
+
+
+void UEditorEngine::StartPIE()
+{
+    //UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
+
+    //UWorld* PIEWorld = UWorld::DuplicateWorldForPIE(EditorWorld, ...);
+
+    //GWorld = PIEWorld;
+
+    //// AActor::BeginPlay()
+    //PIEWorld->InitializeActorsForPlay();
+
+    bPIEActive = true;
+    UE_LOG("START PIE CLICKED");
+}
+
+void UEditorEngine::EndPIE()
+{
+    //if (GWorld && GWorld->IsPIEWorld())
+    //{
+    //    GWorld->CleanupWorld();
+    //    delete GWorld;
+    //}
+
+    //GWorld = GEditor->GetEditorWorldContext().World();
+
+    bPIEActive = false;
+    UE_LOG("END PIE CLICKED");
 }
