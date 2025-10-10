@@ -14,7 +14,7 @@ void UDecalComponent::DuplicateSubObjects()
 void UDecalComponent::RenderAffectedPrimitives(URenderer* Renderer, UPrimitiveComponent* Target, const FMatrix& View, const FMatrix& Proj)
 {
     // TODO: 실제 렌더 부분
-    //Renderer->GetRHIDevice()->Update
+    //Renderer->GetRHIDevice()->GetRHIDevice()->Update
 }
 
 void UDecalComponent::RenderDebugVolume(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) const

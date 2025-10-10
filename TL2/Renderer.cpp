@@ -5,10 +5,34 @@
 #include "Quad.h"
 #include "StaticMeshComponent.h"
 #include "BillboardComponent.h"
+#include "FViewportClient.h"
+#include "FViewport.h"
+#include "World.h"
+#include "RenderManager.h"
+#include "WorldPartitionManager.h"
+#include "Renderer.h"
+#include "CameraActor.h"
+#include "CameraComponent.h"
+#include "PrimitiveComponent.h"
+#include "StaticMeshActor.h"
+#include "GizmoActor.h"
+#include "GridActor.h"
+#include "Octree.h"
+#include "BVHierachy.h"
+#include "Occlusion.h"
+#include "Frustum.h"
+#include "AABoundingBoxComponent.h"
+#include "ResourceManager.h"
+#include "RHIDevice.h"
+#include "Material.h"
+#include "Texture.h"
+#include "RenderSettings.h"
+#include "EditorEngine.h"
+#include "DecalComponent.h"
+
 #include <Windows.h>
 
-
-URenderer::URenderer(D3D11RHI* InDevice) : RHIDevice(InDevice)
+URenderer::URenderer(D3D11RHI* InDevice) : RHIDevice(InDevice), OcclusionCPU(new FOcclusionCullingManagerCPU())
 {
 	InitializeLineBatch();
 
@@ -51,79 +75,300 @@ void URenderer::BeginFrame()
 	//PreViewModeIndex = EViewModeIndex::VMI_Wireframe; // 어차피 SetViewModeType이 다시 셋
 }
 
-void URenderer::PrepareShader(FShader& InShader)
+void URenderer::EndFrame()
 {
-	RHIDevice->GetDeviceContext()->VSSetShader(InShader.SimpleVertexShader, nullptr, 0);
-	RHIDevice->GetDeviceContext()->PSSetShader(InShader.SimplePixelShader, nullptr, 0);
-	RHIDevice->GetDeviceContext()->IASetInputLayout(InShader.SimpleInputLayout);
+
+	RHIDevice->Present();
 }
 
-void URenderer::PrepareShader(UShader* InShader)
+void URenderer::RenderSceneForView(UWorld* World, ACameraActor* InCamera, FViewport* Viewport)
 {
-	if (PreShader != InShader)
+	if (!Viewport) return;
+	if (!World) return; // update current world
+
+	FViewportClient* Client = Viewport->GetViewportClient();
+	if (!Client) return;
+
+	ACameraActor* Camera = Client->GetCamera();
+	if (!Camera) return;
+
+	//기즈모 카메라 설정
+	if (World->GetGizmoActor())
+		World->GetGizmoActor()->SetCameraActor(Camera);
+
+	World->GetRenderSettings().SetViewModeIndex(Client->GetViewModeIndex());
 	{
-		/*const FString& ShaderFilePath = InShader->GetFilePath();
-		UE_LOG("change to new Shader: \'%s\'", ShaderFilePath);*/
-		RHIDevice->GetDeviceContext()->VSSetShader(InShader->GetVertexShader(), nullptr, 0);
-		RHIDevice->GetDeviceContext()->PSSetShader(InShader->GetPixelShader(), nullptr, 0);
-		RHIDevice->GetDeviceContext()->IASetInputLayout(InShader->GetInputLayout());
-		PreShader = InShader;
+		if (!World || !Camera || !Viewport) return;
+
+		int objCount = static_cast<int>(World->GetActors().size());
+		int visibleCount = 0;
+		float zNear = 0.1f, zFar = 100.f;
+		// 뷰포트의 실제 크기로 aspect ratio 계산
+		float ViewportAspectRatio = static_cast<float>(Viewport->GetSizeX()) / static_cast<float>(Viewport->GetSizeY());
+		if (Viewport->GetSizeY() == 0) ViewportAspectRatio = 1.0f; // 0으로 나누기 방지
+
+		// Provide per-viewport size to renderer (used by overlay/gizmo scaling)
+		SetCurrentViewportSize(Viewport->GetSizeX(), Viewport->GetSizeY());
+
+		FMatrix ViewMatrix = Camera->GetViewMatrix();
+		FMatrix ProjectionMatrix = Camera->GetProjectionMatrix(ViewportAspectRatio, Viewport);
+
+		Frustum ViewFrustum;
+		UCameraComponent* CamComp = nullptr;
+		if (CamComp = Camera->GetCameraComponent())
+		{
+			ViewFrustum = CreateFrustumFromCamera(*CamComp, ViewportAspectRatio);
+			zNear = CamComp->GetNearClip();
+			zFar = CamComp->GetFarClip();
+		}
+		FVector rgb(1.0f, 1.0f, 1.0f);
+
+		// === Begin Line Batch for all actors ===
+		BeginLineBatch();
+
+		// === Draw Actors with Show Flag checks ===
+		// Compute effective view mode with ShowFlag override for wireframe
+		EViewModeIndex EffectiveViewMode = World->GetRenderSettings().GetViewModeIndex();
+		if (World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Wireframe))
+		{
+			EffectiveViewMode = EViewModeIndex::VMI_Wireframe;
+		}
+		SetViewModeType(EffectiveViewMode);
+
+		// ============ Culling Logic Dispatch ========= //
+		//for (AActor* Actor : World->GetActors())
+		//	Actor->SetCulled(true);
+		//if (World->GetPartitionManager())
+		//	World->GetPartitionManager()->FrustumQuery(ViewFrustum);
+
+		RHIDevice->UpdateHighLightConstantBuffers(false, rgb, 0, 0, 0, 0);
+
+		// ---------------------- CPU HZB Occlusion ----------------------
+		if (bUseCPUOcclusion)
+		{
+			// 1) 그리드 사이즈 보정(해상도 변화 대응)
+			UpdateOcclusionGridSizeForViewport(Viewport);
+
+			// 2) 오클루더/오클루디 수집
+			TArray<FCandidateDrawable> Occluders, Occludees;
+			BuildCpuOcclusionSets(ViewFrustum, ViewMatrix, ProjectionMatrix, zNear, zFar,
+				Occluders, Occludees);
+
+			// 3) 오클루더로 저해상도 깊이 빌드 + HZB
+			OcclusionCPU->BuildOccluderDepth(Occluders, Viewport->GetSizeX(), Viewport->GetSizeY());
+			OcclusionCPU->BuildHZB();
+
+			// 4) 가시성 판정 → VisibleFlags[UUID] = 0/1
+			//     VisibleFlags 크기 보장
+			uint32_t maxUUID = 0;
+			for (auto& C : Occludees) maxUUID = std::max(maxUUID, C.ActorIndex);
+			if (VisibleFlags.size() <= size_t(maxUUID))
+				VisibleFlags.assign(size_t(maxUUID + 1), 1); // 기본 보임
+
+			OcclusionCPU->TestOcclusion(Occludees, Viewport->GetSizeX(), Viewport->GetSizeY(), VisibleFlags);
+		}
+		// ----------------------------------------------------------------
+
+		{	// 일반 액터들 렌더링
+
+			// 렌더 목록 수집
+			FVisibleRenderProxySet RenderProxySet;
+
+			if (World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Primitives))
+			{
+				for (AActor* Actor : World->GetActors())
+				{
+					if (!Actor) continue;
+					if (Actor->GetActorHiddenInGame()) continue;
+					if (Actor->GetCulled()) continue; // 컬링된 액터는 스킵
+
+					// ★★★ CPU 오클루전 컬링: UUID로 보임 여부 확인
+					if (bUseCPUOcclusion)
+					{
+						uint32_t id = Actor->UUID;
+						if (id < VisibleFlags.size() && VisibleFlags[id] == 0)
+						{
+							continue; // 가려짐 → 스킵c
+						}
+					}
+
+					if (Cast<AStaticMeshActor>(Actor) && !World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_StaticMeshes))
+					{
+						continue;
+					}
+
+					for (USceneComponent* Component : Actor->GetSceneComponents())
+					{
+						if (!Component)
+						{
+							continue;
+						}
+						if (UActorComponent* ActorComp = Cast<UActorComponent>(Component))
+						{
+							if (!ActorComp->IsActive())
+							{
+								continue;
+							}
+
+							if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
+							{
+								RenderProxySet.Primitives.Add(Primitive);
+							}
+							else if (UDecalComponent* Decal = Cast<UDecalComponent>(Component))
+							{
+								RenderProxySet.Decals.Add(Decal);
+							}
+						}
+					}
+				}
+
+				SetViewModeType(EffectiveViewMode);
+				RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+
+				// Primitives 그리기
+				for (UPrimitiveComponent* Primitive : RenderProxySet.Primitives)
+				{
+					Primitive->Render(this, ViewMatrix, ProjectionMatrix);
+
+					visibleCount++;
+				}
+
+				// NOTE: 디버깅용 임시 Decals 외곽선 그리기
+				for (UDecalComponent* Decal : RenderProxySet.Decals)
+				{
+					Decal->RenderDebugVolume(this, ViewMatrix, ProjectionMatrix);
+				}
+
+				SetViewModeType(EffectiveViewMode);
+				RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqualReadOnly);
+				RHIDevice->OMSetBlendState(true);
+
+				// Decals 그리기
+				for (UDecalComponent* Decal : RenderProxySet.Decals)
+				{
+					// Todo: RenderProxySet.Primitives 중에 Decals과 충돌한 Primitives 추출
+					// [임시] 모든 오브젝트를 데칼과 충돌했다 판정 / 추후 실제로 충돌한 Primitives만 다시 그리도록 변경
+					TArray<UPrimitiveComponent*> TargetPrimitives = RenderProxySet.Primitives;
+
+					for (UPrimitiveComponent* Target : TargetPrimitives)
+					{
+						Decal->RenderAffectedPrimitives(this, Target, ViewMatrix, ProjectionMatrix);
+					}
+
+					visibleCount++;
+				}
+			}
+		}
+
+		// 엔진 액터들 (그리드 등)
+		for (AActor* EngineActor : World->GetEditorActors())
+		{
+			if (!EngineActor || EngineActor->GetActorHiddenInGame())
+				continue;
+
+			if (Cast<AGridActor>(EngineActor) && !World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Grid))
+				continue;
+
+			for (USceneComponent* Component : EngineActor->GetSceneComponents())
+			{
+				if (!Component || !Component->IsActive())
+					continue;
+				if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
+				{
+					SetViewModeType(EffectiveViewMode);
+					Primitive->Render(this, ViewMatrix, ProjectionMatrix);
+					RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+				}
+			}
+			RHIDevice->OMSetBlendState(false);
+		}
+
+		// Debug draw (exclusive: BVH first, else Octree)
+		if (World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_BVHDebug) &&
+			World->GetPartitionManager())
+		{
+			if (FBVHierachy* BVH = World->GetPartitionManager()->GetBVH())
+			{
+				BVH->DebugDraw(this);
+			}
+		}
+		else if (World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_OctreeDebug) &&
+			World->GetPartitionManager())
+		{
+			if (FOctree* Octree = World->GetPartitionManager()->GetSceneOctree())
+			{
+				Octree->DebugDraw(this);
+			}
+		}
+		EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
+
+		RHIDevice->UpdateHighLightConstantBuffers(false, rgb, 0, 0, 0, 0);
+		if (World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Culling))
+		{
+			UE_LOG("Obj count: %d, Visible count: %d\r\n", objCount, visibleCount);
+		}
 	}
-	/*RHIDevice->GetDeviceContext()->VSSetShader(InShader->GetVertexShader(), nullptr, 0);
-	RHIDevice->GetDeviceContext()->PSSetShader(InShader->GetPixelShader(), nullptr, 0);
-	RHIDevice->GetDeviceContext()->IASetInputLayout(InShader->GetInputLayout());*/
 }
 
-void URenderer::OMSetBlendState(bool bIsChecked)
+void URenderer::UpdateOcclusionGridSizeForViewport(FViewport* Viewport)
 {
-	if (bIsChecked == true)
+	if (!Viewport) return;
+	int vw = (1 > Viewport->GetSizeX()) ? 1 : Viewport->GetSizeX();
+	int vh = (1 > Viewport->GetSizeY()) ? 1 : Viewport->GetSizeY();
+	int gw = std::max(1, vw / std::max(1, OcclGridDiv));
+	int gh = std::max(1, vh / std::max(1, OcclGridDiv));
+	// 매 프레임 호출해도 싸다. 내부에서 동일크기면 skip
+	OcclusionCPU->Initialize(gw, gh);
+}
+
+void URenderer::BuildCpuOcclusionSets(
+	const Frustum& ViewFrustum,
+	const FMatrix& View,
+	const FMatrix& Proj,
+	float ZNear,
+	float ZFar,
+	TArray<FCandidateDrawable>& OutOccluders,
+	TArray<FCandidateDrawable>& OutOccludees)
+{
+	OutOccluders.clear();
+	OutOccludees.clear();
+
+	size_t estimatedCount = 0;
+	for (AActor* Actor : World->GetActors())
 	{
-		RHIDevice->OMSetBlendState(true);
+		if (Actor && !Actor->GetActorHiddenInGame() && !Actor->GetCulled())
+		{
+			if (Actor->IsA<AStaticMeshActor>()) estimatedCount++;
+		}
 	}
-	else
+	OutOccluders.reserve(estimatedCount);
+	OutOccludees.reserve(estimatedCount);
+
+	const FMatrix VP = View * Proj; // 행벡터: p_world * View * Proj
+
+	for (AActor* Actor : World->GetActors())
 	{
-		RHIDevice->OMSetBlendState(false);
+		if (!Actor) continue;
+		if (Actor->GetActorHiddenInGame()) continue;
+		if (Actor->GetCulled()) continue;
+
+		AStaticMeshActor* SMA = Cast<AStaticMeshActor>(Actor);
+		if (!SMA) continue;
+
+		UAABoundingBoxComponent* Box = Cast<UAABoundingBoxComponent>(SMA->CollisionComponent);
+		if (!Box) continue;
+
+		OutOccluders.emplace_back();
+		FCandidateDrawable& occluder = OutOccluders.back();
+		occluder.ActorIndex = Actor->UUID;
+		occluder.Bound = Box->GetWorldBound();
+		occluder.WorldViewProj = VP;
+		occluder.WorldView = View;
+		occluder.ZNear = ZNear;
+		occluder.ZFar = ZFar;
+
+		OutOccludees.emplace_back(occluder);
 	}
-}
-
-void URenderer::RSSetState(EViewModeIndex ViewModeIndex)
-{
-	RHIDevice->RSSetState(ViewModeIndex);
-}
-
-void URenderer::RSSetNoCullState()
-{
-	RHIDevice->RSSetNoCullState();
-}
-
-void URenderer::UpdateConstantBuffer(const FMatrix& ModelMatrix, const FMatrix& ViewMatrix, const FMatrix& ProjMatrix)
-{
-	RHIDevice->UpdateConstantBuffers(ModelMatrix, ViewMatrix, ProjMatrix);
-}
-
-void URenderer::UpdateHighLightConstantBuffer(const uint32 InPicked, const FVector& InColor, const uint32 X, const uint32 Y, const uint32 Z, const uint32 Gizmo)
-{
-	RHIDevice->UpdateHighLightConstantBuffers(InPicked, InColor, X, Y, Z, Gizmo);
-}
-
-void URenderer::UpdateBillboardConstantBuffers(const FVector& pos, const FMatrix& ViewMatrix, const FMatrix& ProjMatrix, const FVector& CameraRight, const FVector& CameraUp)
-{
-	RHIDevice->UpdateBillboardConstantBuffers(pos, ViewMatrix, ProjMatrix, CameraRight, CameraUp);
-}
-
-void URenderer::UpdatePixelConstantBuffers(const FObjMaterialInfo& InMaterialInfo, bool bHasMaterial, bool bHasTexture)
-{
-	RHIDevice->UpdatePixelConstantBuffers(InMaterialInfo, bHasMaterial, bHasTexture);
-}
-
-void URenderer::UpdateColorBuffer(const FVector4& Color)
-{
-	RHIDevice->UpdateColorConstantBuffers(Color);
-}
-
-void URenderer::UpdateUVScroll(const FVector2D& Speed, float TimeSec)
-{
-	RHIDevice->UpdateUVScrollConstantBuffers(Speed, TimeSec);
 }
 
 void URenderer::DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITIVE_TOPOLOGY InTopology, const TArray<FMaterialSlot>& InComponentMaterialSlots)
@@ -274,15 +519,16 @@ void URenderer::DrawIndexedPrimitiveComponent(UBillboardComponent* Comp, D3D11_P
     RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &srv);
 
     // Ensure correct alpha blending just for this draw
-    OMSetBlendState(true);
+	RHIDevice->OMSetBlendState(true);
 
 	RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(InTopology);
 	const uint32 indexCnt = Comp->GetStaticMesh()->GetIndexCount();
 	RHIDevice->GetDeviceContext()->DrawIndexed(indexCnt, 0, 0);
 
     // Restore blend state so others aren't affected
-    OMSetBlendState(false);
+	RHIDevice->OMSetBlendState(false);
 }
+
 void URenderer::SetViewModeType(EViewModeIndex ViewModeIndex)
 {
 	if (PreViewModeIndex != ViewModeIndex)
@@ -295,27 +541,6 @@ void URenderer::SetViewModeType(EViewModeIndex ViewModeIndex)
 			RHIDevice->UpdateColorConstantBuffers(FVector4{ 1.f, 1.f, 1.f, 0.f });
 		PreViewModeIndex = ViewModeIndex;
 	}
-}
-
-void URenderer::EndFrame()
-{
-
-	RHIDevice->Present();
-}
-
-void URenderer::OMSetDepthStencilState(EComparisonFunc Func)
-{
-	RHIDevice->OmSetDepthStencilState(Func);
-}
-
-void URenderer::OMSetDepthStencilStateOverlayWriteStencil()
-{
-    RHIDevice->OMSetDepthStencilState_OverlayWriteStencil();
-}
-
-void URenderer::OMSetDepthStencilStateStencilRejectOverlay()
-{
-    RHIDevice->OMSetDepthStencilState_StencilRejectOverlay();
 }
 
 void URenderer::InitializeLineBatch()
@@ -431,8 +656,8 @@ void URenderer::EndLineBatch(const FMatrix& ModelMatrix, const FMatrix& ViewMatr
     }
     
     // Set up rendering state
-    UpdateConstantBuffer(ModelMatrix, ViewMatrix, ProjectionMatrix);
-    PrepareShader(LineShader);
+	RHIDevice->UpdateConstantBuffers(ModelMatrix, ViewMatrix, ProjectionMatrix);
+	RHIDevice->PrepareShader(LineShader);
     
     // Render using dynamic mesh
     if (DynamicLineMesh->GetCurrentVertexCount() > 0 && DynamicLineMesh->GetCurrentIndexCount() > 0)
@@ -447,10 +672,10 @@ void URenderer::EndLineBatch(const FMatrix& ModelMatrix, const FMatrix& ViewMatr
         RHIDevice->GetDeviceContext()->IASetIndexBuffer(indexBuffer, DXGI_FORMAT_R32_UINT, 0);
         RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
         // Overlay 스텐실(=1) 영역은 그리지 않도록 스텐실 테스트 설정
-        OMSetDepthStencilStateStencilRejectOverlay();
+		RHIDevice->OMSetDepthStencilState_StencilRejectOverlay();
         RHIDevice->GetDeviceContext()->DrawIndexed(DynamicLineMesh->GetCurrentIndexCount(), 0, 0);
         // 상태 복구
-        OMSetDepthStencilState(EComparisonFunc::LessEqual);
+		RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
     }
     
     bLineBatchActive = false;
