@@ -1,4 +1,5 @@
-﻿#include "pch.h"
+#include "pch.h"
+#include <cmath>
 #include "DecalComponent.h"
 #include "OBB.h"
 
@@ -70,15 +71,79 @@ void UDecalComponent::SetDecalTexture(const FString& TexturePath)
 
 FAABB UDecalComponent::GetWorldAABB() const
 {
-    return FAABB();
+    // Step 1: Build the decal's oriented box so we can inspect its world-space corners.
+    const FOBB DecalOBB = GetOBB();
+
+    // Step 2: Initialize min/max accumulators that will grow to the final axis-aligned bounds.
+    FVector MinBounds(FLT_MAX, FLT_MAX, FLT_MAX);
+    FVector MaxBounds(FLT_MAX, FLT_MAX, FLT_MAX);
+
+    // Step 3: Evaluate all 8 OBB corners in world-space.
+    const FVector& Center = DecalOBB.Center;
+    const FVector& HalfExtent = DecalOBB.HalfExtent;
+    const FVector (&Axes)[3] = DecalOBB.Axes;
+
+    for (uint8 sx = -1; sx <= 1; sx += 2)
+    {
+        for (uint8 sy = -1; sy <= 1; sy += 2)
+        {
+            for (uint8 sz = -1; sz <= 1; sz += 2)
+            {
+                const FVector Corner = Center
+                    + Axes[0] * (HalfExtent.X * static_cast<float>(sx))
+                    + Axes[1] * (HalfExtent.Y * static_cast<float>(sy))
+                    + Axes[2] * (HalfExtent.Z * static_cast<float>(sz));
+
+                MinBounds.X = std::min(MinBounds.X, Corner.X);
+                MinBounds.Y = std::min(MinBounds.Y, Corner.Y);
+                MinBounds.Z = std::min(MinBounds.Z, Corner.Z);
+
+                MaxBounds.X = std::max(MaxBounds.X, Corner.X);
+                MaxBounds.Y = std::max(MaxBounds.Y, Corner.Y);
+                MaxBounds.Z = std::max(MaxBounds.Z, Corner.Z);
+            }
+        }
+    }
+
+    // Step 4: Package the accumulated extremes into a world-space AABB.
+    return FAABB(MinBounds, MaxBounds);
 }
 
 FOBB UDecalComponent::GetOBB() const
 {
-    return FOBB();
+    // Step 1: Grab the decal's world transform so we can inspect translation, rotation, and scale.
+    const FTransform WorldTransform = GetWorldTransform();
+
+    // Step 2: The translation directly defines the OBB center in world-space.
+    const FVector Center = WorldTransform.Translation;
+
+    // Step 3: Treat the scale as the full size on each axis and convert it into half extents.
+    const FVector FullExtent(
+        static_cast<float>(std::fabs(WorldTransform.Scale3D.X)),
+        static_cast<float>(std::fabs(WorldTransform.Scale3D.Y)),
+        static_cast<float>(std::fabs(WorldTransform.Scale3D.Z)));
+    const FVector HalfExtent = FullExtent * 0.5f;
+
+    // Step 4: Build orthonormal axes from the world rotation, preserving mirroring caused by negative scale.
+    const FQuat WorldRotation = WorldTransform.Rotation.GetNormalized();
+    const float SignX = (WorldTransform.Scale3D.X >= 0.0f) ? 1.0f : -1.0f;
+    const float SignY = (WorldTransform.Scale3D.Y >= 0.0f) ? 1.0f : -1.0f;
+    const float SignZ = (WorldTransform.Scale3D.Z >= 0.0f) ? 1.0f : -1.0f;
+
+    FVector Axes[3];
+    Axes[0] = WorldRotation.RotateVector(FVector(SignX, 0.0f, 0.0f)).GetSafeNormal();
+    Axes[1] = WorldRotation.RotateVector(FVector(0.0f, SignY, 0.0f)).GetSafeNormal();
+    Axes[2] = WorldRotation.RotateVector(FVector(0.0f, 0.0f, SignZ)).GetSafeNormal();
+
+    // Step 5: Assemble the final OBB description.
+    return FOBB(Center, HalfExtent, Axes);
 }
 
 FMatrix UDecalComponent::GetDecalProjectionMatrix() const
 {
     return FMatrix();
 }
+
+
+
+
