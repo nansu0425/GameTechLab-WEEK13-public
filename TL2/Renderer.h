@@ -14,78 +14,58 @@ struct FMaterialSlot;
 class URenderer
 {
 public:
-    URenderer(D3D11RHI* InDevice);
+	URenderer(D3D11RHI* InDevice);
 
-    ~URenderer();
+	~URenderer();
 
 public:
-    void RenderSceneForView(UWorld* InWorld, ACameraActor* InCamera, FViewport* InViewport);
+	void RenderSceneForView(UWorld* InWorld, ACameraActor* InCamera, FViewport* InViewport);
 
-    void BeginFrame();
+	void BeginFrame();
+	void EndFrame();
 
-    // Viewport size for current draw context (used by overlay/gizmo scaling)
-    void SetCurrentViewportSize(uint32 InWidth, uint32 InHeight) { CurrentViewportWidth = InWidth; CurrentViewportHeight = InHeight; }
-    uint32 GetCurrentViewportWidth() const { return CurrentViewportWidth; }
-    uint32 GetCurrentViewportHeight() const { return CurrentViewportHeight; }
+	// Viewport size for current draw context (used by overlay/gizmo scaling)
+	void SetViewModeType(EViewModeIndex ViewModeIndex);
+	void SetCurrentViewportSize(uint32 InWidth, uint32 InHeight) { CurrentViewportWidth = InWidth; CurrentViewportHeight = InHeight; }
+	uint32 GetCurrentViewportWidth() const { return CurrentViewportWidth; }
+	uint32 GetCurrentViewportHeight() const { return CurrentViewportHeight; }
 
-    void DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITIVE_TOPOLOGY InTopology, const TArray<FMaterialSlot>& InComponentMaterialSlots);
+	// 추후 다른 곳을 이동
+	void DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITIVE_TOPOLOGY InTopology, const TArray<FMaterialSlot>& InComponentMaterialSlots);
+	void DrawIndexedPrimitiveComponent(UTextRenderComponent* Comp, D3D11_PRIMITIVE_TOPOLOGY InTopology);
+	void DrawIndexedPrimitiveComponent(UBillboardComponent* Comp, D3D11_PRIMITIVE_TOPOLOGY InTopology);
 
-    void DrawIndexedPrimitiveComponent(UTextRenderComponent* Comp, D3D11_PRIMITIVE_TOPOLOGY InTopology);
-    
-    // 빌보드용 
-    void DrawIndexedPrimitiveComponent(UBillboardComponent* Comp, D3D11_PRIMITIVE_TOPOLOGY InTopology);
+	// Batch Line Rendering System
+	void BeginLineBatch();
+	void AddLine(const FVector& Start, const FVector& End, const FVector4& Color = FVector4(1.0f, 1.0f, 1.0f, 1.0f));
+	void AddLines(const TArray<FVector>& StartPoints, const TArray<FVector>& EndPoints, const TArray<FVector4>& Colors);
+	void EndLineBatch(const FMatrix& ModelMatrix, const FMatrix& ViewMatrix, const FMatrix& ProjectionMatrix);
+	void ClearLineBatch();
 
-    void SetViewModeType(EViewModeIndex ViewModeIndex);
-    // Batch Line Rendering System
-    void BeginLineBatch();
-    void AddLine(const FVector& Start, const FVector& End, const FVector4& Color = FVector4(1.0f, 1.0f, 1.0f, 1.0f));
-    void AddLines(const TArray<FVector>& StartPoints, const TArray<FVector>& EndPoints, const TArray<FVector4>& Colors);
-    void EndLineBatch(const FMatrix& ModelMatrix, const FMatrix& ViewMatrix, const FMatrix& ProjectionMatrix);
-    void ClearLineBatch();
-
-    void EndFrame();
-    
-    D3D11RHI* GetRHIDevice() { return RHIDevice; }
-private:
-    D3D11RHI* RHIDevice;    // NOTE: 개발 편의성을 위해서 DX11를 종속적으로 사용한다 (URHIDevice를 사용하지 않음)
-
-    UWorld* World = nullptr;
-
-    // Current viewport size (per FViewport draw); 0 if unset
-
-    uint32 CurrentViewportWidth = 0;
-    uint32 CurrentViewportHeight = 0;
-
-    // Batch Line Rendering System using UDynamicMesh for efficiency
-    ULineDynamicMesh* DynamicLineMesh = nullptr;
-    FMeshData* LineBatchData = nullptr;
-    UShader* LineShader = nullptr;
-    bool bLineBatchActive = false;
-    static const uint32 MAX_LINES = 200000;  // Maximum lines per batch (safety headroom)
-
-    void InitializeLineBatch();
-
-    // 이전 drawCall에서 이미 썼던 RnderState면, 다시 Set 하지 않기 위해 만든 변수들
-    EViewModeIndex PreViewModeIndex = EViewModeIndex::VMI_Wireframe; // RSSetState, UpdateColorConstantBuffers
-    //UMaterial* PreUMaterial = nullptr; // SRV, UpdatePixelConstantBuffers
-    //UStaticMesh* PreStaticMesh = nullptr; // VertexBuffer, IndexBuffer
-    /*ID3D11Buffer* PreVertexBuffer = nullptr;
-    ID3D11ShaderResourceView* PreSRV = nullptr;*/
+	D3D11RHI* GetRHIDevice() { return RHIDevice; }
 
 private:
-    // ==================== CPU HZB Occlusion ====================
-    void UpdateOcclusionGridSizeForViewport(FViewport* Viewport);
-    void BuildCpuOcclusionSets(
-        const Frustum& ViewFrustum,
-        const FMatrix& View, const FMatrix& Proj,
-        float ZNear, float ZFar,                       // ★ 추가
-        TArray<FCandidateDrawable>& OutOccluders,
-        TArray<FCandidateDrawable>& OutOccludees);
+	D3D11RHI* RHIDevice;    // NOTE: 개발 편의성을 위해서 DX11를 종속적으로 사용한다 (URHIDevice를 사용하지 않음)
 
-    std::unique_ptr<FOcclusionCullingManagerCPU> OcclusionCPU = nullptr;
-    TArray<uint8_t>        VisibleFlags;   // ActorIndex(UUID)로 인덱싱 (0=가려짐, 1=보임)
-    bool                        bUseCPUOcclusion = false; // False 하면 오클루전 컬링 안씁니다.
-    int                         OcclGridDiv = 2; // 화면 크기/이 값 = 오클루전 그리드 해상도(1/6 권장)
+	// Current viewport size (per FViewport draw); 0 if unset
 
+	uint32 CurrentViewportWidth = 0;
+	uint32 CurrentViewportHeight = 0;
+
+	// Batch Line Rendering System using UDynamicMesh for efficiency
+	ULineDynamicMesh* DynamicLineMesh = nullptr;
+	FMeshData* LineBatchData = nullptr;
+	UShader* LineShader = nullptr;
+	bool bLineBatchActive = false;
+	static const uint32 MAX_LINES = 200000;  // Maximum lines per batch (safety headroom)
+
+	void InitializeLineBatch();
+
+	// 이전 drawCall에서 이미 썼던 RnderState면, 다시 Set 하지 않기 위해 만든 변수들
+	EViewModeIndex PreViewModeIndex = EViewModeIndex::VMI_Wireframe; // RSSetState, UpdateColorConstantBuffers
+	//UMaterial* PreUMaterial = nullptr; // SRV, UpdatePixelConstantBuffers
+	//UStaticMesh* PreStaticMesh = nullptr; // VertexBuffer, IndexBuffer
+	/*ID3D11Buffer* PreVertexBuffer = nullptr;
+	ID3D11ShaderResourceView* PreSRV = nullptr;*/
 };
 

@@ -47,8 +47,3 @@ void URenderManager::EndFrame()
 	if (Renderer)
 		Renderer->EndFrame();
 }
-
-void URenderManager::Render(UWorld* InWorld, FViewport* Viewport)
-{
-}
-
