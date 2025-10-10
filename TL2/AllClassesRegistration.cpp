@@ -22,6 +22,8 @@
 #include "Line.h"
 #include "TextRenderComponent.h"
 #include "AABoundingBoxComponent.h"
+#include "BillboardComponent.h"
+#include "DecalComponent.h"
 
 #include "UI/Factory/UIWindowFactory.h"
 #include "UI/ImGui/ImGuiHelper.h"
@@ -56,7 +58,6 @@
 #include"RenderViewportSwitcherWidget.h"
 #include "MenuBarWidget.h"
 #include "WorldPartitionManager.h"
-#include "BillboardComponent.h"
 // ... (rest of the file)
 IMPLEMENT_CLASS(UWorld)
 
@@ -68,6 +69,8 @@ IMPLEMENT_CLASS(UCameraComponent)
 IMPLEMENT_CLASS(UStaticMeshComponent)
 IMPLEMENT_CLASS(UAABoundingBoxComponent)
 IMPLEMENT_CLASS(UShapeComponent)
+IMPLEMENT_CLASS(UBillboardComponent)
+IMPLEMENT_CLASS(UDecalComponent)
 
 IMPLEMENT_CLASS(AActor)
 IMPLEMENT_CLASS(ACameraActor)
@@ -128,5 +131,3 @@ IMPLEMENT_CLASS(UTexture)
 IMPLEMENT_CLASS(UDynamicMesh)
 IMPLEMENT_CLASS(ULineDynamicMesh)
 IMPLEMENT_CLASS(UQuad)
-
-IMPLEMENT_CLASS(UBillboardComponent)
