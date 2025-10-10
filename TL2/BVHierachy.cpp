@@ -101,7 +101,7 @@ bool FBVHierachy::Remove(AActor* InActor, const FAABB& ActorBounds)
     return existed;
 }
 
-void FBVHierachy::Update(AActor* InActor, const FAABB& OldBounds, const FAABB& NewBounds)
+void FBVHierachy::Update(AActor* InActor, const FAABB& NewBounds)
 {
     if (!InActor) return;
     ActorLastBounds.Add(InActor, NewBounds);
@@ -123,7 +123,7 @@ void FBVHierachy::Update(AActor* InActor)
     auto it = ActorLastBounds.find(InActor);
     if (it != ActorLastBounds.end())
     {
-        Update(InActor, it->second, InActor->GetBounds());
+        Update(InActor, InActor->GetBounds());
     }
     else
     {

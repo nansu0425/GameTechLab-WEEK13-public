@@ -19,7 +19,7 @@ public:
     void Insert(AActor* InActor, const FAABB& ActorBounds);
     void BulkInsert(const TArray<std::pair<AActor*, FAABB>>& ActorsAndBounds);
     bool Remove(AActor* InActor, const FAABB& ActorBounds);
-    void Update(AActor* InActor, const FAABB& OldBounds, const FAABB& NewBounds);
+    void Update(AActor* InActor, const FAABB& NewBounds);
 
     bool Contains(const FAABB& Box) const;
 
