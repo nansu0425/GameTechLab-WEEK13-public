@@ -18,9 +18,9 @@ struct FOBB
     bool Contains(const FVector& Point) const;
     bool Contains(const FOBB& Other) const;
     bool Intersects(const FOBB& Other) const;
-    bool IntersectsRay(const FRay& InRay, float& OutEnterDistance, float& OutExitDistance);
+    bool IntersectsRay(const FRay& InRay, float& OutEnterDistance, float& OutExitDistance) const;
 
 private:
     // Contain 연산을 위한 헬퍼 함수
-    TArray<FVector> FOBB::GetCorners() const;
+    TArray<FVector> GetCorners() const;
 };
