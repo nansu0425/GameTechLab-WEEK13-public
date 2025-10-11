@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "MeshComponent.h"
 #include "Enums.h"
+#include "AABB.h"
 
 class UStaticMesh;
 class UShader;
@@ -42,10 +43,16 @@ public:
         return bChangedMaterialByUser;
     }
 
+    FAABB GetWorldAABB() const;
+
     // ───── 복사 관련 ────────────────────────────
     void DuplicateSubObjects() override;
     DECLARE_DUPLICATE(UStaticMeshComponent)
     
+protected:
+    void OnTransformUpdated() override;
+    void MarkBVDirty();
+
 protected:
     UStaticMesh* StaticMesh = nullptr;
     TArray<FMaterialSlot> MaterialSlots;
