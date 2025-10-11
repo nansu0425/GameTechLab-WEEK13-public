@@ -81,7 +81,7 @@ private:
 	Frustum ViewFrustum;
 	float ZNear = 0.1f;
 	float ZFar = 1000.0f;
-	EViewModeIndex EffectiveViewMode;
+	EViewModeIndex EffectiveViewMode = EViewModeIndex::None;
 
 	// 수집된 렌더링 대상 목록
 	FVisibleRenderProxySet Proxies;
