@@ -164,13 +164,12 @@ void UStaticMeshComponent::DuplicateSubObjects()
     Super::DuplicateSubObjects();
 }
 
-void UStaticMeshComponent::OnTransformUpdated()
+void UStaticMeshComponent::OnTransformUpdatedChildImpl()
 {
-    Super::OnTransformUpdated();
-    MarkBVDirty();
+    MarkWorldPartitionDirty();
 }
 
-void UStaticMeshComponent::MarkBVDirty()
+void UStaticMeshComponent::MarkWorldPartitionDirty()
 {
     if (UWorld* World = GetWorld())
     {

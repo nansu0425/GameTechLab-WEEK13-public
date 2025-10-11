@@ -62,6 +62,13 @@ void UWorldPartitionManager::Clear()
 	ComponentDirtySet.Empty();
 }
 
+void UWorldPartitionManager::Register(UStaticMeshComponent* Smc)
+{
+	if (!Smc) return;
+	MarkDirty(Smc);
+}
+
+
 void UWorldPartitionManager::Register(AActor* Actor)
 {
 	if (!Actor) return;
@@ -86,9 +93,7 @@ void UWorldPartitionManager::BulkRegister(const TArray<AActor*>& Actors)
 			ComponentDirtySet.erase(Component);
 		}
 	}
-
-	// Octree: 기존 대량 삽입
-	//if (SceneOctree) SceneOctree->BulkInsert(ActorsAndBounds);
+	
 	if (BVH) BVH->BulkInsert(ComponentsAndBounds);
 }
 
@@ -113,16 +118,18 @@ void UWorldPartitionManager::MarkDirty(AActor* Actor)
 	}
 }
 
-void UWorldPartitionManager::MarkDirty(UStaticMeshComponent* Component)
+void UWorldPartitionManager::MarkDirty(UStaticMeshComponent* Smc)
 {
-	if (!Component)
+	if (!Smc)
 	{
 		return;
 	}
 
-	if (ComponentDirtySet.insert(Component).second)
+	// second: 새로운 요소가 성공적으로 삽입되었으면 true, 이미 요소가 존재하여 삽입에 실패했으면 false
+	// DirtyQueue 중복 삽입 방지 로직
+	if (ComponentDirtySet.insert(Smc).second)
 	{
-		ComponentDirtyQueue.push(Component);
+		ComponentDirtyQueue.push(Smc);
 	}
 }
 
