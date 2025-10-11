@@ -190,7 +190,7 @@ void FSceneRenderer::GatherVisibleProxies()
 			}
 			else if (UDecalComponent* Decal = Cast<UDecalComponent>(Component))
 			{
-				FDecalStatManager::GetInstance().SetTotalDecalComponentCount(FDecalStatManager::GetInstance().GetTotalDecalComponentCount() + 1);
+				FDecalStatManager::GetInstance().IncrementTotalDecalCount();
 
 				if (bDrawDecals)
 				{
@@ -226,10 +226,7 @@ void FSceneRenderer::RenderDecalPass()
 	if (!BVH)
 		return;
 
-	FDecalStatManager::GetInstance().SetVisibleDecalCount(Proxies.Decals.Num());
-
-	// --- CPU 시간 측정 시작 ---
-	auto CpuTimeStart = std::chrono::high_resolution_clock::now();
+	FDecalStatManager::GetInstance().AddVisibleDecalCount(Proxies.Decals.Num());
 
 	// 데칼 렌더 설정
 	OwnerRenderer->SetViewModeType(EffectiveViewMode);
@@ -263,17 +260,21 @@ void FSceneRenderer::RenderDecalPass()
 			}
 		}
 
+
+		// --- 데칼 렌더 시간 측정 시작 ---
+		auto CpuTimeStart = std::chrono::high_resolution_clock::now();
+
 		// 3. TargetPrimitive 순회하며 렌더링
 		for (UPrimitiveComponent* Target : TargetPrimitives)
 		{
 			Decal->RenderAffectedPrimitives(OwnerRenderer, Target, ViewMatrix, ProjectionMatrix);
 		}
-	}
 
-	// --- CPU 시간 측정 종료 및 결과 저장 ---
-	auto CpuTimeEnd = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double, std::milli> CpuTimeMs = CpuTimeEnd - CpuTimeStart;
-	FDecalStatManager::GetInstance().GetDecalPassTimeSlot() = CpuTimeMs.count(); // ✅ 4. CPU 소요 시간 저장
+		// --- 데칼 렌더 시간 측정 종료 및 결과 저장 ---
+		auto CpuTimeEnd = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double, std::milli> CpuTimeMs = CpuTimeEnd - CpuTimeStart;
+		FDecalStatManager::GetInstance().GetDecalPassTimeSlot() += CpuTimeMs.count(); // CPU 소요 시간 저장
+	}
 
 	RHI->OMSetBlendState(false); // 상태 복구
 }

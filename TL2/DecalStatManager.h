@@ -23,7 +23,7 @@ public:
 	 */
 	void ResetFrameStats()
 	{
-		TotalDecalComponentCount = 0;
+		TotalDecalCount = 0;
 		VisibleDecalCount = 0;
 		AffectedMeshCount = 0;
 		DecalPassTimeMS = 0.0;
@@ -32,7 +32,7 @@ public:
 	// --- Getters ---
 
 	/** @return 씬 전체의 데칼 수 */
-	uint32_t GetTotalDecalComponentCount() const { return TotalDecalComponentCount; }
+	uint32_t GetTotalDecalCount() const { return TotalDecalCount; }
 
 	/** @return 그릴 데칼 수 (Frustum Culling 통과) */
 	uint32_t GetVisibleDecalCount() const { return VisibleDecalCount; }
@@ -71,16 +71,18 @@ public:
 
 	// --- Setters / Incrementers ---
 
-	/** @brief 씬의 전체 데칼 수를 설정합니다. (주로 데칼 생성/소멸 시 호출) */
-	void SetTotalDecalComponentCount(uint32_t InCount) { TotalDecalComponentCount = InCount; }
+	// NOTE: 추후 데칼 생성/소멸 시 호출하여 실제 컴포넌트 수만큼만 표시
+	/** @brief 씬의 전체 데칼 수를 1 증가시킵니다 */
+	void IncrementTotalDecalCount() { ++TotalDecalCount; }
 
-	/** @brief 그릴 데칼 수를 설정합니다. (Gather 단계 이후 호출) */
-	void SetVisibleDecalCount(uint32_t InCount) { VisibleDecalCount = InCount; }
+	/** @brief 그릴 데칼 수를 더합니다. (Gather 단계 이후 호출) */
+	void AddVisibleDecalCount(uint32_t InCount) { VisibleDecalCount += InCount; }
 
 	/** @brief 데칼이 메시에 그려질 때마다 호출하여 카운트를 1 증가시킵니다. */
 	void IncrementAffectedMeshCount() { ++AffectedMeshCount; }
 
-	/** @brief Scoped Timer가 데칼 패스의 전체 소요 시간을 직접 기록할 수 있도록 변수의 참조를 반환합니다. */
+	// NOTE: 추후 Scoped Timer 같은 타이머에서 시간을 기록할 수 있도록 참조자로 반환
+	/** @brief 데칼 패스의 전체 소요 시간을 직접 기록할 수 있도록 변수의 참조를 반환합니다. */
 	double& GetDecalPassTimeSlot() { return DecalPassTimeMS; }
 
 private:
@@ -95,7 +97,7 @@ private:
 	// --- 통계 데이터 멤버 변수 ---
 
 	// 매 프레임 초기화되는 데이터
-	uint32_t TotalDecalComponentCount = 0;
+	uint32_t TotalDecalCount = 0;
 	uint32_t VisibleDecalCount = 0;
 	uint32_t AffectedMeshCount = 0;
 	double DecalPassTimeMS = 0.0;
