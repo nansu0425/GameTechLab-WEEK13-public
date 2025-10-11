@@ -70,6 +70,7 @@ public:
 	void OMSetBlendState(bool bIsBlendMode);
 	void Present();
 	void PSSetDefaultSampler(UINT StartSlot);
+	void PSSetClampSampler(UINT StartSlot);
 	void RSSetNoCullState();
 
 	// Overlay precedence helpers
@@ -171,6 +172,7 @@ private:
 	ID3D11Buffer* ConstantBuffer{};
 
 	ID3D11SamplerState* DefaultSamplerState = nullptr;
+	ID3D11SamplerState* ClampSamplerState = nullptr;
 
 	UShader* PreShader = nullptr; // Shaders, Inputlayout
 };
