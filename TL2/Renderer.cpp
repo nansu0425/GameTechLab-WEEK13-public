@@ -18,7 +18,7 @@
 #include "GizmoActor.h"
 #include "GridActor.h"
 #include "Octree.h"
-#include "BVHierachy.h"
+#include "BVHierarchy.h"
 #include "Occlusion.h"
 #include "Frustum.h"
 #include "AABoundingBoxComponent.h"
