@@ -12,6 +12,12 @@ struct ModelBufferType
     FMatrix Model;
 };
 
+struct DecalBufferType
+{
+    FMatrix DecalMatrix;
+    float Opacity;
+};
+
 // b0 in PS
 struct FMaterialInPs
 {
@@ -453,7 +459,7 @@ void D3D11RHI::OMSetBlendState(bool bIsBlendMode)
 {
     if (bIsBlendMode == true)
     {
-        float blendFactor[4] = { 0,0,0,0 };
+        float blendFactor[4] = { 0, 0, 0, 0 };
         DeviceContext->OMSetBlendState(BlendState, blendFactor, 0xffffffff);
     }
     else
@@ -643,7 +649,7 @@ void D3D11RHI::CreateConstantBuffer()
     // b6: DecalCB
     D3D11_BUFFER_DESC decalDesc = {};
     decalDesc.Usage = D3D11_USAGE_DYNAMIC;
-    decalDesc.ByteWidth = sizeof(ModelBufferType);
+    decalDesc.ByteWidth = sizeof(DecalBufferType);
     decalDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     decalDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     Device->CreateBuffer(&decalDesc, nullptr, &DecalCB);
@@ -664,16 +670,18 @@ void D3D11RHI::UpdateUVScrollConstantBuffers(const FVector2D& Speed, float TimeS
     }
 }
 
-void D3D11RHI::UpdateDecalBuffer(const FMatrix& DecalMatrix)
+void D3D11RHI::UpdateDecalBuffer(const FMatrix& DecalMatrix, const float InOpacity)
 {
     D3D11_MAPPED_SUBRESOURCE mapped;
     DeviceContext->Map(DecalCB, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
-    auto* dataPtr = reinterpret_cast<ModelBufferType*>(mapped.pData);
+    auto* dataPtr = reinterpret_cast<DecalBufferType*>(mapped.pData);
 
-    dataPtr->Model = DecalMatrix;
+    dataPtr->DecalMatrix = DecalMatrix;
+    dataPtr->Opacity = InOpacity;
 
     DeviceContext->Unmap(DecalCB, 0);
     DeviceContext->VSSetConstantBuffers(6, 1, &DecalCB); // b6 슬롯
+    DeviceContext->PSSetConstantBuffers(6, 1, &DecalCB); // b6 슬롯
 }
 
 

@@ -61,7 +61,7 @@ public:
     void UpdateHighLightConstantBuffers(const uint32 InPicked, const FVector& InColor, const uint32 X, const uint32 Y, const uint32 Z, const uint32 Gizmo);
     void UpdateColorConstantBuffers(const FVector4& InColor);
     void UpdateUVScrollConstantBuffers(const FVector2D& Speed, float TimeSec);
-    void UpdateDecalBuffer(const FMatrix& DecalMatrix);
+    void UpdateDecalBuffer(const FMatrix& DecalMatrix, const float InOpacity);
 
 	void IASetPrimitiveTopology();
 	void RSSetState(EViewModeIndex ViewModeIndex);

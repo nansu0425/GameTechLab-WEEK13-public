@@ -8,6 +8,12 @@ cbuffer PSScrollCB : register(b5)
     float _pad_scrollcb;
 }
 
+cbuffer DecalBuffer : register(b6)
+{
+    row_major float4x4 DecalMatrix;
+    float DecalOpacity;
+}
+
 struct PS_INPUT
 {
     float4 position : SV_POSITION; // Transformed position to pass to the pixel shader
@@ -31,6 +37,7 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     uv += UVScrollSpeed * UVScrollTime;
     
     float4 finalColor = g_DecalTexColor.Sample(g_Sample, uv);
+    finalColor *= DecalOpacity; // ui로 조절한 decal의 opacity
     
     return finalColor;
 }

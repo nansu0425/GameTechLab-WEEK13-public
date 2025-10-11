@@ -37,7 +37,7 @@ void UDecalComponent::RenderAffectedPrimitives(URenderer* Renderer, UPrimitiveCo
 	RHIDevice->UpdateConstantBuffers(Target->GetWorldMatrix(), View, Proj);
 
 	const FMatrix DecalMatrix = GetDecalProjectionMatrix();
-	RHIDevice->UpdateDecalBuffer(DecalMatrix);
+	RHIDevice->UpdateDecalBuffer(DecalMatrix, DecalOpacity);
 
 	// Shader 설정
 	UShader* VS = UResourceManager::GetInstance().Load<UShader>("DecalVS.hlsl");
