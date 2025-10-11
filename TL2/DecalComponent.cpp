@@ -187,12 +187,12 @@ FMatrix UDecalComponent::GetDecalProjectionMatrix() const
 {
     const FOBB Obb = GetOBB();
 
+	// yup to zup 행렬이 적용이 안되게 함: x방향 projection 행렬을 적용하기 위해.
 	const FMatrix DecalWorld = FMatrix::FromTRS(GetWorldLocation(), GetWorldRotation(), {1.0f, 1.0f, 1.0f});
 	const FMatrix DecalView = DecalWorld.InverseAffine();
 
 	const FVector Scale = GetWorldScale();
-	const FMatrix DecalProj = FMatrix::OrthoLH_XForward(Scale.Y * 2.0f, Scale.Z, -Obb.HalfExtent.X / 2.0f, Obb.HalfExtent.X / 2.0f);
-	//const FMatrix DecalProj = FMatrix::OrthoLH(Scale.Y, Scale.Z, -Obb.HalfExtent.X, Obb.HalfExtent.X);
+	const FMatrix DecalProj = FMatrix::OrthoLH_XForward(Scale.Y, Scale.Z, -Obb.HalfExtent.X, Obb.HalfExtent.X);
 
 	FMatrix DecalViewProj = DecalView * DecalProj;
 

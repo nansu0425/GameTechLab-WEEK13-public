@@ -19,17 +19,14 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     float3 ndc = input.decalPos.xyz / input.decalPos.w;
     
     // decal의 forward가 +x임 -> x방향 projection
-    if(ndc.x < 0.0f || 1.0f < ndc.x || ndc.y < -1.0f || 1.0f < ndc.y || ndc.z < -1.0f || 1.0f < ndc.z)
+    if (ndc.x < 0.0f || 1.0f < ndc.x || ndc.y < -1.0f || 1.0f < ndc.y || ndc.z < -1.0f || 1.0f < ndc.z)
     {
         discard;
     }
     
-    // for test
-    //return float4(1.0, 0.0f, 0.0f, 1.0f);
-    
     // ndc to uv
     float2 uv = (ndc.yz + 1.0f) / 2.0f;
-    uv.y *= -1.0f;
+    uv.y = 1.0f - uv.y;
     
     uv += UVScrollSpeed * UVScrollTime;
     

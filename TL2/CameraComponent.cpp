@@ -22,6 +22,12 @@ FMatrix UCameraComponent::GetViewMatrix() const
 {
     // Robust path: View = inverse(world) under row-vector convention.
     // Use full transform matrix (translation in last row) and invert affine part.
+    /*FMatrix YUpToZUpInverse(
+        0, 0, 1, 0,
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 0, 1
+    );*/
     const FMatrix World = GetWorldTransform().ToMatrixWithScaleLocalXYZ();
     return World.InverseAffine();
 }
@@ -54,6 +60,8 @@ FMatrix UCameraComponent::GetProjectionMatrix(float ViewportAspectRatio) const
 
         return FMatrix::OrthoLH(orthoWidth, orthoHeight,
             NearClip, FarClip);
+        /*return FMatrix::OrthoLH_XForward(orthoWidth, orthoHeight,
+            NearClip, FarClip);*/
     }
 }
 FMatrix UCameraComponent::GetProjectionMatrix(float ViewportAspectRatio, FViewport* Viewport) const
@@ -78,6 +86,8 @@ FMatrix UCameraComponent::GetProjectionMatrix(float ViewportAspectRatio, FViewpo
             orthoWidth,
             orthoHeight,
             NearClip, FarClip);
+        /*return FMatrix::OrthoLH_XForward(orthoWidth, orthoHeight,
+            NearClip, FarClip);*/
     }
 }
 FVector UCameraComponent::GetForward() const
