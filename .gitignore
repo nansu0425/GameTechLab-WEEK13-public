@@ -462,3 +462,6 @@ WARP.md
 .idea/**/usage.statistics.xml
 .idea/**/dictionaries
 .idea/**/shelf
+
+# AI Configuration Files
+AGENTS.md

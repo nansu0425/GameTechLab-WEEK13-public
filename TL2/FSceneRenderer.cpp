@@ -17,9 +17,10 @@
 #include "Occlusion.h"
 #include "Frustum.h"
 #include "WorldPartitionManager.h"
-#include "BVHierachy.h"
+#include "BVHierarchy.h"
 #include "SelectionManager.h"
 #include "StaticMeshComponent.h"
+#include "DecalStatManager.h"
 
 FSceneRenderer::FSceneRenderer(UWorld* InWorld, ACameraActor* InCamera, FViewport* InViewport, URenderer* InOwnerRenderer)
 	: World(InWorld)
@@ -189,6 +190,8 @@ void FSceneRenderer::GatherVisibleProxies()
 			}
 			else if (UDecalComponent* Decal = Cast<UDecalComponent>(Component))
 			{
+				FDecalStatManager::GetInstance().IncrementTotalDecalCount();
+
 				if (bDrawDecals)
 				{
 					Proxies.Decals.Add(Decal);
@@ -219,9 +222,11 @@ void FSceneRenderer::RenderDecalPass()
 	if (!Partition)
 		return;
 
-	const FBVHierachy* BVH = Partition->GetBVH();
+	const FBVHierarchy* BVH = Partition->GetBVH();
 	if (!BVH)
 		return;
+
+	FDecalStatManager::GetInstance().AddVisibleDecalCount(Proxies.Decals.Num());
 
 	// 데칼 렌더 설정
 	OwnerRenderer->SetViewModeType(EffectiveViewMode);
@@ -248,16 +253,27 @@ void FSceneRenderer::RenderDecalPass()
 				UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(SceneComp);
 				if (Primitive)
 				{
+					FDecalStatManager::GetInstance().IncrementAffectedMeshCount();
+
 					TargetPrimitives.push_back(Primitive);
 				}
 			}
 		}
+
+
+		// --- 데칼 렌더 시간 측정 시작 ---
+		auto CpuTimeStart = std::chrono::high_resolution_clock::now();
 
 		// 3. TargetPrimitive 순회하며 렌더링
 		for (UPrimitiveComponent* Target : TargetPrimitives)
 		{
 			Decal->RenderAffectedPrimitives(OwnerRenderer, Target, ViewMatrix, ProjectionMatrix);
 		}
+
+		// --- 데칼 렌더 시간 측정 종료 및 결과 저장 ---
+		auto CpuTimeEnd = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double, std::milli> CpuTimeMs = CpuTimeEnd - CpuTimeStart;
+		FDecalStatManager::GetInstance().GetDecalPassTimeSlot() += CpuTimeMs.count(); // CPU 소요 시간 저장
 	}
 
 	RHI->OMSetBlendState(false); // 상태 복구
@@ -303,7 +319,7 @@ void FSceneRenderer::RenderDebugPass()
 	// Debug draw (BVH, Octree 등)
 	if (World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_BVHDebug) && World->GetPartitionManager())
 	{
-		if (FBVHierachy* BVH = World->GetPartitionManager()->GetBVH())
+		if (FBVHierarchy* BVH = World->GetPartitionManager()->GetBVH())
 		{
 			BVH->DebugDraw(OwnerRenderer); // DebugDraw가 LineBatcher를 직접 받도록 수정 필요
 		}
@@ -317,8 +333,8 @@ void FSceneRenderer::FinalizeFrame()
 	if (World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Culling))
 	{
 		int totalActors = static_cast<int>(World->GetActors().size());
-		int visiblePrimitives = Proxies.Primitives.size();
-		UE_LOG("Total Actors: %d, Visible Primitives: %d\r\n", totalActors, visiblePrimitives);
+		uint64 visiblePrimitives = Proxies.Primitives.size();
+		UE_LOG("Total Actors: %d, Visible Primitives: %llu\r\n", totalActors, visiblePrimitives);
 	}
 }
 
