@@ -50,7 +50,7 @@ void AActor::BeginPlay()
 void AActor::Tick(float DeltaSeconds)
 {
 	// 에디터에서 틱 Off면 스킵
-	if (!bTickInEditor && /*에디터 중*/ true) return;
+	if (!bTickInEditor && World->bPie == false) return;
 
 	for (UActorComponent* Comp : OwnedComponents)
 	{
@@ -380,35 +380,43 @@ void AActor::DuplicateSubObjects()
 	bHiddenInGame = false;
 	bIsCulled = false;
 
-	RootComponent = RootComponent->Duplicate();
-	CollisionComponent = CollisionComponent->Duplicate();
-	TextComp = TextComp->Duplicate();
+	// OwnedComponents 복사
+	TSet<UActorComponent*> TmpOwnedComponents;
+	for (const auto& Comp : OwnedComponents) {
+		UActorComponent* Tmp = Comp->Duplicate();
+		if (Comp == RootComponent)
+		{
+			RootComponent = Cast<USceneComponent>(Tmp);
+		}
+		else if (Comp == CollisionComponent)
+		{
+			CollisionComponent = Cast<UAABoundingBoxComponent>(Tmp);
+		}
+		else if (Comp == TextComp)
+		{
+			TextComp = Cast<UTextRenderComponent>(Tmp);
+		}
+		Tmp->SetOwner(this);
+		TmpOwnedComponents.insert(Tmp); // 깊은 복사
+	}
+	OwnedComponents.swap(TmpOwnedComponents); // 원래 set 교체
 
-	RootComponent->SetOwner(this);
-	CollisionComponent->SetOwner(this);
-	TextComp->SetOwner(this);
+	// SceneComponents 복사
+	SceneComponents.clear();
+	SceneComponents.reserve(OwnedComponents.size());
+	for (const auto& Comp : OwnedComponents)
+	{
+		if (USceneComponent* SceneComp = Cast<USceneComponent>(Comp))
+		{
+			if (SceneComp != RootComponent)
+			{
+				SceneComp->SetParent(RootComponent);
+				SceneComponents.push_back(SceneComp);
+			}
+		}
+	}
 
 	World = nullptr; // TODO: World를 PIE World로 할당해야 함.
-
-	/*for (USceneComponent*& Component : SceneComponents)
-	{
-		Component = Component->Duplicate();
-		Component->SetOwner(this);
-		Component->
-	}*/
-
-	SceneComponents[0] = RootComponent;
-	SceneComponents[1] = CollisionComponent;
-	SceneComponents[2] = TextComp;
-	for (int i = 3; i < SceneComponents.size(); ++i)
-	{
-		SceneComponents[i] = SceneComponents[i]->Duplicate();
-		SceneComponents[i]->SetOwner(this);
-	}
-	for (int i = 1; i < SceneComponents.size(); ++i)
-	{
-		SceneComponents[i]->SetParent(RootComponent);
-	}
 }
 
 //AActor* AActor::Duplicate()

@@ -12,6 +12,7 @@ cbuffer ViewProjBuffer : register(b1)
 cbuffer DecalBuffer : register(b6)
 {
     row_major float4x4 DecalMatrix;
+    float DecalOpacity;
 }
 
 struct VS_INPUT

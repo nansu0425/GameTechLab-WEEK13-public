@@ -260,7 +260,6 @@ void FSceneRenderer::RenderDecalPass()
 			}
 		}
 
-
 		// --- 데칼 렌더 시간 측정 시작 ---
 		auto CpuTimeStart = std::chrono::high_resolution_clock::now();
 
