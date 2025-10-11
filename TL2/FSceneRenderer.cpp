@@ -20,6 +20,7 @@
 #include "BVHierarchy.h"
 #include "SelectionManager.h"
 #include "StaticMeshComponent.h"
+#include "DecalStatManager.h"
 
 FSceneRenderer::FSceneRenderer(UWorld* InWorld, ACameraActor* InCamera, FViewport* InViewport, URenderer* InOwnerRenderer)
 	: World(InWorld)
@@ -189,6 +190,8 @@ void FSceneRenderer::GatherVisibleProxies()
 			}
 			else if (UDecalComponent* Decal = Cast<UDecalComponent>(Component))
 			{
+				FDecalStatManager::GetInstance().SetTotalDecalComponentCount(FDecalStatManager::GetInstance().GetTotalDecalComponentCount() + 1);
+
 				if (bDrawDecals)
 				{
 					Proxies.Decals.Add(Decal);
@@ -223,6 +226,11 @@ void FSceneRenderer::RenderDecalPass()
 	if (!BVH)
 		return;
 
+	FDecalStatManager::GetInstance().SetVisibleDecalCount(Proxies.Decals.Num());
+
+	// --- CPU 시간 측정 시작 ---
+	auto CpuTimeStart = std::chrono::high_resolution_clock::now();
+
 	// 데칼 렌더 설정
 	OwnerRenderer->SetViewModeType(EffectiveViewMode);
 	RHI->OMSetDepthStencilState(EComparisonFunc::LessEqualReadOnly); // 깊이 쓰기 OFF
@@ -248,6 +256,8 @@ void FSceneRenderer::RenderDecalPass()
 				UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(SceneComp);
 				if (Primitive)
 				{
+					FDecalStatManager::GetInstance().IncrementAffectedMeshCount();
+
 					TargetPrimitives.push_back(Primitive);
 				}
 			}
@@ -259,6 +269,11 @@ void FSceneRenderer::RenderDecalPass()
 			Decal->RenderAffectedPrimitives(OwnerRenderer, Target, ViewMatrix, ProjectionMatrix);
 		}
 	}
+
+	// --- CPU 시간 측정 종료 및 결과 저장 ---
+	auto CpuTimeEnd = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double, std::milli> CpuTimeMs = CpuTimeEnd - CpuTimeStart;
+	FDecalStatManager::GetInstance().GetDecalPassTimeSlot() = CpuTimeMs.count(); // ✅ 4. CPU 소요 시간 저장
 
 	RHI->OMSetBlendState(false); // 상태 복구
 }

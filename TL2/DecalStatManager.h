@@ -23,6 +23,7 @@ public:
 	 */
 	void ResetFrameStats()
 	{
+		TotalDecalComponentCount = 0;
 		VisibleDecalCount = 0;
 		AffectedMeshCount = 0;
 		DecalPassTimeMS = 0.0;
@@ -93,10 +94,8 @@ private:
 private:
 	// --- 통계 데이터 멤버 변수 ---
 
-	// 씬 로드/변경 시 업데이트되는 데이터
-	uint32_t TotalDecalComponentCount = 0;
-
 	// 매 프레임 초기화되는 데이터
+	uint32_t TotalDecalComponentCount = 0;
 	uint32_t VisibleDecalCount = 0;
 	uint32_t AffectedMeshCount = 0;
 	double DecalPassTimeMS = 0.0;
