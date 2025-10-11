@@ -965,6 +965,11 @@ inline FMatrix FMatrix::OrthoLH_XForward(float Width, float Height, float Xn, fl
     m.Rows[1] = _mm_set_ps(0.0f, 0.0f, 0.0f, 2.0f / W);
     m.Rows[2] = _mm_set_ps(0.0f, 0.0f, 2.0f / H, 0.0f);
     m.Rows[3] = _mm_set_ps(1.0f, 0.0f, 0.0f, -Xn / DX);
+
+    /*m.Rows[0] = _mm_set_ps(0.0f, 0.0f, 0.0f, 1.0f / DX);
+    m.Rows[1] = _mm_set_ps(0.0f, 0.0f, 2.0f / W, 0.0f);
+    m.Rows[2] = _mm_set_ps(0.0f, 2.0f / H, 0.0f, 0.0f);
+    m.Rows[3] = _mm_set_ps(1.0f, 0.0f, 0.0f, -Xn / DX);*/
     return m;
 }
 

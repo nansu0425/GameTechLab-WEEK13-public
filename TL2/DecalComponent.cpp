@@ -187,12 +187,13 @@ FMatrix UDecalComponent::GetDecalProjectionMatrix() const
 {
     const FOBB Obb = GetOBB();
 
-	const FMatrix DecalWorld = FMatrix::FromTRS(GetWorldLocation(), GetWorldRotation(), {1.0f, 1.0f, 1.0f});
+	//const FMatrix DecalWorld = FMatrix::FromTRS(GetWorldLocation(), GetWorldRotation(), {1.0f, 1.0f, 1.0f});
+	const FMatrix DecalWorld = GetWorldMatrix();
 	const FMatrix DecalView = DecalWorld.InverseAffine();
 
 	const FVector Scale = GetWorldScale();
-	const FMatrix DecalProj = FMatrix::OrthoLH_XForward(Scale.Y * 2.0f, Scale.Z, -Obb.HalfExtent.X / 2.0f, Obb.HalfExtent.X / 2.0f);
-	//const FMatrix DecalProj = FMatrix::OrthoLH(Scale.Y, Scale.Z, -Obb.HalfExtent.X, Obb.HalfExtent.X);
+	//const FMatrix DecalProj = FMatrix::OrthoLH_XForward(Scale.Y * 2.0f, Scale.Z, -Obb.HalfExtent.X / 2.0f, Obb.HalfExtent.X / 2.0f);
+	const FMatrix DecalProj = FMatrix::OrthoLH(Scale.Y * 2.0f, Scale.Z * 2.0f, -Obb.HalfExtent.X, Obb.HalfExtent.X);
 
 	FMatrix DecalViewProj = DecalView * DecalProj;
 
