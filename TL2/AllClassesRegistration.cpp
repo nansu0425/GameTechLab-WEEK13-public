@@ -39,6 +39,7 @@
 #include "UI/Widget/SceneManagerWidget.h"
 #include "UI/Widget/ShowFlagWidget.h"
 #include "UI/Widget/Widget.h"
+#include "UI/Widget/ActorSpawnWidget.h"
 #include "UI/Window/ConsoleWindow.h"
 #include "UI/Window/ControlPanelWindow.h"
 #include "UI/Window/PropertyWindow.h"
@@ -112,6 +113,7 @@ IMPLEMENT_CLASS(USceneIOWidget)
 IMPLEMENT_CLASS(UTargetActorTransformWidget)
 IMPLEMENT_CLASS(USceneManagerWidget)
 IMPLEMENT_CLASS(UShowFlagWidget)
+IMPLEMENT_CLASS(UActorSpawnWidget)
 
 IMPLEMENT_CLASS(UUIWindow)
 IMPLEMENT_CLASS(UConsoleWindow)

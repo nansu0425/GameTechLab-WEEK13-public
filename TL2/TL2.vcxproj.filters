@@ -435,6 +435,9 @@
     <ClCompile Include="DecalActor.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="UI\Widget\ActorSpawnWidget.cpp">
+      <Filter>소스 파일\UI\Widget</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Primitive.hlsl">
@@ -819,6 +822,9 @@
     </ClInclude>
     <ClInclude Include="DecalActor.h">
       <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\Widget\ActorSpawnWidget.h">
+      <Filter>헤더 파일\UI\Widget</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
