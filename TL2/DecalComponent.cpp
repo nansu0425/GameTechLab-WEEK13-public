@@ -42,7 +42,7 @@ void UDecalComponent::TickComponent(float DeltaTime)
 		FadeDirection = -1; // 다시 감소 시작
 	}
 
-	UE_LOG("Tick: decal opacity: %.2f, uuid: %d", DecalOpacity, UUID);
+	//UE_LOG("Tick: decal opacity: %.2f, uuid: %d", DecalOpacity, UUID);
 }
 
 
@@ -62,7 +62,7 @@ void UDecalComponent::RenderAffectedPrimitives(URenderer* Renderer, UPrimitiveCo
 
 	const FMatrix DecalMatrix = GetDecalProjectionMatrix();
 	RHIDevice->UpdateDecalBuffer(DecalMatrix, DecalOpacity);
-	UE_LOG("Render: decal opacity: %.2f, uuid: %d", DecalOpacity, UUID);
+	//UE_LOG("Render: decal opacity: %.2f, uuid: %d", DecalOpacity, UUID);
 
 	// Shader 설정
 	UShader* VS = UResourceManager::GetInstance().Load<UShader>("DecalVS.hlsl");
