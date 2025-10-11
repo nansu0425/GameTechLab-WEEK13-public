@@ -17,7 +17,7 @@
 #include "Occlusion.h"
 #include "Frustum.h"
 #include "WorldPartitionManager.h"
-#include "BVHierachy.h"
+#include "BVHierarchy.h"
 #include "SelectionManager.h"
 #include "StaticMeshComponent.h"
 
@@ -219,7 +219,7 @@ void FSceneRenderer::RenderDecalPass()
 	if (!Partition)
 		return;
 
-	const FBVHierachy* BVH = Partition->GetBVH();
+	const FBVHierarchy* BVH = Partition->GetBVH();
 	if (!BVH)
 		return;
 
@@ -303,7 +303,7 @@ void FSceneRenderer::RenderDebugPass()
 	// Debug draw (BVH, Octree 등)
 	if (World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_BVHDebug) && World->GetPartitionManager())
 	{
-		if (FBVHierachy* BVH = World->GetPartitionManager()->GetBVH())
+		if (FBVHierarchy* BVH = World->GetPartitionManager()->GetBVH())
 		{
 			BVH->DebugDraw(OwnerRenderer); // DebugDraw가 LineBatcher를 직접 받도록 수정 필요
 		}
@@ -317,8 +317,8 @@ void FSceneRenderer::FinalizeFrame()
 	if (World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Culling))
 	{
 		int totalActors = static_cast<int>(World->GetActors().size());
-		int visiblePrimitives = Proxies.Primitives.size();
-		UE_LOG("Total Actors: %d, Visible Primitives: %d\r\n", totalActors, visiblePrimitives);
+		uint64 visiblePrimitives = Proxies.Primitives.size();
+		UE_LOG("Total Actors: %d, Visible Primitives: %llu\r\n", totalActors, visiblePrimitives);
 	}
 }
 
