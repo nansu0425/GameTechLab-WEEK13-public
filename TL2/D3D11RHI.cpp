@@ -251,6 +251,18 @@ void D3D11RHI::CreateSamplerState()
     SampleDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
 	HRESULT HR = Device->CreateSamplerState(&SampleDesc, &DefaultSamplerState);
+
+    // Clamp Sampler
+    D3D11_SAMPLER_DESC ClampDesc = {};
+    ClampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+    ClampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+    ClampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    ClampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+    ClampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+    ClampDesc.MinLOD = 0;
+    ClampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+    HR = Device->CreateSamplerState(&ClampDesc, &ClampSamplerState);
 }
 
 HRESULT D3D11RHI::CreateIndexBuffer(ID3D11Device* device, const FMeshData* meshData, ID3D11Buffer** outBuffer)
@@ -672,6 +684,11 @@ void D3D11RHI::ReleaseSamplerState()
         DefaultSamplerState->Release();
         DefaultSamplerState = nullptr;
 	}
+    if (ClampSamplerState)
+    {
+        ClampSamplerState->Release();
+        ClampSamplerState = nullptr;
+    }
 }
 
 void D3D11RHI::ReleaseBlendState()
@@ -961,6 +978,11 @@ void D3D11RHI::ResizeSwapChain(UINT width, UINT height)
 void D3D11RHI::PSSetDefaultSampler(UINT StartSlot)
 {
 	DeviceContext->PSSetSamplers(StartSlot, 1, &DefaultSamplerState);
+}
+
+void D3D11RHI::PSSetClampSampler(UINT StartSlot)
+{
+    DeviceContext->PSSetSamplers(StartSlot, 1, &ClampSamplerState);
 }
 
 void D3D11RHI::PrepareShader(FShader& InShader)

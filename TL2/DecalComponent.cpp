@@ -65,7 +65,7 @@ void UDecalComponent::RenderAffectedPrimitives(URenderer* Renderer, UPrimitiveCo
 	);
 
 	RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	RHIDevice->PSSetDefaultSampler(0);
+	RHIDevice->PSSetClampSampler(0); // decal rendering에는 clamp sampler가 적절함
 
 	if (DecalTexture)
 	{
@@ -124,20 +124,6 @@ void UDecalComponent::SetDecalTexture(UTexture* InTexture)
 void UDecalComponent::SetDecalTexture(const FString& TexturePath)
 {
 	DecalTexture = UResourceManager::GetInstance().Load<UTexture>(TexturePath);
-	//UMaterial* const Material = UResourceManager::GetInstance().Load<UMaterial>(TexturePath);
-	//const FObjMaterialInfo& MaterialInfo = Material->GetMaterialInfo();
-	//if (!MaterialInfo.DiffuseTextureFileName.empty())
-	//{
-	//	// 반환 여기서 로드 
-	//	if (FTextureData* TextureData = UResourceManager::GetInstance().CreateOrGetTextureData(WTextureFileName))
-	//	{
-	//		if (TextureData->TextureSRV)
-	//		{
-	//			srv = TextureData->TextureSRV;
-	//			bHasTexture = true;
-	//		}
-	//	}
-	//}
 }
 
 FAABB UDecalComponent::GetWorldAABB() const
