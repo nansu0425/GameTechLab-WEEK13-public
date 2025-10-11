@@ -29,9 +29,10 @@
 #include "RenderSettings.h"
 #include "EditorEngine.h"
 #include "DecalComponent.h"
+#include "DecalStatManager.h"
+#include "FSceneRenderer.h"
 
 #include <Windows.h>
-#include "FSceneRenderer.h"
 
 URenderer::URenderer(D3D11RHI* InDevice) : RHIDevice(InDevice)
 {
@@ -59,6 +60,9 @@ void URenderer::BeginFrame()
 	//OM
 	//RHIDevice->OMSetBlendState();
 	RHIDevice->OMSetRenderTargets();
+
+	// 프레임별 데칼 통계를 추적하기 위해 초기화
+	FDecalStatManager::GetInstance().ResetFrameStats();
 
 	// TODO - 한 종류 메쉬만 스폰했을 때 깨지는 현상 방지 임시이므로 고쳐야합니다
 	// ★ 캐시 무효화
