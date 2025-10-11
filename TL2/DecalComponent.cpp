@@ -25,7 +25,7 @@ void UDecalComponent::DuplicateSubObjects()
 void UDecalComponent::RenderAffectedPrimitives(URenderer* Renderer, UPrimitiveComponent* Target, const FMatrix& View, const FMatrix& Proj)
 {
 	UStaticMeshComponent* SMC = Cast<UStaticMeshComponent>(Target);
-	if (!SMC)
+	if (!SMC || !SMC->GetStaticMesh())
 	{
 		return;
 	}

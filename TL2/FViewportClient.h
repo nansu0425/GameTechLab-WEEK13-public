@@ -69,7 +69,7 @@ protected:
 
     //원근 투영 기본값
     bool PerspectiveCameraInput = false;
-    FVector PerspectiveCameraPosition = FVector(-3.0f, 3.0f, 3.0f);
+    FVector PerspectiveCameraPosition = FVector(-5.0f, 5.0f, 5.0f);
     FVector PerspectiveCameraRotation = FVector(0.0f, 22.5f, -45.0f);
     float PerspectiveCameraFov=60;
 };
