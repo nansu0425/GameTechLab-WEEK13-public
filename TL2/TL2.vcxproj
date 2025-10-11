@@ -163,6 +163,7 @@
     <ClCompile Include="ActorComponent.cpp" />
     <ClCompile Include="BillboardComponent.cpp" />
     <ClCompile Include="BVHierarchy.cpp" />
+    <ClCompile Include="DecalActor.cpp" />
     <ClCompile Include="DecalComponent.cpp" />
     <ClCompile Include="FSceneRenderer.cpp" />
     <ClCompile Include="Level.cpp" />
@@ -359,6 +360,7 @@
   <ItemGroup>
     <ClInclude Include="AABB.h" />
     <ClInclude Include="ActorComponent.h" />
+    <ClInclude Include="DecalActor.h" />
     <ClInclude Include="BillboardComponent.h" />
     <ClInclude Include="BVHierarchy.h" />
     <ClInclude Include="DecalComponent.h" />
