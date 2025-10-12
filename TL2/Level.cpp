@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "Level.h"
 #include "SceneLoader.h"
 #include "StaticMeshActor.h"
@@ -182,76 +182,32 @@ void ULevel::Serialize(const bool bInIsLoading, JSON& InOutHandle)
             }
         }
 
-        
-
-        // Actor 정보
-        TArray<FSceneCompData> Primitives;
-
-        JSON ActorListJson = json::Object();
-        for (AActor* Actor : Actors)
+        // Actors 정보
+        JSON ActorListJson;
+        if (FJsonSerializer::ReadObject(InOutHandle, "Actors", ActorListJson))
         {
-            JSON ActorJson = json::Object();
-            Actor->Serialize(bInIsLoading, ActorJson);
-            ActorListJson[std::to_string(Actor->UUID)] = ActorJson;
-        }
-        InOutHandle["Actors"] = ActorListJson;
-
-        
-        /////////
-        FLoadedLevel Result{};
-        Result.Level = std::make_unique<ULevel>();
-
-        FPerspectiveCameraData CamData{};
-        const TArray<FSceneCompData>& Primitives = FSceneLoader::Load(FilePath, &CamData);
-
-        // Build actors from primitive data
-        // TODO: 현재 SMC 데이터만 들어온다고 가정하고 있음 -> 수정 필요
-        for (const FSceneCompData& Primitive : Primitives)
-        {
-            AStaticMeshActor* StaticMeshActor = NewObject<AStaticMeshActor>();
-            StaticMeshActor->SetActorTransform(
-                FTransform(
-                    Primitive.Location,
-                    SceneRotUtil::QuatFromEulerZYX_Deg(Primitive.Rotation),
-                    Primitive.Scale));
-
-            // Prefer using UUID from file if present
-            if (Primitive.UUID != 0)
-                StaticMeshActor->UUID = Primitive.UUID;
-
-            if (UStaticMeshComponent* SMC = StaticMeshActor->GetStaticMeshComponent())
+            // ObjectRange()를 사용하여 Primitives 객체의 모든 키-값 쌍을 순회
+            for (auto& Pair : ActorListJson.ObjectRange())
             {
-                FSceneCompData Temp = Primitive;
-                SMC->Serialize(true, Temp);
+                // Pair.first는 ID 문자열, Pair.second는 단일 프리미티브의 JSON 데이터입니다.
+                const FString& IdString = Pair.first;
+                JSON& ActorDataJson = Pair.second;
 
-                FString LoadedAssetPath;
-                if (UStaticMesh* Mesh = SMC->GetStaticMesh())
-                {
-                    LoadedAssetPath = Mesh->GetAssetPathFileName();
-                }
+                FString TypeString;
+                FJsonSerializer::ReadString(ActorDataJson, "Type", TypeString);
 
-                /*if (LoadedAssetPath == "Data/Sphere.obj")
-                {
-                    StaticMeshActor->SetCollisionComponent(EPrimitiveType::Sphere);
-                }
-                else
-                {
-                    StaticMeshActor->SetCollisionComponent();
-                }*/
+                //UClass* NewClass = FActorTypeMapper::TypeToActor(TypeString);
+                UClass* NewClass = UClass::FindClass(TypeString);
 
-                FString BaseName = "StaticMesh";
-                if (!LoadedAssetPath.empty())
+                UWorld* World = UUIManager::GetInstance().GetWorld();
+
+                AActor* NewActor = World->SpawnActor(NewClass);
+                if (NewActor)
                 {
-                    BaseName = RemoveObjExtension(LoadedAssetPath);
+                    NewActor->Serialize(bInIsLoading, ActorDataJson);
                 }
-                StaticMeshActor->SetName(BaseName);
             }
-
-            Result.Level->AddActor(StaticMeshActor);
         }
-
-        Result.Camera = CamData;
-        return Result;
     }
     else
     {
@@ -275,7 +231,6 @@ void ULevel::Serialize(const bool bInIsLoading, JSON& InOutHandle)
         }
 
         JSON CamreaJson = json::Object();
-        // FJsonSerializer 유틸리티 함수를 사용하여 FVector를 JSON 배열로 변환
         CamreaJson["Location"] = FJsonSerializer::VectorToJson(CamData.Location);
         CamreaJson["Rotation"] = FJsonSerializer::VectorToJson(CamData.Rotation);
         CamreaJson["FarClip"] = FJsonSerializer::FloatToArrayJson(CamData.FarClip);
@@ -284,17 +239,17 @@ void ULevel::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 
         InOutHandle["PerspectiveCamera"] = CamreaJson;
 
-        // Actor 정보
+        // Actors 정보
         JSON ActorListJson = json::Object();
         for (AActor* Actor : Actors)
         {
             JSON ActorJson = json::Object();
+            ActorJson["Type"] = Actor->GetClass()->Name;
+
             Actor->Serialize(bInIsLoading, ActorJson);
+
             ActorListJson[std::to_string(Actor->UUID)] = ActorJson;
         }
         InOutHandle["Actors"] = ActorListJson;
-
-
-        
     }
 }

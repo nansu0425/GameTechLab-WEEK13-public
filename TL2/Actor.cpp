@@ -399,6 +399,26 @@ void AActor::DuplicateSubObjects()
 	World = nullptr; // TODO: World를 PIE World로 할당해야 함.
 }
 
+void AActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
+{
+	Super::Serialize(bInIsLoading, InOutHandle);
+
+	if (RootComponent)
+	{
+		JSON RootCompJson;
+		RootComponent->Serialize(bInIsLoading, RootCompJson);
+
+		if (bInIsLoading)
+		{
+
+		}
+		else
+		{
+			InOutHandle[RootComponent->UUID] = RootCompJson;
+		}
+	}
+}
+
 //AActor* AActor::Duplicate()
 //{
 //	AActor* NewActor = ObjectFactory::DuplicateObject<AActor>(this); // 모든 멤버 얕은 복사

@@ -64,5 +64,7 @@ namespace ObjectFactory
             }                                                                 \
         };                                                                    \
         static ThisClass##FactoryRegister GRegister_##ThisClass;              \
+        /* 즉시 실행 람다를 사용하여 정적 초기화 시점에 클래스를 자동 등록합니다. */ \
+        static bool bIsRegistered_##ThisClass = [](){ ThisClass::StaticClass(); return true; }(); \
     }
 using namespace ObjectFactory;
