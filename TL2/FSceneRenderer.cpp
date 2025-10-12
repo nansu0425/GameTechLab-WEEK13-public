@@ -244,7 +244,7 @@ void FSceneRenderer::RenderDecalPass()
 		// 2. 충돌한 모든 visible Actor의 PrimitiveComponent를 TargetPrimitives에 추가 
 		for (AActor* Actor : IntersectedActors)
 		{
-			if (!Actor->IsActorVisible())
+			if (!Actor || !Actor->IsActorVisible())
 				continue; // Skip hidden actor
 
 			TArray<USceneComponent*> SceneComponents = Actor->GetSceneComponents();
