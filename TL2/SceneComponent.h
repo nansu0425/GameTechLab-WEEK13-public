@@ -87,6 +87,9 @@ public:
         AttachParent = InParent;
     }
 
+    // Serialize
+    void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
+
     /**
      * @brief 로컬 트랜스폼 변경시 생기는 영향을 처리하기 위한 메소드
      * @note 이 메소드는 모든 SceneComponent 공통 로직을 처리.
@@ -94,6 +97,17 @@ public:
      */
     void OnTransformUpdated();
 
+    // SceneId
+    uint32 GetSceneId() const { return SceneId; }
+    void SetSceneId(uint32 InId) { SceneId = InId; }
+    uint32 GetParentId() const { return ParentId; }
+    void SetParentId(uint32 InParentId) { ParentId = InParentId; }
+
+    
+    static TMap<uint32, USceneComponent*>& GetSceneIdMap()
+    {
+        return SceneIdMap;
+    }
 protected:
     /** @brief OnTransformUpdated() 내부에서 클래스 별 특수 로직을 처리하기 위한 가상함수 */
     virtual void OnTransformUpdatedChildImpl();
@@ -119,4 +133,7 @@ protected:
 
     void UpdateRelativeTransform();
     
+    uint32 SceneId; // Scene파일에서 불러온 Id. 컴포넌트끼리 자식부모관계 연결하기 위해 저장. Scene에 저장할 때는 UUID를 저장
+    uint32 ParentId;
+    static TMap<uint32, USceneComponent*> SceneIdMap; // 부모를 찾기 위한 Map
 };

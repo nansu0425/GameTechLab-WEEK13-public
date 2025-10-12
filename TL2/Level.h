@@ -2,7 +2,6 @@
 #include "Object.h"
 #include "UEContainer.h"
 #include <algorithm>
-#include "SceneLoader.h"
 
 class AActor;
 
@@ -23,15 +22,9 @@ public:
     }
     void Clear() { Actors.Empty(); }
 
+    void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
 private:
     TArray<AActor*> Actors;
-};
-
-// Simple static service for creating/loading/saving levels
-struct FLoadedLevel
-{
-    std::unique_ptr<ULevel> Level;
-    FPerspectiveCameraData Camera; // optional camera data for editor
 };
 
 class ULevelService
@@ -39,10 +32,4 @@ class ULevelService
 public:
     // Create a new empty level
     static std::unique_ptr<ULevel> CreateNewLevel();
-
-    // Load a level from Scene/<SceneName>.Scene and return constructed level + camera
-    static FLoadedLevel LoadLevel(const FString& SceneName);
-
-    // Save given level (actors) and optional camera to Scene/<SceneName>.Scene
-    static void SaveLevel(const ULevel* Level, const ACameraActor* Camera, const FString& SceneName);
 };

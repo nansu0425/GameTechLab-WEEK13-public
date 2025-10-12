@@ -1,7 +1,6 @@
 ﻿#include "pch.h"
 #include "SelectionManager.h"
 #include "Picking.h"
-#include "SceneLoader.h"
 #include "CameraActor.h"
 #include "StaticMeshActor.h"
 #include "CameraComponent.h"

@@ -3,6 +3,7 @@
 #include "DecalComponent.h"
 #include "OBB.h"
 #include "StaticMeshComponent.h"
+#include "JsonSerializer.h"
 
 UDecalComponent::UDecalComponent()
 {
@@ -16,8 +17,25 @@ UDecalComponent::UDecalComponent()
 	SetCanEverTick(true);
 }
 
-void UDecalComponent::Serialize(bool bIsLoading, FDecalData& InOut)
+void UDecalComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
+	Super::Serialize(bInIsLoading, InOutHandle);
+
+	if (bInIsLoading)
+	{
+		FString DecalTexturePath;
+		FJsonSerializer::ReadString(InOutHandle, "DecalTexturePath", DecalTexturePath);
+		DecalTexture = UResourceManager::GetInstance().Load<UTexture>(DecalTexturePath);
+
+		float DecalOpacityTemp;
+		FJsonSerializer::ReadFloat(InOutHandle, "DecalOpacity", DecalOpacityTemp);
+		SetOpacity(DecalOpacityTemp);
+	}
+	else
+	{
+		InOutHandle["DecalTexturePath"] = DecalTexture->GetTextureName();
+		InOutHandle["DecalOpacity"] = DecalOpacity;
+	}
 }
 
 void UDecalComponent::DuplicateSubObjects()

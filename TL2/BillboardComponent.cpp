@@ -8,6 +8,7 @@
 #include "Renderer.h"
 #include "ResourceManager.h"
 #include "CameraActor.h"
+#include "JsonSerializer.h"
 
 UBillboardComponent::UBillboardComponent()
 {
@@ -44,6 +45,31 @@ void UBillboardComponent::SetTextureName( FString TexturePath)
         Material->SetTexture(TempTex);
     }*/
     //Material->SetTextName(TexturePath);
+}
+
+void UBillboardComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
+{
+	Super::Serialize(bInIsLoading, InOutHandle);
+
+	if (bInIsLoading)
+	{
+		FString TextureNameTemp;
+		float WidthTemp;
+		float HeightTemp;
+
+		FJsonSerializer::ReadString(InOutHandle, "TextureName", TextureNameTemp);
+		FJsonSerializer::ReadFloat(InOutHandle, "Width", WidthTemp);
+		FJsonSerializer::ReadFloat(InOutHandle, "Height", HeightTemp);
+
+		SetTextureName(TextureNameTemp);
+		SetSize(WidthTemp, HeightTemp);
+	}
+	else
+	{
+		InOutHandle["Width"] = Width;
+		InOutHandle["Height"] = Height;
+		InOutHandle["TextureName"] = TextureName;
+	}
 }
 
 // 여기서만 Cull_Back을 꺼야함. 

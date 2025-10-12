@@ -109,6 +109,9 @@
     <Filter Include="헤더 파일\Archive">
       <UniqueIdentifier>{163f80df-d568-4e63-8d7a-c54997ff9fd1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="헤더 파일\Utility">
+      <UniqueIdentifier>{79276fdf-f13b-46b2-b407-498de0e494dd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -825,6 +828,9 @@
     </ClInclude>
     <ClInclude Include="UI\Widget\ActorSpawnWidget.h">
       <Filter>헤더 파일\UI\Widget</Filter>
+    </ClInclude>
+    <ClInclude Include="JsonSerializer.h">
+      <Filter>헤더 파일\Utility</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

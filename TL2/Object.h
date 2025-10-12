@@ -3,6 +3,12 @@
 #include "ObjectFactory.h"
 #include "MemoryManager.h"
 #include "Name.h"
+#include "nlohmann/json.hpp"
+//#include "UI/GlobalConsole.h"
+
+namespace json { class JSON; }
+using JSON = json::JSON;
+
 // 전방 선언/외부 심볼 (네 프로젝트 환경 유지)
 class UObject;
 class UWorld;
@@ -24,6 +30,36 @@ struct UClass
             if (c == Base) return true;
         return false;
     }
+
+    static TArray<UClass*>& GetAllClasses()
+    {
+        // 이 함수가 최초로 호출될 때 단 한 번만 안전하게 초기화됩니다.
+        static TArray<UClass*> AllClasses;
+        return AllClasses;
+    }
+
+    static void SignUpClass(UClass* InClass)
+    {
+        if (InClass)
+        {
+            GetAllClasses().emplace_back(InClass);
+            //UE_LOG("UClass: Class registered: %s (Total: %llu)", InClass->Name, GetAllClasses().size());
+        }
+    }
+    static UClass* FindClass(const FName& InClassName)
+    {
+        for (UClass* Class : GetAllClasses())
+        {
+            if (Class && Class->Name == InClassName)
+            {
+                return Class;
+            }
+        }
+
+        return nullptr;
+    }
+
+    
 };
 
 class UObject
@@ -49,6 +85,8 @@ public:
 
     FString GetName();    // 원문
     FString GetComparisonName(); // lower-case
+
+    virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle);
 public:
     // GenerateUUID()에 의해 자동 발급
     uint32_t UUID;
@@ -131,6 +169,7 @@ public:                                                                       \
     {                                                                         \
         static UClass Cls{ #ThisClass, SuperClass::StaticClass(),             \
                             sizeof(ThisClass) };                              \
+        UClass::SignUpClass(&Cls);                                              \
         return &Cls;                                                          \
     }                                                                         \
     virtual UClass* GetClass() const override { return ThisClass::StaticClass(); } \
