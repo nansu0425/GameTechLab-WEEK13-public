@@ -476,6 +476,7 @@ void AActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 			JSON ComponentsJson;
 			if (FJsonSerializer::ReadArray(InOutHandle, "OwnedComponents", ComponentsJson))
 			{
+				// 1) OwnedComponents와 SceneComponents에 Component들 추가
 				for (uint32 i = 0; i < ComponentsJson.size(); ++i)
 				{
 					JSON ComponentJson = ComponentsJson.at(i);
@@ -489,6 +490,7 @@ void AActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 
 					NewComponent->Serialize(bInIsLoading, ComponentJson);
 
+					// RootComponent 설정
 					if (RootUUID == NewComponent->GetSceneId())
 					{
 						USceneComponent* RootComponentTemp = Cast<USceneComponent>(NewComponent);
@@ -496,9 +498,11 @@ void AActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 						SetRootComponent(RootComponentTemp);
 					}
 
+					// OwnedComponents와 SceneComponents에 Component 추가
 					AddOwnedComponent(NewComponent);
 				}
 
+				// 2) 컴포넌트 간 부모 자식 관계 설정
 				for (auto& Component : OwnedComponents)
 				{
 					USceneComponent* SceneComp = Cast<USceneComponent>(Component);
