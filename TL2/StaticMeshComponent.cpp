@@ -57,6 +57,7 @@ void UStaticMeshComponent::SetStaticMesh(const FString& PathFileName)
             MaterialSlots[i].MaterialName = GroupInfos[i].InitialMaterialName;
         }
     }
+    MarkWorldPartitionDirty();
 }
 
 void UStaticMeshComponent::Serialize(bool bIsLoading, FPrimitiveData& InOut)

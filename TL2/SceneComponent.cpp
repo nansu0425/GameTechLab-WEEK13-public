@@ -312,3 +312,8 @@ void USceneComponent::OnTransformUpdatedChildImpl()
 {
     // Do Nothing
 }
+
+UWorld* USceneComponent::GetWorld()
+{
+    return Owner ? Owner->GetWorld() : nullptr;
+}

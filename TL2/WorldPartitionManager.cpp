@@ -9,24 +9,7 @@
 #include "StaticMeshActor.h"
 #include "StaticMeshComponent.h"
 #include "Frustum.h"
-
-
-namespace
-{
-	inline UStaticMeshComponent* ResolveStaticMeshComponent(AActor* Actor)
-	{
-		if (!Actor)
-		{
-			return nullptr;
-		}
-
-		if (AStaticMeshActor* StaticMeshActor = Cast<AStaticMeshActor>(Actor))
-		{
-			return StaticMeshActor->GetStaticMeshComponent();
-		}
-		return nullptr;
-	}
-}
+#include "GizmoArrowComponent.h"
 
 UWorldPartitionManager::UWorldPartitionManager()
 {
@@ -72,9 +55,19 @@ void UWorldPartitionManager::Register(UStaticMeshComponent* Smc)
 void UWorldPartitionManager::Register(AActor* Actor)
 {
 	if (!Actor) return;
-	if (UStaticMeshComponent* Component = ResolveStaticMeshComponent(Actor))
+
+	TArray<AActor*> EditorActors = GWorld->GetEditorActors();
+	auto it = std::find(EditorActors.begin(), EditorActors.end(), Actor);
+	if (it != EditorActors.end())
+		return; // 에디터 액터는 포함하지 않는다.
+	
+	const TArray<USceneComponent*> Components = Actor->GetSceneComponents();
+	for (USceneComponent* Component : Components)
 	{
-		MarkDirty(Component);
+		if (UStaticMeshComponent* Smc = Cast<UStaticMeshComponent>(Component))
+		{
+			MarkDirty(Smc);
+		}
 	}
 }
 
@@ -87,10 +80,19 @@ void UWorldPartitionManager::BulkRegister(const TArray<AActor*>& Actors)
 
 	for (AActor* Actor : Actors)
 	{
-		if (UStaticMeshComponent* Component = ResolveStaticMeshComponent(Actor))
+		TArray<AActor*> EditorActors = GWorld->GetEditorActors();
+		auto it = std::find(EditorActors.begin(), EditorActors.end(), Actor);
+		if (it != EditorActors.end())
+			continue; // 에디터 액터는 포함하지 않는다.
+		
+		const TArray<USceneComponent*> Components = Actor->GetSceneComponents();
+		for (USceneComponent* Component : Components)
 		{
-			ComponentsAndBounds.push_back({ Component, Component->GetWorldAABB() });
-			ComponentDirtySet.erase(Component);
+			if (UStaticMeshComponent* Smc = Cast<UStaticMeshComponent>(Component))
+			{
+				ComponentsAndBounds.push_back({ Smc, Smc->GetWorldAABB() });
+				ComponentDirtySet.erase(Smc);
+			}
 		}
 	}
 	
@@ -100,31 +102,39 @@ void UWorldPartitionManager::BulkRegister(const TArray<AActor*>& Actors)
 void UWorldPartitionManager::Unregister(AActor* Actor)
 {
 	if (!Actor) return;
-	if (UStaticMeshComponent* Component = ResolveStaticMeshComponent(Actor))
-	{
-		//if (SceneOctree) SceneOctree->Remove(Owner);
-		if (BVH) BVH->Remove(Component);
 
-		ComponentDirtySet.erase(Component);
+	const TArray<USceneComponent*> Components = Actor->GetSceneComponents();
+	for (USceneComponent* Component : Components)
+	{
+		if (UStaticMeshComponent* Smc = Cast<UStaticMeshComponent>(Component))
+		{
+			if (BVH) BVH->Remove(Smc);
+
+			ComponentDirtySet.erase(Smc);
+		}
 	}
 }
 
 void UWorldPartitionManager::MarkDirty(AActor* Actor)
 {
 	if (!Actor) return;
-	if (UStaticMeshComponent* Component = ResolveStaticMeshComponent(Actor))
+	const TArray<USceneComponent*> Components = Actor->GetSceneComponents();
+	for (USceneComponent* Component : Components)
 	{
-		MarkDirty(Component);
+		if (UStaticMeshComponent* Smc = Cast<UStaticMeshComponent>(Component))
+		{
+			MarkDirty(Smc);
+			
+		}
 	}
 }
 
 void UWorldPartitionManager::MarkDirty(UStaticMeshComponent* Smc)
 {
-	if (!Smc)
-	{
-		return;
-	}
+	if (!Smc) return;
 
+	if (Cast<UGizmoArrowComponent>(Smc)) return;
+	
 	// second: 새로운 요소가 성공적으로 삽입되었으면 true, 이미 요소가 존재하여 삽입에 실패했으면 false
 	// DirtyQueue 중복 삽입 방지 로직
 	if (ComponentDirtySet.insert(Smc).second)
