@@ -2,26 +2,26 @@
 #include "Actor.h"
 
 class UBillboardComponent;
-class UDecalComponent;
+class UPerspectiveDecalComponent;
 
-class AFakeSpotLightActorActor : public AActor
+class AFakeSpotLightActor : public AActor
 {
 public:
-	DECLARE_CLASS(AFakeSpotLightActorActor, AActor)
+	DECLARE_CLASS(AFakeSpotLightActor, AActor)
 
-	AFakeSpotLightActorActor();
+	AFakeSpotLightActor();
 protected:
-	~AFakeSpotLightActorActor() override;
+	~AFakeSpotLightActor() override;
 
 public:
 	UBillboardComponent* GetBillboardComponent() const { return BillboardComponent; }
-	UDecalComponent* GetDecalComponent() const { return DecalComponent; }
+	UPerspectiveDecalComponent* GetDecalComponent() const { return DecalComponent; }
 
 	// ───── 복사 관련 ────────────────────────────
 	void DuplicateSubObjects() override;
-	DECLARE_DUPLICATE(AFakeSpotLightActorActor)
+	DECLARE_DUPLICATE(AFakeSpotLightActor)
 
 protected:
 	UBillboardComponent* BillboardComponent{};
-	UDecalComponent* DecalComponent{};
+	UPerspectiveDecalComponent* DecalComponent{};
 };

@@ -441,6 +441,9 @@
     <ClCompile Include="FakeSpotLightActor.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="PerspectiveDecalComponent.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Primitive.hlsl">
@@ -830,6 +833,9 @@
       <Filter>헤더 파일\UI\Widget</Filter>
     </ClInclude>
     <ClInclude Include="FakeSpotLightActor.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="PerspectiveDecalComponent.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

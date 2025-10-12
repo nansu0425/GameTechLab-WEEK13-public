@@ -1,35 +1,36 @@
 ﻿#include "pch.h"
 #include "FakeSpotLightActor.h"
-#include "DecalComponent.h"
+#include "PerspectiveDecalComponent.h"
 #include "BillboardComponent.h"
 
-AFakeSpotLightActorActor::AFakeSpotLightActorActor()
+AFakeSpotLightActor::AFakeSpotLightActor()
 {
 	Name = "Fake Spot Light Actor";
 	BillboardComponent = CreateDefaultSubobject<UBillboardComponent>("BillboardComponent");
-	DecalComponent = CreateDefaultSubobject<UDecalComponent>("DecalComponent");
+	DecalComponent = CreateDefaultSubobject<UPerspectiveDecalComponent>("DecalComponent");
 
 	BillboardComponent->SetTextureName("Editor/SpotLight_64x.png");
 	DecalComponent->SetRelativeScale((FVector(10, 5, 5)));
 	DecalComponent->SetRelativeLocation((FVector(0, 0, -5)));
 	DecalComponent->AddRelativeRotation(FQuat::MakeFromEuler(FVector(0, 90, 0)));
 	DecalComponent->SetDecalTexture("Data/FakeLight.png");
+	DecalComponent->SetFovY(60);
 
 	BillboardComponent->SetupAttachment(RootComponent);
 	DecalComponent->SetupAttachment(RootComponent);
 }
 
-AFakeSpotLightActorActor::~AFakeSpotLightActorActor()
+AFakeSpotLightActor::~AFakeSpotLightActor()
 {
 }
 
-void AFakeSpotLightActorActor::DuplicateSubObjects()
+void AFakeSpotLightActor::DuplicateSubObjects()
 {
 	Super_t::DuplicateSubObjects();
 
 	for (UActorComponent* Component : OwnedComponents)
 	{
-		if (UDecalComponent* Decal = Cast<UDecalComponent>(Component))
+		if (UPerspectiveDecalComponent* Decal = Cast<UPerspectiveDecalComponent>(Component))
 		{
 			DecalComponent = Decal;
 			break;
