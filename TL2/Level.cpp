@@ -1,6 +1,5 @@
 ﻿#include "pch.h"
 #include "Level.h"
-#include "SceneLoader.h"
 #include "StaticMeshActor.h"
 #include "StaticMeshComponent.h"
 #include "SceneRotationUtils.h"
@@ -30,6 +29,15 @@ std::unique_ptr<ULevel> ULevelService::CreateNewLevel()
 void ULevel::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
     Super::Serialize(bInIsLoading, InOutHandle);
+
+    struct FPerspectiveCameraData
+    {
+        FVector Location;
+        FVector Rotation;
+        float FOV;
+        float NearClip;
+        float FarClip;
+    };
 
     if (bInIsLoading)
     {

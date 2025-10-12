@@ -2,7 +2,6 @@
 #include "Object.h"
 #include "UEContainer.h"
 #include <algorithm>
-#include "SceneLoader.h"
 
 class AActor;
 
@@ -26,13 +25,6 @@ public:
     void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
 private:
     TArray<AActor*> Actors;
-};
-
-// Simple static service for creating/loading/saving levels
-struct FLoadedLevel
-{
-    std::unique_ptr<ULevel> Level;
-    FPerspectiveCameraData Camera; // optional camera data for editor
 };
 
 class ULevelService

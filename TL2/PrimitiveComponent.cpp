@@ -1,6 +1,5 @@
 ﻿#include "pch.h"
 #include "PrimitiveComponent.h"
-#include "SceneLoader.h"
 #include "SceneComponent.h"
 #include "SceneRotationUtils.h"
 

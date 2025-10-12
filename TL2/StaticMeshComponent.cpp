@@ -5,7 +5,6 @@
 #include "Texture.h"
 #include "ResourceManager.h"
 #include "ObjManager.h"
-#include "SceneLoader.h"
 #include "World.h"
 #include "WorldPartitionManager.h"
 #include "JsonSerializer.h"
