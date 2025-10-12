@@ -367,6 +367,7 @@
     <ClInclude Include="DecalComponent.h" />
     <ClInclude Include="DecalStatManager.h" />
     <ClInclude Include="FSceneRenderer.h" />
+    <ClInclude Include="JsonSerializer.h" />
     <ClInclude Include="Level.h" />
     <ClInclude Include="MeshBVH.h" />
     <ClInclude Include="OBB.h" />

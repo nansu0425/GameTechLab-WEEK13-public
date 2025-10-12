@@ -3,6 +3,11 @@
 #include "ObjectFactory.h"
 #include "MemoryManager.h"
 #include "Name.h"
+#include "nlohmann/json.hpp"
+
+namespace json { class JSON; }
+using JSON = json::JSON;
+
 // 전방 선언/외부 심볼 (네 프로젝트 환경 유지)
 class UObject;
 class UWorld;
@@ -49,6 +54,8 @@ public:
 
     FString GetName();    // 원문
     FString GetComparisonName(); // lower-case
+
+    virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle);
 public:
     // GenerateUUID()에 의해 자동 발급
     uint32_t UUID;

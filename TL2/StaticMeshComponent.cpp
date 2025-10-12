@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "StaticMeshComponent.h"
 #include "StaticMesh.h"
 #include "Shader.h"
@@ -60,7 +60,7 @@ void UStaticMeshComponent::SetStaticMesh(const FString& PathFileName)
     MarkWorldPartitionDirty();
 }
 
-void UStaticMeshComponent::Serialize(bool bIsLoading, FPrimitiveData& InOut)
+void UStaticMeshComponent::Serialize(bool bIsLoading, FSceneCompData& InOut)
 {
     // 0) 트랜스폼 직렬화/역직렬화는 상위(UPrimitiveComponent)에서 처리
     UPrimitiveComponent::Serialize(bIsLoading, InOut);

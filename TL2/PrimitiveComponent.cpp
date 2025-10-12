@@ -9,7 +9,7 @@ void UPrimitiveComponent::SetMaterial(const FString& FilePath, EVertexLayoutType
     Material = UResourceManager::GetInstance().Load<UMaterial>(FilePath, layoutType);
 }
 
-void UPrimitiveComponent::Serialize(bool bIsLoading, FPrimitiveData& InOut)
+void UPrimitiveComponent::Serialize(bool bIsLoading, FSceneCompData& InOut)
 {
     if (bIsLoading)
     {

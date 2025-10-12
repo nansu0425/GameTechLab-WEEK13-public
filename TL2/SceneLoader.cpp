@@ -53,7 +53,7 @@ static bool ParsePerspectiveCamera(const JSON& Root, FPerspectiveCameraData& Out
     return true;
 }
 
-TArray<FPrimitiveData> FSceneLoader::LoadWithUUID(const FString& FileName, FPerspectiveCameraData& OutCameraData, uint32& OutNextUUID)
+TArray<FSceneCompData> FSceneLoader::LoadWithUUID(const FString& FileName, FPerspectiveCameraData& OutCameraData, uint32& OutNextUUID)
 {
     std::ifstream file(FileName);
     if (!file.is_open())
@@ -84,7 +84,7 @@ TArray<FPrimitiveData> FSceneLoader::LoadWithUUID(const FString& FileName, FPers
     }
 }
 
-TArray<FPrimitiveData> FSceneLoader::Load(const FString& FileName, FPerspectiveCameraData* OutCameraData)
+TArray<FSceneCompData> FSceneLoader::Load(const FString& FileName, FPerspectiveCameraData* OutCameraData)
 {
     std::ifstream file(FileName);
     if (!file.is_open())
@@ -122,7 +122,7 @@ TArray<FPrimitiveData> FSceneLoader::Load(const FString& FileName, FPerspectiveC
     }
 }
 
-void FSceneLoader::Save(TArray<FPrimitiveData> InPrimitiveData, const FPerspectiveCameraData* InCameraData, const FString& SceneName)
+void FSceneLoader::Save(TArray<FSceneCompData> InPrimitiveData, const FPerspectiveCameraData* InCameraData, const FString& SceneName)
 {
     uint32 NextUUID = UObject::PeekNextUUID();
 
@@ -178,7 +178,7 @@ void FSceneLoader::Save(TArray<FPrimitiveData> InPrimitiveData, const FPerspecti
     oss << "  \"Primitives\" : {\n";
     for (size_t i = 0; i < InPrimitiveData.size(); ++i)
     {
-        const FPrimitiveData& Data = InPrimitiveData[i];
+        const FSceneCompData& Data = InPrimitiveData[i];
         oss << "    \"" << Data.UUID << "\" : {\n";
         // 순서: Location, ObjStaticMeshAsset, Rotation, Scale, Type
         writeVec3("Location", Data.Location, 6); oss << ",\n";
@@ -241,9 +241,9 @@ bool FSceneLoader::TryReadNextUUID(const FString& FilePath, uint32& OutNextUUID)
     return false;
 }
 
-TArray<FPrimitiveData> FSceneLoader::Parse(const JSON& Json)
+TArray<FSceneCompData> FSceneLoader::Parse(const JSON& Json)
 {
-    TArray<FPrimitiveData> Primitives;
+    TArray<FSceneCompData> Primitives;
 
     if (!Json.hasKey("Primitives"))
     {
@@ -258,7 +258,7 @@ TArray<FPrimitiveData> FSceneLoader::Parse(const JSON& Json)
         const std::string& key = kv.first;
         const JSON& value = kv.second;
 
-        FPrimitiveData data;
+        FSceneCompData data;
 
         // 키를 UUID로 파싱 (숫자가 아니면 0 유지)
         try

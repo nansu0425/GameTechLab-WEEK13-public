@@ -8,6 +8,7 @@
 #include "PrimitiveComponent.h"
 #include "CameraActor.h"
 #include "CameraComponent.h"
+#include "JsonSerializer.h"
 
 static inline FString RemoveObjExtension(const FString& FileName)
 {
@@ -39,10 +40,11 @@ FLoadedLevel ULevelService::LoadLevel(const FString& SceneName)
     Result.Level = std::make_unique<ULevel>();
 
     FPerspectiveCameraData CamData{};
-    const TArray<FPrimitiveData>& Primitives = FSceneLoader::Load(FilePath, &CamData);
+    const TArray<FSceneCompData>& Primitives = FSceneLoader::Load(FilePath, &CamData);
 
     // Build actors from primitive data
-    for (const FPrimitiveData& Primitive : Primitives)
+    // TODO: 현재 SMC 데이터만 들어온다고 가정하고 있음 -> 수정 필요
+    for (const FSceneCompData& Primitive : Primitives)
     {
         AStaticMeshActor* StaticMeshActor = NewObject<AStaticMeshActor>();
         StaticMeshActor->SetActorTransform(
@@ -57,7 +59,7 @@ FLoadedLevel ULevelService::LoadLevel(const FString& SceneName)
 
         if (UStaticMeshComponent* SMC = StaticMeshActor->GetStaticMeshComponent())
         {
-            FPrimitiveData Temp = Primitive;
+            FSceneCompData Temp = Primitive;
             SMC->Serialize(true, Temp);
 
             FString LoadedAssetPath;
@@ -66,14 +68,14 @@ FLoadedLevel ULevelService::LoadLevel(const FString& SceneName)
                 LoadedAssetPath = Mesh->GetAssetPathFileName();
             }
 
-            //if (LoadedAssetPath == "Data/Sphere.obj")
-            //{
-            //    StaticMeshActor->SetCollisionComponent(EPrimitiveType::Sphere);
-            //}
-            //else
-            //{
-            //    StaticMeshActor->SetCollisionComponent();
-            //}
+            /*if (LoadedAssetPath == "Data/Sphere.obj")
+            {
+                StaticMeshActor->SetCollisionComponent(EPrimitiveType::Sphere);
+            }
+            else
+            {
+                StaticMeshActor->SetCollisionComponent();
+            }*/
 
             FString BaseName = "StaticMesh";
             if (!LoadedAssetPath.empty())
@@ -94,12 +96,12 @@ void ULevelService::SaveLevel(const ULevel* Level, const ACameraActor* Camera, c
 {
     if (!Level) return;
 
-    TArray<FPrimitiveData> Primitives;
+    TArray<FSceneCompData> Primitives;
     for (AActor* Actor : Level->GetActors())
     {
         if (AStaticMeshActor* MeshActor = Cast<AStaticMeshActor>(Actor))
         {
-            FPrimitiveData Data;
+            FSceneCompData Data;
             Data.UUID = Actor->UUID;
             Data.Type = "StaticMeshComp";
             if (UStaticMeshComponent* SMC = MeshActor->GetStaticMeshComponent())
@@ -110,7 +112,7 @@ void ULevelService::SaveLevel(const ULevel* Level, const ACameraActor* Camera, c
         }
         else
         {
-            FPrimitiveData Data;
+            FSceneCompData Data;
             Data.UUID = Actor->UUID;
             Data.Type = "Actor";
             if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(Actor->GetRootComponent()))
@@ -144,4 +146,155 @@ void ULevelService::SaveLevel(const ULevel* Level, const ACameraActor* Camera, c
     }
 
     FSceneLoader::Save(Primitives, CamPtr, SceneName);
+}
+
+void ULevel::Serialize(const bool bInIsLoading, JSON& InOutHandle)
+{
+    Super::Serialize(bInIsLoading, InOutHandle);
+
+    if (bInIsLoading)
+    {
+        // 카메라 정보
+        JSON PerspectiveCameraData;
+        if (FJsonSerializer::ReadObject(InOutHandle, "PerspectiveCamera", PerspectiveCameraData))
+        {
+            // 카메라 정보
+            ACameraActor* CamActor = UUIManager::GetInstance().GetWorld()->GetCameraActor();
+            FPerspectiveCameraData CamData;
+            if (CamActor)
+            {
+                // ReadObject 유틸리티 함수로 해당 뷰포트의 JSON 데이터를 안전하게 가져옴
+                // 유틸리티 함수를 사용하여 반복적인 검사 없이 간결하게 데이터 파싱
+                // 실패 시 각 함수 내부에서 로그를 남기고 기본값을 할당함
+                FJsonSerializer::ReadVector(PerspectiveCameraData, "Location", CamData.Location);
+                FJsonSerializer::ReadVector(PerspectiveCameraData, "Rotation", CamData.Rotation);
+                FJsonSerializer::ReadArrayFloat(PerspectiveCameraData, "FOV", CamData.FOV);
+                FJsonSerializer::ReadArrayFloat(PerspectiveCameraData, "NearClip", CamData.NearClip);
+                FJsonSerializer::ReadArrayFloat(PerspectiveCameraData, "FarClip", CamData.FarClip);
+
+                CamActor->SetActorLocation(CamData.Location);
+                CamActor->SetRotationFromEulerAngles(CamData.Rotation);
+                if (auto* CamComp = CamActor->GetCameraComponent())
+                {
+                    CamComp->SetFOV(CamData.FOV);
+                    CamComp->SetClipPlanes(CamData.NearClip, CamData.FarClip);
+                }
+            }
+        }
+
+        
+
+        // Actor 정보
+        TArray<FSceneCompData> Primitives;
+
+        JSON ActorListJson = json::Object();
+        for (AActor* Actor : Actors)
+        {
+            JSON ActorJson = json::Object();
+            Actor->Serialize(bInIsLoading, ActorJson);
+            ActorListJson[std::to_string(Actor->UUID)] = ActorJson;
+        }
+        InOutHandle["Actors"] = ActorListJson;
+
+        
+        /////////
+        FLoadedLevel Result{};
+        Result.Level = std::make_unique<ULevel>();
+
+        FPerspectiveCameraData CamData{};
+        const TArray<FSceneCompData>& Primitives = FSceneLoader::Load(FilePath, &CamData);
+
+        // Build actors from primitive data
+        // TODO: 현재 SMC 데이터만 들어온다고 가정하고 있음 -> 수정 필요
+        for (const FSceneCompData& Primitive : Primitives)
+        {
+            AStaticMeshActor* StaticMeshActor = NewObject<AStaticMeshActor>();
+            StaticMeshActor->SetActorTransform(
+                FTransform(
+                    Primitive.Location,
+                    SceneRotUtil::QuatFromEulerZYX_Deg(Primitive.Rotation),
+                    Primitive.Scale));
+
+            // Prefer using UUID from file if present
+            if (Primitive.UUID != 0)
+                StaticMeshActor->UUID = Primitive.UUID;
+
+            if (UStaticMeshComponent* SMC = StaticMeshActor->GetStaticMeshComponent())
+            {
+                FSceneCompData Temp = Primitive;
+                SMC->Serialize(true, Temp);
+
+                FString LoadedAssetPath;
+                if (UStaticMesh* Mesh = SMC->GetStaticMesh())
+                {
+                    LoadedAssetPath = Mesh->GetAssetPathFileName();
+                }
+
+                /*if (LoadedAssetPath == "Data/Sphere.obj")
+                {
+                    StaticMeshActor->SetCollisionComponent(EPrimitiveType::Sphere);
+                }
+                else
+                {
+                    StaticMeshActor->SetCollisionComponent();
+                }*/
+
+                FString BaseName = "StaticMesh";
+                if (!LoadedAssetPath.empty())
+                {
+                    BaseName = RemoveObjExtension(LoadedAssetPath);
+                }
+                StaticMeshActor->SetName(BaseName);
+            }
+
+            Result.Level->AddActor(StaticMeshActor);
+        }
+
+        Result.Camera = CamData;
+        return Result;
+    }
+    else
+    {
+        // 기본 정보
+        InOutHandle["Version"] = 1;
+        InOutHandle["NextUUID"] = UObject::PeekNextUUID();
+
+        // 카메라 정보
+        const ACameraActor* Camera = UUIManager::GetInstance().GetWorld()->GetCameraActor();
+        FPerspectiveCameraData CamData;
+        if (Camera && Camera->GetCameraComponent())
+        {
+            const UCameraComponent* Cam = Camera->GetCameraComponent();
+            CamData.Location = Camera->GetActorLocation();
+            CamData.Rotation.X = 0.0f;
+            CamData.Rotation.Y = Camera->GetCameraPitch();
+            CamData.Rotation.Z = Camera->GetCameraYaw();
+            CamData.FOV = Cam->GetFOV();
+            CamData.NearClip = Cam->GetNearClip();
+            CamData.FarClip = Cam->GetFarClip();
+        }
+
+        JSON CamreaJson = json::Object();
+        // FJsonSerializer 유틸리티 함수를 사용하여 FVector를 JSON 배열로 변환
+        CamreaJson["Location"] = FJsonSerializer::VectorToJson(CamData.Location);
+        CamreaJson["Rotation"] = FJsonSerializer::VectorToJson(CamData.Rotation);
+        CamreaJson["FarClip"] = FJsonSerializer::FloatToArrayJson(CamData.FarClip);
+        CamreaJson["NearClip"] = FJsonSerializer::FloatToArrayJson(CamData.NearClip);
+        CamreaJson["FOV"] = FJsonSerializer::FloatToArrayJson(CamData.FOV);
+
+        InOutHandle["PerspectiveCamera"] = CamreaJson;
+
+        // Actor 정보
+        JSON ActorListJson = json::Object();
+        for (AActor* Actor : Actors)
+        {
+            JSON ActorJson = json::Object();
+            Actor->Serialize(bInIsLoading, ActorJson);
+            ActorListJson[std::to_string(Actor->UUID)] = ActorJson;
+        }
+        InOutHandle["Actors"] = ActorListJson;
+
+
+        
+    }
 }

@@ -259,6 +259,11 @@ struct FVector
     {
         return FVector(1.f, 1.f, 1.f);
     }
+
+    static FVector Zero()
+    {
+        return FVector(0.0f, 0.0f, 0.0f);
+    }
     
     // 영 벡터 체크
     bool IsZero() const
