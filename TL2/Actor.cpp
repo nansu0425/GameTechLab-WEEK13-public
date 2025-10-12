@@ -8,6 +8,7 @@
 #include "TextRenderComponent.h"
 #include "WorldPartitionManager.h"
 #include "BillboardComponent.h"
+#include "JsonSerializer.h"
 
 #include "World.h"
 AActor::AActor()
@@ -405,16 +406,53 @@ void AActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 
 	if (RootComponent)
 	{
-		JSON RootCompJson;
-		RootComponent->Serialize(bInIsLoading, RootCompJson);
-
 		if (bInIsLoading)
 		{
+			uint32 RootUUID;
+			FJsonSerializer::ReadUint32(InOutHandle, "RootComponentId", RootUUID);
 
+			JSON ComponentsJson;
+			if (FJsonSerializer::ReadArray(InOutHandle, "OwnedComponents", ComponentsJson))
+			{
+				for (uint32 i = 0; i < ComponentsJson.size(); ++i)
+				{
+					JSON ComponentJson = ComponentsJson.at(i);
+					
+					FString TypeString;
+					FJsonSerializer::ReadString(ComponentJson, "Type", TypeString);
+
+					UClass* NewClass = UClass::FindClass(TypeString);
+
+					USceneComponent* NewComponent = Cast<USceneComponent>(ObjectFactory::NewObject(NewClass));
+
+					NewComponent->Serialize(bInIsLoading, ComponentJson);
+
+					if (RootUUID == NewComponent->GetSceneId())
+					{
+						USceneComponent* RootComponentTemp = Cast<USceneComponent>(NewComponent);
+						assert(RootComponent);
+						SetRootComponent(RootComponentTemp);
+					}
+
+					AddOwnedComponent(NewComponent);
+				}
+			}
 		}
 		else
 		{
-			InOutHandle[RootComponent->UUID] = RootCompJson;
+			InOutHandle["RootComponentId"] = RootComponent->UUID;
+
+			JSON Components = JSON::Make(JSON::Class::Array);
+			for (auto& Component : OwnedComponents)
+			{
+				JSON ComponentJson;
+
+				ComponentJson["Type"] = Component->GetClass()->Name;
+
+				Component->Serialize(bInIsLoading, ComponentJson);
+				Components.append(ComponentJson);
+			}
+			InOutHandle["OwnedComponents"] = Components;
 		}
 	}
 }

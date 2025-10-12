@@ -4,6 +4,7 @@
 #include "ObjectFactory.h"
 #include "PrimitiveComponent.h"
 #include "WorldPartitionManager.h"
+#include "JsonSerializer.h"
 
 USceneComponent::USceneComponent()
     : RelativeLocation(0, 0, 0)
@@ -292,6 +293,51 @@ void USceneComponent::DuplicateSubObjects()
 void USceneComponent::UpdateRelativeTransform()
 {
     RelativeTransform = FTransform(RelativeLocation, RelativeRotation, RelativeScale);
+}
+
+void USceneComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
+{
+    Super::Serialize(bInIsLoading, InOutHandle);
+
+    if (bInIsLoading)
+    {
+        FJsonSerializer::ReadVector(InOutHandle, "Location", RelativeLocation, FVector::Zero());
+        FVector EulerAngle;
+        FJsonSerializer::ReadVector(InOutHandle, "Rotation", EulerAngle, FVector::Zero());
+        RelativeRotation = FQuat::MakeFromEuler(EulerAngle);
+        FJsonSerializer::ReadVector(InOutHandle, "Scale", RelativeScale, FVector::One());
+
+        // 나중에 자식의 Serialize 호출될 때 부모인 이 객체를 찾기 위해 Map에 추가
+        FJsonSerializer::ReadUint32(InOutHandle, "Id", SceneId);
+        SceneIdMap.Add(SceneId, this);
+
+        // 부모 찾기
+        uint32 ParentId;
+        FJsonSerializer::ReadUint32(InOutHandle, "ParentId", ParentId);
+        if (ParentId != 0) // RootComponent가 아니면 부모 설정
+        {
+            USceneComponent** ParentP = SceneIdMap.Find(ParentId);
+            USceneComponent* Parent = *ParentP;
+
+            SetupAttachment(Parent, EAttachmentRule::KeepRelative);
+        }
+    }
+    else
+    {
+        InOutHandle["Location"] = FJsonSerializer::VectorToJson(RelativeLocation);
+        InOutHandle["Rotation"] = FJsonSerializer::VectorToJson(RelativeRotation.ToEuler());
+        InOutHandle["Scale"] = FJsonSerializer::VectorToJson(RelativeScale);
+        InOutHandle["Id"] = UUID;
+        if (AttachParent)
+        {
+            InOutHandle["ParentId"] = AttachParent->UUID;
+
+        }
+        else // RootComponent
+        {
+            InOutHandle["ParentId"] = 0;
+        }
+    }
 }
 
 void USceneComponent::OnTransformUpdated()
