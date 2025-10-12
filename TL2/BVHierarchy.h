@@ -26,7 +26,7 @@ public:
     // 초기화
     void Clear();
 
-    void BulkInsert(const TArray<std::pair<UStaticMeshComponent*, FAABB>>& ComponentsAndBounds);
+    void BulkUpdate(const TArray<UStaticMeshComponent*>& Components);
     void Update(UStaticMeshComponent* InComponent);
     void Remove(UStaticMeshComponent* InComponent);
     
