@@ -14,6 +14,7 @@
 #include "GizmoActor.h"
 #include "GridActor.h"
 #include "DecalActor.h"
+#include "FakeSpotLightActor.h"
 
 #include "MeshComponent.h"
 #include "GizmoRotateComponent.h"
@@ -64,9 +65,9 @@
 IMPLEMENT_CLASS(UWorld)
 
 
-IMPLEMENT_CLASS(UPrimitiveComponent)
 IMPLEMENT_CLASS(UActorComponent)
 IMPLEMENT_CLASS(USceneComponent)
+IMPLEMENT_CLASS(UPrimitiveComponent)
 IMPLEMENT_CLASS(UCameraComponent)
 IMPLEMENT_CLASS(UStaticMeshComponent)
 IMPLEMENT_CLASS(UAABoundingBoxComponent)
@@ -80,6 +81,7 @@ IMPLEMENT_CLASS(AStaticMeshActor)
 IMPLEMENT_CLASS(AGizmoActor)
 IMPLEMENT_CLASS(AGridActor)
 IMPLEMENT_CLASS(ADecalActor)
+IMPLEMENT_CLASS(AFakeSpotLightActorActor)
 
 IMPLEMENT_CLASS(UGizmoArrowComponent)
 IMPLEMENT_CLASS(UGizmoScaleComponent)
