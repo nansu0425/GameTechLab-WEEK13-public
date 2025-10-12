@@ -68,16 +68,18 @@ void FBVHierarchy::Clear()
     bPendingRebuild = false;
 }
 
-void FBVHierarchy::BulkInsert(const TArray<std::pair<UStaticMeshComponent*, FAABB>>& ComponentsAndBounds)
+void FBVHierarchy::BulkUpdate(const TArray<UStaticMeshComponent*>& Components)
 {
-    for (const auto& kv : ComponentsAndBounds)
+    for (const auto& SMC : Components)
     {
-        if (kv.first)
+        if (SMC)
         {
-            StaticMeshComponentBounds.Add(kv.first, kv.second);
+            StaticMeshComponentBounds.Add(SMC, SMC->GetWorldAABB());
         }
     }
 
+    // Level 복사 등으로 다량의 컴포넌트를 한 번에 넣는 상황 전제
+    // 일반적인 update에서 budget 단위로 끊어 갱신되는 로직 우회해 강제 rebuild
     BuildLBVH();
     bPendingRebuild = false;
 }
@@ -106,8 +108,6 @@ void FBVHierarchy::Remove(UStaticMeshComponent* InComponent)
         bPendingRebuild = true;
     }
 }
-// ================================================================================================================
-// ================================================================================================================
 
 void FBVHierarchy::QueryFrustum(const Frustum& InFrustum)
 {
