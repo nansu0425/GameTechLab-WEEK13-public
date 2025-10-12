@@ -141,6 +141,7 @@ private:
 
 	ID3D11RasterizerState* DefaultRasterizerState{};//
 	ID3D11RasterizerState* WireFrameRasterizerState{};//
+	ID3D11RasterizerState* DecalRasterizerState{};//
 	ID3D11RasterizerState* NoCullRasterizerState{};//
 
 	ID3D11DepthStencilState* DepthStencilState{};
