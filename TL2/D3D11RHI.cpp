@@ -137,6 +137,7 @@ void D3D11RHI::Release()
 
     if (DefaultRasterizerState) { DefaultRasterizerState->Release();   DefaultRasterizerState = nullptr; }
     if (WireFrameRasterizerState) { WireFrameRasterizerState->Release();   WireFrameRasterizerState = nullptr; }
+    if (DecalRasterizerState) { DecalRasterizerState->Release();   DecalRasterizerState = nullptr; }
     if (NoCullRasterizerState) { NoCullRasterizerState->Release();   NoCullRasterizerState = nullptr; }
     if (BlendState) { BlendState->Release();        BlendState = nullptr; }
 
@@ -434,6 +435,10 @@ void D3D11RHI::RSSetState(EViewModeIndex ViewModeIndex)
     {
         DeviceContext->RSSetState(WireFrameRasterizerState);
     }
+    else if (ViewModeIndex == EViewModeIndex::VMI_Decal)
+    {
+        DeviceContext->RSSetState(DecalRasterizerState);
+    }
     else
     {
         DeviceContext->RSSetState(DefaultRasterizerState);
@@ -573,6 +578,20 @@ void D3D11RHI::CreateRasterizerState()
     nocullRasterizerDesc.DepthClipEnable = TRUE;
 
     Device->CreateRasterizerState(&nocullRasterizerDesc, &NoCullRasterizerState);
+
+    // Z-Fighting 방지를 위한 데칼 전용 래스터라이저 상태 생성
+    D3D11_RASTERIZER_DESC DecalRasterizerDesc = {};
+    DecalRasterizerDesc.FillMode = D3D11_FILL_SOLID;
+    DecalRasterizerDesc.CullMode = D3D11_CULL_BACK; // 데칼 메시에 따라 D3D11_CULL_NONE이 필요할 수 있습니다.
+    DecalRasterizerDesc.DepthClipEnable = TRUE;
+
+    // Z-Fighting 해결을 위한 핵심 설정
+    // 이 값들은 장면에 따라 조정이 필요할 수 있는 시작 값입니다.
+    DecalRasterizerDesc.DepthBias = -100; // 깊이 버퍼의 최소 단위만큼 밀어냅니다. (음수 = 카메라 쪽으로)
+    DecalRasterizerDesc.SlopeScaledDepthBias = -1.0f; // 폴리곤의 기울기에 비례하여 바이어스를 적용합니다.
+    DecalRasterizerDesc.DepthBiasClamp = 0.0f; // 바이어스 최댓값 (0.0f는 제한 없음)
+
+    Device->CreateRasterizerState(&DecalRasterizerDesc, &DecalRasterizerState);
 }
 
 void D3D11RHI::CreateConstantBuffer()
@@ -719,6 +738,11 @@ void D3D11RHI::ReleaseRasterizerState()
     {
         WireFrameRasterizerState->Release();
         WireFrameRasterizerState = nullptr;
+    }
+    if (DecalRasterizerState)
+    {
+        DecalRasterizerState->Release();
+        DecalRasterizerState = nullptr;
     }
     if (NoCullRasterizerState)
     {

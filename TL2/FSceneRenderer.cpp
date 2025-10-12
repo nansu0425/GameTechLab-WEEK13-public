@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "FSceneRenderer.h"
 
 // FSceneRenderer가 사용하는 모든 헤더 포함
@@ -232,6 +232,7 @@ void FSceneRenderer::RenderDecalPass()
 	OwnerRenderer->SetViewModeType(EffectiveViewMode);
 	RHI->OMSetDepthStencilState(EComparisonFunc::LessEqualReadOnly); // 깊이 쓰기 OFF
 	RHI->OMSetBlendState(true);
+	RHI->RSSetState(EViewModeIndex::VMI_Decal);
 
 	for (UDecalComponent* Decal : Proxies.Decals)
 	{
@@ -273,6 +274,7 @@ void FSceneRenderer::RenderDecalPass()
 		FDecalStatManager::GetInstance().GetDecalPassTimeSlot() += CpuTimeMs.count(); // CPU 소요 시간 저장
 	}
 
+	RHI->RSSetState(EViewModeIndex::VMI_Lit);
 	RHI->OMSetBlendState(false); // 상태 복구
 }
 
