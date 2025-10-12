@@ -8,6 +8,7 @@
 #include "TextRenderComponent.h"
 #include "WorldPartitionManager.h"
 #include "BillboardComponent.h"
+#include "JsonSerializer.h"
 
 #include "World.h"
 AActor::AActor()
@@ -86,8 +87,11 @@ void AActor::SetRootComponent(USceneComponent* InRoot)
 		return;
 	}
 
-	// 기존 루트가 있으면 Detach 처리 (필요 시)
+	// 루트 교체
+	USceneComponent* TempRootComponent = RootComponent;
 	RootComponent = InRoot;
+	RemoveOwnedComponent(TempRootComponent);
+
 	if (RootComponent)
 	{
 		RootComponent->SetOwner(this);
@@ -453,6 +457,94 @@ void AActor::DuplicateSubObjects()
 		}
 	}
 }
+
+void AActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
+{
+	Super::Serialize(bInIsLoading, InOutHandle);
+
+	if (RootComponent)
+	{
+		if (bInIsLoading)
+		{
+			uint32 RootUUID;
+			FJsonSerializer::ReadUint32(InOutHandle, "RootComponentId", RootUUID);
+
+			FString NameStrTemp;
+			FJsonSerializer::ReadString(InOutHandle, "Name", NameStrTemp);
+			SetName(NameStrTemp);
+
+			JSON ComponentsJson;
+			if (FJsonSerializer::ReadArray(InOutHandle, "OwnedComponents", ComponentsJson))
+			{
+				// 1) OwnedComponents와 SceneComponents에 Component들 추가
+				for (uint32 i = 0; i < ComponentsJson.size(); ++i)
+				{
+					JSON ComponentJson = ComponentsJson.at(i);
+					
+					FString TypeString;
+					FJsonSerializer::ReadString(ComponentJson, "Type", TypeString);
+
+					UClass* NewClass = UClass::FindClass(TypeString);
+
+					USceneComponent* NewComponent = Cast<USceneComponent>(ObjectFactory::NewObject(NewClass));
+
+					NewComponent->Serialize(bInIsLoading, ComponentJson);
+
+					// RootComponent 설정
+					if (RootUUID == NewComponent->GetSceneId())
+					{
+						USceneComponent* RootComponentTemp = Cast<USceneComponent>(NewComponent);
+						assert(RootComponentTemp);
+						SetRootComponent(RootComponentTemp);
+					}
+
+					// OwnedComponents와 SceneComponents에 Component 추가
+					AddOwnedComponent(NewComponent);
+				}
+
+				// 2) 컴포넌트 간 부모 자식 관계 설정
+				for (auto& Component : OwnedComponents)
+				{
+					USceneComponent* SceneComp = Cast<USceneComponent>(Component);
+					uint32 ParentId = SceneComp->GetParentId();
+					if (ParentId != 0) // RootComponent가 아니면 부모 설정
+					{
+						USceneComponent** ParentP = SceneComp->GetSceneIdMap().Find(ParentId);
+						USceneComponent* Parent = *ParentP;
+
+						SceneComp->SetupAttachment(Parent, EAttachmentRule::KeepRelative);
+					}
+				}
+			}
+		}
+		else
+		{
+			InOutHandle["RootComponentId"] = RootComponent->UUID;
+
+			JSON Components = JSON::Make(JSON::Class::Array);
+			for (auto& Component : OwnedComponents)
+			{
+				JSON ComponentJson;
+
+				ComponentJson["Type"] = Component->GetClass()->Name;
+
+				Component->Serialize(bInIsLoading, ComponentJson);
+				Components.append(ComponentJson);
+			}
+			InOutHandle["OwnedComponents"] = Components;
+			InOutHandle["Name"] = GetName().ToString();
+		}
+	}
+}
+
+//AActor* AActor::Duplicate()
+//{
+//	AActor* NewActor = ObjectFactory::DuplicateObject<AActor>(this); // 모든 멤버 얕은 복사
+//
+//	NewActor->DuplicateSubObjects();
+//
+//	return nullptr;
+//}
 
 void AActor::RegisterComponentTree(USceneComponent* SceneComp)
 {

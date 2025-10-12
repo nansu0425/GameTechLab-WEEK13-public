@@ -19,7 +19,7 @@ class FViewport;
 class USlateManager;
 class URenderManager;
 struct FTransform;
-struct FPrimitiveData;
+struct FSceneCompData;
 class SViewportWindow;
 class UWorldPartitionManager;
 class AStaticMeshActor;

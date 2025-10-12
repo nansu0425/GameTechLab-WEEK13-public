@@ -219,7 +219,6 @@
     <ClCompile Include="MeshLoader.cpp" />
     <ClCompile Include="ResourceManager.cpp" />
     <ClCompile Include="SceneIOWindow.cpp" />
-    <ClCompile Include="SceneLoader.cpp" />
     <ClCompile Include="ImGui\imgui.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
@@ -370,6 +369,7 @@
     <ClInclude Include="DecalStatManager.h" />
     <ClInclude Include="FakeSpotLightActor.h" />
     <ClInclude Include="FSceneRenderer.h" />
+    <ClInclude Include="JsonSerializer.h" />
     <ClInclude Include="Level.h" />
     <ClInclude Include="MeshBVH.h" />
     <ClInclude Include="OBB.h" />
@@ -419,7 +419,6 @@
     <ClInclude Include="MeshLoader.h" />
     <ClInclude Include="ResourceManager.h" />
     <ClInclude Include="SceneIOWindow.h" />
-    <ClInclude Include="SceneLoader.h" />
     <ClInclude Include="ImGui\imconfig.h" />
     <ClInclude Include="ImGui\imgui.h" />
     <ClInclude Include="ImGui\imgui_impl_dx11.h" />

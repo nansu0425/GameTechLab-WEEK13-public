@@ -6,7 +6,7 @@
 class UStaticMesh;
 class UShader;
 class UTexture;
-struct FPrimitiveData;
+struct FSceneCompData;
 
 struct FMaterialSlot
 {
@@ -32,7 +32,10 @@ public:
     // 씬 포맷(FPrimitiveData)을 이용한 컴포넌트 직렬화/역직렬화
     // - bIsLoading == true  : InOut로부터 읽어서 컴포넌트 상태(메시) 설정
     // - bIsLoading == false : 컴포넌트 상태를 InOut에 기록
-    void Serialize(bool bIsLoading, FPrimitiveData& InOut);
+    /*void Serialize(bool bIsLoading, FSceneCompData& InOut);*/
+
+    // Serialize
+    void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
 
     void SetMaterialByUser(const uint32 InMaterialSlotIndex, const FString& InMaterialName);
 

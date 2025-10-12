@@ -129,6 +129,9 @@ public:
     void DuplicateSubObjects() override;
     DECLARE_DUPLICATE(AActor)
 
+    // Serialize
+    void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
+
 public:
     FName Name;
 

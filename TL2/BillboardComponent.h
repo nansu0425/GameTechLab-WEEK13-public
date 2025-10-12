@@ -26,6 +26,9 @@ public:
     UQuad* GetStaticMesh() const { return Quad; }
     FString& GetTextureName() { return TextureName; }
 
+    // Serialize
+    void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
+
 private:
     FString TextureName;
 

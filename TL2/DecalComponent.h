@@ -58,7 +58,7 @@ public:
 	// void RefreshAffectedComponents();
 
 	// Serialization API
-	void Serialize(bool bIsLoading, struct FDecalData& InOut);
+	void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
 
 	// ───── 복사 관련 ────────────────────────────
 	void DuplicateSubObjects() override;

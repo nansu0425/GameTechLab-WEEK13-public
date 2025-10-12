@@ -6,7 +6,6 @@
 #include "USlateManager.h"
 #include "RenderManager.h"
 
-#include "SceneLoader.h"
 #include "MeshLoader.h"
 
 #include "StaticMeshActor.h"

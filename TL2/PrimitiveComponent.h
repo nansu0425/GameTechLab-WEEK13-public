@@ -3,7 +3,7 @@
 #include "Material.h"
 
 // 전방 선언
-struct FPrimitiveData;
+struct FSceneCompData;
 
 class URenderer;
 
@@ -18,8 +18,10 @@ public:
     virtual void SetMaterial(const FString& FilePath, EVertexLayoutType layoutType);
     virtual UMaterial* GetMaterial() { return Material; }
 
-    // 트랜스폼 직렬화/역직렬화 (월드 트랜스폼 기준)
-    virtual void Serialize(bool bIsLoading, FPrimitiveData& InOut);
+    //// 트랜스폼 직렬화/역직렬화 (월드 트랜스폼 기준)
+    //virtual void Serialize(bool bIsLoading, FSceneCompData& InOut);
+
+
 
     virtual void Render(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) {}
 
