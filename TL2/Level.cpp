@@ -27,126 +27,126 @@ std::unique_ptr<ULevel> ULevelService::CreateNewLevel()
     return std::make_unique<ULevel>();
 }
 
-FLoadedLevel ULevelService::LoadLevel(const FString& SceneName)
-{
-    namespace fs = std::filesystem;
-    fs::path path = fs::path("Scene") / SceneName;
-    if (path.extension().string() != ".Scene")
-        path.replace_extension(".Scene");
-
-    const FString FilePath = path.make_preferred().string();
-
-    FLoadedLevel Result{};
-    Result.Level = std::make_unique<ULevel>();
-
-    FPerspectiveCameraData CamData{};
-    const TArray<FSceneCompData>& Primitives = FSceneLoader::Load(FilePath, &CamData);
-
-    // Build actors from primitive data
-    // TODO: 현재 SMC 데이터만 들어온다고 가정하고 있음 -> 수정 필요
-    for (const FSceneCompData& Primitive : Primitives)
-    {
-        AStaticMeshActor* StaticMeshActor = NewObject<AStaticMeshActor>();
-        StaticMeshActor->SetActorTransform(
-            FTransform(
-                Primitive.Location,
-                SceneRotUtil::QuatFromEulerZYX_Deg(Primitive.Rotation),
-                Primitive.Scale));
-
-        // Prefer using UUID from file if present
-        if (Primitive.UUID != 0)
-            StaticMeshActor->UUID = Primitive.UUID;
-
-        if (UStaticMeshComponent* SMC = StaticMeshActor->GetStaticMeshComponent())
-        {
-            FSceneCompData Temp = Primitive;
-            SMC->Serialize(true, Temp);
-
-            FString LoadedAssetPath;
-            if (UStaticMesh* Mesh = SMC->GetStaticMesh())
-            {
-                LoadedAssetPath = Mesh->GetAssetPathFileName();
-            }
-
-            /*if (LoadedAssetPath == "Data/Sphere.obj")
-            {
-                StaticMeshActor->SetCollisionComponent(EPrimitiveType::Sphere);
-            }
-            else
-            {
-                StaticMeshActor->SetCollisionComponent();
-            }*/
-
-            FString BaseName = "StaticMesh";
-            if (!LoadedAssetPath.empty())
-            {
-                BaseName = RemoveObjExtension(LoadedAssetPath);
-            }
-            StaticMeshActor->SetName(BaseName);
-        }
-
-        Result.Level->AddActor(StaticMeshActor);
-    }
-
-    Result.Camera = CamData;
-    return Result;
-}
-
-void ULevelService::SaveLevel(const ULevel* Level, const ACameraActor* Camera, const FString& SceneName)
-{
-    if (!Level) return;
-
-    TArray<FSceneCompData> Primitives;
-    for (AActor* Actor : Level->GetActors())
-    {
-        if (AStaticMeshActor* MeshActor = Cast<AStaticMeshActor>(Actor))
-        {
-            FSceneCompData Data;
-            Data.UUID = Actor->UUID;
-            Data.Type = "StaticMeshComp";
-            if (UStaticMeshComponent* SMC = MeshActor->GetStaticMeshComponent())
-            {
-                SMC->Serialize(false, Data);
-            }
-            Primitives.push_back(Data);
-        }
-        else
-        {
-            FSceneCompData Data;
-            Data.UUID = Actor->UUID;
-            Data.Type = "Actor";
-            if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(Actor->GetRootComponent()))
-            {
-                Prim->Serialize(false, Data);
-            }
-            else
-            {
-                Data.Location = Actor->GetActorLocation();
-                Data.Rotation = SceneRotUtil::EulerZYX_Deg_FromQuat(Actor->GetActorRotation());
-                Data.Scale = Actor->GetActorScale();
-            }
-            Data.ObjStaticMeshAsset.clear();
-            Primitives.push_back(Data);
-        }
-    }
-
-    const FPerspectiveCameraData* CamPtr = nullptr;
-    FPerspectiveCameraData CamData;
-    if (Camera && Camera->GetCameraComponent())
-    {
-        const UCameraComponent* Cam = Camera->GetCameraComponent();
-        CamData.Location = Camera->GetActorLocation();
-        CamData.Rotation.X = 0.0f;
-        CamData.Rotation.Y = Camera->GetCameraPitch();
-        CamData.Rotation.Z = Camera->GetCameraYaw();
-        CamData.FOV = Cam->GetFOV();
-        CamData.NearClip = Cam->GetNearClip();
-        CamData.FarClip = Cam->GetFarClip();
-        CamPtr = &CamData;
-    }
-
-    FSceneLoader::Save(Primitives, CamPtr, SceneName);
-}
+//FLoadedLevel ULevelService::LoadLevel(const FString& SceneName)
+//{
+//    namespace fs = std::filesystem;
+//    fs::path path = fs::path("Scene") / SceneName;
+//    if (path.extension().string() != ".Scene")
+//        path.replace_extension(".Scene");
+//
+//    const FString FilePath = path.make_preferred().string();
+//
+//    FLoadedLevel Result{};
+//    Result.Level = std::make_unique<ULevel>();
+//
+//    FPerspectiveCameraData CamData{};
+//    const TArray<FSceneCompData>& Primitives = FSceneLoader::Load(FilePath, &CamData);
+//
+//    // Build actors from primitive data
+//    // TODO: 현재 SMC 데이터만 들어온다고 가정하고 있음 -> 수정 필요
+//    for (const FSceneCompData& Primitive : Primitives)
+//    {
+//        AStaticMeshActor* StaticMeshActor = NewObject<AStaticMeshActor>();
+//        StaticMeshActor->SetActorTransform(
+//            FTransform(
+//                Primitive.Location,
+//                SceneRotUtil::QuatFromEulerZYX_Deg(Primitive.Rotation),
+//                Primitive.Scale));
+//
+//        // Prefer using UUID from file if present
+//        if (Primitive.UUID != 0)
+//            StaticMeshActor->UUID = Primitive.UUID;
+//
+//        if (UStaticMeshComponent* SMC = StaticMeshActor->GetStaticMeshComponent())
+//        {
+//            FSceneCompData Temp = Primitive;
+//            SMC->Serialize(true, Temp);
+//
+//            FString LoadedAssetPath;
+//            if (UStaticMesh* Mesh = SMC->GetStaticMesh())
+//            {
+//                LoadedAssetPath = Mesh->GetAssetPathFileName();
+//            }
+//
+//            /*if (LoadedAssetPath == "Data/Sphere.obj")
+//            {
+//                StaticMeshActor->SetCollisionComponent(EPrimitiveType::Sphere);
+//            }
+//            else
+//            {
+//                StaticMeshActor->SetCollisionComponent();
+//            }*/
+//
+//            FString BaseName = "StaticMesh";
+//            if (!LoadedAssetPath.empty())
+//            {
+//                BaseName = RemoveObjExtension(LoadedAssetPath);
+//            }
+//            StaticMeshActor->SetName(BaseName);
+//        }
+//
+//        Result.Level->AddActor(StaticMeshActor);
+//    }
+//
+//    Result.Camera = CamData;
+//    return Result;
+//}
+//
+//void ULevelService::SaveLevel(const ULevel* Level, const ACameraActor* Camera, const FString& SceneName)
+//{
+//    if (!Level) return;
+//
+//    TArray<FSceneCompData> Primitives;
+//    for (AActor* Actor : Level->GetActors())
+//    {
+//        if (AStaticMeshActor* MeshActor = Cast<AStaticMeshActor>(Actor))
+//        {
+//            FSceneCompData Data;
+//            Data.UUID = Actor->UUID;
+//            Data.Type = "StaticMeshComp";
+//            if (UStaticMeshComponent* SMC = MeshActor->GetStaticMeshComponent())
+//            {
+//                SMC->Serialize(false, Data);
+//            }
+//            Primitives.push_back(Data);
+//        }
+//        else
+//        {
+//            FSceneCompData Data;
+//            Data.UUID = Actor->UUID;
+//            Data.Type = "Actor";
+//            if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(Actor->GetRootComponent()))
+//            {
+//                Prim->Serialize(false, Data);
+//            }
+//            else
+//            {
+//                Data.Location = Actor->GetActorLocation();
+//                Data.Rotation = SceneRotUtil::EulerZYX_Deg_FromQuat(Actor->GetActorRotation());
+//                Data.Scale = Actor->GetActorScale();
+//            }
+//            Data.ObjStaticMeshAsset.clear();
+//            Primitives.push_back(Data);
+//        }
+//    }
+//
+//    const FPerspectiveCameraData* CamPtr = nullptr;
+//    FPerspectiveCameraData CamData;
+//    if (Camera && Camera->GetCameraComponent())
+//    {
+//        const UCameraComponent* Cam = Camera->GetCameraComponent();
+//        CamData.Location = Camera->GetActorLocation();
+//        CamData.Rotation.X = 0.0f;
+//        CamData.Rotation.Y = Camera->GetCameraPitch();
+//        CamData.Rotation.Z = Camera->GetCameraYaw();
+//        CamData.FOV = Cam->GetFOV();
+//        CamData.NearClip = Cam->GetNearClip();
+//        CamData.FarClip = Cam->GetFarClip();
+//        CamPtr = &CamData;
+//    }
+//
+//    FSceneLoader::Save(Primitives, CamPtr, SceneName);
+//}
 
 void ULevel::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {

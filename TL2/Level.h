@@ -41,9 +41,9 @@ public:
     // Create a new empty level
     static std::unique_ptr<ULevel> CreateNewLevel();
 
-    // Load a level from Scene/<SceneName>.Scene and return constructed level + camera
-    static FLoadedLevel LoadLevel(const FString& SceneName);
+    //// Load a level from Scene/<SceneName>.Scene and return constructed level + camera
+    //static FLoadedLevel LoadLevel(const FString& SceneName);
 
-    // Save given level (actors) and optional camera to Scene/<SceneName>.Scene
-    static void SaveLevel(const ULevel* Level, const ACameraActor* Camera, const FString& SceneName);
+    //// Save given level (actors) and optional camera to Scene/<SceneName>.Scene
+    //static void SaveLevel(const ULevel* Level, const ACameraActor* Camera, const FString& SceneName);
 };

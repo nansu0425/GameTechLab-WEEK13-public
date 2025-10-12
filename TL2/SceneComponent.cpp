@@ -6,6 +6,9 @@
 #include "WorldPartitionManager.h"
 #include "JsonSerializer.h"
 
+// USceneComponent.cpp
+TMap<uint32, USceneComponent*> USceneComponent::SceneIdMap;
+
 USceneComponent::USceneComponent()
     : RelativeLocation(0, 0, 0)
     , RelativeRotation(0, 0, 0, 1)

@@ -53,159 +53,159 @@ static bool ParsePerspectiveCamera(const JSON& Root, FPerspectiveCameraData& Out
     return true;
 }
 
-TArray<FSceneCompData> FSceneLoader::LoadWithUUID(const FString& FileName, FPerspectiveCameraData& OutCameraData, uint32& OutNextUUID)
-{
-    std::ifstream file(FileName);
-    if (!file.is_open())
-    {
-        UE_LOG("Scene load failed. Cannot open file: %s", FileName.c_str());
-        return {};
-    }
+//TArray<FSceneCompData> FSceneLoader::LoadWithUUID(const FString& FileName, FPerspectiveCameraData& OutCameraData, uint32& OutNextUUID)
+//{
+//    std::ifstream file(FileName);
+//    if (!file.is_open())
+//    {
+//        UE_LOG("Scene load failed. Cannot open file: %s", FileName.c_str());
+//        return {};
+//    }
+//
+//    std::stringstream Buffer;
+//    Buffer << file.rdbuf();
+//    std::string content = Buffer.str();
+//
+//    try {
+//        JSON j = JSON::Load(content);
+//
+//        OutNextUUID = 0;
+//        if (j.hasKey("NextUUID"))
+//        {
+//            OutNextUUID = static_cast<uint32>(j.at("NextUUID").ToInt());
+//        }
+//
+//        ParsePerspectiveCamera(j, OutCameraData);
+//        return Parse(j);
+//    }
+//    catch (const std::exception& e) {
+//        UE_LOG("Scene load failed. JSON parse error: %s", e.what());
+//        return {};
+//    }
+//}
 
-    std::stringstream Buffer;
-    Buffer << file.rdbuf();
-    std::string content = Buffer.str();
-
-    try {
-        JSON j = JSON::Load(content);
-
-        OutNextUUID = 0;
-        if (j.hasKey("NextUUID"))
-        {
-            OutNextUUID = static_cast<uint32>(j.at("NextUUID").ToInt());
-        }
-
-        ParsePerspectiveCamera(j, OutCameraData);
-        return Parse(j);
-    }
-    catch (const std::exception& e) {
-        UE_LOG("Scene load failed. JSON parse error: %s", e.what());
-        return {};
-    }
-}
-
-TArray<FSceneCompData> FSceneLoader::Load(const FString& FileName, FPerspectiveCameraData* OutCameraData)
-{
-    std::ifstream file(FileName);
-    if (!file.is_open())
-    {
-		UE_LOG("Scene load failed. Cannot open file: %s", FileName.c_str());
-        return {};
-    }
-
-    std::stringstream Buffer;
-    Buffer << file.rdbuf();
-    std::string content = Buffer.str();
-
-    try {
-        JSON j = JSON::Load(content);
-
-        // 카메라 먼저 파싱
-        if (OutCameraData)
-        {
-            FPerspectiveCameraData Temp{};
-            if (ParsePerspectiveCamera(j, Temp))
-            {
-                *OutCameraData = Temp;
-            }
-            else
-            {
-                // 카메라 블록이 없으면 값을 건드리지 않음
-            }
-        }
-
-        return Parse(j);
-    }
-    catch (const std::exception& e) {
-		UE_LOG("Scene load failed. JSON parse error: %s", e.what());
-        return {};
-    }
-}
-
-void FSceneLoader::Save(TArray<FSceneCompData> InPrimitiveData, const FPerspectiveCameraData* InCameraData, const FString& SceneName)
-{
-    uint32 NextUUID = UObject::PeekNextUUID();
-
-    namespace fs = std::filesystem;
-    fs::path outPath(SceneName);
-    if (!outPath.has_parent_path())
-        outPath = fs::path("Scene") / outPath;
-    if (outPath.extension().string() != ".Scene")
-        outPath.replace_extension(".Scene");
-    std::error_code ec;
-    fs::create_directories(outPath.parent_path(), ec);
-
-    auto NormalizePath = [](FString Path) -> FString
-        {
-            for (auto& ch : Path)
-            {
-                if (ch == '\\') ch = '/';
-            }
-            return Path;
-        };
-
-    std::ostringstream oss;
-    oss.setf(std::ios::fixed);
-    oss << std::setprecision(6);
-
-    auto writeVec3 = [&](const char* name, const FVector& v, int indent)
-        {
-            std::string tabs(indent, ' ');
-            oss << tabs << "\"" << name << "\" : [" << v.X << ", " << v.Y << ", " << v.Z << "]";
-        };
-
-    oss << "{\n";
-    oss << "  \"Version\" : 1,\n";
-    oss << "  \"NextUUID\" : " << NextUUID;
-
-    bool bHasCamera = (InCameraData != nullptr);
-
-    if (bHasCamera)
-    {
-        oss << ",\n";
-        oss << "  \"PerspectiveCamera\" : {\n";
-        // 순서: FOV, FarClip, Location, NearClip, Rotation (FOV/Clip들은 단일 요소 배열)
-        oss << "    \"FOV\" : [" << InCameraData->FOV << "],\n";
-        oss << "    \"FarClip\" : [" << InCameraData->FarClip << "],\n";
-        writeVec3("Location", InCameraData->Location, 4); oss << ",\n";
-        oss << "    \"NearClip\" : [" << InCameraData->NearClip << "],\n";
-        writeVec3("Rotation", InCameraData->Rotation, 4); oss << "\n";
-        oss << "  }";
-    }
-
-    // Primitives 블록
-    oss << (bHasCamera ? ",\n" : ",\n"); // 카메라 없더라도 컴마 후 줄바꿈
-    oss << "  \"Primitives\" : {\n";
-    for (size_t i = 0; i < InPrimitiveData.size(); ++i)
-    {
-        const FSceneCompData& Data = InPrimitiveData[i];
-        oss << "    \"" << Data.UUID << "\" : {\n";
-        // 순서: Location, ObjStaticMeshAsset, Rotation, Scale, Type
-        writeVec3("Location", Data.Location, 6); oss << ",\n";
-
-        FString AssetPath = NormalizePath(Data.ObjStaticMeshAsset);
-        oss << "      \"ObjStaticMeshAsset\" : " << "\"" << AssetPath << "\",\n";
-
-        writeVec3("Rotation", Data.Rotation, 6); oss << ",\n";
-        writeVec3("Scale", Data.Scale, 6); oss << ",\n";
-        oss << "      \"Type\" : " << "\"" << Data.Type << "\"\n";
-        oss << "    }" << (i + 1 < InPrimitiveData.size() ? "," : "") << "\n";
-    }
-    oss << "  }\n";
-    oss << "}\n";
-
-    const std::string finalPath = outPath.make_preferred().string();
-    std::ofstream OutFile(finalPath.c_str(), std::ios::out | std::ios::trunc);
-    if (OutFile.is_open())
-    {
-        OutFile << oss.str();
-        OutFile.close();
-    }
-    else
-    {
-        UE_LOG("Scene save failed. Cannot open file: %s", finalPath.c_str());
-    }
-}
+//TArray<FSceneCompData> FSceneLoader::Load(const FString& FileName, FPerspectiveCameraData* OutCameraData)
+//{
+//    std::ifstream file(FileName);
+//    if (!file.is_open())
+//    {
+//		UE_LOG("Scene load failed. Cannot open file: %s", FileName.c_str());
+//        return {};
+//    }
+//
+//    std::stringstream Buffer;
+//    Buffer << file.rdbuf();
+//    std::string content = Buffer.str();
+//
+//    try {
+//        JSON j = JSON::Load(content);
+//
+//        // 카메라 먼저 파싱
+//        if (OutCameraData)
+//        {
+//            FPerspectiveCameraData Temp{};
+//            if (ParsePerspectiveCamera(j, Temp))
+//            {
+//                *OutCameraData = Temp;
+//            }
+//            else
+//            {
+//                // 카메라 블록이 없으면 값을 건드리지 않음
+//            }
+//        }
+//
+//        return Parse(j);
+//    }
+//    catch (const std::exception& e) {
+//		UE_LOG("Scene load failed. JSON parse error: %s", e.what());
+//        return {};
+//    }
+//}
+//
+//void FSceneLoader::Save(TArray<FSceneCompData> InPrimitiveData, const FPerspectiveCameraData* InCameraData, const FString& SceneName)
+//{
+//    uint32 NextUUID = UObject::PeekNextUUID();
+//
+//    namespace fs = std::filesystem;
+//    fs::path outPath(SceneName);
+//    if (!outPath.has_parent_path())
+//        outPath = fs::path("Scene") / outPath;
+//    if (outPath.extension().string() != ".Scene")
+//        outPath.replace_extension(".Scene");
+//    std::error_code ec;
+//    fs::create_directories(outPath.parent_path(), ec);
+//
+//    auto NormalizePath = [](FString Path) -> FString
+//        {
+//            for (auto& ch : Path)
+//            {
+//                if (ch == '\\') ch = '/';
+//            }
+//            return Path;
+//        };
+//
+//    std::ostringstream oss;
+//    oss.setf(std::ios::fixed);
+//    oss << std::setprecision(6);
+//
+//    auto writeVec3 = [&](const char* name, const FVector& v, int indent)
+//        {
+//            std::string tabs(indent, ' ');
+//            oss << tabs << "\"" << name << "\" : [" << v.X << ", " << v.Y << ", " << v.Z << "]";
+//        };
+//
+//    oss << "{\n";
+//    oss << "  \"Version\" : 1,\n";
+//    oss << "  \"NextUUID\" : " << NextUUID;
+//
+//    bool bHasCamera = (InCameraData != nullptr);
+//
+//    if (bHasCamera)
+//    {
+//        oss << ",\n";
+//        oss << "  \"PerspectiveCamera\" : {\n";
+//        // 순서: FOV, FarClip, Location, NearClip, Rotation (FOV/Clip들은 단일 요소 배열)
+//        oss << "    \"FOV\" : [" << InCameraData->FOV << "],\n";
+//        oss << "    \"FarClip\" : [" << InCameraData->FarClip << "],\n";
+//        writeVec3("Location", InCameraData->Location, 4); oss << ",\n";
+//        oss << "    \"NearClip\" : [" << InCameraData->NearClip << "],\n";
+//        writeVec3("Rotation", InCameraData->Rotation, 4); oss << "\n";
+//        oss << "  }";
+//    }
+//
+//    // Primitives 블록
+//    oss << (bHasCamera ? ",\n" : ",\n"); // 카메라 없더라도 컴마 후 줄바꿈
+//    oss << "  \"Primitives\" : {\n";
+//    for (size_t i = 0; i < InPrimitiveData.size(); ++i)
+//    {
+//        const FSceneCompData& Data = InPrimitiveData[i];
+//        oss << "    \"" << Data.UUID << "\" : {\n";
+//        // 순서: Location, ObjStaticMeshAsset, Rotation, Scale, Type
+//        writeVec3("Location", Data.Location, 6); oss << ",\n";
+//
+//        FString AssetPath = NormalizePath(Data.ObjStaticMeshAsset);
+//        oss << "      \"ObjStaticMeshAsset\" : " << "\"" << AssetPath << "\",\n";
+//
+//        writeVec3("Rotation", Data.Rotation, 6); oss << ",\n";
+//        writeVec3("Scale", Data.Scale, 6); oss << ",\n";
+//        oss << "      \"Type\" : " << "\"" << Data.Type << "\"\n";
+//        oss << "    }" << (i + 1 < InPrimitiveData.size() ? "," : "") << "\n";
+//    }
+//    oss << "  }\n";
+//    oss << "}\n";
+//
+//    const std::string finalPath = outPath.make_preferred().string();
+//    std::ofstream OutFile(finalPath.c_str(), std::ios::out | std::ios::trunc);
+//    if (OutFile.is_open())
+//    {
+//        OutFile << oss.str();
+//        OutFile.close();
+//    }
+//    else
+//    {
+//        UE_LOG("Scene save failed. Cannot open file: %s", finalPath.c_str());
+//    }
+//}
 
 // ─────────────────────────────────────────────
 // NextUUID 메타만 읽어오는 간단한 헬퍼
@@ -241,72 +241,72 @@ bool FSceneLoader::TryReadNextUUID(const FString& FilePath, uint32& OutNextUUID)
     return false;
 }
 
-TArray<FSceneCompData> FSceneLoader::Parse(const JSON& Json)
-{
-    TArray<FSceneCompData> Primitives;
-
-    if (!Json.hasKey("Primitives"))
-    {
-        std::cerr << "Primitives 섹션이 존재하지 않습니다." << std::endl;
-        return Primitives;
-    }
-
-    auto PrimitivesJson = Json.at("Primitives");
-    for (auto& kv : PrimitivesJson.ObjectRange())
-    {
-        // kv.first: 키(문자열), kv.second: 값(JSON 객체)
-        const std::string& key = kv.first;
-        const JSON& value = kv.second;
-
-        FSceneCompData data;
-
-        // 키를 UUID로 파싱 (숫자가 아니면 0 유지)
-        try
-        {
-            // 공백 제거 후 파싱
-            std::string trimmed = key;
-            trimmed.erase(std::remove_if(trimmed.begin(), trimmed.end(), ::isspace), trimmed.end());
-            data.UUID = static_cast<uint32>(std::stoul(trimmed));
-        }
-        catch (...)
-        {
-            data.UUID = 0; // 레거시 호환: 숫자 키가 아니면 0
-        }
-
-        auto loc = value.at("Location");
-        data.Location = FVector(
-            (float)loc[0].ToFloat(),
-            (float)loc[1].ToFloat(),
-            (float)loc[2].ToFloat()
-        );
-
-        auto rot = value.at("Rotation");
-        data.Rotation = FVector(
-            (float)rot[0].ToFloat(),
-            (float)rot[1].ToFloat(),
-            (float)rot[2].ToFloat()
-        );
-
-        auto scale = value.at("Scale");
-        data.Scale = FVector(
-            (float)scale[0].ToFloat(),
-            (float)scale[1].ToFloat(),
-            (float)scale[2].ToFloat()
-        );
-
-        if (value.hasKey("ObjStaticMeshAsset"))
-        {
-            data.ObjStaticMeshAsset = value.at("ObjStaticMeshAsset").ToString();
-        }
-        else
-        {
-            data.ObjStaticMeshAsset = "";
-        }
-
-        data.Type = value.at("Type").ToString();
-
-        Primitives.push_back(data);
-    }
-
-    return Primitives;
-}
+//TArray<FSceneCompData> FSceneLoader::Parse(const JSON& Json)
+//{
+//    TArray<FSceneCompData> Primitives;
+//
+//    if (!Json.hasKey("Primitives"))
+//    {
+//        std::cerr << "Primitives 섹션이 존재하지 않습니다." << std::endl;
+//        return Primitives;
+//    }
+//
+//    auto PrimitivesJson = Json.at("Primitives");
+//    for (auto& kv : PrimitivesJson.ObjectRange())
+//    {
+//        // kv.first: 키(문자열), kv.second: 값(JSON 객체)
+//        const std::string& key = kv.first;
+//        const JSON& value = kv.second;
+//
+//        FSceneCompData data;
+//
+//        // 키를 UUID로 파싱 (숫자가 아니면 0 유지)
+//        try
+//        {
+//            // 공백 제거 후 파싱
+//            std::string trimmed = key;
+//            trimmed.erase(std::remove_if(trimmed.begin(), trimmed.end(), ::isspace), trimmed.end());
+//            data.UUID = static_cast<uint32>(std::stoul(trimmed));
+//        }
+//        catch (...)
+//        {
+//            data.UUID = 0; // 레거시 호환: 숫자 키가 아니면 0
+//        }
+//
+//        auto loc = value.at("Location");
+//        data.Location = FVector(
+//            (float)loc[0].ToFloat(),
+//            (float)loc[1].ToFloat(),
+//            (float)loc[2].ToFloat()
+//        );
+//
+//        auto rot = value.at("Rotation");
+//        data.Rotation = FVector(
+//            (float)rot[0].ToFloat(),
+//            (float)rot[1].ToFloat(),
+//            (float)rot[2].ToFloat()
+//        );
+//
+//        auto scale = value.at("Scale");
+//        data.Scale = FVector(
+//            (float)scale[0].ToFloat(),
+//            (float)scale[1].ToFloat(),
+//            (float)scale[2].ToFloat()
+//        );
+//
+//        if (value.hasKey("ObjStaticMeshAsset"))
+//        {
+//            data.ObjStaticMeshAsset = value.at("ObjStaticMeshAsset").ToString();
+//        }
+//        else
+//        {
+//            data.ObjStaticMeshAsset = "";
+//        }
+//
+//        data.Type = value.at("Type").ToString();
+//
+//        Primitives.push_back(data);
+//    }
+//
+//    return Primitives;
+//}
