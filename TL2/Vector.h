@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <cmath>        // ← 추가 (std::sin, std::cos, std::atan2, std::copysign 등)
 #include <algorithm>
 #include <string>
@@ -258,8 +258,9 @@ struct FVector
 	}
     static FVector Zero()
     {
+		return FVector(0.0f, 0.0f, 0.0f);
     }
-        return FVector(0.0f, 0.0f, 0.0f);
+        
 
 	static FVector One()
 	{
