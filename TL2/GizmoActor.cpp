@@ -413,7 +413,7 @@ void AGizmoActor::OnDrag(AActor* Target, uint32 GizmoAxis, float MouseDeltaX, fl
 		// 로컬 모드일 경우 축을 Target 로컬 축으로
 		FVector RotationAxis = Axis.GetSafeNormal();
 
-		// = MakeQuatFromAxisAngle(RotationAxis.X, Angle);
+		// = FQuat::FromAxisAngle(RotationAxis.X, Angle);
 		FQuat DeltaQuat{};
 		FQuat CurrentRot = Target->GetActorRotation();
 		if (CurrentSpace == EGizmoSpace::World)
@@ -424,23 +424,23 @@ void AGizmoActor::OnDrag(AActor* Target, uint32 GizmoAxis, float MouseDeltaX, fl
 			case 1: // X축 회전
 			{
 				// 마우스 X → 카메라 Up 축 기반
-				FQuat RotByX = MakeQuatFromAxisAngle(FVector(-1, 0, 0), DeltaAngleX);
+				FQuat RotByX = FQuat::FromAxisAngle(FVector(-1, 0, 0), DeltaAngleX);
 				// 마우스 Y → 카메라 Right 축 기반
-				FQuat RotByY = MakeQuatFromAxisAngle(FVector(-1, 0, 0), DeltaAngleY);
+				FQuat RotByY = FQuat::FromAxisAngle(FVector(-1, 0, 0), DeltaAngleY);
 				DeltaQuat = RotByX * RotByY;
 				break;
 			}
 			case 2: // Y축 회전
 			{
-				FQuat RotByX = MakeQuatFromAxisAngle(FVector(0, -1, 0), DeltaAngleX);
-				FQuat RotByY = MakeQuatFromAxisAngle(FVector(0, -1, 0), DeltaAngleY);
+				FQuat RotByX = FQuat::FromAxisAngle(FVector(0, -1, 0), DeltaAngleX);
+				FQuat RotByY = FQuat::FromAxisAngle(FVector(0, -1, 0), DeltaAngleY);
 				DeltaQuat = RotByX * RotByY;
 				break;
 			}
 			case 3: // Z축 회전
 			{
-				FQuat RotByX = MakeQuatFromAxisAngle(FVector(0, 0, -1), DeltaAngleX);
-				FQuat RotByY = MakeQuatFromAxisAngle(FVector(0, 0, -1), DeltaAngleY);
+				FQuat RotByX = FQuat::FromAxisAngle(FVector(0, 0, -1), DeltaAngleX);
+				FQuat RotByY = FQuat::FromAxisAngle(FVector(0, 0, -1), DeltaAngleY);
 				DeltaQuat = RotByX * RotByY;
 				break;
 			}
@@ -459,7 +459,7 @@ void AGizmoActor::OnDrag(AActor* Target, uint32 GizmoAxis, float MouseDeltaX, fl
 			// 로컬 모드일 경우 축을 Target 로컬 축으로
 			FVector RotationAxis = -Axis.GetSafeNormal();
 
-			//FQuat DeltaQuat = MakeQuatFromAxisAngle(RotationAxis, Angle);
+			//FQuat DeltaQuat = FQuat::FromAxisAngle(RotationAxis, Angle);
 
 			FQuat CurrentRot = Target->GetActorRotation();
 
@@ -468,23 +468,23 @@ void AGizmoActor::OnDrag(AActor* Target, uint32 GizmoAxis, float MouseDeltaX, fl
 			case 1: // X축 회전
 			{
 				// 마우스 X → 카메라 Up 축 기반
-				FQuat RotByX = MakeQuatFromAxisAngle(RotationAxis, DeltaAngleX);
+				FQuat RotByX = FQuat::FromAxisAngle(RotationAxis, DeltaAngleX);
 				// 마우스 Y → 카메라 Right 축 기반
-				FQuat RotByY = MakeQuatFromAxisAngle(RotationAxis, DeltaAngleY);
+				FQuat RotByY = FQuat::FromAxisAngle(RotationAxis, DeltaAngleY);
 				DeltaQuat = RotByX * RotByY;
 				break;
 			}
 			case 2: // Y축 회전
 			{
-				FQuat RotByX = MakeQuatFromAxisAngle(RotationAxis, DeltaAngleX);
-				FQuat RotByY = MakeQuatFromAxisAngle(RotationAxis, DeltaAngleY);
+				FQuat RotByX = FQuat::FromAxisAngle(RotationAxis, DeltaAngleX);
+				FQuat RotByY = FQuat::FromAxisAngle(RotationAxis, DeltaAngleY);
 				DeltaQuat = RotByX * RotByY;
 				break;
 			}
 			case 3: // Z축 회전
 			{
-				FQuat RotByX = MakeQuatFromAxisAngle(RotationAxis, DeltaAngleX);
-				FQuat RotByY = MakeQuatFromAxisAngle(RotationAxis, DeltaAngleY);
+				FQuat RotByX = FQuat::FromAxisAngle(RotationAxis, DeltaAngleX);
+				FQuat RotByY = FQuat::FromAxisAngle(RotationAxis, DeltaAngleY);
 				DeltaQuat = RotByX * RotByY;
 				break;
 			}

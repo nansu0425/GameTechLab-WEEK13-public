@@ -907,18 +907,6 @@ inline FVector FQuat::RotateVector(const FVector& V) const
 		V.Z + W * T.Z + (U.X * T.Y - U.Y * T.X)
 	);
 }
-inline FQuat MakeQuatFromAxisAngle(const FVector& Axis, float AngleRad)
-{
-	FVector NormAxis = Axis.GetSafeNormal();
-	float half = AngleRad * 0.5f;
-	float s = sinf(half);
-	return FQuat(
-		NormAxis.X * s,
-		NormAxis.Y * s,
-		NormAxis.Z * s,
-		cosf(half)
-	);
-}
 
 // FQuat → Matrix
 inline FMatrix FQuat::ToMatrix() const
@@ -1029,19 +1017,11 @@ inline FQuat QuatMul(const FQuat& Q2, const FQuat& Q1)
 	};
 }
 
-inline FQuat QuatFromAxisAngle(const FVector& Axis, float AngleRadian)
-{
-	const float H = 0.5f * AngleRadian;
-	const float S = std::sin(H);
-	const float C = std::cos(H);
-	return { Axis.X * S, Axis.Y * S, Axis.Z * S, C };
-}
-
 inline FQuat MakeQuatLocalXYZ(float RX, float RY, float RZ)
 {
-	const FQuat QX = QuatFromAxisAngle({ 1,0,0 }, RX);
-	const FQuat QY = QuatFromAxisAngle({ 0,1,0 }, RY);
-	const FQuat QZ = QuatFromAxisAngle({ 0,0,1 }, RZ);
+	const FQuat QX = FQuat::FromAxisAngle({ 1,0,0 }, RX);
+	const FQuat QY = FQuat::FromAxisAngle({ 0,1,0 }, RY);
+	const FQuat QZ = FQuat::FromAxisAngle({ 0,0,1 }, RZ);
 	return QuatMul(QuatMul(QZ, QY), QX); // q = qz * qy * qx
 }
 
@@ -1052,9 +1032,9 @@ static inline FQuat QuatFromEulerZYX_Deg(const FVector& Deg)
 	const float Ry = DegreeToRadian(Deg.Y); // Pitch (Y)
 	const float Rz = DegreeToRadian(Deg.Z); // Yaw (Z)
 
-	const FQuat Qx = MakeQuatFromAxisAngle(FVector(1, 0, 0), Rx);
-	const FQuat Qy = MakeQuatFromAxisAngle(FVector(0, 1, 0), Ry);
-	const FQuat Qz = MakeQuatFromAxisAngle(FVector(0, 0, 1), Rz);
+	const FQuat Qx = FQuat::FromAxisAngle(FVector(1, 0, 0), Rx);
+	const FQuat Qy = FQuat::FromAxisAngle(FVector(0, 1, 0), Ry);
+	const FQuat Qz = FQuat::FromAxisAngle(FVector(0, 0, 1), Rz);
 	return Qz * Qy * Qx; // ZYX
 }
 
