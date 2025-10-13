@@ -16,8 +16,8 @@ void UStaticMesh::Load(const FString& InFilePath, ID3D11Device* InDevice, EVerte
 
     StaticMeshAsset = FObjManager::LoadObjStaticMeshAsset(InFilePath);
 
-    // 로드에 실패한 경우 빈 버텍스가 반환됨 그거 검사
-    if (StaticMeshAsset && 0 < StaticMeshAsset->Vertices.size())
+    // 빈 버텍스, 인덱스로 버퍼 생성 방지
+    if (StaticMeshAsset && 0 < StaticMeshAsset->Vertices.size() && 0 < StaticMeshAsset->Indices.size())
     {
         CreateVertexBuffer(StaticMeshAsset, InDevice, InVertexType);
         CreateIndexBuffer(StaticMeshAsset, InDevice);

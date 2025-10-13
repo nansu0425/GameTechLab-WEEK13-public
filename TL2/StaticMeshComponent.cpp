@@ -11,54 +11,57 @@
 
 UStaticMeshComponent::UStaticMeshComponent()
 {
-    SetMaterial("StaticMeshShader.hlsl", EVertexLayoutType::PositionColorTexturNormal);
-    SetStaticMesh("Data/cube-tex.obj");     // 임시 기본 static mesh 설정
+	SetMaterial("StaticMeshShader.hlsl", EVertexLayoutType::PositionColorTexturNormal);
+	SetStaticMesh("Data/cube-tex.obj");     // 임시 기본 static mesh 설정
 }
 
 UStaticMeshComponent::~UStaticMeshComponent()
 {
-    if (StaticMesh != nullptr)
-    {
-        StaticMesh->EraseUsingComponets(this);
-    }
+	if (StaticMesh != nullptr)
+	{
+		StaticMesh->EraseUsingComponets(this);
+	}
 }
 
 void UStaticMeshComponent::Render(URenderer* Renderer, const FMatrix& ViewMatrix, const FMatrix& ProjectionMatrix)
 {
-    UStaticMesh* Mesh = GetStaticMesh();
-    if (!Mesh)
-    {
-        return; // 아직 메쉬가 지정되지 않은 새 컴포넌트는 렌더 패스에서 건너뛴다.
-    }
-    Renderer->GetRHIDevice()->UpdateConstantBuffers(GetWorldMatrix(), ViewMatrix, ProjectionMatrix);
-    Renderer->GetRHIDevice()->PrepareShader(GetMaterial()->GetShader());
-    Renderer->DrawIndexedPrimitiveComponent(GetStaticMesh(), D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST, MaterialSlots);
+	UStaticMesh* Mesh = GetStaticMesh();
+	if (Mesh && Mesh->GetStaticMeshAsset())
+	{
+		Renderer->GetRHIDevice()->UpdateConstantBuffers(GetWorldMatrix(), ViewMatrix, ProjectionMatrix);
+		Renderer->GetRHIDevice()->PrepareShader(GetMaterial()->GetShader());
+		Renderer->DrawIndexedPrimitiveComponent(GetStaticMesh(), D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST, MaterialSlots);
+	}
 }
 
 void UStaticMeshComponent::SetStaticMesh(const FString& PathFileName)
 {
-    if (StaticMesh != nullptr)
-    {
-        StaticMesh->EraseUsingComponets(this);
-    }
-	StaticMesh = FObjManager::LoadObjStaticMesh(PathFileName);
-    StaticMesh->AddUsingComponents(this);
-    
-    const TArray<FGroupInfo>& GroupInfos = StaticMesh->GetMeshGroupInfo();
-    if (MaterialSlots.size() < GroupInfos.size())
-    {
-        MaterialSlots.resize(GroupInfos.size());
-    }
+	if (StaticMesh != nullptr)
+	{
+		StaticMesh->EraseUsingComponets(this);
+	}
 
-    // MaterailSlots.size()가 GroupInfos.size() 보다 클 수 있기 때문에, GroupInfos.size()로 설정
-    for (int i = 0; i < GroupInfos.size(); ++i) 
-    {
-        if (MaterialSlots[i].bChangedByUser == false)
-        {
-            MaterialSlots[i].MaterialName = GroupInfos[i].InitialMaterialName;
-        }
-    }
-    MarkWorldPartitionDirty();
+	StaticMesh = FObjManager::LoadObjStaticMesh(PathFileName);
+	if (StaticMesh && StaticMesh->GetStaticMeshAsset())
+	{
+		StaticMesh->AddUsingComponents(this);
+
+		const TArray<FGroupInfo>& GroupInfos = StaticMesh->GetMeshGroupInfo();
+		if (MaterialSlots.size() < GroupInfos.size())
+		{
+			MaterialSlots.resize(GroupInfos.size());
+		}
+
+		// MaterailSlots.size()가 GroupInfos.size() 보다 클 수 있기 때문에, GroupInfos.size()로 설정
+		for (int i = 0; i < GroupInfos.size(); ++i)
+		{
+			if (MaterialSlots[i].bChangedByUser == false)
+			{
+				MaterialSlots[i].MaterialName = GroupInfos[i].InitialMaterialName;
+			}
+		}
+		MarkWorldPartitionDirty();
+	}
 }
 
 //void UStaticMeshComponent::Serialize(bool bIsLoading, FSceneCompData& InOut)
@@ -99,111 +102,111 @@ void UStaticMeshComponent::SetStaticMesh(const FString& PathFileName)
 
 void UStaticMeshComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
-    Super::Serialize(bInIsLoading, InOutHandle);
+	Super::Serialize(bInIsLoading, InOutHandle);
 
-    if (bInIsLoading)
-    {
-        FString ObjPath;
-        FJsonSerializer::ReadString(InOutHandle, "ObjStaticMeshAsset", ObjPath);
-        if (!ObjPath.empty())
-        {
-            SetStaticMesh(ObjPath);
-        }
-    }
-    else
-    {
-        if (UStaticMesh* Mesh = GetStaticMesh())
-        {
-            InOutHandle["ObjStaticMeshAsset"] = Mesh->GetAssetPathFileName();
-        }
-        else
-        {
-            InOutHandle["ObjStaticMeshAsset"] = "";
-        }
-    }
+	if (bInIsLoading)
+	{
+		FString ObjPath;
+		FJsonSerializer::ReadString(InOutHandle, "ObjStaticMeshAsset", ObjPath);
+		if (!ObjPath.empty())
+		{
+			SetStaticMesh(ObjPath);
+		}
+	}
+	else
+	{
+		if (UStaticMesh* Mesh = GetStaticMesh())
+		{
+			InOutHandle["ObjStaticMeshAsset"] = Mesh->GetAssetPathFileName();
+		}
+		else
+		{
+			InOutHandle["ObjStaticMeshAsset"] = "";
+		}
+	}
 }
 
 void UStaticMeshComponent::SetMaterialByUser(const uint32 InMaterialSlotIndex, const FString& InMaterialName)
 {
-    assert((0 <= InMaterialSlotIndex && InMaterialSlotIndex < MaterialSlots.size()) && "out of range InMaterialSlotIndex");
+	assert((0 <= InMaterialSlotIndex && InMaterialSlotIndex < MaterialSlots.size()) && "out of range InMaterialSlotIndex");
 
-    if (0 <= InMaterialSlotIndex && InMaterialSlotIndex < MaterialSlots.size())
-    {
-        MaterialSlots[InMaterialSlotIndex].MaterialName = InMaterialName;
-        MaterialSlots[InMaterialSlotIndex].bChangedByUser = true;
+	if (0 <= InMaterialSlotIndex && InMaterialSlotIndex < MaterialSlots.size())
+	{
+		MaterialSlots[InMaterialSlotIndex].MaterialName = InMaterialName;
+		MaterialSlots[InMaterialSlotIndex].bChangedByUser = true;
 
-        bChangedMaterialByUser = true;
-    }
-    else
-    {
-        UE_LOG("out of range InMaterialSlotIndex: %d", InMaterialSlotIndex);
-    }
+		bChangedMaterialByUser = true;
+	}
+	else
+	{
+		UE_LOG("out of range InMaterialSlotIndex: %d", InMaterialSlotIndex);
+	}
 
-    assert(MaterialSlots[InMaterialSlotIndex].bChangedByUser == true);
+	assert(MaterialSlots[InMaterialSlotIndex].bChangedByUser == true);
 }
 
 FAABB UStaticMeshComponent::GetWorldAABB() const
 {
-    const FTransform WorldTransform = GetWorldTransform();
-    const FMatrix WorldMatrix = GetWorldMatrix();
+	const FTransform WorldTransform = GetWorldTransform();
+	const FMatrix WorldMatrix = GetWorldMatrix();
 
-    if (!StaticMesh)
-    {
-        const FVector Origin = WorldTransform.TransformPosition(FVector());
-        return FAABB(Origin, Origin);
-    }
+	if (!StaticMesh)
+	{
+		const FVector Origin = WorldTransform.TransformPosition(FVector());
+		return FAABB(Origin, Origin);
+	}
 
-    const FAABB LocalBound = StaticMesh->GetLocalBound();
-    const FVector LocalMin = LocalBound.Min;
-    const FVector LocalMax = LocalBound.Max;
+	const FAABB LocalBound = StaticMesh->GetLocalBound();
+	const FVector LocalMin = LocalBound.Min;
+	const FVector LocalMax = LocalBound.Max;
 
-    const FVector LocalCorners[8] = {
-        FVector(LocalMin.X, LocalMin.Y, LocalMin.Z),
-        FVector(LocalMax.X, LocalMin.Y, LocalMin.Z),
-        FVector(LocalMin.X, LocalMax.Y, LocalMin.Z),
-        FVector(LocalMax.X, LocalMax.Y, LocalMin.Z),
-        FVector(LocalMin.X, LocalMin.Y, LocalMax.Z),
-        FVector(LocalMax.X, LocalMin.Y, LocalMax.Z),
-        FVector(LocalMin.X, LocalMax.Y, LocalMax.Z),
-        FVector(LocalMax.X, LocalMax.Y, LocalMax.Z)
-    };
-    
-    FVector4 WorldMin4 = FVector4(LocalCorners[0].X, LocalCorners[0].Y, LocalCorners[0].Z, 1.0f) * WorldMatrix;
-    FVector4 WorldMax4 = WorldMin4;
+	const FVector LocalCorners[8] = {
+		FVector(LocalMin.X, LocalMin.Y, LocalMin.Z),
+		FVector(LocalMax.X, LocalMin.Y, LocalMin.Z),
+		FVector(LocalMin.X, LocalMax.Y, LocalMin.Z),
+		FVector(LocalMax.X, LocalMax.Y, LocalMin.Z),
+		FVector(LocalMin.X, LocalMin.Y, LocalMax.Z),
+		FVector(LocalMax.X, LocalMin.Y, LocalMax.Z),
+		FVector(LocalMin.X, LocalMax.Y, LocalMax.Z),
+		FVector(LocalMax.X, LocalMax.Y, LocalMax.Z)
+	};
 
-    for (int32 CornerIndex = 1; CornerIndex < 8; ++CornerIndex)
-    {
-        const FVector4 WorldPos = FVector4(LocalCorners[CornerIndex].X
-            , LocalCorners[CornerIndex].Y
-            , LocalCorners[CornerIndex].Z
-            , 1.0f)
-            * WorldMatrix;
-        WorldMin4 = WorldMin4.ComponentMin(WorldPos);
-        WorldMax4 = WorldMax4.ComponentMax(WorldPos);
-    }
+	FVector4 WorldMin4 = FVector4(LocalCorners[0].X, LocalCorners[0].Y, LocalCorners[0].Z, 1.0f) * WorldMatrix;
+	FVector4 WorldMax4 = WorldMin4;
 
-    FVector WorldMin = FVector(WorldMin4.X, WorldMin4.Y, WorldMin4.Z);
-    FVector WorldMax = FVector(WorldMax4.X, WorldMax4.Y, WorldMax4.Z);
-    return FAABB(WorldMin, WorldMax);
+	for (int32 CornerIndex = 1; CornerIndex < 8; ++CornerIndex)
+	{
+		const FVector4 WorldPos = FVector4(LocalCorners[CornerIndex].X
+			, LocalCorners[CornerIndex].Y
+			, LocalCorners[CornerIndex].Z
+			, 1.0f)
+			* WorldMatrix;
+		WorldMin4 = WorldMin4.ComponentMin(WorldPos);
+		WorldMax4 = WorldMax4.ComponentMax(WorldPos);
+	}
+
+	FVector WorldMin = FVector(WorldMin4.X, WorldMin4.Y, WorldMin4.Z);
+	FVector WorldMax = FVector(WorldMax4.X, WorldMax4.Y, WorldMax4.Z);
+	return FAABB(WorldMin, WorldMax);
 }
 
 void UStaticMeshComponent::DuplicateSubObjects()
 {
-    Super::DuplicateSubObjects();
+	Super::DuplicateSubObjects();
 }
 
 void UStaticMeshComponent::OnTransformUpdatedChildImpl()
 {
-    MarkWorldPartitionDirty();
+	MarkWorldPartitionDirty();
 }
 
 void UStaticMeshComponent::MarkWorldPartitionDirty()
 {
-    if (UWorld* World = GetWorld())
-    {
-        if (UWorldPartitionManager* Partition = World->GetPartitionManager())
-        {
-            Partition->MarkDirty(this);
-        }
-    }
+	if (UWorld* World = GetWorld())
+	{
+		if (UWorldPartitionManager* Partition = World->GetPartitionManager())
+		{
+			Partition->MarkDirty(this);
+		}
+	}
 }
