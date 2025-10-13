@@ -40,13 +40,9 @@ AGizmoActor::AGizmoActor()
 	ArrowY->SetupAttachment(RootComponent, EAttachmentRule::KeepRelative);
 	ArrowZ->SetupAttachment(RootComponent, EAttachmentRule::KeepRelative);
 
-	ArrowX->SetDefaultScale({ 1.0f * GizmoTotalSize, 1.0f * GizmoTotalSize, 1.0f * GizmoTotalSize });
-	ArrowY->SetDefaultScale({ 1.0f * GizmoTotalSize, 1.0f * GizmoTotalSize, 1.0f * GizmoTotalSize });
-	ArrowZ->SetDefaultScale({ 1.0f * GizmoTotalSize, 1.0f * GizmoTotalSize, 1.0f * GizmoTotalSize });
-
-	if (ScaleX) ScaleX->SetRelativeRotation(FQuat::MakeFromEulerZYX(FVector(0, 0, 0)));
-	if (ScaleY) ScaleY->SetRelativeRotation(FQuat::MakeFromEulerZYX(FVector(0, 0, 90)));
-	if (ScaleZ) ScaleZ->SetRelativeRotation(FQuat::MakeFromEulerZYX(FVector(0, -90, 0)));
+	ArrowX->SetDefaultScale({ GizmoTotalSize, GizmoTotalSize, GizmoTotalSize });
+	ArrowY->SetDefaultScale({ GizmoTotalSize, GizmoTotalSize, GizmoTotalSize });
+	ArrowZ->SetDefaultScale({ GizmoTotalSize, GizmoTotalSize, GizmoTotalSize });
 
 	AddOwnedComponent(ArrowX);
 	AddOwnedComponent(ArrowY);
@@ -54,6 +50,10 @@ AGizmoActor::AGizmoActor()
 	GizmoArrowComponents.Add(ArrowX);
 	GizmoArrowComponents.Add(ArrowY);
 	GizmoArrowComponents.Add(ArrowZ);
+
+	if (ArrowX) ArrowX->SetRelativeRotation(FQuat::MakeFromEulerZYX(FVector(0, 0, 0)));
+	if (ArrowY) ArrowY->SetRelativeRotation(FQuat::MakeFromEulerZYX(FVector(0, 0, 90)));
+	if (ArrowZ) ArrowZ->SetRelativeRotation(FQuat::MakeFromEulerZYX(FVector(0, -90, 0)));
 
 	//======= Rotate Component 생성 =======
 	RotateX = NewObject<UGizmoRotateComponent>();
@@ -72,9 +72,9 @@ AGizmoActor::AGizmoActor()
 	RotateY->SetupAttachment(RootComponent, EAttachmentRule::KeepRelative);
 	RotateZ->SetupAttachment(RootComponent, EAttachmentRule::KeepRelative);
 
-	RotateX->SetDefaultScale({ 0.025f * GizmoTotalSize, 0.025f * GizmoTotalSize, 0.025f * GizmoTotalSize });
-	RotateY->SetDefaultScale({ 0.025f * GizmoTotalSize, 0.025f * GizmoTotalSize, 0.025f * GizmoTotalSize });
-	RotateZ->SetDefaultScale({ 0.025f * GizmoTotalSize, 0.025f * GizmoTotalSize, 0.025f * GizmoTotalSize });
+	RotateX->SetDefaultScale({ GizmoTotalSize, GizmoTotalSize, GizmoTotalSize });
+	RotateY->SetDefaultScale({ GizmoTotalSize, GizmoTotalSize, GizmoTotalSize });
+	RotateZ->SetDefaultScale({ GizmoTotalSize, GizmoTotalSize, GizmoTotalSize });
 
 	AddOwnedComponent(RotateX);
 	AddOwnedComponent(RotateY);
@@ -85,7 +85,7 @@ AGizmoActor::AGizmoActor()
 
 	if (RotateX) RotateX->SetRelativeRotation(FQuat::MakeFromEulerZYX(FVector(0, 0, 0)));
 	if (RotateY) RotateY->SetRelativeRotation(FQuat::MakeFromEulerZYX(FVector(0, 0, 90)));
-	if (RotateZ) RotateZ->SetRelativeRotation(FQuat::MakeFromEulerZYX(FVector(0, 90, 0)));
+	if (RotateZ) RotateZ->SetRelativeRotation(FQuat::MakeFromEulerZYX(FVector(0, -90, 0)));
 
 	//======= Scale Component 생성 =======
 	ScaleX = NewObject<UGizmoScaleComponent>();
@@ -104,9 +104,9 @@ AGizmoActor::AGizmoActor()
 	ScaleY->SetupAttachment(RootComponent, EAttachmentRule::KeepRelative);
 	ScaleZ->SetupAttachment(RootComponent, EAttachmentRule::KeepRelative);
 
-	ScaleX->SetDefaultScale({ 0.025f * GizmoTotalSize, 0.025f * GizmoTotalSize, 0.025f * GizmoTotalSize });
-	ScaleY->SetDefaultScale({ 0.025f * GizmoTotalSize, 0.025f * GizmoTotalSize, 0.025f * GizmoTotalSize });
-	ScaleZ->SetDefaultScale({ 0.025f * GizmoTotalSize, 0.025f * GizmoTotalSize, 0.025f * GizmoTotalSize });
+	ScaleX->SetDefaultScale({ GizmoTotalSize, GizmoTotalSize, GizmoTotalSize });
+	ScaleY->SetDefaultScale({ GizmoTotalSize, GizmoTotalSize, GizmoTotalSize });
+	ScaleZ->SetDefaultScale({ GizmoTotalSize, GizmoTotalSize, GizmoTotalSize });
 
 	if (ScaleX) ScaleX->SetRelativeRotation(FQuat::MakeFromEulerZYX(FVector(0, 0, 0)));
 	if (ScaleY) ScaleY->SetRelativeRotation(FQuat::MakeFromEulerZYX(FVector(0, 0, 90)));

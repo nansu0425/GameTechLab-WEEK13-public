@@ -4,7 +4,7 @@
 
 UGizmoArrowComponent::UGizmoArrowComponent()
 {
-    SetStaticMesh("Data/Gizmo/Arrow.obj");
+    SetStaticMesh("Data/Gizmo/TranslationHandle.obj");
     SetMaterial("StaticMeshShader.hlsl", EVertexLayoutType::PositionColorTexturNormal);
 }
 
