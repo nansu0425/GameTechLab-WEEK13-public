@@ -597,6 +597,18 @@ void AGizmoActor::ProcessGizmoModeSwitch()
 		EGizmoMode NewGizmoMode = static_cast<EGizmoMode>(GizmoModeIndex);
 		NextMode(NewGizmoMode);
 	}
+	// tab 키로 월드-로컬 모드 전환
+	if (InputManager->IsKeyPressed(VK_TAB))
+	{
+		if (GetSpace() == EGizmoSpace::World)
+		{
+			SetSpace(EGizmoSpace::Local);
+		}
+		else
+		{
+			SetSpace(EGizmoSpace::World);
+		}
+	}
 }
 
 void AGizmoActor::UpdateComponentVisibility()
