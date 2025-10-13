@@ -108,7 +108,7 @@ Frustum CreateFrustumFromCamera(const UCameraComponent& Camera, float OverrideAs
     const float NearClip = Camera.GetNearClip();
     const float FarClip = Camera.GetFarClip();
     const float Aspect = OverrideAspect > 0.f ? OverrideAspect : Camera.GetAspectRatio();
-    const float FovRad = DegreeToRadian(Camera.GetFOV());
+    const float FovRad = DegreesToRadians(Camera.GetFOV());
 
     // 카메라 기준 좌표축(월드 공간)
     // Forward=+X, Right=+Y, Up=+Z

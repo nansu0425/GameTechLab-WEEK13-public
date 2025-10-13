@@ -25,8 +25,8 @@ constexpr float PI = 3.14159265358979323846f;
 constexpr float TWO_PI = 6.2831853071795864769f;
 constexpr float HALF_PI = 1.5707963267948966192f;
 
-inline float DegreeToRadian(float Degree) { return Degree * (PI / 180.0f); }
-inline float RadianToDegree(float Radian) { return Radian * (180.0f / PI); }
+inline float DegreesToRadians(float Degree) { return Degree * (PI / 180.0f); }
+inline float RadiansToDegrees(float Radian) { return Radian * (180.0f / PI); }
 // FMath 네임스페이스 대체
 namespace FMath
 {
@@ -320,6 +320,14 @@ struct alignas(16) FVector4
 
 };
 
+// Quaternion 정규화(+w 기준 캐논화)
+inline void NormalizeQuat(float& x, float& y, float& z, float& w)
+{
+	const float n = std::sqrt(x * x + y * y + z * z + w * w);
+	if (n > 1e-12) { x /= n; y /= n; z /= n; w /= n; }
+	if (w < 0.0) { x = -x; y = -y; z = -z; w = -w; } // q와 -q 동치 → 표준화
+}
+
 // ─────────────────────────────
 // FQuat (Quaternion)
 // ─────────────────────────────
@@ -378,13 +386,22 @@ struct FQuat
 	// 벡터 회전
 	FVector RotateVector(const FVector& V) const;
 
+	// Axis-Angle → Quaternion (axis normalized, angle in radians)
+	static FQuat FromAxisAngle(const FVector& Axis, float Angle)
+	{
+		float Half = Angle * 0.5f;
+		float S = std::sin(Half);
+		FVector N = Axis.GetNormalized();
+		return FQuat(N.X * S, N.Y * S, N.Z * S, std::cos(Half));
+	}
+
 	// 오일러 → 쿼터니언 (Pitch=X, Yaw=Y, Roll=Z in degrees)
 	// ZYX 순서 (Roll → Yaw → Pitch) - 로컬 축 회전
 	static FQuat MakeFromEuler(const FVector& EulerRad)
 	{
-		float PitchDeg = DegreeToRadian(EulerRad.X);
-		float YawDeg = DegreeToRadian(EulerRad.Y);
-		float RollDeg = DegreeToRadian(EulerRad.Z);
+		float PitchDeg = DegreesToRadians(EulerRad.X);
+		float YawDeg = DegreesToRadians(EulerRad.Y);
+		float RollDeg = DegreesToRadians(EulerRad.Z);
 
 		const float PX = PitchDeg * 0.5f; // Pitch about X
 		const float PY = YawDeg * 0.5f; // Yaw   about Y
@@ -403,42 +420,92 @@ struct FQuat
 		q.W = CX * CY * CZ - SX * SY * SZ;
 		return q.GetNormalized(); // 필요하면 정규화
 	}
-	// Axis-Angle → Quaternion (axis normalized, angle in radians)
-	static FQuat FromAxisAngle(const FVector& Axis, float Angle)
+
+	// ZYX(Tait–Bryan) 순서 오일러(deg) → Quaternion
+	// eulerDeg: X=Roll, Y=Pitch, Z=Yaw  [deg]
+	static FQuat QuatFromEulerZYX_Deg(const FVector& eulerDeg)
 	{
-		float Half = Angle * 0.5f;
-		float S = std::sin(Half);
-		FVector N = Axis.GetNormalized();
-		return FQuat(N.X * S, N.Y * S, N.Z * S, std::cos(Half));
+		const float x = DegreesToRadians((float)eulerDeg.X);
+		const float y = DegreesToRadians((float)eulerDeg.Y);
+		const float z = DegreesToRadians((float)eulerDeg.Z);
+
+		const float cx = std::cosf(x * 0.5f), sx = std::sinf(x * 0.5f);
+		const float cy = std::cosf(y * 0.5f), sy = std::sinf(y * 0.5f);
+		const float cz = std::cosf(z * 0.5f), sz = std::sinf(z * 0.5f);
+
+		// q = qz * qy * qx
+		float qw = cz * cy * cx + sz * sy * sx;
+		float qx = cz * cy * sx - sz * sy * cx;
+		float qy = cz * sy * cx + sz * cy * sx;
+		float qz = sz * cy * cx - cz * sy * sx;
+		NormalizeQuat(qx, qy, qz, qw);
+		return FQuat((float)qx, (float)qy, (float)qz, (float)qw);
 	}
 
-	// 쿼터니언 → 오일러 (Pitch, Yaw, Roll) in degrees
-	// ZYX 순서 (Tait-Bryan) - FromEuler와 일치 (로컬 축 회전)
-	FVector ToEuler() const
+	/**
+	 * @brief 쿼터니언을 ZYX 회전 순서의 오일러 각(디그리)으로 변환합니다.
+	 * @return FVector(Roll(X), Pitch(Y), Yaw(Z)) 형태의 오일러 각 (단위: Degree)
+	 */
+	FVector ToEulerZYXDeg() const
 	{
-		// normalize (safety)
-		float N = std::sqrt(X * X + Y * Y + Z * Z + W * W);
-		if (N <= KINDA_SMALL_NUMBER) return FVector(0, 0, 0);
-		float QX = X / N, QY = Y / N, QZ = Z / N, QW = W / N;
+		// 멤버 변수의 로컬 복사본임을 명확히 하기 위해 'Local' 접두사 사용
+		float LocalX = this->X;
+		float LocalY = this->Y;
+		float LocalZ = this->Z;
+		float LocalW = this->W;
 
-		// ZYX Tait-Bryan 각도 추출 (Roll → Yaw → Pitch)
-		// Pitch (X축): atan2(2*(qw*qx - qy*qz), 1 - 2*(qx² + qz²))
-		float SinrCosp = 2.0f * (QW * QX - QY * QZ);
-		float CosrCosp = 1.0f - 2.0f * (QX * QX + QZ * QZ);
-		float Pitch = std::atan2(SinrCosp, CosrCosp);
+		// 정규화 (w가 양수가 되도록)
+		const float Norm = std::sqrt(LocalX * LocalX + LocalY * LocalY + LocalZ * LocalZ + LocalW * LocalW);
+		if (Norm > KINDA_SMALL_NUMBER)
+		{
+			const float InvNorm = 1.0f / Norm;
+			LocalX *= InvNorm;
+			LocalY *= InvNorm;
+			LocalZ *= InvNorm;
+			LocalW *= InvNorm;
+		}
 
-		// Yaw (Y축): asin(2*(qw*qy + qx*qz))
-		float Sinp = 2.0f * (QW * QY + QX * QZ);
-		Sinp = std::max(-1.0f, std::min(1.0f, Sinp)); // clamp to avoid NaN
-		float Yaw = std::asin(Sinp);
+		if (LocalW < 0.0f)
+		{
+			LocalX = -LocalX;
+			LocalY = -LocalY;
+			LocalZ = -LocalZ;
+			LocalW = -LocalW;
+		}
 
-		// Roll (Z축): atan2(2*(qw*qz - qx*qy), 1 - 2*(qy² + qz²))
-		float SinyCosp = 2.0f * (QW * QZ - QX * QY);
-		float CosyCosp = 1.0f - 2.0f * (QY * QY + QZ * QZ);
-		float Roll = std::atan2(SinyCosp, CosyCosp);
+		// 회전 행렬 성분 계산
+		const float R20 = 2.0f * (LocalX * LocalZ - LocalY * LocalW);
 
-		return FVector(RadianToDegree(Pitch), RadianToDegree(Yaw), RadianToDegree(Roll));
+		// 짐벌 락을 고려한 ZYX 분해
+		const float SY = FMath::Clamp(-R20, -1.0f, 1.0f);
+		float Pitch = std::asin(SY);
+		float Roll, Yaw;
+
+		if (std::abs(std::cos(Pitch)) > KINDA_SMALL_NUMBER)
+		{
+			const float R21 = 2.0f * (LocalY * LocalZ + LocalX * LocalW);
+			const float R22 = 1.0f - 2.0f * (LocalX * LocalX + LocalY * LocalY);
+			Roll = std::atan2(R21, R22);
+
+			const float R10 = 2.0f * (LocalX * LocalY + LocalZ * LocalW);
+			const float R00 = 1.0f - 2.0f * (LocalY * LocalY + LocalZ * LocalZ);
+			Yaw = std::atan2(R10, R00);
+		}
+		else // 짐벌 락 발생 시
+		{
+			Roll = 0.0f;
+			const float R01 = 2.0f * (LocalX * LocalY - LocalZ * LocalW);
+			const float R02 = 2.0f * (LocalX * LocalZ + LocalY * LocalW);
+			Yaw = std::atan2(-R01, R02);
+		}
+
+		return FVector(
+			RadiansToDegrees(Roll),
+			RadiansToDegrees(Pitch),
+			RadiansToDegrees(Yaw)
+		);
 	}
+
 	FVector GetForwardVector() const
 	{
 		// 보통 게임엔진(Z-Up, Forward = +X) 기준
@@ -1025,41 +1092,6 @@ inline FQuat MakeQuatLocalXYZ(float RX, float RY, float RZ)
 	return QuatMul(QuatMul(QZ, QY), QX); // q = qz * qy * qx
 }
 
-// ★ 고정 오더: ZYX (Yaw-Pitch-Roll) ? 기즈모의 Delta 곱(Z * Y * X)과 동일
-static inline FQuat QuatFromEulerZYX_Deg(const FVector& Deg)
-{
-	const float Rx = DegreeToRadian(Deg.X); // Roll (X)
-	const float Ry = DegreeToRadian(Deg.Y); // Pitch (Y)
-	const float Rz = DegreeToRadian(Deg.Z); // Yaw (Z)
-
-	const FQuat Qx = FQuat::FromAxisAngle(FVector(1, 0, 0), Rx);
-	const FQuat Qy = FQuat::FromAxisAngle(FVector(0, 1, 0), Ry);
-	const FQuat Qz = FQuat::FromAxisAngle(FVector(0, 0, 1), Rz);
-	return Qz * Qy * Qx; // ZYX
-}
-
-static inline FVector EulerZYX_DegFromQuat(const FQuat& Q)
-{
-	// 표준 ZYX(roll=x, pitch=y, yaw=z) 복원식
-	// 참고: roll(X), pitch(Y), yaw(Z)
-	const float w = Q.W, x = Q.X, y = Q.Y, z = Q.Z;
-
-	const float sinr_cosp = 2.0f * (w * x + y * z);
-	const float cosr_cosp = 1.0f - 2.0f * (x * x + y * y);
-	float roll = std::atan2(sinr_cosp, cosr_cosp);
-
-	float sinp = 2.0f * (w * y - z * x);
-	float pitch;
-	if (std::fabs(sinp) >= 1.0f) pitch = std::copysign(HALF_PI, sinp);
-	else                          pitch = std::asin(sinp);
-
-	const float siny_cosp = 2.0f * (w * z + x * y);
-	const float cosy_cosp = 1.0f - 2.0f * (y * y + z * z);
-	float yaw = std::atan2(siny_cosp, cosy_cosp);
-
-	return FVector(RadianToDegree(roll), RadianToDegree(pitch), RadianToDegree(yaw));
-}
-
 inline FMatrix MakeRotationRowMajorFromQuat(const FQuat& Q)
 {
 	// 비정규 안전화
@@ -1163,94 +1195,3 @@ inline FTransform FTransform::Inverse() const
 // Helper functions to convert FVector to FVector4, useful for SIMD padding.
 inline FVector4 MakePoint4(const FVector& P) { return FVector4(P.X, P.Y, P.Z, 1.0f); }
 inline FVector4 MakeDir4(const FVector& D) { return FVector4(D.X, D.Y, D.Z, 0.0f); }
-namespace SceneRotUtil
-{
-	inline float DegToRad(float d) { return d * (3.14159f / 180.0f); }
-	inline float RadToDeg(float r) { return r * (180.0f / 3.141592f); }
-
-	inline float Clamp(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
-
-	// 각도 정규화 [-180, 180]
-	inline float NormalizeDeg(float a)
-	{
-		while (a > 180.0) a -= 360.0;
-		while (a < -180.0) a += 360.0;
-		return a;
-	}
-
-	// Quaternion 정규화(+w 기준 캐논화)
-	inline void NormalizeQuat(float& x, float& y, float& z, float& w)
-	{
-		const float n = std::sqrt(x * x + y * y + z * z + w * w);
-		if (n > 1e-12) { x /= n; y /= n; z /= n; w /= n; }
-		if (w < 0.0) { x = -x; y = -y; z = -z; w = -w; } // q와 -q 동치 → 표준화
-	}
-
-	// ZYX(Tait–Bryan) 순서 오일러(deg) → Quaternion
-	// eulerDeg: X=Roll, Y=Pitch, Z=Yaw  [deg]
-	inline FQuat QuatFromEulerZYX_Deg(const FVector& eulerDeg)
-	{
-		const float x = DegToRad((float)eulerDeg.X);
-		const float y = DegToRad((float)eulerDeg.Y);
-		const float z = DegToRad((float)eulerDeg.Z);
-
-		const float cx = std::cosf(x * 0.5f), sx = std::sinf(x * 0.5f);
-		const float cy = std::cosf(y * 0.5f), sy = std::sinf(y * 0.5f);
-		const float cz = std::cosf(z * 0.5f), sz = std::sinf(z * 0.5f);
-
-		// q = qz * qy * qx
-		float qw = cz * cy * cx + sz * sy * sx;
-		float qx = cz * cy * sx - sz * sy * cx;
-		float qy = cz * sy * cx + sz * cy * sx;
-		float qz = sz * cy * cx - cz * sy * sx;
-		NormalizeQuat(qx, qy, qz, qw);
-		return FQuat((float)qx, (float)qy, (float)qz, (float)qw);
-	}
-
-	// Quaternion → ZYX(Tait–Bryan) 오일러(deg)
-	// 반환: X=Roll, Y=Pitch, Z=Yaw  [deg]
-	inline FVector EulerZYX_Deg_FromQuat(const FQuat& qIn)
-	{
-		// FQuat가 (X,Y,Z,W)라 가정
-		float x = qIn.X, y = qIn.Y, z = qIn.Z, w = qIn.W;
-		NormalizeQuat(x, y, z, w);
-
-		// 회전 행렬 성분 (float)
-		const float r00 = 1.0f - 2.0f * (y * y + z * z);
-		const float r01 = 2.0f * (x * y - z * w);
-		const float r02 = 2.0f * (x * z + y * w);
-		const float r10 = 2.0f * (x * y + z * w);
-		const float r11 = 1.0f - 2.0f * (x * x + z * z);
-		const float r12 = 2.0f * (y * z - x * w);
-		const float r20 = 2.0f * (x * z - y * w);
-		const float r21 = 2.0f * (y * z + x * w);
-		const float r22 = 1.0f - 2.0f * (x * x + y * y);
-
-		// ZYX 분해
-		// pitch(y) = asin(-r20)
-		const float sy = Clamp(-r20, -1.0, 1.0);
-		float pitch = std::asin(sy);
-
-		float roll, yaw;
-		const float cy = std::cos(pitch);
-
-		if (std::abs(cy) > 1e-6)
-		{
-			// 일반 경우
-			roll = std::atan2(r21, r22);  // x
-			yaw = std::atan2(r10, r00);  // z
-		}
-		else
-		{
-			// 짐벌락: cy ~ 0 → roll을 0으로 두고 yaw만 결정 (일관된 규칙)
-			roll = 0.0;
-			yaw = std::atan2(-r01, r02);
-		}
-
-		FVector out;
-		out.X = (float)NormalizeDeg(RadToDeg(roll));   // Roll
-		out.Y = (float)NormalizeDeg(RadToDeg(pitch));  // Pitch
-		out.Z = (float)NormalizeDeg(RadToDeg(yaw));    // Yaw
-		return out;
-	}
-}

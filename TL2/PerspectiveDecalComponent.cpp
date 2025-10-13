@@ -69,7 +69,7 @@ void UPerspectiveDecalComponent::RenderDebugVolume(URenderer* Renderer, const FM
 
 	// --- 2. 기존 코드의 로컬 회전 행렬을 다시 생성하여 방향을 아래로 조정 ---
 	// Y축을 기준으로 -90도 회전하면, +X축을 향하던 원뿔이 -Z축(아래)을 향하게 됩니다.
-	const float DownwardAngleRad = DegreeToRadian(90.0f);
+	const float DownwardAngleRad = DegreesToRadians(90.0f);
 	const FMatrix LocalRotationMatrix = FQuat::FromAxisAngle(FVector(0, 1, 0), DownwardAngleRad).ToMatrix();
 
 	// --- 3. 로컬 회전과 월드 변환을 결합한 최종 변환 행렬을 계산 ---
@@ -125,7 +125,7 @@ FMatrix UPerspectiveDecalComponent::GetDecalProjectionMatrix() const
 	const FMatrix DecalView = DecalWorld.InverseAffine();
 
 	// 시야각을 라디안으로 변환
-	const float FovAngleRadian = DegreeToRadian(FovY);
+	const float FovAngleRadian = DegreesToRadians(FovY);
 
 	// tan(A/2) 값을 미리 계산
 	const float TanHalfFov = std::tan(FovAngleRadian / 2.0f);
@@ -169,7 +169,7 @@ void UPerspectiveDecalComponent::SetFovY(float InFov)
 	// 3. FovY와 X 스케일을 사용하여 새로운 Y/Z 스케일(원뿔 밑면의 지름)을 계산합니다.
 
 	// a) 시야각의 절반을 라디안으로 변환합니다.
-	const float HalfFovRad = DegreeToRadian(InFov * 0.5f);
+	const float HalfFovRad = DegreesToRadians(InFov * 0.5f);
 
 	// b) 원뿔의 길이(밑변)는 현재 X 스케일입니다.
 	const float ConeLength = CurrentScale.X;
