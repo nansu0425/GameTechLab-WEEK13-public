@@ -224,7 +224,6 @@ struct FVector
 		);
 	}
 
-
 	// 보조 유틸
 	static FVector Lerp(const FVector& A, const FVector& B, float T)
 	{
@@ -905,7 +904,7 @@ struct FTransform
 	FTransform() : Rotation(0, 0, 0, 1), Translation(0, 0, 0), Scale3D(1, 1, 1) {}
 	FTransform(const FVector& T, const FQuat& R, const FVector& S) : Rotation(R), Translation(T), Scale3D(S) {}
 
-	FMatrix ToMatrixWithScaleLocalXYZ() const;
+	FMatrix ToMatrix() const;
 	// 합성 (this * Other)
 	FTransform operator*(const FTransform& Other) const;
 
@@ -1065,9 +1064,8 @@ inline FMatrix FMatrix::OrthoLH_XForward(float Width, float Height, float Xn, fl
 //     );
 // }
 
-// 최종: S * R(qXYZ) * T  (row-major + 행벡터 규약)
-// row-major + 행벡터(p' = p * M) 규약
-inline FMatrix FTransform::ToMatrixWithScaleLocalXYZ() const
+// FTransform을 FMatrix로 변환 S * R * T (row-major + 행벡터 규약)
+inline FMatrix FTransform::ToMatrix() const
 {
 	FMatrix R = Rotation.ToMatrix();
 
@@ -1079,18 +1077,9 @@ inline FMatrix FTransform::ToMatrixWithScaleLocalXYZ() const
 	// Set the translation part using SIMD
 	R.Rows[3] = _mm_set_ps(1.0f, Translation.Z, Translation.Y, Translation.X);
 
-	// The YUpToZUp matrix for coordinate system conversion
-	FMatrix YUpToZUp(
-		0, 1, 0, 0,
-		0, 0, 1, 0,
-		1, 0, 0, 0,
-		0, 0, 0, 1
-	);
-
 	// The multiplication will use the SIMD-optimized operator*
-	return YUpToZUp * R;
+	return R;
 }
-
 
 // FTransform 합성 (this * Other)
 inline FTransform FTransform::operator*(const FTransform& Other) const

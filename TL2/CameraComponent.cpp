@@ -20,16 +20,17 @@ UCameraComponent::~UCameraComponent() {}
 
 FMatrix UCameraComponent::GetViewMatrix() const
 {
-    // Robust path: View = inverse(world) under row-vector convention.
-    // Use full transform matrix (translation in last row) and invert affine part.
-    /*FMatrix YUpToZUpInverse(
+    // View 행렬을 Y-Up에서 Z-Up으로 변환하기 위한 행렬
+    static const FMatrix YUpToZUp(
+        0, 1, 0, 0,
         0, 0, 1, 0,
         1, 0, 0, 0,
-        0, 1, 0, 0,
         0, 0, 0, 1
-    );*/
-    const FMatrix World = GetWorldTransform().ToMatrixWithScaleLocalXYZ();
-    return World.InverseAffine();
+    );
+
+	const FMatrix World = GetWorldTransform().ToMatrix();
+
+	return (YUpToZUp * World).InverseAffine();
 }
 
 

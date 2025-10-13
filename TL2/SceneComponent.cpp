@@ -207,7 +207,7 @@ FMatrix USceneComponent::GetWorldMatrix() const
         0, 1, 0, 0,
         0, 0, 0, 1
     );*/
-    return GetWorldTransform().ToMatrixWithScaleLocalXYZ();
+    return GetWorldTransform().ToMatrix();
 }
 
 // ──────────────────────────────

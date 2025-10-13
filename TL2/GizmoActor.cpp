@@ -40,9 +40,9 @@ AGizmoActor::AGizmoActor()
 	ArrowY->SetupAttachment(RootComponent, EAttachmentRule::KeepRelative);
 	ArrowZ->SetupAttachment(RootComponent, EAttachmentRule::KeepRelative);
 
-	ArrowX->SetDefaultScale({ 1.0f * GizmoTotalSize, 1.0f * GizmoTotalSize, 3.0f * GizmoTotalSize });
-	ArrowY->SetDefaultScale({ 1.0f * GizmoTotalSize, 1.0f * GizmoTotalSize, 3.0f * GizmoTotalSize });
-	ArrowZ->SetDefaultScale({ 1.0f * GizmoTotalSize, 1.0f * GizmoTotalSize, 3.0f * GizmoTotalSize });
+	ArrowX->SetDefaultScale({ 1.0f * GizmoTotalSize, 1.0f * GizmoTotalSize, 1.0f * GizmoTotalSize });
+	ArrowY->SetDefaultScale({ 1.0f * GizmoTotalSize, 1.0f * GizmoTotalSize, 1.0f * GizmoTotalSize });
+	ArrowZ->SetDefaultScale({ 1.0f * GizmoTotalSize, 1.0f * GizmoTotalSize, 1.0f * GizmoTotalSize });
 
 	// NOTE: 화살표 Mesh가 아래 방향으로 보고 있어서 이렇게 처리
 	if (ArrowX) ArrowX->SetRelativeRotation(FQuat::MakeFromEulerZYX(FVector(0, -90, 0)));
