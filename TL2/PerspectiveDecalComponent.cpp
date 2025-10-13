@@ -20,31 +20,6 @@ void UPerspectiveDecalComponent::RenderDebugVolume(URenderer* Renderer, const FM
 	TArray<FVector> EndPoints;
 	TArray<FVector4> Colors;
 
-	//TArray<FVector> Corners = GetOBB().GetCorners();
-
-	//const int Edges[12][2] = {
-	//	{6, 4}, {7, 5}, {6, 7}, {4, 5}, // 앞면
-	//	{4, 0}, {5, 1}, {6, 2}, {7, 3}, // 옆면
-	//	{0, 2}, {1, 3}, {0, 1}, {2, 3}  // 뒷면
-	//};
-
-	//for (int i = 0; i < 12; ++i)
-	//{
-	//	StartPoints.Add(Corners[Edges[i][0]]);
-	//	EndPoints.Add(Corners[Edges[i][1]]);
-	//	Colors.Add(LineColor);
-	//}
-
-	//Renderer->AddLines(StartPoints, EndPoints, Colors);
-
-	// =================================================================================
-	// OBB에 내접하며 기존 방향을 유지하는 원뿔 그리기
-	// =================================================================================
-
-	StartPoints.clear();
-	EndPoints.clear();
-	Colors.clear();
-
 	// --- 1. 원뿔을 '정규화된 로컬 공간'에서 +X축 방향으로 먼저 정의 ---
 	// 이렇게 하면 컴포넌트의 스케일이 적용되었을 때 OBB와 크기가 정확히 일치합니다.
 	const int NumBaseSegments = 32;
@@ -52,7 +27,7 @@ void UPerspectiveDecalComponent::RenderDebugVolume(URenderer* Renderer, const FM
 	const float BaseRadius = 0.5f;
 
 	// 원뿔의 정점(apex)은 로컬 공간의 -X 끝에 위치합니다.
-	const FVector ApexLocal_Initial(HalfLength, 0.0f, 0.0f);
+	const FVector ApexLocal_Initial(-HalfLength, 0.0f, 0.0f);
 
 	// 원뿔 밑면의 점들은 로컬 공간의 -X 면에 내접하는 원을 형성합니다.
 	TArray<FVector> BasePointsLocal_Initial;
@@ -61,31 +36,23 @@ void UPerspectiveDecalComponent::RenderDebugVolume(URenderer* Renderer, const FM
 	{
 		const float Angle = (static_cast<float>(i) / NumBaseSegments) * TWO_PI;
 		BasePointsLocal_Initial.Add(FVector(
-			-HalfLength,
+			HalfLength,
 			BaseRadius * std::cos(Angle),
 			BaseRadius * std::sin(Angle)
 		));
 	}
 
-	// --- 2. 기존 코드의 로컬 회전 행렬을 다시 생성하여 방향을 아래로 조정 ---
-	// Y축을 기준으로 -90도 회전하면, +X축을 향하던 원뿔이 -Z축(아래)을 향하게 됩니다.
-	const float DownwardAngleRad = DegreesToRadians(90.0f);
-	const FMatrix LocalRotationMatrix = FQuat::FromAxisAngle(FVector(0, 1, 0), DownwardAngleRad).ToMatrix();
-
-	// --- 3. 로컬 회전과 월드 변환을 결합한 최종 변환 행렬을 계산 ---
+	// --- 3. '월드 변환 행렬'을 이용해 모든 로컬 점들을 월드 좌표로 변환 ---
 	const FMatrix WorldMatrix = GetWorldMatrix();
-	const FMatrix FinalTransformMatrix = LocalRotationMatrix * WorldMatrix;
-
-	// --- 4. '최종 변환 행렬'을 이용해 모든 로컬 점들을 월드 좌표로 변환 ---
-	const FVector ApexWorld = ApexLocal_Initial * FinalTransformMatrix;
+	const FVector ApexWorld = ApexLocal_Initial * WorldMatrix;
 	TArray<FVector> BasePointsWorld;
 	BasePointsWorld.Reserve(NumBaseSegments);
 	for (const FVector& LocalPoint : BasePointsLocal_Initial)
 	{
-		BasePointsWorld.Add(LocalPoint * FinalTransformMatrix);
+		BasePointsWorld.Add(LocalPoint * WorldMatrix);
 	}
 
-	// --- 5. 변환된 월드 좌표를 사용하여 렌더링할 라인 데이터를 생성 ---
+	// --- 4. 변환된 월드 좌표를 사용하여 렌더링할 라인 데이터를 생성 ---
 	for (int i = 0; i < NumBaseSegments; ++i)
 	{
 		StartPoints.Add(ApexWorld);
@@ -99,7 +66,7 @@ void UPerspectiveDecalComponent::RenderDebugVolume(URenderer* Renderer, const FM
 		Colors.Add(LineColor);
 	}
 
-	// --- 6. 렌더러에 모든 라인 데이터를 한 번에 전달 ---
+	// --- 5. 렌더러에 모든 라인 데이터를 한 번에 전달 ---
 	Renderer->AddLines(StartPoints, EndPoints, Colors);
 }
 
