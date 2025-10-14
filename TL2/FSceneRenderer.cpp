@@ -241,7 +241,7 @@ void FSceneRenderer::RenderDecalPass()
 		TArray<UPrimitiveComponent*> TargetPrimitives;
 
 		// 1. Decal의 World AABB와 충돌한 모든 StaticMeshComponent 쿼리
-		const FOBB DecalOBB = Decal->GetOBB();
+		const FOBB DecalOBB = Decal->GetWorldOBB();
 		TArray<UStaticMeshComponent*> IntersectedStaticMeshComponents = BVH->QueryIntersectedComponents(DecalOBB);
 
 		// 2. 충돌한 모든 visible Actor의 PrimitiveComponent를 TargetPrimitives에 추가
