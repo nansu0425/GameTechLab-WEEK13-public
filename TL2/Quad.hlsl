@@ -36,6 +36,7 @@ cbuffer FogCB : register(b2)
     float StartDistance;
     float FogCutoffDistance;
     float FogMaxOpacity;
+    float FogHeight; // fog base height
     float4 FogInscatteringColor;
 }
 
@@ -71,26 +72,30 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     float4 cameraWorldPos = mul(float4(0, 0, 0, 1), InvViewMatrix);
 
     float4 camToPixel = worldPos - cameraWorldPos;
-    
+    //float4 camToPixelDir = normalize(camToPixel);
+    float camToPixelLength = length(camToPixel);
+
     if (RenderMode == 0) // exponential height fog
     {
-        float L_fog = clamp(camToPixel.z - StartDistance, 0.0, FogCutoffDistance - StartDistance);
+        float Distance = clamp(camToPixelLength - StartDistance, 0.0, FogCutoffDistance - StartDistance);
 
+        float Height = worldPos.z - FogHeight;
         // 높이 감쇠 포함 적분 근사
-        // f = GlobalDensity * exp(-HeightFalloff * z) 함수에 대한 적분 근사
-        float h = FogHeightFalloff;
-        float Integral;
-        if (abs(h) > 1e-6) // 안정적인 경우
+        // f = GlobalDensity * exp(-HeightFalloff * z) 함수에 대한 적분 [0, Height]
+        float HeightFogIntegral;
+        if (abs(FogHeightFalloff) > 1e-6) // 안정적인 경우
         {
-            Integral = (1 - exp(-h * L_fog)) / h;
+            HeightFogIntegral = (1 - exp(-FogHeightFalloff * Height)) / FogHeightFalloff;
         }
-        else // h가 0에 가까울 때 테일러 근사
+        else // FogHeightFalloff가 0에 가까울 때 테일러 근사
         {
-            Integral = log(2.0) - (0.5 * log(2.0) * log(2.0)) * h; // 2차항까지 근사
+            //HeightFogIntegral = log(2.0) - (0.5 * log(2.0) * log(2.0)) * FogHeightFalloff; // 2차항까지 근사
+            HeightFogIntegral = Height - 0.5 * FogHeightFalloff * Height * Height; // 2차항까지 근사
         }
+        float FogAmount = FogDensity * HeightFogIntegral;
         
-        float FogAmount = FogDensity * Integral;
-        
+        FogAmount *= Distance; // 거리 감쇠 포함
+
         // 감쇠율
         float FogFactor = exp(-FogAmount);
 
@@ -99,8 +104,6 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
 
         // 최종 색상
         color.rgb = lerp(FogInscatteringColor.rgb, color.rgb, FogFactor);
-
-
     }
     else if(RenderMode == 1) // depth
     {
