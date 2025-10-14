@@ -39,10 +39,10 @@ public:
 	 * @param InFileName      - .obj 파일의 전체 경로
 	 * @param OutObjInfo      - 파싱된 데이터가 저장될 구조체
 	 * @param OutMaterialInfos- 파싱된 머티리얼 데이터가 저장될 배열
-	 * @param bComputeNormals - 법선이 없을 경우 직접 계산할지 여부 (현재 미사용)
+	 * @param bIsRightHanded - obj 파일이 오른손 좌표계인지 (오른손 좌표계면 강제로 왼손 좌표계로 변환), 블렌더 등 대부분 3D 파일은 오른손 좌표계를 사용하기에 기본값이 true
 	 * @return 로드 성공 시 true, 실패 시 false
 	 */
-	static bool LoadObjModel(const FString& InFileName, FObjInfo* const OutObjInfo, TArray<FObjMaterialInfo>& OutMaterialInfos, bool bComputeNormals)
+	static bool LoadObjModel(const FString& InFileName, FObjInfo* const OutObjInfo, TArray<FObjMaterialInfo>& OutMaterialInfos, bool bIsRightHanded = true)
 	{
 		uint32 subsetCount = 0;
 		FString MtlFileName;
@@ -84,7 +84,14 @@ public:
 				std::stringstream wss(line.substr(2));
 				float vx, vy, vz;
 				wss >> vx >> vy >> vz;
-				OutObjInfo->Positions.push_back(FVector(vx, vy, vz));
+				if (bIsRightHanded)
+				{
+					OutObjInfo->Positions.push_back(FVector(vx, -vy, vz));
+				}
+				else
+				{
+					OutObjInfo->Positions.push_back(FVector(vx, vy, vz));
+				}
 			}
 			else if (line.rfind("vt ", 0) == 0) // 텍스처 좌표 (vt u v)
 			{
@@ -101,7 +108,14 @@ public:
 				std::stringstream wss(line.substr(3));
 				float nx, ny, nz;
 				wss >> nx >> ny >> nz;
-				OutObjInfo->Normals.push_back(FVector(nx, ny, nz));
+				if (bIsRightHanded)
+				{
+					OutObjInfo->Normals.push_back(FVector(nx, -ny, nz));
+				}
+				else
+				{
+					OutObjInfo->Normals.push_back(FVector(nx, ny, nz));
+				}
 				bHasNormal = true;
 			}
 			else if (line.rfind("g ", 0) == 0) // 그룹 (g groupName)
@@ -126,23 +140,38 @@ public:
 					LineFaceVertices.push_back(FaceVertex);
 				}
 
+				// 4각형 이상의 폴리곤도 처리하기 위해서 for문으로 처리
 				for (uint32 i = 1; i < LineFaceVertices.size() - 1; ++i)
 				{
-					OutObjInfo->PositionIndices.push_back(LineFaceVertices[0].PositionIndex);
-					OutObjInfo->TexCoordIndices.push_back(LineFaceVertices[0].TexCoordIndex);
-					OutObjInfo->NormalIndices.push_back(LineFaceVertices[0].NormalIndex);
-					++VIndex;
+					if (bIsRightHanded)
+					{
+						OutObjInfo->PositionIndices.push_back(LineFaceVertices[0].PositionIndex);
+						OutObjInfo->TexCoordIndices.push_back(LineFaceVertices[0].TexCoordIndex);
+						OutObjInfo->NormalIndices.push_back(LineFaceVertices[0].NormalIndex);
 
-					OutObjInfo->PositionIndices.push_back(LineFaceVertices[i].PositionIndex);
-					OutObjInfo->TexCoordIndices.push_back(LineFaceVertices[i].TexCoordIndex);
-					OutObjInfo->NormalIndices.push_back(LineFaceVertices[i].NormalIndex);
-					++VIndex;
+						OutObjInfo->PositionIndices.push_back(LineFaceVertices[i + 1].PositionIndex);
+						OutObjInfo->TexCoordIndices.push_back(LineFaceVertices[i + 1].TexCoordIndex);
+						OutObjInfo->NormalIndices.push_back(LineFaceVertices[i + 1].NormalIndex);
 
-					OutObjInfo->PositionIndices.push_back(LineFaceVertices[i + 1].PositionIndex);
-					OutObjInfo->TexCoordIndices.push_back(LineFaceVertices[i + 1].TexCoordIndex);
-					OutObjInfo->NormalIndices.push_back(LineFaceVertices[i + 1].NormalIndex);
-					++VIndex;
+						OutObjInfo->PositionIndices.push_back(LineFaceVertices[i].PositionIndex);
+						OutObjInfo->TexCoordIndices.push_back(LineFaceVertices[i].TexCoordIndex);
+						OutObjInfo->NormalIndices.push_back(LineFaceVertices[i].NormalIndex);
+					}
+					else
+					{
+						OutObjInfo->PositionIndices.push_back(LineFaceVertices[0].PositionIndex);
+						OutObjInfo->TexCoordIndices.push_back(LineFaceVertices[0].TexCoordIndex);
+						OutObjInfo->NormalIndices.push_back(LineFaceVertices[0].NormalIndex);
 
+						OutObjInfo->PositionIndices.push_back(LineFaceVertices[i].PositionIndex);
+						OutObjInfo->TexCoordIndices.push_back(LineFaceVertices[i].TexCoordIndex);
+						OutObjInfo->NormalIndices.push_back(LineFaceVertices[i].NormalIndex);
+
+						OutObjInfo->PositionIndices.push_back(LineFaceVertices[i + 1].PositionIndex);
+						OutObjInfo->TexCoordIndices.push_back(LineFaceVertices[i + 1].TexCoordIndex);
+						OutObjInfo->NormalIndices.push_back(LineFaceVertices[i + 1].NormalIndex);
+					}
+					VIndex += 3;
 					++MeshTriangles;
 				}
 			}
