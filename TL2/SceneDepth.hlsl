@@ -35,6 +35,7 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     float depth = g_DepthTex.Sample(g_PointClampSample, input.texCoord).r;
 
     float zView = Near * Far / (Far - depth * (Far - Near));
+    //float zView = (2.0 * Near * Far) / (Far + Near - depth * (Far - Near));
     float NormalizedDepth = saturate((zView - Near) / (Far - Near));
     float FinalColor = float4(NormalizedDepth, NormalizedDepth, NormalizedDepth, 1.0f);
 

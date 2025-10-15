@@ -80,7 +80,6 @@ void FSceneRenderer::Render()
 	FinalizeFrame();
 }
 
-
 //====================================================================================
 // Render Path 함수 구현
 //====================================================================================
@@ -110,11 +109,22 @@ void FSceneRenderer::RenderWireframePath()
 
 void FSceneRenderer::RenderSceneDepthPath()
 {
-	// Base Pass
-	RenderOpaquePass();
+    // 1. Scene RTV와 Depth Buffer Clear
+    RHIDevice->OMSetRenderTargets(ERTVMode::Scene);
+    
+    float ClearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    RHIDevice->GetDeviceContext()->ClearRenderTargetView(RHIDevice->GetSceneRTV(), ClearColor);
+    RHIDevice->ClearDepthBuffer(1.0f, 0);
 
-	// SceneDepth Post 프로세싱 처리
-	RenderSceneDepthPostProcess();
+    // 2. Base Pass - Scene에 메시 그리기
+    RenderOpaquePass();
+
+    // 3. BackBuffer Clear
+    RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithoutDepth);
+    RHIDevice->GetDeviceContext()->ClearRenderTargetView(RHIDevice->GetBackBufferRTV(), ClearColor);
+
+    // 4. SceneDepth Post 프로세싱 처리
+    RenderSceneDepthPostProcess();
 }
 
 //====================================================================================
@@ -400,37 +410,83 @@ void FSceneRenderer::RenderPostProcessingPasses()
 
 void FSceneRenderer::RenderSceneDepthPostProcess()
 {
-	RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithoutDepth);
+    // 렌더 타겟 설정 (Depth 없이 BackBuffer에만 그리기)
+    RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithoutDepth);
 
-	// 쉐이더 설정
-	UShader* SecneDepthShader = UResourceManager::GetInstance().Load<UShader>("SecneDepth.hlsl");
-	RHIDevice->PrepareShader(SecneDepthShader);
+    // Depth State: Depth Test/Write 모두 OFF
+    RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
+    RHIDevice->OMSetBlendState(false);
 
-	RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    // 쉐이더 설정
+    UShader* SceneDepthShader = UResourceManager::GetInstance().Load<UShader>("SceneDepth.hlsl");
+    if (!SceneDepthShader)
+    {
+        UE_LOG("SceneDepth.hlsl shader not found!\n");
+        return;
+    }
+    RHIDevice->PrepareShader(SceneDepthShader);
 
-	// 메시 설정 (FullScreenQuad)
-	UStaticMesh* FullScreenQuadMesh = UResourceManager::GetInstance().Load<UStaticMesh>("Data/FullScreenQuad.obj");
-	ID3D11Buffer* VertexBuffer = FullScreenQuadMesh->GetVertexBuffer();
-	ID3D11Buffer* IndexBuffer = FullScreenQuadMesh->GetIndexBuffer();
-	uint32 VertexCount = FullScreenQuadMesh->GetVertexCount();
-	uint32 IndexCount = FullScreenQuadMesh->GetIndexCount();
-	UINT Offset = 0;
-	UINT Stride = sizeof(FBillboardVertex);
-	RHIDevice->GetDeviceContext()->IASetVertexBuffers(
-		0, 1, &VertexBuffer, &Stride, &Offset
-	);
-	RHIDevice->GetDeviceContext()->IASetIndexBuffer(
-		IndexBuffer, DXGI_FORMAT_R32_UINT, 0
-	);
+    RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	// 텍스쳐 관련 설정
-	ID3D11ShaderResourceView* SRV = RHIDevice->GetSRV(RHI_SRV_Index::SceneDepth);
-	ID3D11SamplerState* SamplerState = RHIDevice->GetSamplerState(RHI_Sampler_Index::PointClamp);
-	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &SRV);
-	RHIDevice->GetDeviceContext()->PSSetSamplers(1, 1, &SamplerState);
+    // 메시 설정 (FullScreenQuad)
+    UStaticMesh* FullScreenQuadMesh = UResourceManager::GetInstance().Load<UStaticMesh>("Data/FullScreenQuad.obj");
+    if (!FullScreenQuadMesh)
+    {
+        UE_LOG("FullScreenQuad mesh not found!\n");
+        return;
+    }
 
-	RHIDevice->UpdatePostProcessCB(ZNear, ZFar);
-	RHIDevice->GetDeviceContext()->DrawIndexed(IndexCount, 0, 0);
+    ID3D11Buffer* VertexBuffer = FullScreenQuadMesh->GetVertexBuffer();
+    ID3D11Buffer* IndexBuffer = FullScreenQuadMesh->GetIndexBuffer();
+    uint32 IndexCount = FullScreenQuadMesh->GetIndexCount();
+    
+    // Vertex Layout에 맞는 Stride 사용 (중요!)
+    UINT Stride = 0;
+    switch (FullScreenQuadMesh->GetVertexType())
+    {
+    case EVertexLayoutType::PositionColorTexturNormal:
+        Stride = sizeof(FNormalVertex);
+        break;
+    case EVertexLayoutType::PositionTextBillBoard:
+        Stride = sizeof(FBillboardVertex);
+        break;
+    default:
+        Stride = sizeof(FNormalVertex);
+        break;
+    }
+
+    UINT Offset = 0;
+    RHIDevice->GetDeviceContext()->IASetVertexBuffers(0, 1, &VertexBuffer, &Stride, &Offset);
+    RHIDevice->GetDeviceContext()->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+
+    // 텍스쳐 관련 설정
+    ID3D11ShaderResourceView* DepthSRV = RHIDevice->GetSRV(RHI_SRV_Index::SceneDepth);
+    if (!DepthSRV)
+    {
+        UE_LOG("Depth SRV is null!\n");
+        return;
+    }
+
+    ID3D11SamplerState* SamplerState = RHIDevice->GetSamplerState(RHI_Sampler_Index::PointClamp);
+    if (!SamplerState)
+    {
+        UE_LOG("PointClamp Sampler is null!\n");
+        return;
+    }
+
+    // Shader Resource 바인딩 (슬롯 확인!)
+    RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &DepthSRV);  // t0
+    RHIDevice->GetDeviceContext()->PSSetSamplers(1, 1, &SamplerState); 
+
+    // 상수 버퍼 업데이트
+    RHIDevice->UpdatePostProcessCB(ZNear, ZFar);
+
+    // Draw
+    RHIDevice->GetDeviceContext()->DrawIndexed(IndexCount, 0, 0);
+
+    // Unbind SRV (중요! 다음 프레임에서 Depth를 RTV로 사용할 수 있게)
+    ID3D11ShaderResourceView* nullSRV = nullptr;
+    RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &nullSRV);
 }
 
 void FSceneRenderer::RenderEditorPrimitivesPass()
