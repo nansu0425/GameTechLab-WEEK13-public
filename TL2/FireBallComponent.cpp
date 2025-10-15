@@ -160,7 +160,72 @@ void UFireBallComponent::SetShadowMapResolution(uint32 InResolution)
 
 void UFireBallComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
-	// TODO
+	Super::Serialize(bInIsLoading, InOutHandle);
+
+	if (bInIsLoading)
+	{
+		if (InOutHandle.hasKey("Intensity"))
+		{
+			FJsonSerializer::ReadFloat(InOutHandle, "Intensity", Intensity);
+		}
+
+		if (InOutHandle.hasKey("Radius"))
+		{
+			FJsonSerializer::ReadFloat(InOutHandle, "Radius", Radius);
+		}
+
+		if (InOutHandle.hasKey("RadiusFallOff"))
+		{
+			FJsonSerializer::ReadFloat(InOutHandle, "RadiusFallOff", RadiusFallOff);
+		}
+
+		if (InOutHandle.hasKey("Color"))
+		{
+			FVector4 ColorVec;
+			FJsonSerializer::ReadVector4(InOutHandle, "Color", ColorVec);
+			Color = FLinearColor(ColorVec);
+		}
+
+		if (InOutHandle.hasKey("LightingShaderPath"))
+		{
+			FString ShaderPath = InOutHandle["LightingShaderPath"].ToString();
+			if (!ShaderPath.empty())
+			{
+				LightingShaderPath = ShaderPath;
+				LightingShader = UResourceManager::GetInstance().Load<UShader>(LightingShaderPath, EVertexLayoutType::PositionColorTexturNormal);
+				if (!LightingShader)
+				{
+					UE_LOG("UFireBallComponent: failed to load fireball lighting shader '%s'", LightingShaderPath.c_str());
+				}
+			}
+		}
+
+		if (InOutHandle.hasKey("bShadowCaptureEnabled"))
+		{
+			int32 Enabled = 0;
+			FJsonSerializer::ReadInt32(InOutHandle, "bShadowCaptureEnabled", Enabled);
+			bShadowCaptureEnabled = (Enabled != 0);
+		}
+
+		if (InOutHandle.hasKey("ShadowMapResolution"))
+		{
+			int32 Resolution = 0;
+			if (FJsonSerializer::ReadInt32(InOutHandle, "ShadowMapResolution", Resolution))
+			{
+				ShadowMapResolution = std::max(128u, static_cast<uint32>(Resolution));
+			}
+		}
+	}
+	else
+	{
+		InOutHandle["Intensity"] = Intensity;
+		InOutHandle["Radius"] = Radius;
+		InOutHandle["RadiusFallOff"] = RadiusFallOff;
+		InOutHandle["Color"] = FJsonSerializer::Vector4ToJson(Color.ToFVector4());
+		InOutHandle["LightingShaderPath"] = LightingShaderPath;
+		InOutHandle["bShadowCaptureEnabled"] = bShadowCaptureEnabled ? 1 : 0;
+		InOutHandle["ShadowMapResolution"] = static_cast<int32>(ShadowMapResolution);
+	}
 }
 
 void UFireBallComponent::DuplicateSubObjects()

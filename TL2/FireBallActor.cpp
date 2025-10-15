@@ -42,6 +42,44 @@ void AFireBallActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 	Super::Serialize(bInIsLoading, InOutHandle);
 	if (bInIsLoading)
 	{
-		FireBallComponent = Cast<UFireBallComponent>(RootComponent);
+		TArray<UStaticMeshComponent*> NativeStaticMeshes;
+		for (UActorComponent* Component : OwnedComponents)
+		{
+			if (UStaticMeshComponent* StaticMesh = Cast<UStaticMeshComponent>(Component))
+			{
+				if (StaticMesh->IsNative())
+				{
+					NativeStaticMeshes.push_back(StaticMesh);
+				}
+			}
+		}
+
+		// 씬에서 역직렬화된 FireBallComponent를 우선시하여 포인터를 갱신.
+		if (UFireBallComponent* LoadedFireBall = Cast<UFireBallComponent>(RootComponent))
+		{
+			FireBallComponent = LoadedFireBall;
+		}
+		else
+		{
+			for (USceneComponent* SceneComp : SceneComponents)
+			{
+				if (UFireBallComponent* Candidate = Cast<UFireBallComponent>(SceneComp))
+				{
+					FireBallComponent = Candidate;
+					break;
+				}
+			}
+		}
+
+		// 생성자에서 만든 기본 스태틱메시 컴포넌트를 제거해 중복을 방지.
+		for (UStaticMeshComponent* NativeMesh : NativeStaticMeshes)
+		{
+			if (!NativeMesh)
+			{
+				continue;
+			}
+			NativeMesh->DetachFromParent();
+			RemoveOwnedComponent(NativeMesh);
+		}
 	}
 }
