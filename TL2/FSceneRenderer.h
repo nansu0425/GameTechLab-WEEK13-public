@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Frustum.h"
 
 // 전방 선언 (헤더 파일 의존성 최소화)
@@ -77,6 +77,7 @@ private:
 
 	/** @brief 그리드 등 에디터 전용 객체들을 렌더링하는 패스입니다. */
 	void RenderEditorPrimitivesPass();
+	void RenderOverayEditorPrimitivesPass();
 
 	/** @brief BVH 등 디버그 시각화 요소를 렌더링하는 패스입니다. */
 	void RenderDebugPass();
@@ -85,6 +86,8 @@ private:
 	void ApplyScreenEffectsPass();
 
 	void CompositeToBackBuffer();
+
+	void Blit(RHI_SRV_Index InSource, ERTVMode InDestination);
 
 	/** @brief FullSc/
 

@@ -17,6 +17,7 @@
 #include "FireBallActor.h"
 
 #include "MeshComponent.h"
+#include "GizmoArrowComponent.h"
 #include "GizmoRotateComponent.h"
 #include "GizmoScaleComponent.h"
 #include "CameraComponent.h"

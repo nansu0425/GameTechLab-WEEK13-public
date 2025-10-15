@@ -342,14 +342,16 @@ enum class ERTVMode : uint32
 {
     Scene,      // 장면 렌더 (기본값)
 	BackBufferWithDepth,
-	BackBufferWithoutDepth
+	BackBufferWithoutDepth,
+    PostProcessDestination,
 };
 
 // RHI가 사용하는 텍스쳐들의 SRV
 enum class RHI_SRV_Index : uint32
 {
 	Scene,      // 장면 렌더 결과
-	SceneDepth  // 장면 깊이
+	SceneDepth,  // 장면 깊이
+    PostProcessSource,
 };
 
 enum class RHI_Sampler_Index : uint32
