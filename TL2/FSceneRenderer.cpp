@@ -239,28 +239,6 @@ void FSceneRenderer::PerformFrustumCulling()
 	//}
 }
 
-void FSceneRenderer::PerformCPUOcclusion()
-{
-	// Todo: 추후 오클루전이 컴포넌트 단위로 변경되면 적용
-
-	//if (!bUseCPUOcclusion) return;
-
-	//UpdateOcclusionGridSizeForViewport(Viewport);
-
-	//TArray<FCandidateDrawable> Occluders, Occludees;
-	//BuildCpuOcclusionSets(ViewFrustum, ViewMatrix, ProjectionMatrix, ZNear, ZFar, Occluders, Occludees);
-
-	//OcclusionCPU->BuildOccluderDepth(Occluders, Viewport->GetSizeX(), Viewport->GetSizeY());
-	//OcclusionCPU->BuildHZB();
-
-	//uint32_t maxUUID = 0;
-	//for (auto& C : Occludees) maxUUID = std::max(maxUUID, C.ActorIndex);
-	//if (VisibleFlags.size() <= size_t(maxUUID))
-	//	VisibleFlags.assign(size_t(maxUUID + 1), 1);
-
-	//OcclusionCPU->TestOcclusion(Occludees, Viewport->GetSizeX(), Viewport->GetSizeY(), VisibleFlags);
-}
-
 void FSceneRenderer::RenderOpaquePass()
 {
 	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual); // 깊이 쓰기 ON
@@ -491,57 +469,3 @@ void FSceneRenderer::FinalizeFrame()
 		UE_LOG("Total Actors: %d, Visible Primitives: %llu\r\n", totalActors, visiblePrimitives);
 	}
 }
-
-//void FSceneRenderer::UpdateOcclusionGridSizeForViewport(FViewport* Viewport)
-//{
-//	// 기존 URenderer에 있던 로직과 동일
-//	if (!Viewport) return;
-//	int vw = (1 > Viewport->GetSizeX()) ? 1 : Viewport->GetSizeX();
-//	int vh = (1 > Viewport->GetSizeY()) ? 1 : Viewport->GetSizeY();
-//	int gw = std::max(1, vw / std::max(1, OcclGridDiv));
-//	int gh = std::max(1, vh / std::max(1, OcclGridDiv));
-//	OcclusionCPU->Initialize(gw, gh);
-//}
-//
-//void FSceneRenderer::BuildCpuOcclusionSets(const Frustum& ViewFrustum, const FMatrix& View, const FMatrix& Proj, float ZNear, float ZFar, TArray<FCandidateDrawable>& OutOccluders, TArray<FCandidateDrawable>& OutOccludees)
-//{
-//	OutOccluders.clear();
-//	OutOccludees.clear();
-//
-//	size_t estimatedCount = 0;
-//	for (AActor* Actor : World->GetActors())
-//	{
-//		if (Actor && !Actor->GetActorHiddenInGame() && !Actor->GetCulled())
-//		{
-//			if (Actor->IsA<AStaticMeshActor>()) estimatedCount++;
-//		}
-//	}
-//	OutOccluders.reserve(estimatedCount);
-//	OutOccludees.reserve(estimatedCount);
-//
-//	const FMatrix VP = View * Proj; // 행벡터: p_world * View * Proj
-//
-//	for (AActor* Actor : World->GetActors())
-//	{
-//		if (!Actor) continue;
-//		if (Actor->GetActorHiddenInGame()) continue;
-//		if (Actor->GetCulled()) continue;
-//
-//		AStaticMeshActor* SMA = Cast<AStaticMeshActor>(Actor);
-//		if (!SMA) continue;
-//
-//		UAABoundingBoxComponent* Box = Cast<UAABoundingBoxComponent>(SMA->CollisionComponent);
-//		if (!Box) continue;
-//
-//		OutOccluders.emplace_back();
-//		FCandidateDrawable& occluder = OutOccluders.back();
-//		occluder.ActorIndex = Actor->UUID;
-//		occluder.Bound = Box->GetWorldBound();
-//		occluder.WorldViewProj = VP;
-//		occluder.WorldView = View;
-//		occluder.ZNear = ZNear;
-//		occluder.ZFar = ZFar;
-//
-//		OutOccludees.emplace_back(occluder);
-//	}
-//}

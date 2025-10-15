@@ -60,9 +60,6 @@ private:
 	/** @brief 월드의 모든 액터를 대상으로 절두체 컬링을 수행합니다. */
 	void PerformFrustumCulling();
 
-	/** @brief CPU 기반 오클루전 컬링을 수행하여 가시성 플래그를 계산합니다. */
-	void PerformCPUOcclusion();
-
 	/** @brief 씬을 순회하며 컬링을 통과한 모든 렌더링 대상을 수집합니다. */
 	void GatherVisibleProxies();
 
@@ -83,11 +80,6 @@ private:
 
 	/** @brief 프레임 렌더링의 마무리 작업을 수행합니다. (예: 로그 출력) */
 	void FinalizeFrame();
-
-	///** @brief 오클루전 컬링을 위한 오클루더/오클루디 목록을 생성합니다. */
-	//void BuildCpuOcclusionSets(const Frustum& InViewFrustum, const FMatrix& InView, const FMatrix& InProj, float InZNear, float InZFar, TArray<FCandidateDrawable>& OutOccluders, TArray<FCandidateDrawable>& OutOccludees);
-	//void UpdateOcclusionGridSizeForViewport(FViewport* InViewport);
-
 private:
 	// --- 렌더링 컨텍스트 (외부에서 주입받음) ---
 	UWorld* World;
@@ -112,10 +104,4 @@ private:
 
 	// 컬링을 거친 가시성 목록, NOTE: 추후 컴포넌트 단위로 수정
 	TArray<UPrimitiveComponent*> PotentiallyVisibleComponents;
-
-	//// --- 오클루전 컬링 시스템 ---
-	//std::unique_ptr<FOcclusionCullingManagerCPU> OcclusionCPU;
-	//TArray<uint8_t> VisibleFlags;
-	//bool bUseCPUOcclusion = false;
-	//int OcclGridDiv = 2;
 };
