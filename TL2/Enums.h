@@ -341,7 +341,8 @@ enum class ERasterizerMode : uint32
 enum class ERTVMode : uint32
 {
     Scene,      // 장면 렌더 (기본값)
-	BackBuffer  // 백버퍼
+	BackBufferWithDepth,
+	BackBufferWithoutDepth
 };
 
 // RHI가 사용하는 텍스쳐들의 SRV

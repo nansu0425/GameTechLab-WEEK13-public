@@ -400,7 +400,7 @@ void FSceneRenderer::RenderPostProcessingPasses()
 
 void FSceneRenderer::RenderSceneDepthPostProcess()
 {
-	RHIDevice->OMSetRenderTargets(ERTVMode::BackBuffer);
+	RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithoutDepth);
 
 	// 쉐이더 설정
 	UShader* SecneDepthShader = UResourceManager::GetInstance().Load<UShader>("SecneDepth.hlsl");
@@ -435,6 +435,8 @@ void FSceneRenderer::RenderSceneDepthPostProcess()
 
 void FSceneRenderer::RenderEditorPrimitivesPass()
 {
+	RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithDepth);
+
 	for (AActor* EngineActor : World->GetEditorActors())
 	{
 		if (!EngineActor || EngineActor->GetActorHiddenInGame()) continue;
@@ -456,6 +458,8 @@ void FSceneRenderer::RenderEditorPrimitivesPass()
 
 void FSceneRenderer::RenderDebugPass()
 {
+	RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithDepth);
+
 	// 선택된 액터 경계 출력
 	for (AActor* SelectedActor : World->GetSelectionManager()->GetSelectedActors())
 	{

@@ -572,9 +572,12 @@ void D3D11RHI::OMSetRenderTargets(ERTVMode RTVMode)
     case ERTVMode::Scene:
         DeviceContext->OMSetRenderTargets(1, &SceneRTV, DepthStencilView);
         break;
-    case ERTVMode::BackBuffer:
-        DeviceContext->OMSetRenderTargets(1, &BackBufferRTV, DepthStencilView);
+    case ERTVMode::BackBufferWithoutDepth:
+        DeviceContext->OMSetRenderTargets(1, &BackBufferRTV, nullptr);
         break;
+	case ERTVMode::BackBufferWithDepth:
+        DeviceContext->OMSetRenderTargets(1, &BackBufferRTV, DepthStencilView);
+		break;
     default:
         break;
     }
