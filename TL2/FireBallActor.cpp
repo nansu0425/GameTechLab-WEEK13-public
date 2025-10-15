@@ -17,7 +17,6 @@ AFireBallActor::AFireBallActor()
 	UStaticMeshComponent* FireBallSMC = CreateDefaultSubobject<UStaticMeshComponent>("FireBallStaticMeshComponent");
 	FireBallSMC->SetStaticMesh("Data/Model/Sphere.obj");
 	FireBallSMC->SetupAttachment(RootComponent, EAttachmentRule::KeepRelative);
-	AddOwnedComponent(FireBallSMC);
 }
 
 AFireBallActor::~AFireBallActor()
