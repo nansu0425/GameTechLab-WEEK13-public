@@ -64,6 +64,11 @@ private:
     void BuildLBVH();
 
 private:
+    template<typename BoundType, typename NodeIntersectFunc, typename ComponentIntersectFunc>
+    TArray<UStaticMeshComponent*> QueryIntersectedComponentsGeneric(const BoundType& InBound
+        , NodeIntersectFunc NodeIntersects
+        , ComponentIntersectFunc ComponentIntersects) const;
+
     int BuildRange(int s, int e);
 
     int Depth;
