@@ -5,6 +5,7 @@ struct FRay; // forward declaration for ray type
 class UStaticMeshComponent;
 class AActor;
 struct FOBB;
+struct FBoundingSphere;
 
 /**
  * @brief Broad phase BVH based on UStaticMeshComponent
@@ -35,6 +36,7 @@ public:
     void QueryFrustum(const Frustum& InFrustum);
     TArray<UStaticMeshComponent*> QueryIntersectedComponents(const FAABB& InBound) const;
     TArray<UStaticMeshComponent*> QueryIntersectedComponents(const FOBB& InBound) const;
+    TArray<UStaticMeshComponent*> QueryIntersectedComponents(const FBoundingSphere& InBound) const;
 
     void DebugDraw(URenderer* Renderer) const;
 

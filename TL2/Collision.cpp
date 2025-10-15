@@ -12,7 +12,7 @@ namespace Collision
         return ConvertedOBB.Intersects(Obb);
     }
 
-    bool Intersect(const FAABB& Aabb, const FBoundingSphere& Sphere)
+    bool Intersects(const FAABB& Aabb, const FBoundingSphere& Sphere)
     {
 		// Real Time Rendering 4th, 22.13.2 Sphere/Box Intersection
         float Dist2 = 0.0f;
@@ -37,7 +37,7 @@ namespace Collision
         return Dist2 <= (Sphere.Radius * Sphere.Radius);
 	}
 
-    bool Intersect(const FOBB& Obb, const FBoundingSphere& Sphere)
+    bool Intersects(const FOBB& Obb, const FBoundingSphere& Sphere)
     {
         // Real Time Rendering 4th, 22.13.2 Sphere/Box Intersection
         float Dist2 = 0.0f;
