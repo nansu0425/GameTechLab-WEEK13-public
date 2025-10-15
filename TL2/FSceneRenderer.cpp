@@ -59,7 +59,7 @@ void FSceneRenderer::Render()
 	// 2. 렌더링할 대상 수집 (Cull + Gather)
 	GatherVisibleProxies();
 
-	EffectiveViewMode = EViewModeIndex::VMI_SceneDepth; // 임시: Lit 모드에서 SceneDepth 경로 테스트
+	EffectiveViewMode = EViewModeIndex::VMI_Lit; // 임시: Lit 모드에서 SceneDepth 경로 테스트
 
 	if (EffectiveViewMode == EViewModeIndex::VMI_Lit)
 	{
@@ -437,13 +437,114 @@ void FSceneRenderer::RenderPostProcessingPasses()
 	vp.MaxDepth = 1.0f;
 	RHIDevice->GetDeviceContext()->RSSetViewports(1, &vp);
 
-	if (0 < SceneGlobals.Fogs.Num())
+	UHeightFogComponent* FogComponent = NewObject<UHeightFogComponent>();
+	/*if (0 < SceneGlobals.Fogs.Num())
 	{
 		if (SceneGlobals.Fogs[0])
 		{
 			UHeightFogComponent* FogComponent = SceneGlobals.Fogs[0];
 		}
+	}*/
+
+	// 렌더 타겟 설정 (Depth 없이 BackBuffer에만 그리기)
+	RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithoutDepth);
+
+	// Depth State: Depth Test/Write 모두 OFF
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
+	RHIDevice->OMSetBlendState(false);
+
+	// 쉐이더 설정
+	UShader* FogShader = UResourceManager::GetInstance().Load<UShader>("Fog.hlsl");
+	if (!FogShader)
+	{
+		UE_LOG("Fog.hlsl shader not found!\n");
+		return;
 	}
+	RHIDevice->PrepareShader(FogShader);
+
+	RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	// 메시 설정 (FullScreenQuad)
+	UStaticMesh* FullScreenQuadMesh = UResourceManager::GetInstance().Load<UStaticMesh>("Data/FullScreenQuad.obj");
+	if (!FullScreenQuadMesh)
+	{
+		UE_LOG("FullScreenQuad mesh not found!\n");
+		return;
+	}
+
+	ID3D11Buffer* VertexBuffer = FullScreenQuadMesh->GetVertexBuffer();
+	ID3D11Buffer* IndexBuffer = FullScreenQuadMesh->GetIndexBuffer();
+	uint32 IndexCount = FullScreenQuadMesh->GetIndexCount();
+
+	// Vertex Layout에 맞는 Stride 사용 (중요!)
+	UINT Stride = 0;
+	switch (FullScreenQuadMesh->GetVertexType())
+	{
+	case EVertexLayoutType::PositionColorTexturNormal:
+		Stride = sizeof(FNormalVertex);
+		break;
+	case EVertexLayoutType::PositionTextBillBoard:
+		Stride = sizeof(FBillboardVertex);
+		break;
+	default:
+		Stride = sizeof(FNormalVertex);
+		break;
+	}
+
+	UINT Offset = 0;
+	RHIDevice->GetDeviceContext()->IASetVertexBuffers(0, 1, &VertexBuffer, &Stride, &Offset);
+	RHIDevice->GetDeviceContext()->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+
+	// 텍스쳐 관련 설정
+	ID3D11ShaderResourceView* DepthSRV = RHIDevice->GetSRV(RHI_SRV_Index::SceneDepth);
+	if (!DepthSRV)
+	{
+		UE_LOG("Depth SRV is null!\n");
+		return;
+	}
+
+	ID3D11ShaderResourceView* SceneSRV = RHIDevice->GetSRV(RHI_SRV_Index::Scene);
+	if (!SceneSRV)
+	{
+		UE_LOG("Scene SRV is null!\n");
+		return;
+	}
+
+	ID3D11SamplerState* PointClampSamplerState = RHIDevice->GetSamplerState(RHI_Sampler_Index::PointClamp);
+	if (!PointClampSamplerState)
+	{
+		UE_LOG("PointClamp Sampler is null!\n");
+		return;
+	}
+
+	ID3D11SamplerState* LinearClampSamplerState = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
+	if (!LinearClampSamplerState)
+	{
+		UE_LOG("LinearClamp Sampler is null!\n");
+		return;
+	}
+
+	ID3D11ShaderResourceView* srvs[2] = { DepthSRV, SceneSRV };
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, srvs); 
+
+	ID3D11SamplerState* Samplers[2] = { LinearClampSamplerState, PointClampSamplerState };
+	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 2, Samplers);
+
+	// 상수 버퍼 업데이트
+	RHIDevice->UpdatePostProcessCB(ZNear, ZFar);
+	FMatrix InvView = ViewMatrix.InverseAffineFast();
+	FMatrix InvProjection = ProjectionMatrix.InversePerspectiveProjection();
+	RHIDevice->UpdateInvViewProjCB(InvView, InvProjection);
+	UHeightFogComponent* F = FogComponent;
+	RHIDevice->UpdateFogCB(F->GetFogDensity(), F->GetFogHeightFalloff(), F->GetStartDistance(), F->GetFogCutoffDistance(), F->GetFogInscatteringColor()->ToFVector4(), F->GetFogMaxOpacity(), F->GetFogHeight());
+
+	// Draw
+	RHIDevice->GetDeviceContext()->DrawIndexed(IndexCount, 0, 0);
+
+	// Unbind SRV (중요! 다음 프레임에서 Depth를 RTV로 사용할 수 있게)
+	ID3D11ShaderResourceView* nullSRVs[2] = { nullptr, nullptr };
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, nullSRVs);
+	
 
 	//// 1-1. 적용할 효과 목록을 구성합니다. (설정에 따라 동적으로 생성)
 	//std::vector<IPostProcessEffect*> effectChain;
