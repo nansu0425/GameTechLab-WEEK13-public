@@ -423,6 +423,16 @@ void FSceneRenderer::RenderFireBallPass()
 
 void FSceneRenderer::RenderPostProcessingPasses()
 {
+	// ✅ 이 단계에서만 뷰포트 크기 설정!
+	D3D11_VIEWPORT vp = {};
+	vp.TopLeftX = static_cast<float>(Viewport->GetStartX());
+	vp.TopLeftY = static_cast<float>(Viewport->GetStartY());
+	vp.Width = static_cast<float>(Viewport->GetSizeX());
+	vp.Height = static_cast<float>(Viewport->GetSizeY());
+	vp.MinDepth = 0.0f;
+	vp.MaxDepth = 1.0f;
+	RHIDevice->GetDeviceContext()->RSSetViewports(1, &vp);
+
 	if (0 < SceneGlobals.Fogs.Num())
 	{
 		if (SceneGlobals.Fogs[0])
@@ -489,6 +499,16 @@ void FSceneRenderer::RenderPostProcessingPasses()
 
 void FSceneRenderer::RenderSceneDepthPostProcess()
 {
+	// ✅ 이 단계에서만 뷰포트 크기 설정!
+	D3D11_VIEWPORT vp = {};
+	vp.TopLeftX = static_cast<float>(Viewport->GetStartX());
+	vp.TopLeftY = static_cast<float>(Viewport->GetStartY());
+	vp.Width = static_cast<float>(Viewport->GetSizeX());
+	vp.Height = static_cast<float>(Viewport->GetSizeY());
+	vp.MinDepth = 0.0f;
+	vp.MaxDepth = 1.0f;
+	RHIDevice->GetDeviceContext()->RSSetViewports(1, &vp);
+
     // 렌더 타겟 설정 (Depth 없이 BackBuffer에만 그리기)
     RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithoutDepth);
 
@@ -570,7 +590,19 @@ void FSceneRenderer::RenderSceneDepthPostProcess()
 
 void FSceneRenderer::RenderEditorPrimitivesPass()
 {
+	// ✅ 이 단계에서만 뷰포트 크기 설정!
+	D3D11_VIEWPORT vp = {};
+	vp.TopLeftX = static_cast<float>(Viewport->GetStartX());
+	vp.TopLeftY = static_cast<float>(Viewport->GetStartY());
+	vp.Width = static_cast<float>(Viewport->GetSizeX());
+	vp.Height = static_cast<float>(Viewport->GetSizeY());
+	vp.MinDepth = 0.0f;
+	vp.MaxDepth = 1.0f;
+	RHIDevice->GetDeviceContext()->RSSetViewports(1, &vp);
+
 	RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithDepth);
+
+	RHIDevice->ClearDepthBuffer(1.0f, 0);
 
 	for (AActor* EngineActor : World->GetEditorActors())
 	{
@@ -593,6 +625,16 @@ void FSceneRenderer::RenderEditorPrimitivesPass()
 
 void FSceneRenderer::RenderDebugPass()
 {
+	// ✅ 이 단계에서만 뷰포트 크기 설정!
+	D3D11_VIEWPORT vp = {};
+	vp.TopLeftX = static_cast<float>(Viewport->GetStartX());
+	vp.TopLeftY = static_cast<float>(Viewport->GetStartY());
+	vp.Width = static_cast<float>(Viewport->GetSizeX());
+	vp.Height = static_cast<float>(Viewport->GetSizeY());
+	vp.MinDepth = 0.0f;
+	vp.MaxDepth = 1.0f;
+	RHIDevice->GetDeviceContext()->RSSetViewports(1, &vp);
+
 	RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithDepth);
 
 	// 선택된 액터 경계 출력
