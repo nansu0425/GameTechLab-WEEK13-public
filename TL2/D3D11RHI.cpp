@@ -577,6 +577,29 @@ void D3D11RHI::RSSetViewport()
     DeviceContext->RSSetViewports(1, &ViewportInfo);
 }
 
+ID3D11ShaderResourceView* D3D11RHI::GetSRV(RHI_SRV_Index SRVIndex) const
+{
+    ID3D11ShaderResourceView* TempSRV;
+    switch (SRVIndex)
+    {
+    case RHI_SRV_Index::Scene:
+        TempSRV = SceneSRV;
+        break;
+    case RHI_SRV_Index::SceneDepth:
+        TempSRV = DepthSRV;
+        break;
+    case RHI_SRV_Index::PostProcessSource:
+        // 이 함수는 항상 현재 '읽기(Source)' 역할의 SRV를 반환
+        TempSRV = PostProcessSourceSRV;
+        break;
+    default:
+        TempSRV = nullptr;
+        break;
+    }
+
+    return TempSRV;
+}
+
 void D3D11RHI::OMSetRenderTargets(ERTVMode RTVMode)
 {
     switch (RTVMode)
@@ -590,9 +613,21 @@ void D3D11RHI::OMSetRenderTargets(ERTVMode RTVMode)
 	case ERTVMode::BackBufferWithDepth:
         DeviceContext->OMSetRenderTargets(1, &BackBufferRTV, DepthStencilView);
 		break;
+	case ERTVMode::PostProcessDestination:
+        // 이 함수는 항상 현재 '쓰기(Destination)' 역할의 RTV를 설정
+        DeviceContext->OMSetRenderTargets(1, &PostProcessDestinationRTV, nullptr);
+		break;
     default:
         break;
     }
+}
+
+void D3D11RHI::SwapPostProcessTextures()
+{
+    // 텍스처 자체와 관련 뷰(SRV, RTV)의 포인터를 모두 교체
+    std::swap(PostProcessSourceTexture, PostProcessDestinationTexture);
+    std::swap(PostProcessSourceSRV, PostProcessDestinationSRV);
+    std::swap(PostProcessSourceRTV, PostProcessDestinationRTV); // 참고: RTV/SRV 포인터도 두 개씩 관리해야 스왑이 가능
 }
 
 void D3D11RHI::OMSetBlendState(bool bIsBlendMode)
@@ -681,22 +716,51 @@ void D3D11RHI::CreateFrameBuffer()
 	// =====================================
 	// 장면 렌더링용 텍스처 생성 (SRV 지원)
 	// =====================================
-    D3D11_TEXTURE2D_DESC texDesc = {};
-    texDesc.Width = swapDesc.BufferDesc.Width;
-    texDesc.Height = swapDesc.BufferDesc.Height;
-    texDesc.MipLevels = 1;
-    texDesc.ArraySize = 1;
-    texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;  // 색상 포맷
-    texDesc.SampleDesc.Count = 1;
-    texDesc.Usage = D3D11_USAGE_DEFAULT;
-    texDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-    Device->CreateTexture2D(&texDesc, nullptr, &SceneRenderTexture);
+    D3D11_TEXTURE2D_DESC SceneTextureDesc = {};
+    SceneTextureDesc.Width = swapDesc.BufferDesc.Width;
+    SceneTextureDesc.Height = swapDesc.BufferDesc.Height;
+    SceneTextureDesc.MipLevels = 1;
+    SceneTextureDesc.ArraySize = 1;
+    SceneTextureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;  // 색상 포맷
+    SceneTextureDesc.SampleDesc.Count = 1;
+    SceneTextureDesc.Usage = D3D11_USAGE_DEFAULT;
+    SceneTextureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+    Device->CreateTexture2D(&SceneTextureDesc, nullptr, &SceneRenderTexture);
 
     Device->CreateRenderTargetView(SceneRenderTexture, nullptr, &SceneRTV);
-
-    // 셰이더 리소스 뷰 생성 (색상)
     Device->CreateShaderResourceView(SceneRenderTexture, nullptr, &SceneSRV);
 
+    // =====================================
+    // PostProcessSource 렌더링용 텍스처 생성 (SRV 지원)
+    // =====================================
+
+    D3D11_TEXTURE2D_DESC PostProcessSourceDesc = {};
+    PostProcessSourceDesc.Width = swapDesc.BufferDesc.Width;
+    PostProcessSourceDesc.Height = swapDesc.BufferDesc.Height;
+    PostProcessSourceDesc.MipLevels = 1;
+    PostProcessSourceDesc.ArraySize = 1;
+    PostProcessSourceDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;  // 색상 포맷
+    PostProcessSourceDesc.SampleDesc.Count = 1;
+    PostProcessSourceDesc.Usage = D3D11_USAGE_DEFAULT;
+    PostProcessSourceDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+    Device->CreateTexture2D(&PostProcessSourceDesc, nullptr, &PostProcessSourceTexture);
+
+    Device->CreateRenderTargetView(PostProcessSourceTexture, nullptr, &PostProcessSourceRTV);
+    Device->CreateShaderResourceView(PostProcessSourceTexture, nullptr, &PostProcessSourceSRV);
+
+    D3D11_TEXTURE2D_DESC PostProcessDestinationDesc = {};
+    PostProcessDestinationDesc.Width = swapDesc.BufferDesc.Width;
+    PostProcessDestinationDesc.Height = swapDesc.BufferDesc.Height;
+    PostProcessDestinationDesc.MipLevels = 1;
+    PostProcessDestinationDesc.ArraySize = 1;
+    PostProcessDestinationDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;  // 색상 포맷
+    PostProcessDestinationDesc.SampleDesc.Count = 1;
+    PostProcessDestinationDesc.Usage = D3D11_USAGE_DEFAULT;
+    PostProcessDestinationDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+    Device->CreateTexture2D(&PostProcessDestinationDesc, nullptr, &PostProcessDestinationTexture);
+
+    Device->CreateRenderTargetView(PostProcessDestinationTexture, nullptr, &PostProcessDestinationRTV);
+    Device->CreateShaderResourceView(PostProcessDestinationTexture, nullptr, &PostProcessDestinationSRV);
 
     // =====================================
     // 깊이/스텐실 버퍼 생성 (SRV 지원)
@@ -1033,6 +1097,38 @@ void D3D11RHI::ReleaseFrameBuffer()
         SceneRenderTexture = nullptr;
     }
 
+    if (PostProcessSourceSRV)
+    {
+        PostProcessSourceSRV->Release();
+        PostProcessSourceSRV = nullptr;
+    }
+    if (PostProcessSourceRTV)
+    {
+        PostProcessSourceRTV->Release();
+        PostProcessSourceRTV = nullptr;
+    }
+    if (PostProcessSourceTexture)
+    {
+        PostProcessSourceTexture->Release();
+        PostProcessSourceTexture = nullptr;
+    }
+
+    if (PostProcessDestinationTexture)
+    {
+        PostProcessDestinationTexture->Release();
+        PostProcessDestinationTexture = nullptr;
+    }
+    if (PostProcessDestinationRTV)
+    {
+        PostProcessDestinationRTV->Release();
+        PostProcessDestinationRTV = nullptr;
+    }
+    if (PostProcessDestinationTexture)
+    {
+        PostProcessDestinationTexture->Release();
+        PostProcessDestinationTexture = nullptr;
+    }
+
     if (DepthStencilView)
     {
         DepthStencilView->Release();
@@ -1279,25 +1375,6 @@ void D3D11RHI::PSSetDefaultSampler(UINT StartSlot)
 void D3D11RHI::PSSetClampSampler(UINT StartSlot)
 {
     DeviceContext->PSSetSamplers(StartSlot, 1, &LinearClampSamplerState);
-}
-
-ID3D11ShaderResourceView* D3D11RHI::GetSRV(RHI_SRV_Index SRVIndex) const
-{
-	ID3D11ShaderResourceView* TempSRV;
-    switch (SRVIndex)
-    {
-    case RHI_SRV_Index::Scene:
-		TempSRV = SceneSRV;
-        break;
-    case RHI_SRV_Index::SceneDepth:
-		TempSRV = DepthSRV;
-        break;
-    default:
-        TempSRV = nullptr;
-        break;
-    }
-
-	return TempSRV;
 }
 
 ID3D11SamplerState* D3D11RHI::GetSamplerState(RHI_Sampler_Index SamplerIndex) const

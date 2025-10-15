@@ -27,6 +27,9 @@
 #include "BoundingSphere.h"
 #include "FireBallComponent.h"
 #include "HeightFogComponent.h"
+#include "GizmoArrowComponent.h"
+#include "GizmoRotateComponent.h"
+#include "GizmoScaleComponent.h"
 
 FSceneRenderer::FSceneRenderer(UWorld* InWorld, ACameraActor* InCamera, FViewport* InViewport, URenderer* InOwnerRenderer)
 	: World(InWorld)
@@ -43,8 +46,6 @@ FSceneRenderer::FSceneRenderer(UWorld* InWorld, ACameraActor* InCamera, FViewpor
 
 FSceneRenderer::~FSceneRenderer()
 {
-	// 수집된 라인을 출력하고 소멸됨
-	OwnerRenderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
 }
 
 //====================================================================================
@@ -59,7 +60,8 @@ void FSceneRenderer::Render()
 	// 2. 렌더링할 대상 수집 (Cull + Gather)
 	GatherVisibleProxies();
 
-	EffectiveViewMode = EViewModeIndex::VMI_Lit; // 임시: Lit 모드에서 SceneDepth 경로 테스트
+	RenderEditorPrimitivesPass();	// 기즈모, 그리드 출력
+	RenderDebugPass();	// 빌보드나 선택한 물체의 경계 출력
 
 	if (EffectiveViewMode == EViewModeIndex::VMI_Lit)
 	{
@@ -75,14 +77,13 @@ void FSceneRenderer::Render()
 	}
 
 	// 3. 공통 오버레이(Overlay) 렌더링
-	RenderEditorPrimitivesPass();	// 기즈모, 그리드 출력
-	RenderDebugPass();	// 빌보드나 선택한 물체의 경계 출력
+	RenderOverayEditorPrimitivesPass();	// 기즈모, 그리드 출력
 
 	// FXAA 등 화면에서 최종 이미지 품질을 위해 적용되는 효과를 적용
-	ApplyScreenEffectsPass();
+	//ApplyScreenEffectsPass();
 
 	// 최종적으로 Scene에 그려진 텍스쳐를 Back 버퍼에 그힌다
-	//CompositeToBackBuffer();
+	CompositeToBackBuffer();
 
 	// --- 렌더링 종료 ---
 	FinalizeFrame();
@@ -94,10 +95,16 @@ void FSceneRenderer::Render()
 
 void FSceneRenderer::RenderLitPath()
 {
+	RHIDevice->OMSetRenderTargets(ERTVMode::Scene);
+
 	// Base Pass
 	RenderOpaquePass();
 	RenderDecalPass();
 	RenderFireBallPass();
+
+	// Scene To PostProcessDestination
+	Blit(RHI_SRV_Index::Scene, ERTVMode::PostProcessDestination);
+	RHIDevice->SwapPostProcessTextures();
 
 	// 후처리 체인 실행
 	RenderPostProcessingPasses();
@@ -289,8 +296,6 @@ void FSceneRenderer::PerformFrustumCulling()
 
 void FSceneRenderer::RenderOpaquePass()
 {
-	RHIDevice->OMSetRenderTargets(ERTVMode::Scene);
-
 	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual); // 깊이 쓰기 ON
 	RHIDevice->OMSetBlendState(false);
 
@@ -312,8 +317,6 @@ void FSceneRenderer::RenderOpaquePass()
 
 void FSceneRenderer::RenderDecalPass()
 {
-	RHIDevice->OMSetRenderTargets(ERTVMode::Scene);
-
 	if (Proxies.Decals.empty())
 		return;
 
@@ -427,15 +430,8 @@ void FSceneRenderer::RenderFireBallPass()
 
 void FSceneRenderer::RenderPostProcessingPasses()
 {
-	// ✅ 이 단계에서만 뷰포트 크기 설정!
-	D3D11_VIEWPORT vp = {};
-	vp.TopLeftX = static_cast<float>(Viewport->GetStartX());
-	vp.TopLeftY = static_cast<float>(Viewport->GetStartY());
-	vp.Width = static_cast<float>(Viewport->GetSizeX());
-	vp.Height = static_cast<float>(Viewport->GetSizeY());
-	vp.MinDepth = 0.0f;
-	vp.MaxDepth = 1.0f;
-	RHIDevice->GetDeviceContext()->RSSetViewports(1, &vp);
+	// 렌더 타겟 설정
+	RHIDevice->OMSetRenderTargets(ERTVMode::PostProcessDestination);
 
 	UHeightFogComponent* FogComponent = nullptr;
 	if (0 < SceneGlobals.Fogs.Num())
@@ -453,9 +449,6 @@ void FSceneRenderer::RenderPostProcessingPasses()
 	{
 		return;
 	}
-
-	// 렌더 타겟 설정 (Depth 없이 BackBuffer에만 그리기)
-	RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithoutDepth);
 
 	// Depth State: Depth Test/Write 모두 OFF
 	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
@@ -504,14 +497,14 @@ void FSceneRenderer::RenderPostProcessingPasses()
 	RHIDevice->GetDeviceContext()->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
 	// 텍스쳐 관련 설정
-	ID3D11ShaderResourceView* DepthSRV = RHIDevice->GetSRV(RHI_SRV_Index::SceneDepth);
+	ID3D11ShaderResourceView* DepthSRV = RHIDevice->GetSRV(RHI_SRV_Index::Scene);
 	if (!DepthSRV)
 	{
 		UE_LOG("Depth SRV is null!\n");
 		return;
 	}
 
-	ID3D11ShaderResourceView* SceneSRV = RHIDevice->GetSRV(RHI_SRV_Index::Scene);
+	ID3D11ShaderResourceView* SceneSRV = RHIDevice->GetSRV(RHI_SRV_Index::PostProcessSource);
 	if (!SceneSRV)
 	{
 		UE_LOG("Scene SRV is null!\n");
@@ -553,61 +546,8 @@ void FSceneRenderer::RenderPostProcessingPasses()
 	ID3D11ShaderResourceView* nullSRVs[2] = { nullptr, nullptr };
 	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, nullSRVs);
 	
-
-	//// 1-1. 적용할 효과 목록을 구성합니다. (설정에 따라 동적으로 생성)
-	//std::vector<IPostProcessEffect*> effectChain;
-	//if (World->GetRenderSettings().IsFogEnabled())
-	//{
-	//	effectChain.push_back(&FogEffect);
-	//}
-	//if (World->GetRenderSettings().IsFXAAEnabled())
-	//{
-	//	effectChain.push_back(&FXAAEffect);
-	//}
-	//// ... 다른 효과들도 추가 ...
-
-	//// 1-2. 핑퐁에 사용할 렌더 타겟 2개를 가져옵니다.
-	//RenderTarget* PostProcessRT_A = OwnerRenderer->GetPostProcessRT_A();
-	//RenderTarget* PostProcessRT_B = OwnerRenderer->GetPostProcessRT_B();
-
-	//// 1-3. Base Pass의 결과물이 첫 번째 소스(Source)가 됩니다.
-	////     (Base Pass가 PostProcessRT_A에 그려졌다고 가정)
-	//RenderTarget* sourceRT = PostProcessRT_A;
-	//RenderTarget* destinationRT = PostProcessRT_B;
-
-	//// 1-4. [엣지 케이스] 적용할 효과가 없다면, 원본 이미지를 화면에 복사하고 종료합니다.
-	//if (effectChain.empty())
-	//{
-	//	RHI->CopyTexture(RHI->GetBackBuffer(), sourceRT->GetTexture());
-	//	return;
-	//}
-
-	//// 2. 후처리 체인을 순회하며 실행합니다.
-	//for (size_t i = 0; i < effectChain.size(); ++i)
-	//{
-	//	IPostProcessEffect* currentEffect = effectChain[i];
-
-	//	// 2-1. [핵심] 마지막 효과인지 판단하여 최종 목적지를 설정합니다.
-	//	if (i == effectChain.size() - 1)
-	//	{
-	//		// 마지막 효과는 최종 화면(Back Buffer)에 직접 그립니다.
-	//		RHI->SetRenderTarget(RHI->GetBackBufferRTV(), nullptr);
-	//	}
-	//	else
-	//	{
-	//		// 중간 과정은 임시 버퍼(destinationRT)에 그립니다.
-	//		RHI->SetRenderTarget(destinationRT->GetRTV(), nullptr);
-	//	}
-
-	//	// 2-2. 이전 단계의 결과물(sourceRT)을 입력 텍스처로 설정합니다.
-	//	RHI->SetShaderResource(0, sourceRT->GetSRV());
-
-	//	// 2-3. 현재 효과를 적용합니다. (내부적으로 FullScreenQuad를 그림)
-	//	currentEffect->Apply(RHI);
-
-	//	// 2-4. [핵심] 다음 단계를 위해 소스와 목적지의 역할을 맞바꿉니다.
-	//	std::swap(sourceRT, destinationRT);
-	//}
+	// PostProcess 핑퐁 스왑
+	RHIDevice->SwapPostProcessTextures();
 }
 
 void FSceneRenderer::RenderSceneDepthPostProcess()
@@ -703,19 +643,7 @@ void FSceneRenderer::RenderSceneDepthPostProcess()
 
 void FSceneRenderer::RenderEditorPrimitivesPass()
 {
-	// ✅ 이 단계에서만 뷰포트 크기 설정!
-	D3D11_VIEWPORT vp = {};
-	vp.TopLeftX = static_cast<float>(Viewport->GetStartX());
-	vp.TopLeftY = static_cast<float>(Viewport->GetStartY());
-	vp.Width = static_cast<float>(Viewport->GetSizeX());
-	vp.Height = static_cast<float>(Viewport->GetSizeY());
-	vp.MinDepth = 0.0f;
-	vp.MaxDepth = 1.0f;
-	RHIDevice->GetDeviceContext()->RSSetViewports(1, &vp);
-
-	RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithDepth);
-
-	RHIDevice->ClearDepthBuffer(1.0f, 0);
+	RHIDevice->OMSetRenderTargets(ERTVMode::Scene);
 
 	for (AActor* EngineActor : World->GetEditorActors())
 	{
@@ -728,6 +656,13 @@ void FSceneRenderer::RenderEditorPrimitivesPass()
 			{
 				if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
 				{
+					// 기즈모는 오버레이 Primitive라서 나중에 따로 그림
+					// NOTE: 추후 깔끔하게 World Editor Actors 와 World Overlay Actors 랑 비슷한 느낌으로 분리가 필요할듯
+					if (Cast<UGizmoArrowComponent>(Primitive) || Cast<UGizmoRotateComponent>(Primitive) || Cast<UGizmoScaleComponent>(Primitive))
+					{
+						continue;
+					}
+
 					RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
 					Primitive->Render(OwnerRenderer, ViewMatrix, ProjectionMatrix);
 				}
@@ -738,17 +673,7 @@ void FSceneRenderer::RenderEditorPrimitivesPass()
 
 void FSceneRenderer::RenderDebugPass()
 {
-	// ✅ 이 단계에서만 뷰포트 크기 설정!
-	D3D11_VIEWPORT vp = {};
-	vp.TopLeftX = static_cast<float>(Viewport->GetStartX());
-	vp.TopLeftY = static_cast<float>(Viewport->GetStartY());
-	vp.Width = static_cast<float>(Viewport->GetSizeX());
-	vp.Height = static_cast<float>(Viewport->GetSizeY());
-	vp.MinDepth = 0.0f;
-	vp.MaxDepth = 1.0f;
-	RHIDevice->GetDeviceContext()->RSSetViewports(1, &vp);
-
-	RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithDepth);
+	RHIDevice->OMSetRenderTargets(ERTVMode::Scene);
 
 	// 선택된 액터 경계 출력
 	for (AActor* SelectedActor : World->GetSelectionManager()->GetSelectedActors())
@@ -771,19 +696,148 @@ void FSceneRenderer::RenderDebugPass()
 			BVH->DebugDraw(OwnerRenderer); // DebugDraw가 LineBatcher를 직접 받도록 수정 필요
 		}
 	}
+
+	// 수집된 라인을 출력하고 정리
+	OwnerRenderer->EndLineBatch(FMatrix::Identity(), ViewMatrix, ProjectionMatrix);
+
+	RHIDevice->SwapPostProcessTextures();
+}
+
+void FSceneRenderer::RenderOverayEditorPrimitivesPass()
+{
+	RHIDevice->OMSetRenderTargets(ERTVMode::PostProcessDestination);
+
+	//RHIDevice->ClearDepthBuffer(1.0f, 0);
+
+	for (AActor* EngineActor : World->GetEditorActors())
+	{
+		if (!EngineActor || EngineActor->GetActorHiddenInGame()) continue;
+
+		for (USceneComponent* Component : EngineActor->GetSceneComponents())
+		{
+			if (Component && Component->IsActive())
+			{
+				if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
+				{
+					// 기즈모는 오버레이 Primitive라서 여기서 따로 처리
+					// NOTE: 추후 깔끔하게 World Editor Actors 와 World Overlay Actors 랑 비슷한 느낌으로 분리가 필요할듯
+					if (Cast<UGizmoArrowComponent>(Primitive) || Cast<UGizmoRotateComponent>(Primitive) || Cast<UGizmoScaleComponent>(Primitive))
+					{
+						RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+						Primitive->Render(OwnerRenderer, ViewMatrix, ProjectionMatrix);
+					}
+				}
+			}
+		}
+	}
+
+	RHIDevice->SwapPostProcessTextures();
 }
 
 void FSceneRenderer::ApplyScreenEffectsPass()
 {
+	// 렌더 타겟 설정 (Depth 없이 BackBuffer에만 그리기)
+	RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithoutDepth);
+
+	// Depth State: Depth Test/Write 모두 OFF
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
+	RHIDevice->OMSetBlendState(false);
+
+	// 쉐이더 설정
+	UShader* SceneDepthShader = UResourceManager::GetInstance().Load<UShader>("SceneDepth.hlsl");
+	if (!SceneDepthShader)
+	{
+		UE_LOG("SceneDepth.hlsl shader not found!\n");
+		return;
+	}
+	RHIDevice->PrepareShader(SceneDepthShader);
+
+	RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	// 메시 설정 (FullScreenQuad)
+	UStaticMesh* FullScreenQuadMesh = UResourceManager::GetInstance().Load<UStaticMesh>("Data/FullScreenQuad.obj");
+	if (!FullScreenQuadMesh)
+	{
+		UE_LOG("FullScreenQuad mesh not found!\n");
+		return;
+	}
+
+	ID3D11Buffer* VertexBuffer = FullScreenQuadMesh->GetVertexBuffer();
+	ID3D11Buffer* IndexBuffer = FullScreenQuadMesh->GetIndexBuffer();
+	uint32 IndexCount = FullScreenQuadMesh->GetIndexCount();
+
+	// Vertex Layout에 맞는 Stride 사용 (중요!)
+	UINT Stride = 0;
+	switch (FullScreenQuadMesh->GetVertexType())
+	{
+	case EVertexLayoutType::PositionColorTexturNormal:
+		Stride = sizeof(FNormalVertex);
+		break;
+	case EVertexLayoutType::PositionTextBillBoard:
+		Stride = sizeof(FBillboardVertex);
+		break;
+	default:
+		Stride = sizeof(FNormalVertex);
+		break;
+	}
+
+	UINT Offset = 0;
+	RHIDevice->GetDeviceContext()->IASetVertexBuffers(0, 1, &VertexBuffer, &Stride, &Offset);
+	RHIDevice->GetDeviceContext()->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+
+	// 텍스쳐 관련 설정
+	ID3D11ShaderResourceView* DepthSRV = RHIDevice->GetSRV(RHI_SRV_Index::SceneDepth);
+	if (!DepthSRV)
+	{
+		UE_LOG("Depth SRV is null!\n");
+		return;
+	}
+
+	ID3D11SamplerState* SamplerState = RHIDevice->GetSamplerState(RHI_Sampler_Index::PointClamp);
+	if (!SamplerState)
+	{
+		UE_LOG("PointClamp Sampler is null!\n");
+		return;
+	}
+
+	// Shader Resource 바인딩 (슬롯 확인!)
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &DepthSRV);  // t0
+	RHIDevice->GetDeviceContext()->PSSetSamplers(1, 1, &SamplerState);
+
+	// 상수 버퍼 업데이트
+	RHIDevice->UpdatePostProcessCB(ZNear, ZFar);
+
+	// Draw
+	RHIDevice->GetDeviceContext()->DrawIndexed(IndexCount, 0, 0);
+
+	// Unbind SRV (중요! 다음 프레임에서 Depth를 RTV로 사용할 수 있게)
+	ID3D11ShaderResourceView* nullSRV = nullptr;
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &nullSRV);
 }
 
 void FSceneRenderer::CompositeToBackBuffer()
 {
+	// 마지막 BackBuffer 그리는 단계에서만 뷰포트 크기 설정
+	D3D11_VIEWPORT vp = {};
+	vp.TopLeftX = static_cast<float>(Viewport->GetStartX());
+	vp.TopLeftY = static_cast<float>(Viewport->GetStartY());
+	vp.Width = static_cast<float>(Viewport->GetSizeX());
+	vp.Height = static_cast<float>(Viewport->GetSizeY());
+	vp.MinDepth = 0.0f;
+	vp.MaxDepth = 1.0f;
+	RHIDevice->GetDeviceContext()->RSSetViewports(1, &vp);
+
+	Blit(RHI_SRV_Index::PostProcessSource, ERTVMode::BackBufferWithoutDepth);
+}
+
+// Source 텍스처를 Destination 텍스처로 렌더링(복사)하는 작업
+void FSceneRenderer::Blit(RHI_SRV_Index InSource, ERTVMode InDestination)
+{
 	// 1. Scene RTV와 Depth Buffer Clear
-	RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithoutDepth);
+	RHIDevice->OMSetRenderTargets(InDestination);
 
 	// 텍스쳐 관련 설정
-	ID3D11ShaderResourceView* DepthSRV = RHIDevice->GetSRV(RHI_SRV_Index::Scene);
+	ID3D11ShaderResourceView* DepthSRV = RHIDevice->GetSRV(InSource);
 	ID3D11SamplerState* SamplerState = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
 	if (!DepthSRV || !SamplerState)
 	{

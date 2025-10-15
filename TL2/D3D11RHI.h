@@ -76,17 +76,19 @@ public:
 	void IASetPrimitiveTopology();
 	void RSSetState(ERasterizerMode ViewModeIndex);
 	void RSSetViewport();
+
+	// RHI가 관리하는 Texture들을 SRV로 가져오기, SamplerState 가져오기
+	ID3D11ShaderResourceView* GetSRV(RHI_SRV_Index SRVIndex) const;
+	ID3D11SamplerState* GetSamplerState(RHI_Sampler_Index SamplerIndex) const;
 	void OMSetRenderTargets(ERTVMode RTVMode);
+	void SwapPostProcessTextures();
+
 	void OMSetBlendState(bool bIsBlendMode);
 	void PSSetDefaultSampler(UINT StartSlot);
 	void PSSetClampSampler(UINT StartSlot);
 
 	void DrawFullScreenQuad();
 	void Present();
-
-	// RHI가 관리하는 Texture들을 SRV로 가져오기, SamplerState 가져오기
-	ID3D11ShaderResourceView* GetSRV(RHI_SRV_Index SRVIndex) const;
-	ID3D11SamplerState* GetSamplerState(RHI_Sampler_Index SamplerIndex) const;
 
 	// Overlay precedence helpers
 	void OMSetDepthStencilState_OverlayWriteStencil();
@@ -183,6 +185,14 @@ private:
 	ID3D11Texture2D* SceneRenderTexture{};
 	ID3D11RenderTargetView* SceneRTV{};
 	ID3D11ShaderResourceView* SceneSRV{};
+
+	ID3D11Texture2D* PostProcessSourceTexture{};
+	ID3D11RenderTargetView* PostProcessSourceRTV{};
+	ID3D11ShaderResourceView* PostProcessSourceSRV{};
+
+	ID3D11Texture2D* PostProcessDestinationTexture{};
+	ID3D11RenderTargetView* PostProcessDestinationRTV{};
+	ID3D11ShaderResourceView* PostProcessDestinationSRV{};
 
 	ID3D11Texture2D* DepthBuffer = nullptr;
 	ID3D11ShaderResourceView* DepthSRV = nullptr;

@@ -384,6 +384,7 @@ void URenderer::EndLineBatch(const FMatrix& ModelMatrix, const FMatrix& ViewMatr
 		RHIDevice->OMSetDepthStencilState_StencilRejectOverlay();
 		RHIDevice->GetDeviceContext()->DrawIndexed(DynamicLineMesh->GetCurrentIndexCount(), 0, 0);
 		// 상태 복구
+		RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
 	}
 
