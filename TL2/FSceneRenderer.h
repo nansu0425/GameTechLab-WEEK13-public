@@ -81,7 +81,7 @@ private:
 	ACameraActor* Camera;
 	FViewport* Viewport;
 	URenderer* OwnerRenderer;
-	D3D11RHI* RHI;
+	D3D11RHI* RHIDevice;
 
 	// --- 프레임 동안 계산되고 사용되는 데이터 ---
 	FMatrix ViewMatrix;

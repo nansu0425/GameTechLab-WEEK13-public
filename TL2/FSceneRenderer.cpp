@@ -28,7 +28,7 @@ FSceneRenderer::FSceneRenderer(UWorld* InWorld, ACameraActor* InCamera, FViewpor
 	, Camera(InCamera)
 	, Viewport(InViewport)
 	, OwnerRenderer(InOwnerRenderer)
-	, RHI(InOwnerRenderer->GetRHIDevice()) // OwnerRenderer를 통해 RHI를 가져옴
+	, RHIDevice(InOwnerRenderer->GetRHIDevice()) // OwnerRenderer를 통해 RHI를 가져옴
 {
 	//OcclusionCPU = std::make_unique<FOcclusionCullingManagerCPU>();
 
@@ -93,14 +93,14 @@ void FSceneRenderer::RenderLitPath()
 void FSceneRenderer::RenderWireframePath()
 {
 	// 상태 변경: Wireframe으로 레스터라이즈 모드 설정하도록 설정
-	// RHI->RSSetState(EViewModeIndex::VMI_Wireframe);
+	RHIDevice->RSSetState(ERasterizerMode::Wireframe);
 
 	RenderOpaquePass();
 
 	// Wireframe은 Post 프로세싱 처리하지 않음
 
 	// 상태 복구: 원래의 Lit(Solid) 상태로 되돌림 (매우 중요!)
-	// RHI->RSSetState(EViewModeIndex::VMI_Lit);
+	RHIDevice->RSSetState(ERasterizerMode::Solid);
 }
 
 void FSceneRenderer::RenderSceneDepthPath()
@@ -119,7 +119,7 @@ void FSceneRenderer::RenderSceneDepthPath()
 
 bool FSceneRenderer::IsValid() const
 {
-	return World && Camera && Viewport && OwnerRenderer && RHI;
+	return World && Camera && Viewport && OwnerRenderer && RHIDevice;
 }
 
 void FSceneRenderer::PrepareView()
@@ -253,9 +253,8 @@ void FSceneRenderer::PerformCPUOcclusion()
 
 void FSceneRenderer::RenderOpaquePass()
 {
-	OwnerRenderer->SetViewModeType(EffectiveViewMode);
-	RHI->OMSetDepthStencilState(EComparisonFunc::LessEqual); // 깊이 쓰기 ON
-	RHI->OMSetBlendState(false);
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual); // 깊이 쓰기 ON
+	RHIDevice->OMSetBlendState(false);
 
 	for (UPrimitiveComponent* Primitive : Proxies.Primitives)
 	{
@@ -279,10 +278,9 @@ void FSceneRenderer::RenderDecalPass()
 	FDecalStatManager::GetInstance().AddVisibleDecalCount(Proxies.Decals.Num());
 
 	// 데칼 렌더 설정
-	OwnerRenderer->SetViewModeType(EffectiveViewMode);
-	RHI->OMSetDepthStencilState(EComparisonFunc::LessEqualReadOnly); // 깊이 쓰기 OFF
-	RHI->OMSetBlendState(true);
-	RHI->RSSetState(EViewModeIndex::VMI_Decal);
+	RHIDevice->RSSetState(ERasterizerMode::Decal);
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqualReadOnly); // 깊이 쓰기 OFF
+	RHIDevice->OMSetBlendState(true);
 
 	for (UDecalComponent* Decal : Proxies.Decals)
 	{
@@ -324,8 +322,8 @@ void FSceneRenderer::RenderDecalPass()
 		FDecalStatManager::GetInstance().GetDecalPassTimeSlot() += CpuTimeMs.count(); // CPU 소요 시간 저장
 	}
 
-	RHI->RSSetState(EViewModeIndex::VMI_Lit);
-	RHI->OMSetBlendState(false); // 상태 복구
+	RHIDevice->RSSetState(ERasterizerMode::Solid);
+	RHIDevice->OMSetBlendState(false); // 상태 복구
 }
 
 void FSceneRenderer::RenderPostProcessingPasses()
@@ -420,8 +418,7 @@ void FSceneRenderer::RenderEditorPrimitivesPass()
 			{
 				if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
 				{
-					OwnerRenderer->SetViewModeType(EffectiveViewMode);
-					RHI->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+					RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
 					Primitive->Render(OwnerRenderer, ViewMatrix, ProjectionMatrix);
 				}
 			}
@@ -456,7 +453,7 @@ void FSceneRenderer::RenderDebugPass()
 
 void FSceneRenderer::FinalizeFrame()
 {
-	RHI->UpdateHighLightConstantBuffers(false, FVector(1, 1, 1), 0, 0, 0, 0);
+	RHIDevice->UpdateHighLightConstantBuffers(false, FVector(1, 1, 1), 0, 0, 0, 0);
 
 	if (World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Culling))
 	{

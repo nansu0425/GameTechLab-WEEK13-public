@@ -429,25 +429,30 @@ void D3D11RHI::IASetPrimitiveTopology()
     DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
-void D3D11RHI::RSSetState(EViewModeIndex ViewModeIndex)
+void D3D11RHI::RSSetState(ERasterizerMode ViewModeIndex)
 {
-    if (ViewModeIndex == EViewModeIndex::VMI_Wireframe)
-    {
-        DeviceContext->RSSetState(WireFrameRasterizerState);
-    }
-    else if (ViewModeIndex == EViewModeIndex::VMI_Decal)
-    {
-        DeviceContext->RSSetState(DecalRasterizerState);
-    }
-    else
-    {
-        DeviceContext->RSSetState(DefaultRasterizerState);
-    }
-}
+	switch (ViewModeIndex)
+	{
+	case ERasterizerMode::Solid:
+		DeviceContext->RSSetState(DefaultRasterizerState);
+        break;
 
-void D3D11RHI::RSSetNoCullState()
-{
-    DeviceContext->RSSetState(NoCullRasterizerState);
+	case ERasterizerMode::Wireframe:
+		DeviceContext->RSSetState(WireFrameRasterizerState);
+        break;
+
+	case ERasterizerMode::Solid_NoCull:
+		DeviceContext->RSSetState(NoCullRasterizerState);
+        break;
+
+	case ERasterizerMode::Decal:
+		DeviceContext->RSSetState(DecalRasterizerState);
+        break;
+
+	default:
+		DeviceContext->RSSetState(DefaultRasterizerState);
+        break;
+	}
 }
 
 void D3D11RHI::RSSetViewport()
