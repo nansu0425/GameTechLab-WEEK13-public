@@ -476,7 +476,10 @@
     <FxCompile Include="DecalVS.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="Quad.hlsl">
+    <FxCompile Include="Fog.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="SceneDepth.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

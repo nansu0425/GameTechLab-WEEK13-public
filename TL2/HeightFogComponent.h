@@ -1,17 +1,21 @@
 ﻿#pragma once
+#include "Object.h"
+
 #include "SceneComponent.h"
+
+class FLinearColor;
 
 class UHeightFogComponent : public USceneComponent
 {
 public:
-    DECLARE_CLASS(UHeightFogComponent, USceneComponent);
+    DECLARE_CLASS(UHeightFogComponent, USceneComponent)
     
     UHeightFogComponent();
     ~UHeightFogComponent() override;
     
     // Component Lifecycle
-    void InitializeComponent() override;
-    void TickComponent(float DeltaTime) override;
+    /*void InitializeComponent() override;
+    void TickComponent(float DeltaTime) override;*/
     
     // Fog Parameters Getters
     float GetFogDensity() const { return FogDensity; }
@@ -19,7 +23,7 @@ public:
     float GetStartDistance() const { return StartDistance; }
     float GetFogCutoffDistance() const { return FogCutoffDistance; }
     float GetFogMaxOpacity() const { return FogMaxOpacity; }
-    float GetFogInscatteringColor() const { return FogInscatteringColor; }
+    FLinearColor* GetFogInscatteringColor() const { return FogInscatteringColor; }
     
     // Fog Parameters Setters
     void SetFogDensity(float InDensity) { FogDensity = InDensity; }
@@ -27,7 +31,7 @@ public:
     void SetStartDistance(float InDistance) { StartDistance = InDistance; }
     void SetFogCutoffDistance(float InDistance) { FogCutoffDistance = InDistance; }
     void SetFogMaxOpacity(float InOpacity) { FogMaxOpacity = InOpacity; }
-    void SetFogInscatteringColor(float InColor) { FogInscatteringColor = InColor; }
+    void SetFogInscatteringColor(FLinearColor* InColor) { FogInscatteringColor = InColor; }
     
     // Rendering
     void RenderHeightFog(URenderer* Renderer);
@@ -46,13 +50,9 @@ private:
     float FogCutoffDistance = 1000.0f;
     float FogMaxOpacity = 1.0f;
 
-    float FogInscatteringColor = 0.5f;
-    //FLinearColor FogInscatteringColor; // 추후에 적용
-    
+    FLinearColor* FogInscatteringColor = nullptr;
+
     // Full Screen Quad Resources
     class UStaticMesh* FullScreenQuadMesh = nullptr;
     class UShader* HeightFogShader = nullptr;
-    
-    void CreateFullScreenQuad();
-    void LoadHeightFogShader();
 };

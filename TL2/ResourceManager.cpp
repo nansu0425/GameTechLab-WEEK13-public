@@ -495,6 +495,12 @@ void UResourceManager::InitShaderILMap()
                  D3D11_INPUT_PER_VERTEX_DATA, 0 });
     ShaderToInputLayoutMap["Billboard.hlsl"] = layout;
     layout.clear();
+
+    // ────────────────────────────────
+    // Quad 렌더링을 쓰는 Shader들 (Position + UV)
+    // ────────────────────────────────
+    ShaderToInputLayoutMap["Fog.hlsl"] = layout;
+    ShaderToInputLayoutMap["SceneDepth.hlsl"] = layout;
 }
 
 TArray<D3D11_INPUT_ELEMENT_DESC>& UResourceManager::GetProperInputLayout(const FString& InShaderName)
