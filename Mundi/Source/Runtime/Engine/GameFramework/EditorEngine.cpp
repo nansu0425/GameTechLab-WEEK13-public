@@ -128,7 +128,7 @@ bool UEditorEngine::CreateMainWindow(HINSTANCE hInstance)
 {
     // 윈도우 생성
     WCHAR WindowClass[] = L"JungleWindowClass";
-    WCHAR Title[] = L"Game Tech Lab";
+    WCHAR Title[] = L"Mundi Engine";
 
     WNDCLASSW wndclass = { 0, WndProc, 0, 0, 0, 0, 0, 0, 0, WindowClass };
     RegisterClassW(&wndclass);
