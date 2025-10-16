@@ -80,7 +80,7 @@ void FSceneRenderer::Render()
 	RenderOverayEditorPrimitivesPass();	// 기즈모, 그리드 출력
 
 	// FXAA 등 화면에서 최종 이미지 품질을 위해 적용되는 효과를 적용
-	//ApplyScreenEffectsPass();
+	ApplyScreenEffectsPass();
 
 	// 최종적으로 Scene에 그려진 텍스쳐를 Back 버퍼에 그힌다
 	CompositeToBackBuffer();
@@ -222,6 +222,7 @@ void FSceneRenderer::GatherVisibleProxies()
 	const bool bDrawStaticMeshes = World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_StaticMeshes);
 	const bool bDrawDecals = World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Decals);
 	const bool bDrawFog = World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Fog);
+	const bool bUseAntiAliasing = World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_FXAA);
 
 	for (AActor* Actor : World->GetActors())
 	{
@@ -745,84 +746,50 @@ void FSceneRenderer::RenderOverayEditorPrimitivesPass()
 
 void FSceneRenderer::ApplyScreenEffectsPass()
 {
-	// 렌더 타겟 설정 (Depth 없이 BackBuffer에만 그리기)
-	RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithoutDepth);
-
-	// Depth State: Depth Test/Write 모두 OFF
-	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
-	RHIDevice->OMSetBlendState(false);
-
-	// 쉐이더 설정
-	UShader* SceneDepthShader = UResourceManager::GetInstance().Load<UShader>("SceneDepth.hlsl");
-	if (!SceneDepthShader)
+	if (!World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_FXAA))
 	{
-		UE_LOG("SceneDepth.hlsl shader not found!\n");
-		return;
-	}
-	RHIDevice->PrepareShader(SceneDepthShader);
-
-	RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	// 메시 설정 (FullScreenQuad)
-	UStaticMesh* FullScreenQuadMesh = UResourceManager::GetInstance().Load<UStaticMesh>("Data/FullScreenQuad.obj");
-	if (!FullScreenQuadMesh)
-	{
-		UE_LOG("FullScreenQuad mesh not found!\n");
 		return;
 	}
 
-	ID3D11Buffer* VertexBuffer = FullScreenQuadMesh->GetVertexBuffer();
-	ID3D11Buffer* IndexBuffer = FullScreenQuadMesh->GetIndexBuffer();
-	uint32 IndexCount = FullScreenQuadMesh->GetIndexCount();
-
-	// Vertex Layout에 맞는 Stride 사용 (중요!)
-	UINT Stride = 0;
-	switch (FullScreenQuadMesh->GetVertexType())
-	{
-	case EVertexLayoutType::PositionColorTexturNormal:
-		Stride = sizeof(FNormalVertex);
-		break;
-	case EVertexLayoutType::PositionTextBillBoard:
-		Stride = sizeof(FBillboardVertex);
-		break;
-	default:
-		Stride = sizeof(FNormalVertex);
-		break;
-	}
-
-	UINT Offset = 0;
-	RHIDevice->GetDeviceContext()->IASetVertexBuffers(0, 1, &VertexBuffer, &Stride, &Offset);
-	RHIDevice->GetDeviceContext()->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+	// 렌더 타겟 설정
+	RHIDevice->OMSetRenderTargets(ERTVMode::PostProcessDestination);
 
 	// 텍스쳐 관련 설정
-	ID3D11ShaderResourceView* DepthSRV = RHIDevice->GetSRV(RHI_SRV_Index::SceneDepth);
-	if (!DepthSRV)
-	{
-		UE_LOG("Depth SRV is null!\n");
-		return;
-	}
-
-	ID3D11SamplerState* SamplerState = RHIDevice->GetSamplerState(RHI_Sampler_Index::PointClamp);
-	if (!SamplerState)
+	ID3D11ShaderResourceView* SourceSRV = RHIDevice->GetSRV(RHI_SRV_Index::PostProcessSource);
+	ID3D11SamplerState* SamplerState = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
+	if (!SourceSRV || !SamplerState)
 	{
 		UE_LOG("PointClamp Sampler is null!\n");
 		return;
 	}
 
 	// Shader Resource 바인딩 (슬롯 확인!)
-	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &DepthSRV);  // t0
-	RHIDevice->GetDeviceContext()->PSSetSamplers(1, 1, &SamplerState);
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &SourceSRV);
+	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &SamplerState);
 
-	// 상수 버퍼 업데이트
-	ECameraProjectionMode ProjectionMode = Camera->GetCameraComponent()->GetProjectionMode();
-	RHIDevice->UpdatePostProcessCB(ZNear, ZFar, ProjectionMode == ECameraProjectionMode::Orthographic);
+	UShader* FullScreenTriangleVS = UResourceManager::GetInstance().Load<UShader>("FullScreenTriangle.vs.hlsl");
+	UShader* CopyTexturePS = UResourceManager::GetInstance().Load<UShader>("FXAA.ps.hlsl");
+	if (!FullScreenTriangleVS || !FullScreenTriangleVS->GetVertexShader() || !CopyTexturePS || !CopyTexturePS->GetPixelShader())
+	{
+		UE_LOG("FXAA 셰이더 없음!\n");
+		return;
+	}
 
-	// Draw
-	RHIDevice->GetDeviceContext()->DrawIndexed(IndexCount, 0, 0);
+	RHIDevice->UpdateFXAACB(
+		FVector2D(RHIDevice->GetViewportWidth(), RHIDevice->GetViewportHeight()),
+		FVector2D(1.0f / RHIDevice->GetViewportWidth(), 1.0f / RHIDevice->GetViewportHeight()),
+		0.0833f,
+		0.166f,
+		1.0f,	// 0.75 가 기본값이지만 효과 강조를 위해 1로 설정
+		12
+	);
 
-	// Unbind SRV (중요! 다음 프레임에서 Depth를 RTV로 사용할 수 있게)
-	ID3D11ShaderResourceView* nullSRV = nullptr;
-	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &nullSRV);
+	RHIDevice->PrepareShader(FullScreenTriangleVS, CopyTexturePS);
+
+	RHIDevice->DrawFullScreenQuad();
+
+	// PostProcess 핑퐁 스왑
+	RHIDevice->SwapPostProcessTextures();
 }
 
 void FSceneRenderer::CompositeToBackBuffer()
@@ -847,16 +814,16 @@ void FSceneRenderer::Blit(RHI_SRV_Index InSource, ERTVMode InDestination)
 	RHIDevice->OMSetRenderTargets(InDestination);
 
 	// 텍스쳐 관련 설정
-	ID3D11ShaderResourceView* DepthSRV = RHIDevice->GetSRV(InSource);
+	ID3D11ShaderResourceView* SourceSRV = RHIDevice->GetSRV(InSource);
 	ID3D11SamplerState* SamplerState = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
-	if (!DepthSRV || !SamplerState)
+	if (!SourceSRV || !SamplerState)
 	{
 		UE_LOG("PointClamp Sampler is null!\n");
 		return;
 	}
 
 	// Shader Resource 바인딩 (슬롯 확인!)
-	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &DepthSRV);  // t0
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &SourceSRV);  // t0
 	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &SamplerState);
 
 	UShader* FullScreenTriangleVS = UResourceManager::GetInstance().Load<UShader>("FullScreenTriangle.vs.hlsl");

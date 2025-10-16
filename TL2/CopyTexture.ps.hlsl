@@ -9,8 +9,6 @@ struct PS_INPUT
 
 float4 mainPS(PS_INPUT In) : SV_TARGET
 {
-    //return float4(In.TexCoord.x, In.TexCoord.y,1,1);
-    
     // 입력 텍스처의 UV 좌표 위치에서 색상을 그대로 샘플링하여 반환
     return SourceTexture.Sample(PointSampler, In.TexCoord);
 }

@@ -72,6 +72,7 @@ public:
 	void UpdateFogCB(float FogDensity, float FogHeightFalloff, float StartDistance,
 		float FogCutoffDistance, const FVector4& FogInscatteringColor,
 		float FogMaxOpacity, float FogHeight);
+	void UpdateFXAACB(const FVector2D& InScreenSize, const FVector2D& InInvScreenSize, float InEdgeThresholdMin, float InEdgeThresholdMax, float InQualitySubPix, int InQualityIterations);
 
 	void IASetPrimitiveTopology();
 	void RSSetState(ERasterizerMode ViewModeIndex);
@@ -105,8 +106,6 @@ public:
 	void SetViewport(UINT width, UINT height);
 
 	void setviewort(UINT width, UINT height);
-
-	void ResizeSwapChain(UINT width, UINT height);
 
 	// Viewport query
 	UINT GetViewportWidth() const { return (UINT)ViewportInfo.Width; }
@@ -212,6 +211,7 @@ private:
 	ID3D11Buffer* PostProcessCB{};
 	ID3D11Buffer* InvViewProjCB{};
 	ID3D11Buffer* FogCB{};
+	ID3D11Buffer* FXAACB{};
 
 	ID3D11Buffer* ConstantBuffer{};
 

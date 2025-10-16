@@ -12,18 +12,25 @@ struct VS_OUTPUT
 VS_OUTPUT mainVS(uint VertexID : SV_VertexID)
 {
     VS_OUTPUT Out;
-
-    // VertexID (0, 1, 2)를 기반으로 UV 좌표를 계산합니다.
-    // ID 0 -> (0, 0)
-    // ID 1 -> (2, 0)
-    // ID 2 -> (0, 2)
-    Out.TexCoord = float2((VertexID << 1) & 2, VertexID & 2);
-
-    // UV 좌표를 클립 공간 좌표로 변환합니다.
-    // TexCoord (0,0) -> Position (-1, 1)  : 왼쪽 위
-    // TexCoord (2,0) -> Position ( 3, 1)  : 오른쪽 저 멀리
-    // TexCoord (0,2) -> Position (-1,-3)  : 아래쪽 저 멀리
-    Out.Position = float4(Out.TexCoord * float2(2.0f, -2.0f) + float2(-1.0f, 1.0f), 0.0f, 1.0f);
-
+    
+    // SV_VertexID를 사용하여 하드코딩된 정점 위치와 텍스처 좌표를 생성합니다.
+    // 이 트릭은 화면 전체를 덮는 거대한 삼각형 하나를 만들어냅니다.
+    // X, Y는 클립 공간 좌표 (-1 to 1), Z는 깊이, W는 동차 좌표.
+    if (VertexID == 0)
+    {
+        Out.Position = float4(-1.0f, -1.0f, 0.0f, 1.0f);
+        Out.TexCoord = float2(0.0f, 1.0f);
+    }
+    else if (VertexID == 1)
+    {
+        Out.Position = float4(-1.0f, 3.0f, 0.0f, 1.0f);
+        Out.TexCoord = float2(0.0f, -1.0f);
+    }
+    else // VertexID == 2
+    {
+        Out.Position = float4(3.0f, -1.0f, 0.0f, 1.0f);
+        Out.TexCoord = float2(2.0f, 1.0f);
+    }
+    
     return Out;
 }

@@ -50,9 +50,20 @@ struct FogBufferType // b2
     float FogHeight; // fog base height
     float Padding[2]; // 16바이트 정렬을 위한 패딩
 };
-
 static_assert(sizeof(FogBufferType) % 16 == 0, "FogBufferType size must be multiple of 16!");
 
+
+struct FXAABufferType // b2
+{
+    FVector2D ScreenSize; // 화면 해상도 (e.g., float2(1920.0f, 1080.0f))
+    FVector2D InvScreenSize; // 1.0f / ScreenSize (픽셀 하나의 크기)
+
+    float EdgeThresholdMin; // 엣지 감지 최소 휘도 차이 (0.0833f 권장)
+    float EdgeThresholdMax; // 엣지 감지 최대 휘도 차이 (0.166f 권장)
+    float QualitySubPix; // 서브픽셀 품질 (낮을수록 부드러움, 0.75 권장)
+    int32_t QualityIterations; // 엣지 탐색 반복 횟수 (12 권장)
+};
+static_assert(sizeof(FXAABufferType) % 16 == 0, "FXAABufferType size must be multiple of 16!");
 
 
 // b0 in PS
@@ -177,6 +188,7 @@ void D3D11RHI::Release()
     if (PostProcessCB) { PostProcessCB->Release(); PostProcessCB = nullptr; }
     if (InvViewProjCB) { InvViewProjCB->Release(); InvViewProjCB = nullptr; }
     if (FogCB) { FogCB->Release(); FogCB = nullptr; }
+    if (FXAACB) { FXAACB->Release(); FXAACB = nullptr; }
 
     // 상태 객체
     if (DepthStencilState) { DepthStencilState->Release(); DepthStencilState = nullptr; }
@@ -543,6 +555,33 @@ void D3D11RHI::UpdateFogCB(float FogDensity, float FogHeightFalloff, float Start
     }
 }
 
+void D3D11RHI::UpdateFXAACB(
+    const FVector2D& InScreenSize,
+    const FVector2D& InInvScreenSize,
+    float InEdgeThresholdMin,
+    float InEdgeThresholdMax,
+    float InQualitySubPix,
+    int InQualityIterations
+)
+{
+    if (!FXAACB) return;
+
+    D3D11_MAPPED_SUBRESOURCE Mapped;
+    if (SUCCEEDED(DeviceContext->Map(FXAACB, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped)))
+    {
+        auto* DataPtr = reinterpret_cast<FXAABufferType*>(Mapped.pData);
+        DataPtr->ScreenSize = InScreenSize;
+        DataPtr->InvScreenSize = InInvScreenSize;
+        DataPtr->EdgeThresholdMin = InEdgeThresholdMin;
+        DataPtr->EdgeThresholdMax = InEdgeThresholdMax;
+        DataPtr->QualitySubPix = InQualitySubPix;
+        DataPtr->QualityIterations = InQualityIterations;
+        DeviceContext->Unmap(FXAACB, 0);
+
+        DeviceContext->PSSetConstantBuffers(2, 1, &FXAACB);
+    }
+}
+
 void D3D11RHI::IASetPrimitiveTopology()
 {
     DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -859,10 +898,10 @@ void D3D11RHI::CreateConstantBuffer()
     pixelConstDesc.ByteWidth = sizeof(FPixelConstBufferType);
     pixelConstDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     pixelConstDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    HRESULT hr = Device->CreateBuffer(&pixelConstDesc, nullptr, &PixelConstCB);
-    if (FAILED(hr))
+    HRESULT Hr = Device->CreateBuffer(&pixelConstDesc, nullptr, &PixelConstCB);
+    if (FAILED(Hr))
     {
-        assert(FAILED(hr));
+        assert(FAILED(Hr));
     }
 
     // b1 : ViewProjBuffer
@@ -941,8 +980,8 @@ void D3D11RHI::CreateConstantBuffer()
     postProcessDesc.ByteWidth = sizeof(PostProcessBufferType);
     postProcessDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     postProcessDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    hr = Device->CreateBuffer(&postProcessDesc, nullptr, &PostProcessCB);
-    if (FAILED(hr))
+    Hr = Device->CreateBuffer(&postProcessDesc, nullptr, &PostProcessCB);
+    if (FAILED(Hr))
     {
         assert(false && "Failed to create PostProcessCB");
     }
@@ -953,8 +992,8 @@ void D3D11RHI::CreateConstantBuffer()
     invViewProjDesc.ByteWidth = sizeof(InvViewProjBufferType);
     invViewProjDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     invViewProjDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    hr = Device->CreateBuffer(&invViewProjDesc, nullptr, &InvViewProjCB);
-    if (FAILED(hr))
+    Hr = Device->CreateBuffer(&invViewProjDesc, nullptr, &InvViewProjCB);
+    if (FAILED(Hr))
     {
         assert(false && "Failed to create InvViewProjCB");
     }
@@ -965,10 +1004,22 @@ void D3D11RHI::CreateConstantBuffer()
     fogDesc.ByteWidth = sizeof(FogBufferType);
     fogDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     fogDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    hr = Device->CreateBuffer(&fogDesc, nullptr, &FogCB);
-    if (FAILED(hr))
+    Hr = Device->CreateBuffer(&fogDesc, nullptr, &FogCB);
+    if (FAILED(Hr))
     {
         assert(false && "Failed to create FogCB");
+    }
+
+    // FXAACB (b2 in PostProcess PS)
+    D3D11_BUFFER_DESC FXAADesc = {};
+    FXAADesc.Usage = D3D11_USAGE_DYNAMIC;
+    FXAADesc.ByteWidth = sizeof(FXAABufferType);
+    FXAADesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    FXAADesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    Hr = Device->CreateBuffer(&FXAADesc, nullptr, &FXAACB);
+    if (FAILED(Hr))
+    {
+        assert(false && "Failed to create FXAACB");
     }
 }
 
