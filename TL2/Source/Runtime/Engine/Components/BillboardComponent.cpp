@@ -21,11 +21,11 @@ UBillboardComponent::UBillboardComponent()
 	}
 
 	// HSLS 설정 
-	SetMaterial("Billboard.hlsl", EVertexLayoutType::PositionBillBoard);
+	SetMaterial("Shaders/UI/Billboard.hlsl", EVertexLayoutType::PositionBillBoard);
 	//Material->SetShader(".hlsl", EVertexLayoutType::PositionColorTexturNormal);
 
 	// 일단 디폴트 텍스쳐로 설정하기 .
-	SetTextureName("Editor/Pawn_64x.png");
+	SetTextureName("Data/UI/Icons/Pawn_64x.png");
 }
 
 

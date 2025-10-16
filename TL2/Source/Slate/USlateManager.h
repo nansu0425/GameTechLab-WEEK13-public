@@ -1,9 +1,9 @@
 ﻿#pragma once
 #include "Object.h"
-#include "SWindow.h" // for FRect and SWindow types used by children
-#include "SSplitterV.h"
-#include "SSplitterH.h"
-#include "SViewportWindow.h"
+#include "Windows/SWindow.h" // for FRect and SWindow types used by children
+#include "Windows/SSplitterV.h"
+#include "Windows/SSplitterH.h"
+#include "Windows/SViewportWindow.h"
 
 class SSceneIOWindow; // 새로 추가할 UI
 class SDetailsWindow;

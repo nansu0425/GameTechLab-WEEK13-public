@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include <cstdarg>
 #include <iostream>
-#include "../Object.h"
+#include "Object.h"
 
 class UConsoleWidget;
 

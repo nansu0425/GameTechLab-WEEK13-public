@@ -1,12 +1,12 @@
 ﻿#include "pch.h"
 #include "UIWindowFactory.h"
-#include "../UIManager.h"
-#include "../Window/ConsoleWindow.h"  // 새로운 ConsoleWindow 사용
-#include "../Window/ControlPanelWindow.h"
-#include "../Window/PropertyWindow.h"
-#include "../Window/ExperimentalFeatureWindow.h"
-#include "../Window/SceneWindow.h"
-#include "../GlobalConsole.h"
+#include "UIManager.h"
+#include "Windows/ConsoleWindow.h"  // 새로운 ConsoleWindow 사용
+#include "Windows/ControlPanelWindow.h"
+#include "Windows/PropertyWindow.h"
+#include "Windows/ExperimentalFeatureWindow.h"
+#include "Windows/SceneWindow.h"
+#include "GlobalConsole.h"
 
 UConsoleWindow* UUIWindowFactory::CreateConsoleWindow(EUIDockDirection InDockDirection)
 {

@@ -9,7 +9,7 @@ UHeightFogComponent::UHeightFogComponent()
 	// 사막 느낌
 	FogInscatteringColor = new FLinearColor(0.93f, 0.79f, 0.69f, 1.0f);
 	FullScreenQuadMesh = UResourceManager::GetInstance().Load<UStaticMesh>("Data/FullScreenQuad.obj");
-	HeightFogShader = UResourceManager::GetInstance().Load<UShader>("HeightFogShader.hlsl");
+	HeightFogShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Effects/Fog.hlsl");
 }
 
 UHeightFogComponent::~UHeightFogComponent()

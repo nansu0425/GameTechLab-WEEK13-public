@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include <Windows.h>
-#include "../../Object.h"
+#include "Object.h"
 
 // Forward declarations
 struct ID3D11Device;

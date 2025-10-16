@@ -8,7 +8,7 @@
 #include "StaticMeshActor.h"
 #include "StaticMeshComponent.h"
 #include "Frustum.h"
-#include "GizmoActor.h"
+#include "Gizmo/GizmoActor.h"
 
 UWorldPartitionManager::UWorldPartitionManager()
 {

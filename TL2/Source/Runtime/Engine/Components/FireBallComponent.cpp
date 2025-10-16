@@ -14,7 +14,7 @@ UFireBallComponent::UFireBallComponent()
 	SetCanEverTick(false);
 	SetTickEnabled(false);
 
-	LightingShaderPath = "FireBallShader.hlsl";
+	LightingShaderPath = "Shaders/Effects/FireBallShader.hlsl";
 	LightingShader = UResourceManager::GetInstance().Load<UShader>(LightingShaderPath, EVertexLayoutType::PositionColorTexturNormal);
 	if (!LightingShader)
 	{

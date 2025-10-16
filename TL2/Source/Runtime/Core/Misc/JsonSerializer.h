@@ -13,7 +13,7 @@
 // #include "Core/Public/CoreTypes.h" 
 // #include "Core/Public/Object.h" // UE_LOG 등
 #include "UEContainer.h"
-#include "UI/GlobalConsole.h"
+#include "GlobalConsole.h"
 #include "Vector.h"
 #include "Enums.h"
 #include "nlohmann/json.hpp"  // 사용하는 JSON 라이브러리

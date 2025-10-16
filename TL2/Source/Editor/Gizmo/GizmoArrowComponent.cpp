@@ -5,7 +5,7 @@
 UGizmoArrowComponent::UGizmoArrowComponent()
 {
     SetStaticMesh("Data/Gizmo/TranslationHandle.obj");
-    SetMaterial("StaticMeshShader.hlsl", EVertexLayoutType::PositionColorTexturNormal);
+    SetMaterial("Shaders/StaticMesh/StaticMeshShader.hlsl", EVertexLayoutType::PositionColorTexturNormal);
 }
 
 float UGizmoArrowComponent::ComputeScreenConstantScale(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj, float targetPixels) const

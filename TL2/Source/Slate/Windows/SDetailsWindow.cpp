@@ -1,7 +1,7 @@
 ﻿#include "pch.h"
 #include "SDetailsWindow.h"
-#include"UI/Window/PropertyWindow.h"
-#include"UI/UIManager.h"
+#include "Windows/PropertyWindow.h"
+#include "UIManager.h"
 SDetailsWindow::SDetailsWindow()
     : SWindow()
     , DetailsWidget(nullptr)

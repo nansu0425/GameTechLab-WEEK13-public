@@ -1,7 +1,7 @@
 ﻿#include "pch.h"
 #include "InputInformationWidget.h"
-#include "../../ImGui/imgui.h"
-#include "../../InputManager.h"
+#include "ImGui/imgui.h"
+#include "InputManager.h"
 #include <windows.h>
 #include <sstream>
 #include <iomanip>

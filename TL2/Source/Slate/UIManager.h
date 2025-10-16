@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include <windows.h>
-#include "../Object.h"
-#include "../Vector.h"
+#include "Object.h"
+#include "Vector.h"
 
 class UUIWindow;
 class UImGuiHelper;

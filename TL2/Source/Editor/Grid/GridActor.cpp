@@ -1,5 +1,5 @@
 ﻿#include "pch.h"
-#include "GridActor.h"
+#include "Grid/GridActor.h"
 
 using std::to_string;
 

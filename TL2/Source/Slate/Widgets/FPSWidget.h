@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "Widget.h"
-#include "../../ImGui/imgui.h"
+#include "ImGui/imgui.h"
 
 /**
  * @brief Frame과 관련된 내용을 제공하는 UI Widget

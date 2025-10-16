@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "../../Object.h"
+#include "Object.h"
 
 /**
  * @brief UI의 기능 단위인 위젯 클래스의 Interface Class

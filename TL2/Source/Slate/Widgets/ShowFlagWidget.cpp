@@ -1,8 +1,8 @@
 ﻿#include "pch.h"
 #include "ShowFlagWidget.h"
-#include "../../World.h"
-#include "../../RenderSettings.h"
-#include "../UIManager.h"
+#include "World.h"
+#include "RenderSettings.h"
+#include "UIManager.h"
 
 UShowFlagWidget::UShowFlagWidget()
 {

@@ -7,8 +7,8 @@
 
 UDecalComponent::UDecalComponent()
 {
-	UResourceManager::GetInstance().Load<UMaterial>("DecalVS.hlsl", EVertexLayoutType::PositionColorTexturNormal);
-	UResourceManager::GetInstance().Load<UMaterial>("DecalPS.hlsl", EVertexLayoutType::PositionColorTexturNormal);
+	UResourceManager::GetInstance().Load<UMaterial>("Shaders/Effects/DecalVS.hlsl", EVertexLayoutType::PositionColorTexturNormal);
+	UResourceManager::GetInstance().Load<UMaterial>("Shaders/Effects/DecalPS.hlsl", EVertexLayoutType::PositionColorTexturNormal);
 
 	DecalTexture = UResourceManager::GetInstance().Load<UTexture>("Data/Textures/grass.jpg");
 
@@ -83,8 +83,8 @@ void UDecalComponent::RenderAffectedPrimitives(URenderer* Renderer, UPrimitiveCo
 	//UE_LOG("Render: decal opacity: %.2f, uuid: %d", DecalOpacity, UUID);
 
 	// Shader 설정
-	UShader* VS = UResourceManager::GetInstance().Load<UShader>("DecalVS.hlsl");
-	UShader* PS = UResourceManager::GetInstance().Load<UShader>("DecalPS.hlsl");
+	UShader* VS = UResourceManager::GetInstance().Load<UShader>("Shaders/Effects/DecalVS.hlsl");
+	UShader* PS = UResourceManager::GetInstance().Load<UShader>("Shaders/Effects/DecalPS.hlsl");
 
 	RHIDevice->GetDeviceContext()->VSSetShader(VS->GetVertexShader(), nullptr, 0);
 	RHIDevice->GetDeviceContext()->PSSetShader(PS->GetPixelShader(), nullptr, 0);

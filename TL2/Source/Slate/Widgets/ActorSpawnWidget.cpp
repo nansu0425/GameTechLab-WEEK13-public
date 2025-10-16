@@ -1,6 +1,6 @@
 ﻿#include "pch.h"
 #include "ActorSpawnWidget.h"
-#include "UI/UIManager.h" // UIManager 경로 수정 필요 시 확인
+#include "UIManager.h" // UIManager 경로 수정 필요 시 확인
 #include "ImGui/imgui.h"
 #include "World.h"
 #include "StaticMeshActor.h"

@@ -1,17 +1,17 @@
 ﻿#include "pch.h"
-#include "GridActor.h"
-#include "GizmoActor.h"
+#include "Grid/GridActor.h"
+#include "Gizmo/GizmoActor.h"
+#include "Gizmo/GizmoArrowComponent.h"
+#include "Gizmo/GizmoScaleComponent.h"
+#include "Gizmo/GizmoRotateComponent.h"
 #include "RenderSettings.h"
-#include "GizmoArrowComponent.h"
-#include "GizmoScaleComponent.h"
-#include "GizmoRotateComponent.h"
 #include "CameraActor.h"
 #include "SelectionManager.h"
 #include "InputManager.h"
-#include "UI/UIManager.h"
-#include"FViewport.h"
+#include "UIManager.h"
+#include "FViewport.h"
 #include "Picking.h"
-#include <EditorEngine.h>
+#include "EditorEngine.h"
 
 AGizmoActor::AGizmoActor()
 {

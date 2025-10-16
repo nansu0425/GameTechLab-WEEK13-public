@@ -1,7 +1,7 @@
 ﻿#include "pch.h"
 #include "UIWindow.h"
-#include "../../ImGui/imgui_internal.h"
-#include "../Widget/Widget.h"
+#include "ImGui/imgui_internal.h"
+#include "Widgets/Widget.h"
 
 using namespace std;
 

@@ -1,8 +1,7 @@
 ﻿#include "pch.h"
 #include "Texture.h"
-#include <DDSTextureLoader.h>
-#include "d3dtk/WICTextureLoader.h"
-#include <Windows.h>
+#include "DirectXTK/DDSTextureLoader.h"
+#include "DirectXTK/WICTextureLoader.h"
 
 UTexture::UTexture()
 {

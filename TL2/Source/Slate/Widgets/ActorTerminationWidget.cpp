@@ -1,11 +1,11 @@
 ﻿#include "pch.h"
 #include "ActorTerminationWidget.h"
-#include "GizmoActor.h"
-#include "../UIManager.h"
-#include "../../ImGui/imgui.h"
-#include "../../Actor.h"
-#include "../../InputManager.h"
-#include "../../World.h"
+#include "Gizmo/GizmoActor.h"
+#include "UIManager.h"
+#include "ImGui/imgui.h"
+#include "Actor.h"
+#include "InputManager.h"
+#include "World.h"
 #include <EditorEngine.h>
 
 //// UE_LOG 대체 매크로

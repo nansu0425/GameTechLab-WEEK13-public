@@ -1,6 +1,6 @@
 ﻿#include "pch.h"
 #include "PropertyWindow.h"
-#include "../Widget/TargetActorTransformWidget.h"
+#include "Widgets/TargetActorTransformWidget.h"
 
 UPropertyWindow::UPropertyWindow()
 {

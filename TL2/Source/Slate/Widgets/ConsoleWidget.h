@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include "Widget.h"
-#include "../../Vector.h"
-#include "../../ImGui/imgui.h"
+#include "Vector.h"
+#include "ImGui/imgui.h"
 
 /**
  * @brief Console Widget for displaying log messages and executing commands

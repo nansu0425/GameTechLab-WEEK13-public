@@ -4,7 +4,7 @@
 UGizmoScaleComponent::UGizmoScaleComponent()
 {
     SetStaticMesh("Data/Gizmo/ScaleHandle.obj");
-    SetMaterial("StaticMeshShader.hlsl", EVertexLayoutType::PositionColorTexturNormal);
+    SetMaterial("Shaders/StaticMesh/StaticMeshShader.hlsl", EVertexLayoutType::PositionColorTexturNormal);
 }
 
 UGizmoScaleComponent::~UGizmoScaleComponent()

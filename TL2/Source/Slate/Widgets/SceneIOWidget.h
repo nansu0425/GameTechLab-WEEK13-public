@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include "Widget.h"
-#include "../../Vector.h"
-#include "../../World.h"
+#include "Vector.h"
+#include "World.h"
 #include <filesystem>
 
 using std::filesystem::path;

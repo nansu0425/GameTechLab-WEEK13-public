@@ -1,15 +1,15 @@
 ﻿#include "pch.h"
 #include "CameraControlWidget.h"
-#include "UI/UIManager.h" 
+#include "UIManager.h" 
 #include "ImGui/imgui.h"
 #include "CameraActor.h"
 #include "CameraComponent.h"
 #include "Vector.h"
 #include "World.h"
-#include "GridActor.h"
-#include "GizmoActor.h"
+#include "Grid/GridActor.h"
+#include "Gizmo/GizmoActor.h"
 #include <algorithm>
-#include <EditorEngine.h>
+#include "EditorEngine.h"
 
 //// UE_LOG 대체 매크로
 //#define UE_LOG(fmt, ...)

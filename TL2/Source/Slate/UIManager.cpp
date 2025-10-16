@@ -1,14 +1,14 @@
 ﻿#include "pch.h"
 #include "Actor.h"
-#include "Window/UIWindow.h"
+#include "Windows/UIWindow.h"
 #include "ImGui/ImGuiHelper.h"
-#include "Widget/Widget.h"
-#include "../ImGui/imgui.h"
-#include "../ImGui/imgui_internal.h"
-#include "../ImGui/imgui_impl_dx11.h"
-#include "../imGui/imgui_impl_win32.h"
-#include "UI/Widget/TargetActorTransformWidget.h"
-#include "UI/Widget/CameraControlWidget.h"
+#include "Widgets/Widget.h"
+#include "ImGui/imgui.h"
+#include "ImGui/imgui_internal.h"
+#include "ImGui/imgui_impl_dx11.h"
+#include "imGui/imgui_impl_win32.h"
+#include "Widgets/TargetActorTransformWidget.h"
+#include "Widgets/CameraControlWidget.h"
 
 UUIManager::UUIManager()
 {

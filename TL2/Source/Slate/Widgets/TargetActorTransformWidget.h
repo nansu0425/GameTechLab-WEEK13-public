@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include "Widget.h"
-#include "../../Vector.h"
-#include "../../Enums.h"
+#include "Vector.h"
+#include "Enums.h"
 
 class UUIManager;
 class UWorld;

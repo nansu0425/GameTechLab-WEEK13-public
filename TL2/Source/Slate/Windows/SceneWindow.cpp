@@ -1,8 +1,8 @@
 ﻿#include "pch.h"
 #include "SceneWindow.h"
-#include "../Widget/SceneManagerWidget.h"
-#include "../Widget/ShowFlagWidget.h"
-#include "../Widget/ActorSpawnWidget.h"
+#include "Widgets/SceneManagerWidget.h"
+#include "Widgets/ShowFlagWidget.h"
+#include "Widgets/ActorSpawnWidget.h"
 
 //// UE_LOG 대체 매크로
 //#define UE_LOG(fmt, ...)

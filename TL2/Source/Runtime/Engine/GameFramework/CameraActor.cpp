@@ -2,7 +2,7 @@
 #include "CameraActor.h"
 #include "ObjectFactory.h"
 #include "CameraComponent.h"
-#include "UI/UIManager.h"
+#include "UIManager.h"
 #include "InputManager.h"
 #include "Vector.h"
 #include "USlateManager.h"

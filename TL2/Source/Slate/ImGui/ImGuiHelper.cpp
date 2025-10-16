@@ -1,9 +1,9 @@
 ﻿#include "pch.h"
 #include "ImGuiHelper.h"
-#include "../../ImGui/imgui.h"
-#include "../../ImGui/imgui_impl_dx11.h"
-#include "../../ImGui/imgui_impl_win32.h"
-#include "../../Renderer.h"
+#include "ImGui/imgui.h"
+#include "ImGui/imgui_impl_dx11.h"
+#include "ImGui/imgui_impl_win32.h"
+#include "Renderer.h"
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, uint32 msg, WPARAM wParam, LPARAM lParam);
 
@@ -61,7 +61,7 @@ void UImGuiHelper::Initialize(HWND InWindowHandle, ID3D11Device* InDevice, ID3D1
 		따라서 베이크 시간/메모리 비용이 아깝다면 내릴 것
 	*/
 	Cfg.OversampleH = Cfg.OversampleV = 2;
-	IO.Fonts->AddFontFromFileTTF("Fonts/malgun.ttf", 18.0f, &Cfg, IO.Fonts->GetGlyphRangesKorean());
+	IO.Fonts->AddFontFromFileTTF("Data/UI/Fonts/malgun.ttf", 18.0f, &Cfg, IO.Fonts->GetGlyphRangesKorean());
 
 	// Use default ImGui font
 	// IO.Fonts->AddFontDefault();

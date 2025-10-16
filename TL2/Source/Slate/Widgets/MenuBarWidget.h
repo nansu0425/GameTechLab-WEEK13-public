@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "UI/Widget/Widget.h"
+#include "Widgets/Widget.h"
 class USlateManager;
 
 /**

@@ -1,7 +1,7 @@
 ﻿#include "pch.h"
 #include <string>
 #include "TargetActorTransformWidget.h"
-#include "UI/UIManager.h"
+#include "UIManager.h"
 #include "ImGui/imgui.h"
 #include "Vector.h"
 #include "World.h"
@@ -10,8 +10,8 @@
 #include "ActorSpawnWidget.h"
 
 #include "Actor.h"
-#include "GridActor.h"
-#include "GizmoActor.h"
+#include "Grid/GridActor.h"
+#include "Gizmo/GizmoActor.h"
 #include "StaticMeshActor.h"    
 #include "FakeSpotLightActor.h"    
 

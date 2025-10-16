@@ -1,11 +1,11 @@
 ﻿#include "pch.h"
 #include "ControlPanelWindow.h"
-#include "../Widget/CameraControlWidget.h"
-#include "../Widget/FPSWidget.h"
-#include "../Widget/ActorTerminationWidget.h"
-#include "../Widget/PrimitiveSpawnWidget.h"
-#include "../Widget/SceneIOWidget.h"
-#include"RenderViewportSwitcherWidget.h"
+#include "Widgets/CameraControlWidget.h"
+#include "Widgets/FPSWidget.h"
+#include "Widgets/ActorTerminationWidget.h"
+#include "Widgets/PrimitiveSpawnWidget.h"
+#include "Widgets/SceneIOWidget.h"
+#include "Widgets/RenderViewportSwitcherWidget.h"
 
 //// UE_LOG 대체 매크로
 //#define UE_LOG(fmt, ...)

@@ -5,6 +5,9 @@
 #pragma comment(lib, "d3d11")
 #pragma comment(lib, "d3dcompiler")
 
+// DirectXTK
+#pragma comment(lib, "DirectXTK.lib")
+
 // Standard Library (MUST come before UEContainer.h)
 #include <vector>
 #include <map>
@@ -44,12 +47,12 @@
 #include "Name.h"
 #include "Object.h"
 #include "Enums.h"
-#include "UI/GlobalConsole.h"
+#include "GlobalConsole.h"
 #include "D3D11RHI.h"
 #include "ObjectFactory.h"
 #include "World.h"
 // d3dtk
-#include "d3dtk/SimpleMath.h"
+#include "DirectXTK/SimpleMath.h"
 
 // ImGui
 #include "ImGui/imgui.h"
@@ -63,7 +66,7 @@
 //Manager
 #include "Renderer.h"
 #include "InputManager.h"
-#include "UI/UIManager.h"
+#include "UIManager.h"
 #include "ResourceManager.h"
 
 #include "JsonSerializer.h"

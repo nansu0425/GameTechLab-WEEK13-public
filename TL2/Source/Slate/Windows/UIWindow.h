@@ -1,9 +1,9 @@
 ﻿#pragma once
-#include "../../Object.h"
-#include "../../UEContainer.h"
-#include "../../Object.h"
-#include "../../ImGui/imgui.h"
-#include "../Factory/UIWindowFactory.h"
+#include "Object.h"
+#include "UEContainer.h"
+#include "Object.h"
+#include "ImGui/imgui.h"
+#include "Factory/UIWindowFactory.h"
 
 
 
@@ -140,14 +140,10 @@ public:
 	void Update() const;
 	// Render
 	void RenderWindow();
+
 protected:
-	void RenderInternal();
 	void ApplyDockingSettings() const;
 	void UpdateWindowInfo();
-
-
-
-	
 
 private:
 	static int IssuedWindowID;

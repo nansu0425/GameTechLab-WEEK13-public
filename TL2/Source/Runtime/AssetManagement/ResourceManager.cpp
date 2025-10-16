@@ -1,9 +1,9 @@
 ﻿#include "pch.h"
 #include "MeshLoader.h"
 #include "ObjectFactory.h"
-#include "d3dtk/DDSTextureLoader.h"
+#include "DirectXTK/DDSTextureLoader.h"
+#include "DirectXTK/WICTextureLoader.h"
 #include "ObjManager.h"
-#include "d3dtk/WICTextureLoader.h"
 #include "Quad.h"
 #include "MeshBVH.h"
 #include "Enums.h"
@@ -456,10 +456,10 @@ void UResourceManager::CreateBoxWireframeMesh(const FVector& Min, const FVector&
 void UResourceManager::CreateDefaultShader()
 {
     // 템플릿 Load 멤버함수 호출해서 Resources[UShader의 typeIndex][shader 파일 이름]에 UShader 포인터 할당
-    Load<UShader>("Primitive.hlsl", EVertexLayoutType::PositionColor);
-    Load<UShader>("StaticMeshShader.hlsl", EVertexLayoutType::PositionColorTexturNormal);
-    Load<UShader>("TextBillboard.hlsl", EVertexLayoutType::PositionTextBillBoard);
-    Load<UShader>("Billboard.hlsl", EVertexLayoutType::PositionBillBoard);
+    Load<UShader>("Shaders/Primitives/Primitive.hlsl", EVertexLayoutType::PositionColor);
+    Load<UShader>("Shaders/StaticMesh/StaticMeshShader.hlsl", EVertexLayoutType::PositionColorTexturNormal);
+    Load<UShader>("Shaders/UI/TextBillboard.hlsl", EVertexLayoutType::PositionTextBillBoard);
+    Load<UShader>("Shaders/UI/Billboard.hlsl", EVertexLayoutType::PositionBillBoard);
 }
 
 void UResourceManager::InitShaderILMap()
@@ -468,23 +468,23 @@ void UResourceManager::InitShaderILMap()
 
     layout.Add({ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 });
     layout.Add({ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 16, D3D11_INPUT_PER_VERTEX_DATA, 0 });
-    ShaderToInputLayoutMap["ShaderLine.hlsl"] = layout;
-    ShaderToInputLayoutMap["Primitive.hlsl"] = layout;
+    ShaderToInputLayoutMap["Shaders/UI/ShaderLine.hlsl"] = layout;
+    ShaderToInputLayoutMap["Shaders/Primitives/Primitive.hlsl"] = layout;
     layout.clear();
 
     layout.Add({ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 });
     layout.Add({ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 });
     layout.Add({ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 32, D3D11_INPUT_PER_VERTEX_DATA, 0 });
     layout.Add({ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 48, D3D11_INPUT_PER_VERTEX_DATA, 0 });
-    ShaderToInputLayoutMap["StaticMeshShader.hlsl"] = layout;
-    ShaderToInputLayoutMap["DecalVS.hlsl"] = layout;
-    ShaderToInputLayoutMap["FireBallShader.hlsl"] = layout;
+    ShaderToInputLayoutMap["Shaders/StaticMesh/StaticMeshShader.hlsl"] = layout;
+    ShaderToInputLayoutMap["Shaders/Effects/DecalVS.hlsl"] = layout;
+    ShaderToInputLayoutMap["Shaders/Effects/FireBallShader.hlsl"] = layout;
     layout.clear();
 
     layout.Add({ "WORLDPOSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 });
     layout.Add({ "SIZE", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 });
     layout.Add({ "UVRECT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 20, D3D11_INPUT_PER_VERTEX_DATA, 0 });
-    ShaderToInputLayoutMap["TextBillboard.hlsl"] = layout;
+    ShaderToInputLayoutMap["Shaders/UI/TextBillboard.hlsl"] = layout;
     layout.clear();
 
     // ────────────────────────────────
@@ -494,7 +494,7 @@ void UResourceManager::InitShaderILMap()
                  D3D11_INPUT_PER_VERTEX_DATA, 0 });
     layout.Add({ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 12,
                  D3D11_INPUT_PER_VERTEX_DATA, 0 });
-    ShaderToInputLayoutMap["Billboard.hlsl"] = layout;
+    ShaderToInputLayoutMap["Shaders/UI/Billboard.hlsl"] = layout;
     layout.clear();
     
 
@@ -505,11 +505,11 @@ void UResourceManager::InitShaderILMap()
                  D3D11_INPUT_PER_VERTEX_DATA, 0 });
     layout.Add({ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 48,
                  D3D11_INPUT_PER_VERTEX_DATA, 0 });
-    ShaderToInputLayoutMap["Fog.hlsl"] = layout;
-    ShaderToInputLayoutMap["SceneDepth.hlsl"] = layout;
+    ShaderToInputLayoutMap["Shaders/Effects/Fog.hlsl"] = layout;
+    ShaderToInputLayoutMap["Shaders/Utility/SceneDepth.hlsl"] = layout;
     layout.clear();
     
-    ShaderToInputLayoutMap["FullScreenTriangle.vs.hlsl"] = {};  // FullScreenTriangle 는 InputLayout을 사용하지 않는다
+    ShaderToInputLayoutMap["Shaders/Utility/FullScreenTriangle.vs.hlsl"] = {};  // FullScreenTriangle 는 InputLayout을 사용하지 않는다
 }
 
 TArray<D3D11_INPUT_ELEMENT_DESC>& UResourceManager::GetProperInputLayout(const FString& InShaderName)

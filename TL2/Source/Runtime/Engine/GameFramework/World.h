@@ -3,7 +3,7 @@
 #include "Enums.h"
 #include "RenderSettings.h"
 #include "Level.h"
-#include "GizmoActor.h"
+#include "Gizmo/GizmoActor.h"
 
 // Forward Declarations
 class UResourceManager;

@@ -1,5 +1,5 @@
 ﻿#include "pch.h"
-#include "UI/StatsOverlayD2D.h"
+#include "StatsOverlayD2D.h"
 #include "Color.h"
 
 struct FConstants

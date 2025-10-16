@@ -1,5 +1,5 @@
 ﻿#include "pch.h"
-#include "Widget/ConsoleWidget.h"
+#include "Widgets/ConsoleWidget.h"
 
 UConsoleWidget* UGlobalConsole::ConsoleWidget = nullptr;
 

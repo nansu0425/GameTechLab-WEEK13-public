@@ -11,8 +11,8 @@
 #include "PrimitiveComponent.h"
 #include "DecalComponent.h"
 #include "StaticMeshActor.h"
-#include "GridActor.h"
-#include "GizmoActor.h"
+#include "Grid/GridActor.h"
+#include "Gizmo/GizmoActor.h"
 #include "RenderSettings.h"
 #include "Occlusion.h"
 #include "Frustum.h"
@@ -27,9 +27,9 @@
 #include "BoundingSphere.h"
 #include "FireBallComponent.h"
 #include "HeightFogComponent.h"
-#include "GizmoArrowComponent.h"
-#include "GizmoRotateComponent.h"
-#include "GizmoScaleComponent.h"
+#include "Gizmo/GizmoArrowComponent.h"
+#include "Gizmo/GizmoRotateComponent.h"
+#include "Gizmo/GizmoScaleComponent.h"
 
 FSceneRenderer::FSceneRenderer(UWorld* InWorld, ACameraActor* InCamera, FViewport* InViewport, URenderer* InOwnerRenderer)
 	: World(InWorld)
@@ -461,7 +461,7 @@ void FSceneRenderer::RenderPostProcessingPasses()
 	RHIDevice->OMSetBlendState(false);
 
 	// 쉐이더 설정
-	UShader* FogShader = UResourceManager::GetInstance().Load<UShader>("Fog.hlsl");
+	UShader* FogShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Effects/Fog.hlsl");
 	if (!FogShader)
 	{
 		UE_LOG("Fog.hlsl shader not found!\n");
@@ -575,7 +575,7 @@ void FSceneRenderer::RenderSceneDepthPostProcess()
     RHIDevice->OMSetBlendState(false);
 
     // 쉐이더 설정
-    UShader* SceneDepthShader = UResourceManager::GetInstance().Load<UShader>("SceneDepth.hlsl");
+    UShader* SceneDepthShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/SceneDepth.hlsl");
     if (!SceneDepthShader)
     {
         UE_LOG("SceneDepth.hlsl shader not found!\n");
@@ -763,8 +763,8 @@ void FSceneRenderer::ApplyScreenEffectsPass()
 	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &SourceSRV);
 	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &SamplerState);
 
-	UShader* FullScreenTriangleVS = UResourceManager::GetInstance().Load<UShader>("FullScreenTriangle.vs.hlsl");
-	UShader* CopyTexturePS = UResourceManager::GetInstance().Load<UShader>("FXAA.ps.hlsl");
+	UShader* FullScreenTriangleVS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle.vs.hlsl");
+	UShader* CopyTexturePS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/FXAA.ps.hlsl");
 	if (!FullScreenTriangleVS || !FullScreenTriangleVS->GetVertexShader() || !CopyTexturePS || !CopyTexturePS->GetPixelShader())
 	{
 		UE_LOG("FXAA 셰이더 없음!\n");
@@ -822,8 +822,8 @@ void FSceneRenderer::Blit(RHI_SRV_Index InSource, ERTVMode InDestination)
 	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &SourceSRV);  // t0
 	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &SamplerState);
 
-	UShader* FullScreenTriangleVS = UResourceManager::GetInstance().Load<UShader>("FullScreenTriangle.vs.hlsl");
-	UShader* CopyTexturePS = UResourceManager::GetInstance().Load<UShader>("CopyTexture.ps.hlsl");
+	UShader* FullScreenTriangleVS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle.vs.hlsl");
+	UShader* CopyTexturePS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/CopyTexture.ps.hlsl");
 	if (!FullScreenTriangleVS || !CopyTexturePS)
 	{
 		UE_LOG("셰이더 없음!\n");

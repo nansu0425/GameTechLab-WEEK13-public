@@ -1,10 +1,11 @@
 ﻿#include "pch.h"
-#include "StatsOverlayD2D.h"
 
 #include <d2d1_1.h>
 #include <dwrite.h>
 #include <dxgi1_2.h>
-#include "UI/UIManager.h"
+
+#include "StatsOverlayD2D.h"
+#include "UIManager.h"
 #include "MemoryManager.h"
 #include "Picking.h"
 #include "PlatformTime.h"

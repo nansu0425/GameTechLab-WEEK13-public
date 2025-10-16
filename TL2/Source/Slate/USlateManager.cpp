@@ -1,14 +1,14 @@
 ﻿#include "pch.h"
 #include "USlateManager.h"
-#include "SWindow.h"
-#include "SSplitterV.h"
-#include "MenuBarWidget.h"
-#include "SceneIOWindow.h"
-#include "SDetailsWindow.h"
-#include "SControlPanel.h"
-#include "SViewportWindow.h"
+#include "Windows/SWindow.h"
+#include "Windows/SSplitterV.h"
+#include "Windows/SceneIOWindow.h"
+#include "Windows/SDetailsWindow.h"
+#include "Windows/SControlPanel.h"
+#include "Windows/SViewportWindow.h"
+#include "Widgets/MenuBarWidget.h"
 #include "FViewportClient.h"
-#include "UI/UIManager.h"
+#include "UIManager.h"
 
 USlateManager& USlateManager::GetInstance()
 {

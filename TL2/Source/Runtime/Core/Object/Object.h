@@ -4,7 +4,7 @@
 #include "MemoryManager.h"
 #include "Name.h"
 #include "nlohmann/json.hpp"
-//#include "UI/GlobalConsole.h"
+//#include "GlobalConsole.h"
 
 namespace json { class JSON; }
 using JSON = json::JSON;

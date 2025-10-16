@@ -1,8 +1,8 @@
 ﻿#include "pch.h"
 #include "ConsoleWidget.h"
-#include "../../ObjectFactory.h"
-#include "../GlobalConsole.h"
-#include "../StatsOverlayD2D.h"
+#include "ObjectFactory.h"
+#include "GlobalConsole.h"
+#include "StatsOverlayD2D.h"
 #include <windows.h>
 #include <cstdarg>
 #include <cctype>

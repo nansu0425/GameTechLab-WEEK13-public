@@ -1,10 +1,10 @@
 ﻿#include "pch.h"
 #include "PrimitiveSpawnWidget.h"
-#include "../UIManager.h"
-#include "../../ImGui/imgui.h"
-#include "../../World.h"
-#include "../../StaticMeshActor.h"
-#include "../../Vector.h"
+#include "UIManager.h"
+#include "ImGui/imgui.h"
+#include "World.h"
+#include "StaticMeshActor.h"
+#include "Vector.h"
 #include "ObjManager.h"
 #include <algorithm>
 #include <cstdlib>
@@ -12,7 +12,7 @@
 #include <string>
 #include "ObjectIterator.h"
 #include "BVHierarchy.h"
-#include "../../Octree.h"
+#include "Octree.h"
 #include "WorldPartitionManager.h"
 #include "StaticMeshComponent.h"
 

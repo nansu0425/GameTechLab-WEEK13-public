@@ -1,7 +1,7 @@
 ﻿#include "pch.h"
 #include "SControlPanel.h"
-#include"UI/Window/ControlPanelWindow.h"
-#include"UI/Window/SceneWindow.h"
+#include "Windows/ControlPanelWindow.h"
+#include "Windows/SceneWindow.h"
 
 SControlPanel::SControlPanel()
 {

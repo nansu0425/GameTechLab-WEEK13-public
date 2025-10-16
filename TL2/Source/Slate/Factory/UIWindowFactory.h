@@ -1,6 +1,6 @@
 ﻿#pragma once
-#include "../../Object.h"
-#include "../../UEContainer.h"
+#include "Object.h"
+#include "UEContainer.h"
 
 class UConsoleWindow;
 class UControlPanelWindow;

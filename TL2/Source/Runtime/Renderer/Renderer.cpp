@@ -15,8 +15,8 @@
 #include "CameraComponent.h"
 #include "PrimitiveComponent.h"
 #include "StaticMeshActor.h"
-#include "GizmoActor.h"
-#include "GridActor.h"
+#include "Gizmo/GizmoActor.h"
+#include "Grid/GridActor.h"
 #include "Octree.h"
 #include "BVHierarchy.h"
 #include "Occlusion.h"
@@ -267,7 +267,7 @@ void URenderer::InitializeLineBatch()
 	LineBatchData = new FMeshData();
 
 	// Load line shader
-	LineShader = UResourceManager::GetInstance().Load<UShader>("ShaderLine.hlsl", EVertexLayoutType::PositionColor);
+	LineShader = UResourceManager::GetInstance().Load<UShader>("Shaders/UI/ShaderLine.hlsl", EVertexLayoutType::PositionColor);
 	//LineShader = UResourceManager::GetInstance().Load<UShader>("StaticMeshShader.hlsl", EVertexLayoutType::PositionColorTexturNormal);
 }
 

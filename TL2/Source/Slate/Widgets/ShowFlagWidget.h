@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include "Widget.h"
-#include "../../ImGui/imgui.h"
-#include "../../Enums.h"
+#include "ImGui/imgui.h"
+#include "Enums.h"
 
 // Forward declarations
 class UWorld;

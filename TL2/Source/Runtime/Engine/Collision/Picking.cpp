@@ -12,11 +12,11 @@
 #include <cmath>
 #include <algorithm>
 
-#include "GizmoActor.h"
-#include "GizmoScaleComponent.h"
-#include "GizmoRotateComponent.h"
-#include "GizmoArrowComponent.h"
-#include "UI/GlobalConsole.h"
+#include "Gizmo/GizmoActor.h"
+#include "Gizmo/GizmoScaleComponent.h"
+#include "Gizmo/GizmoRotateComponent.h"
+#include "Gizmo/GizmoArrowComponent.h"
+#include "GlobalConsole.h"
 #include "ObjManager.h"
 #include "ResourceManager.h"
 #include"stdio.h"
