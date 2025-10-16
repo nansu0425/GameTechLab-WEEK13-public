@@ -465,3 +465,6 @@ WARP.md
 
 # AI Configuration Files
 AGENTS.md
+.claude/settings.local.json
+nul
+CLAUDE.md
