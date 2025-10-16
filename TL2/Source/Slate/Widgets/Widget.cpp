@@ -1,6 +1,8 @@
 ﻿#include "pch.h"
 #include "Widget.h"
 
+IMPLEMENT_CLASS(UWidget)
+
 void UWidget::Initialize()
 {
 }

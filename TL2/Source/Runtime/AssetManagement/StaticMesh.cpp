@@ -3,6 +3,8 @@
 #include "ObjManager.h"
 #include "ResourceManager.h"
 
+IMPLEMENT_CLASS(UStaticMesh)
+
 UStaticMesh::~UStaticMesh()
 {
     ReleaseResources();

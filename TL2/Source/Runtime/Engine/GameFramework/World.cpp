@@ -25,6 +25,8 @@
 #include "Level.h"
 #include "FireBallActor.h"
 
+IMPLEMENT_CLASS(UWorld)
+
 UWorld::UWorld()
 	: Partition(new UWorldPartitionManager())
 {

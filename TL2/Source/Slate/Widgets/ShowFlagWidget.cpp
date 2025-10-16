@@ -4,6 +4,8 @@
 #include "RenderSettings.h"
 #include "UIManager.h"
 
+IMPLEMENT_CLASS(UShowFlagWidget)
+
 UShowFlagWidget::UShowFlagWidget()
 {
 }

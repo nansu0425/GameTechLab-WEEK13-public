@@ -3,6 +3,8 @@
 #include "PerspectiveDecalComponent.h"
 #include "BillboardComponent.h"
 
+IMPLEMENT_CLASS(AFakeSpotLightActor)
+
 AFakeSpotLightActor::AFakeSpotLightActor()
 {
 	Name = "Fake Spot Light Actor";

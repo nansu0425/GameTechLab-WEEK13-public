@@ -7,6 +7,8 @@
 // 필요하다면 외부 free 함수 사용 가능 (동일 TU가 아닐 경우 extern 선언이 필요)
 // extern void LoadSplitterConfig(SSplitter* RootSplitter);
 
+IMPLEMENT_CLASS(UMenuBarWidget)
+
 UMenuBarWidget::UMenuBarWidget() {}
 UMenuBarWidget::UMenuBarWidget(USlateManager* InOwner) : Owner(InOwner) {}
 

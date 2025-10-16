@@ -2,6 +2,8 @@
 #include "DecalActor.h"
 #include "DecalComponent.h"
 
+IMPLEMENT_CLASS(ADecalActor)
+
 ADecalActor::ADecalActor()
 {
 	Name = "Static Mesh Actor";

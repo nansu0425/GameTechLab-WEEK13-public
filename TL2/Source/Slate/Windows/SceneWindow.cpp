@@ -7,6 +7,8 @@
 //// UE_LOG 대체 매크로
 //#define UE_LOG(fmt, ...)
 
+IMPLEMENT_CLASS(USceneWindow)
+
 USceneWindow::USceneWindow()
 {
 	FUIWindowConfig Config;

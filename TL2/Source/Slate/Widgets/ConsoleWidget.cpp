@@ -12,6 +12,8 @@
 using std::max;
 using std::min;
 
+IMPLEMENT_CLASS(UConsoleWidget)
+
 UConsoleWidget::UConsoleWidget()
 	: UWidget("Console Widget")
 	, HistoryPos(-1)

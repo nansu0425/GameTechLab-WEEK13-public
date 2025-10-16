@@ -8,6 +8,8 @@
 #include "Windows/SceneWindow.h"
 #include "GlobalConsole.h"
 
+IMPLEMENT_CLASS(UUIWindowFactory)
+
 UConsoleWindow* UUIWindowFactory::CreateConsoleWindow(EUIDockDirection InDockDirection)
 {
 	auto* Window = new UConsoleWindow();

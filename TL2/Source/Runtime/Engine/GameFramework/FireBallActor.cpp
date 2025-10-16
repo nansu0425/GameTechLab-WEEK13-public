@@ -3,6 +3,8 @@
 #include "StaticMeshComponent.h"
 #include "WorldPartitionManager.h"
 
+IMPLEMENT_CLASS(AFireBallActor)
+
 AFireBallActor::AFireBallActor()
 {
 	Name = "Fire Ball Actor";

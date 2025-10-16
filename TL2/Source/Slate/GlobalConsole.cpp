@@ -1,6 +1,8 @@
 ﻿#include "pch.h"
 #include "Widgets/ConsoleWidget.h"
 
+IMPLEMENT_CLASS(UGlobalConsole)
+
 UConsoleWidget* UGlobalConsole::ConsoleWidget = nullptr;
 
 void UGlobalConsole::Initialize()

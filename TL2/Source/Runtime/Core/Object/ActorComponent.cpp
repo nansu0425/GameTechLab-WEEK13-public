@@ -3,6 +3,8 @@
 #include "Actor.h"
 #include "World.h"
 
+IMPLEMENT_CLASS(UActorComponent)
+
 UActorComponent::UActorComponent()
     : Owner(nullptr)
     , bIsActive(true)

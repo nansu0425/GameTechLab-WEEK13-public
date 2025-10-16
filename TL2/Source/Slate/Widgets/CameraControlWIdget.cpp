@@ -1,6 +1,6 @@
 ﻿#include "pch.h"
 #include "CameraControlWidget.h"
-#include "UIManager.h" 
+#include "UIManager.h"
 #include "ImGui/imgui.h"
 #include "CameraActor.h"
 #include "CameraComponent.h"
@@ -19,6 +19,8 @@ static const char* CameraMode[] = {
 	"Perspective",
 	"Orthographic"
 };
+
+IMPLEMENT_CLASS(UCameraControlWidget)
 
 UCameraControlWidget::UCameraControlWidget()
 	: UWidget("Camera Control Widget")

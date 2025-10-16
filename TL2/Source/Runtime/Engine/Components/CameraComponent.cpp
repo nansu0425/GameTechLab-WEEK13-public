@@ -5,6 +5,8 @@
 extern float CLIENTWIDTH;
 extern float CLIENTHEIGHT;
 
+IMPLEMENT_CLASS(UCameraComponent)
+
 UCameraComponent::UCameraComponent()
     : FieldOfView(60.0f)
     , AspectRatio(1.0f / 1.0f)

@@ -11,6 +11,8 @@
 //// UE_LOG 대체 매크로
 //#define UE_LOG(fmt, ...)
 
+IMPLEMENT_CLASS(UActorTerminationWidget)
+
 UActorTerminationWidget::UActorTerminationWidget()
 	: UWidget("Actor Termination Widget")
 	, SelectedActor(nullptr)

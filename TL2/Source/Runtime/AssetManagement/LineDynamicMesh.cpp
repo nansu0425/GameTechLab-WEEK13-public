@@ -1,6 +1,8 @@
 ﻿#include "pch.h"
 #include "LineDynamicMesh.h"
 
+IMPLEMENT_CLASS(ULineDynamicMesh)
+
 ULineDynamicMesh::~ULineDynamicMesh()
 {
     ReleaseResources();

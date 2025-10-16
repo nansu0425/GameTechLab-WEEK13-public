@@ -259,7 +259,6 @@
     <ClCompile Include="Source\Runtime\Core\Misc\FName.cpp" />
     <ClCompile Include="Source\Runtime\Core\Object\Actor.cpp" />
     <ClCompile Include="Source\Runtime\Core\Object\ActorComponent.cpp" />
-    <ClCompile Include="Source\Runtime\Core\Object\AllClassesRegistration.cpp" />
     <ClCompile Include="Source\Runtime\Core\Object\Object.cpp" />
     <ClCompile Include="Source\Runtime\Core\Object\ObjectFactory.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Collision\AABB.cpp" />

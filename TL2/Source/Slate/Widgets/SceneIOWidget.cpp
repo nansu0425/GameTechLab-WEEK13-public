@@ -14,6 +14,8 @@
 #include "CameraComponent.h"
 #include "JsonSerializer.h"
 
+IMPLEMENT_CLASS(USceneIOWidget)
+
 USceneIOWidget::USceneIOWidget()
 	: UWidget("Scene IO Widget")
 	, StatusMessageTimer(0.0f)

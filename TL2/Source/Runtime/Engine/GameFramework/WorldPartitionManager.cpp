@@ -10,6 +10,8 @@
 #include "Frustum.h"
 #include "Gizmo/GizmoActor.h"
 
+IMPLEMENT_CLASS(UWorldPartitionManager)
+
 UWorldPartitionManager::UWorldPartitionManager()
 {
 	//FBound WorldBounds(FVector(-50, -50, -50), FVector(50, 50, 50));

@@ -10,6 +10,8 @@
 #include "CameraActor.h"
 #include "JsonSerializer.h"
 
+IMPLEMENT_CLASS(UBillboardComponent)
+
 UBillboardComponent::UBillboardComponent()
 {
 	auto& RM = UResourceManager::GetInstance();

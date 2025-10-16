@@ -1,6 +1,8 @@
 ﻿#include "pch.h"
 #include "MeshLoader.h"
 
+IMPLEMENT_CLASS(UMeshLoader)
+
 UMeshLoader& UMeshLoader::GetInstance()
 {
     static UMeshLoader* Instance = nullptr;

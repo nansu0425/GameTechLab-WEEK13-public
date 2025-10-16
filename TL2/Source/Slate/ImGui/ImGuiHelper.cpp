@@ -7,6 +7,8 @@
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, uint32 msg, WPARAM wParam, LPARAM lParam);
 
+IMPLEMENT_CLASS(UImGuiHelper)
+
 UImGuiHelper::UImGuiHelper() = default;
 
 UImGuiHelper::~UImGuiHelper()

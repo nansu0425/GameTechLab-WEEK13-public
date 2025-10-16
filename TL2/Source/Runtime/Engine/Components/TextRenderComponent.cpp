@@ -7,6 +7,8 @@
 #include "CameraActor.h"
 #include "SelectionManager.h"
 
+IMPLEMENT_CLASS(UTextRenderComponent)
+
 UTextRenderComponent::UTextRenderComponent()
 {
     auto& RM = UResourceManager::GetInstance();

@@ -4,6 +4,8 @@
 #include "Color.h"
 #include "ResourceManager.h"
 
+IMPLEMENT_CLASS(UHeightFogComponent)
+
 UHeightFogComponent::UHeightFogComponent()
 {
 	// 사막 느낌

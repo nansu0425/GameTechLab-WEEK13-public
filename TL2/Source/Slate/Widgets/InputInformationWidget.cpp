@@ -12,6 +12,8 @@
 using std::max;
 using std::min;
 
+IMPLEMENT_CLASS(UInputInformationWidget)
+
 UInputInformationWidget::UInputInformationWidget()
 	: UWidget("Input Information Widget")
 	, LastMousePosition(0.0f, 0.0f)

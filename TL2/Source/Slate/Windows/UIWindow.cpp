@@ -5,6 +5,8 @@
 
 using namespace std;
 
+IMPLEMENT_CLASS(UUIWindow)
+
 int UUIWindow::IssuedWindowID = 0;
 
 UUIWindow::UUIWindow(const FUIWindowConfig& InConfig)

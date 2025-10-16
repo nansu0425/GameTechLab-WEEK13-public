@@ -3,6 +3,8 @@
 #include "PerspectiveDecalComponent.h"
 #include "JsonSerializer.h"
 
+IMPLEMENT_CLASS(UPerspectiveDecalComponent)
+
 UPerspectiveDecalComponent::UPerspectiveDecalComponent()
 {
 	// PIE에서 fade in, fade out 하지 않도록 설정

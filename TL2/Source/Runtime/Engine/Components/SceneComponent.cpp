@@ -5,6 +5,7 @@
 #include "PrimitiveComponent.h"
 #include "WorldPartitionManager.h"
 
+IMPLEMENT_CLASS(USceneComponent)
 
 // USceneComponent.cpp
 TMap<uint32, USceneComponent*> USceneComponent::SceneIdMap;

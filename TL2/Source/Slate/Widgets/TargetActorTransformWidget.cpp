@@ -5,15 +5,15 @@
 #include "ImGui/imgui.h"
 #include "Vector.h"
 #include "World.h"
-#include "ResourceManager.h"    
+#include "ResourceManager.h"
 #include "WorldPartitionManager.h"
 #include "ActorSpawnWidget.h"
 
 #include "Actor.h"
 #include "Grid/GridActor.h"
 #include "Gizmo/GizmoActor.h"
-#include "StaticMeshActor.h"    
-#include "FakeSpotLightActor.h"    
+#include "StaticMeshActor.h"
+#include "FakeSpotLightActor.h"
 
 #include "StaticMeshComponent.h"
 #include "TextRenderComponent.h"
@@ -26,6 +26,8 @@
 #include "Color.h"
 
 using namespace std;
+
+IMPLEMENT_CLASS(UTargetActorTransformWidget)
 
 namespace
 {

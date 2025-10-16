@@ -10,6 +10,8 @@
 #include <filesystem>
 #include <cwctype>
 
+IMPLEMENT_CLASS(UResourceManager)
+
 #define GRIDNUM 100
 #define AXISLENGTH 100
 

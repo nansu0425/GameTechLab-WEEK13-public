@@ -4,6 +4,8 @@
 #include "World.h"
 #include "ImGui/imgui.h"
 
+IMPLEMENT_CLASS(URenderViewportSwitcherWidget)
+
 URenderViewportSwitcherWidget::URenderViewportSwitcherWidget()
 {
 }

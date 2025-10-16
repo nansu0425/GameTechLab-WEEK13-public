@@ -4,6 +4,9 @@
 #include "StaticMeshComponent.h"
 #include "ObjectFactory.h"
 #include "BillboardComponent.h"
+
+IMPLEMENT_CLASS(AStaticMeshActor)
+
 AStaticMeshActor::AStaticMeshActor()
 {
     Name = "Static Mesh Actor";

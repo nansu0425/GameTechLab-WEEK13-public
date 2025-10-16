@@ -11,6 +11,9 @@
 #include "JsonSerializer.h"
 
 #include "World.h"
+
+IMPLEMENT_CLASS(AActor)
+
 AActor::AActor()
 {
 	Name = "DefaultActor";

@@ -2,6 +2,8 @@
 #include "LineComponent.h"
 #include "Renderer.h"
 
+IMPLEMENT_CLASS(ULineComponent)
+
 void ULineComponent::GetWorldLineData(TArray<FVector>& OutStartPoints, TArray<FVector>& OutEndPoints, TArray<FVector4>& OutColors) const
 {
     if (!bLinesVisible || Lines.empty())

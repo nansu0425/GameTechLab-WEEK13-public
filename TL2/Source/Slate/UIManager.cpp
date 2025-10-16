@@ -10,6 +10,8 @@
 #include "Widgets/TargetActorTransformWidget.h"
 #include "Widgets/CameraControlWidget.h"
 
+IMPLEMENT_CLASS(UUIManager)
+
 UUIManager::UUIManager()
 {
 	ImGuiHelper = NewObject<UImGuiHelper>();

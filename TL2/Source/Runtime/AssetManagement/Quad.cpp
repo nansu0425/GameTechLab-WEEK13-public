@@ -6,6 +6,8 @@
 #include "ResourceManager.h"
 #include "ObjManager.h"
 
+IMPLEMENT_CLASS(UQuad)
+
 UQuad::~UQuad()
 {
 	ReleaseResources();

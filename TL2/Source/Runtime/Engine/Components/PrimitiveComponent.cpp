@@ -2,6 +2,8 @@
 #include "PrimitiveComponent.h"
 #include "SceneComponent.h"
 
+IMPLEMENT_CLASS(UPrimitiveComponent)
+
 void UPrimitiveComponent::SetMaterial(const FString& FilePath, EVertexLayoutType layoutType)
 {
     Material = UResourceManager::GetInstance().Load<UMaterial>(FilePath, layoutType);

@@ -3,6 +3,8 @@
 
 using std::to_string;
 
+IMPLEMENT_CLASS(AGridActor)
+
 AGridActor::AGridActor()
 {
     LineComponent = NewObject<ULineComponent>();

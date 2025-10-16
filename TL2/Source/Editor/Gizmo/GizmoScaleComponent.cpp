@@ -1,6 +1,8 @@
 ﻿#include "pch.h"
 #include "GizmoScaleComponent.h"
 
+IMPLEMENT_CLASS(UGizmoScaleComponent)
+
 UGizmoScaleComponent::UGizmoScaleComponent()
 {
     SetStaticMesh("Data/Gizmo/ScaleHandle.obj");

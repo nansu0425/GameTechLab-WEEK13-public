@@ -4,6 +4,8 @@
 #include "Texture.h"
 #include "ResourceManager.h"
 
+IMPLEMENT_CLASS(UMaterial)
+
 void UMaterial::Load(const FString& InFilePath, ID3D11Device* InDevice)
 {
     // 기본 쉐이더 로드 (LayoutType에 따라)

@@ -10,6 +10,8 @@
 //// UE_LOG 대체 매크로
 //#define UE_LOG(fmt, ...)
 
+IMPLEMENT_CLASS(UControlPanelWindow)
+
 /**
  * @brief Control Panel Constructor
  * 적절한 사이즈의 윈도우 제공

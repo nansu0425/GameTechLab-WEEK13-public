@@ -9,6 +9,8 @@
 #include "WorldPartitionManager.h"
 #include "JsonSerializer.h"
 
+IMPLEMENT_CLASS(UStaticMeshComponent)
+
 UStaticMeshComponent::UStaticMeshComponent()
 {
 	SetMaterial("Shaders/StaticMesh/StaticMeshShader.hlsl", EVertexLayoutType::PositionColorTexturNormal);

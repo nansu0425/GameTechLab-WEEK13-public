@@ -5,6 +5,8 @@
 #include "StaticMeshComponent.h"
 #include "JsonSerializer.h"
 
+IMPLEMENT_CLASS(UDecalComponent)
+
 UDecalComponent::UDecalComponent()
 {
 	UResourceManager::GetInstance().Load<UMaterial>("Shaders/Effects/DecalVS.hlsl", EVertexLayoutType::PositionColorTexturNormal);

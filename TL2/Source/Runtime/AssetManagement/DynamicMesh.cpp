@@ -1,5 +1,7 @@
 ﻿#include "pch.h"
 
+IMPLEMENT_CLASS(UDynamicMesh)
+
 UDynamicMesh::~UDynamicMesh()
 {
     ReleaseResources();

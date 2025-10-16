@@ -24,6 +24,8 @@ using std::max;
 using std::min;
 using std::to_string;
 
+IMPLEMENT_CLASS(UPrimitiveSpawnWidget)
+
 static inline FString GetBaseNameNoExt(const FString& Path)
 {
 	const size_t Sep = Path.find_last_of("/\\");

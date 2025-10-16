@@ -9,6 +9,8 @@
 #include "StaticMeshComponent.h"
 #include "VertexData.h"
 
+IMPLEMENT_CLASS(UFireBallComponent)
+
 UFireBallComponent::UFireBallComponent()
 {
 	SetCanEverTick(false);

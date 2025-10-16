@@ -2,6 +2,8 @@
 #include "PropertyWindow.h"
 #include "Widgets/TargetActorTransformWidget.h"
 
+IMPLEMENT_CLASS(UPropertyWindow)
+
 UPropertyWindow::UPropertyWindow()
 {
 	FUIWindowConfig Config;

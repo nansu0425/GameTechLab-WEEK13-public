@@ -273,9 +273,6 @@
     <ClCompile Include="Source\Runtime\Core\Object\ActorComponent.cpp">
       <Filter>Source\Runtime\Core\Object</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Object\AllClassesRegistration.cpp">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Runtime\Core\Object\Object.cpp">
       <Filter>Source\Runtime\Core\Object</Filter>
     </ClCompile>

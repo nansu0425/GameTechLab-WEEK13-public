@@ -2,6 +2,8 @@
 #include "GizmoArrowComponent.h"
 #include "EditorEngine.h"
 
+IMPLEMENT_CLASS(UGizmoArrowComponent)
+
 UGizmoArrowComponent::UGizmoArrowComponent()
 {
     SetStaticMesh("Data/Gizmo/TranslationHandle.obj");

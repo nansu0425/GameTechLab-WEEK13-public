@@ -27,6 +27,8 @@
 #include "EditorEngine.h"
 #include "DecalComponent.h"
 
+IMPLEMENT_CLASS(URenderManager)
+
 URenderManager::URenderManager()
 {
 	Renderer = GEngine.GetRenderer();

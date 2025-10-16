@@ -3,6 +3,8 @@
 #include "DirectXTK/DDSTextureLoader.h"
 #include "DirectXTK/WICTextureLoader.h"
 
+IMPLEMENT_CLASS(UTexture)
+
 UTexture::UTexture()
 {
 	Width = 0;

@@ -4,6 +4,8 @@
 #include "Line.h"   
 #include "Actor.h"
 
+IMPLEMENT_CLASS(UAABoundingBoxComponent)
+
 UAABoundingBoxComponent::UAABoundingBoxComponent()
     : LocalBound(FAABB())
 {

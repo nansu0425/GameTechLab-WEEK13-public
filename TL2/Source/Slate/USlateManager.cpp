@@ -10,6 +10,8 @@
 #include "FViewportClient.h"
 #include "UIManager.h"
 
+IMPLEMENT_CLASS(USlateManager)
+
 USlateManager& USlateManager::GetInstance()
 {
     static USlateManager* Instance = nullptr;

@@ -2,6 +2,8 @@
 #include "SelectionManager.h"
 #include "Actor.h"
 
+IMPLEMENT_CLASS(USelectionManager)
+
 void USelectionManager::SelectActor(AActor* Actor)
 {
     if (!Actor) return;

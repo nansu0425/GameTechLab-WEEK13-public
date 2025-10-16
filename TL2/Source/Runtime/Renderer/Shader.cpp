@@ -1,6 +1,8 @@
 ﻿#include "pch.h"
 #include "Shader.h"
 
+IMPLEMENT_CLASS(UShader)
+
 UShader::~UShader()
 {
     ReleaseResources();

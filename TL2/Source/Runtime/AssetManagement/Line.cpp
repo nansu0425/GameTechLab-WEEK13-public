@@ -1,6 +1,8 @@
 ﻿#include "pch.h"
 #include "Line.h"
 
+IMPLEMENT_CLASS(ULine)
+
 FVector ULine::GetWorldStartPoint(const FMatrix& WorldMatrix) const
 {
     FVector4 StartHomogeneous(StartPoint.X, StartPoint.Y, StartPoint.Z, 1.0f);

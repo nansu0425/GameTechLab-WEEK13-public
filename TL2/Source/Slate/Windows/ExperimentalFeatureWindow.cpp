@@ -5,6 +5,8 @@
 //// UE_LOG 대체 매크로
 //#define UE_LOG(fmt, ...)
 
+IMPLEMENT_CLASS(UExperimentalFeatureWindow)
+
 /**
  * @brief Window Constructor
  */

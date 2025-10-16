@@ -13,6 +13,8 @@
 #include <ctime>
 #include <cstdlib>
 
+IMPLEMENT_CLASS(UActorSpawnWidget)
+
 namespace
 {
 	// 스폰 가능한 액터 정보를 담는 구조체 (변경 없음)
