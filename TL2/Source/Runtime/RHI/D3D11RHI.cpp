@@ -162,6 +162,9 @@ void D3D11RHI::Release()
     if (bReleased) return;
     bReleased = true;
 
+    // Direct2D 오버레이를 먼저 정리하여 D3D 리소스에 대한 참조를 제거
+    UStatsOverlayD2D::Get().Shutdown();
+
     if (DeviceContext)
     {
         // 파이프라인에서 바인딩된 상태/리소스를 명시적으로 해제
@@ -1105,6 +1108,11 @@ void D3D11RHI::ReleaseSamplerState()
         LinearClampSamplerState->Release();
         LinearClampSamplerState = nullptr;
     }
+    if (PointClampSamplerState)
+    {
+        PointClampSamplerState->Release();
+        PointClampSamplerState = nullptr;
+	}
 }
 
 void D3D11RHI::ReleaseBlendState()
@@ -1143,44 +1151,80 @@ void D3D11RHI::ReleaseRasterizerState()
 
 void D3D11RHI::ReleaseFrameBuffer()
 {
-    if (FrameBuffer)
-    {
-        FrameBuffer->Release();
-        FrameBuffer = nullptr;
-    }
+    // BackBufferRTV를 먼저 해제 (View가 Texture보다 먼저)
     if (BackBufferRTV)
     {
         BackBufferRTV->Release();
         BackBufferRTV = nullptr;
     }
 
-    // ✅ Scene RTV/SRV/Texture 해제 추가
-    if (SceneSRV)
+    // FrameBuffer는 SwapChain에서 GetBuffer()로 가져온 것이므로 Release 필요
+    if (FrameBuffer)
     {
-        SceneSRV->Release();
-        SceneSRV = nullptr;
+        FrameBuffer->Release();
+        FrameBuffer = nullptr;
     }
+
+    // 모든 View를 먼저 해제 (중요: View -> Texture 순서)
+
+    // DepthStencilView 해제
+    if (DepthStencilView)
+    {
+        DepthStencilView->Release();
+        DepthStencilView = nullptr;
+    }
+
+    // Scene Views 해제
     if (SceneRTV)
     {
         SceneRTV->Release();
         SceneRTV = nullptr;
     }
+    if (SceneSRV)
+    {
+        SceneSRV->Release();
+        SceneSRV = nullptr;
+    }
+
+    // PostProcessSource Views 해제
+    if (PostProcessSourceRTV)
+    {
+        PostProcessSourceRTV->Release();
+        PostProcessSourceRTV = nullptr;
+    }
+    if (PostProcessSourceSRV)
+    {
+        PostProcessSourceSRV->Release();
+        PostProcessSourceSRV = nullptr;
+    }
+
+    // PostProcessDestination Views 해제
+    if (PostProcessDestinationRTV)
+    {
+        PostProcessDestinationRTV->Release();
+        PostProcessDestinationRTV = nullptr;
+    }
+    if (PostProcessDestinationSRV)
+    {
+        PostProcessDestinationSRV->Release();
+        PostProcessDestinationSRV = nullptr;
+    }
+
+    // Depth SRV 해제
+    if (DepthSRV)
+    {
+        DepthSRV->Release();
+        DepthSRV = nullptr;
+    }
+
+    // 모든 View를 해제한 후 Texture 해제
+
     if (SceneRenderTexture)
     {
         SceneRenderTexture->Release();
         SceneRenderTexture = nullptr;
     }
 
-    if (PostProcessSourceSRV)
-    {
-        PostProcessSourceSRV->Release();
-        PostProcessSourceSRV = nullptr;
-    }
-    if (PostProcessSourceRTV)
-    {
-        PostProcessSourceRTV->Release();
-        PostProcessSourceRTV = nullptr;
-    }
     if (PostProcessSourceTexture)
     {
         PostProcessSourceTexture->Release();
@@ -1192,33 +1236,11 @@ void D3D11RHI::ReleaseFrameBuffer()
         PostProcessDestinationTexture->Release();
         PostProcessDestinationTexture = nullptr;
     }
-    if (PostProcessDestinationRTV)
-    {
-        PostProcessDestinationRTV->Release();
-        PostProcessDestinationRTV = nullptr;
-    }
-    if (PostProcessDestinationTexture)
-    {
-        PostProcessDestinationTexture->Release();
-        PostProcessDestinationTexture = nullptr;
-    }
 
-    if (DepthStencilView)
-    {
-        DepthStencilView->Release();
-        DepthStencilView = nullptr;
-    }
-    
     if (DepthBuffer)
     {
         DepthBuffer->Release();
         DepthBuffer = nullptr;
-    }
-    
-    if (DepthSRV)
-    {
-        DepthSRV->Release();
-        DepthSRV = nullptr;
     }
 }
 

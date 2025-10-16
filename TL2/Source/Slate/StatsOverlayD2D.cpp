@@ -30,6 +30,14 @@ void UStatsOverlayD2D::Initialize(ID3D11Device* InDevice, ID3D11DeviceContext* I
 	bInitialized = (D3DDevice && D3DContext && SwapChain);
 }
 
+void UStatsOverlayD2D::Shutdown()
+{
+	D3DDevice = nullptr;
+	D3DContext = nullptr;
+	SwapChain = nullptr;
+	bInitialized = false;
+}
+
 void UStatsOverlayD2D::EnsureInitialized()
 {
 }

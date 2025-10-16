@@ -9,6 +9,7 @@ public:
     static UStatsOverlayD2D& Get();
 
     void Initialize(ID3D11Device* device, ID3D11DeviceContext* context, IDXGISwapChain* swapChain);
+	void Shutdown();
     void Draw();
 
     void SetShowFPS(bool b); 
