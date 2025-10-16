@@ -298,7 +298,7 @@
     <ClCompile Include="Source\Runtime\Engine\Spatial\Occlusion.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Spatial\Octree.cpp" />
     <ClCompile Include="Source\Runtime\InputCore\InputManager.cpp" />
-    <ClCompile Include="Source\Runtime\Renderer\FSceneRenderer.cpp" />
+    <ClCompile Include="Source\Runtime\Renderer\SceneRenderer.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\FViewport.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\FViewportClient.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\Material.cpp" />
@@ -511,7 +511,7 @@
     <ClInclude Include="Source\Runtime\Engine\Spatial\WorldPartitionManager.h" />
     <ClInclude Include="Source\Runtime\InputCore\InputManager.h" />
     <ClInclude Include="Source\Runtime\Renderer\DecalStatManager.h" />
-    <ClInclude Include="Source\Runtime\Renderer\FSceneRenderer.h" />
+    <ClInclude Include="Source\Runtime\Renderer\SceneRenderer.h" />
     <ClInclude Include="Source\Runtime\Renderer\FViewport.h" />
     <ClInclude Include="Source\Runtime\Renderer\FViewportClient.h" />
     <ClInclude Include="Source\Runtime\Renderer\Material.h" />

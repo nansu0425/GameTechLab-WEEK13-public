@@ -30,7 +30,7 @@
 #include "EditorEngine.h"
 #include "DecalComponent.h"
 #include "DecalStatManager.h"
-#include "FSceneRenderer.h"
+#include "SceneRenderer.h"
 
 #include <Windows.h>
 

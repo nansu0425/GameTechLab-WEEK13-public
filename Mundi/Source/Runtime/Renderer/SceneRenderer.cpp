@@ -1,5 +1,5 @@
 ﻿#include "pch.h"
-#include "FSceneRenderer.h"
+#include "SceneRenderer.h"
 
 // FSceneRenderer가 사용하는 모든 헤더 포함
 #include "World.h"
