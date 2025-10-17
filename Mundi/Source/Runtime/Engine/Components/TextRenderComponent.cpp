@@ -146,7 +146,7 @@ void UTextRenderComponent::Render(URenderer* Renderer, const FMatrix& View, cons
 
     FVector cameraPosition = CameraActor->GetActorLocation();
     //Renderer->GetRHIDevice()->UpdateBillboardConstantBuffers(Owner->GetActorLocation() + FVector(0.f, 0.f, 1.f) * Owner->GetActorScale().Z, View, Proj, CamRight, CamUp);
-    Renderer->GetRHIDevice()->SetUpdateConstantBuffer(BillboardBufferType(
+    Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(BillboardBufferType(
         Owner->GetActorLocation() + FVector(0.f, 0.f, 1.f) * Owner->GetActorScale().Z,
         View,
         Proj,

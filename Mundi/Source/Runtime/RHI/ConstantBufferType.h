@@ -153,6 +153,11 @@ struct FireBallBufferType
     FLinearColor Color;
 };
 
+struct LightType
+{
+    float amibent;
+};
+
 #define CONSTANT_BUFFER_INFO(TYPE, SLOT, VS, PS) \
 constexpr uint32 TYPE##Slot = SLOT;\
 constexpr bool TYPE##IsVS = VS;\
@@ -171,7 +176,8 @@ MACRO(ViewProjBufferType)           \
 MACRO(HighLightBufferType)          \
 MACRO(ColorBufferType)              \
 MACRO(BillboardBufferType)          \
-MACRO(FireBallBufferType) 
+MACRO(FireBallBufferType)           \
+MACRO(LightType)
 
 CONSTANT_BUFFER_INFO(ModelBufferType, 0, true, false)
 CONSTANT_BUFFER_INFO(DecalBufferType, 6, true, true)
@@ -185,4 +191,5 @@ CONSTANT_BUFFER_INFO(HighLightBufferType, 2, true, false)
 CONSTANT_BUFFER_INFO(ColorBufferType, 3, false, true)
 CONSTANT_BUFFER_INFO(BillboardBufferType, 0, true, false)
 CONSTANT_BUFFER_INFO(FireBallBufferType, 7, false, true)
+CONSTANT_BUFFER_INFO(LightType, 8, true, true)
 

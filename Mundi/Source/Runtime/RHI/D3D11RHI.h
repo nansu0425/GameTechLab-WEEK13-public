@@ -24,7 +24,7 @@ CreateConstantBuffer(&TYPE##Buffer, sizeof(TYPE));
 		ConstantBufferSet(TYPE##Buffer, TYPE##Slot, TYPE##IsVS, TYPE##IsPS);	\
 	}
 #define DECLARE_SET_UPDATE_CONSTANT_BUFFER_FUNC(TYPE) \
-	void SetUpdateConstantBuffer(const TYPE& Data)	\
+	void SetAndUpdateConstantBuffer(const TYPE& Data)	\
 	{\
 		ConstantBufferSetUpdate(TYPE##Buffer, Data, TYPE##Slot, TYPE##IsVS, TYPE##IsPS);	\
 	}

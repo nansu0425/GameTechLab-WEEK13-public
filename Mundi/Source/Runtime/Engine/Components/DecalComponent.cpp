@@ -75,14 +75,13 @@ void UDecalComponent::RenderAffectedPrimitives(URenderer* Renderer, UPrimitiveCo
 
 
 	D3D11RHI* RHIDevice = Renderer->GetRHIDevice();
-
 	// Constatn Buffer 업데이트
-	RHIDevice->SetUpdateConstantBuffer(ModelBufferType(Target->GetWorldMatrix()));
-	RHIDevice->SetUpdateConstantBuffer(ViewProjBufferType(View, Proj));
+	RHIDevice->SetAndUpdateConstantBuffer(ModelBufferType(Target->GetWorldMatrix()));
+	RHIDevice->SetAndUpdateConstantBuffer(ViewProjBufferType(View, Proj));
 
 	const FMatrix DecalMatrix = GetDecalProjectionMatrix();
 	//RHIDevice->UpdateDecalBuffer(DecalMatrix, DecalOpacity);
-	RHIDevice->SetUpdateConstantBuffer(DecalBufferType(DecalMatrix, DecalOpacity));
+	RHIDevice->SetAndUpdateConstantBuffer(DecalBufferType(DecalMatrix, DecalOpacity));
 	//UE_LOG("Render: decal opacity: %.2f, uuid: %d", DecalOpacity, UUID);
 
 	// Shader 설정
