@@ -152,6 +152,23 @@ float CalculateAttenuationWithFalloff(float3 attenuation, float distance, float 
     return pow(baseAttenuation, falloffExponent);
 }
 
+// Linear to sRGB conversion (Gamma Correction)
+// Converts linear RGB values to sRGB color space for display
+float3 LinearToSRGB(float3 linearColor)
+{
+    // sRGB standard: exact formula with piecewise function
+    float3 sRGBLo = linearColor * 12.92f;
+    float3 sRGBHi = pow(max(linearColor, 0.0f), 1.0f / 2.4f) * 1.055f - 0.055f;
+    float3 sRGB = (linearColor <= 0.0031308f) ? sRGBLo : sRGBHi;
+    return sRGB;
+}
+
+// Simple gamma correction (approximation, faster but less accurate)
+float3 LinearToGamma(float3 linearColor)
+{
+    return pow(max(linearColor, 0.0f), 1.0f / 2.2f);
+}
+
 // Directional Light Calculation (Diffuse + Specular)
 float3 CalculateDirectionalLight(FDirectionalLightInfo light, float3 normal, float3 viewDir, float4 materialColor, bool includeSpecular, float specularPower)
 {
@@ -321,6 +338,10 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
     // Gouraud Shading: Lighting already calculated in vertex shader
     // Just multiply vertex color with texture
     float4 finalPixel = Input.Color * texColor;
+
+    // Apply gamma correction (Linear to sRGB)
+    finalPixel.rgb = LinearToSRGB(finalPixel.rgb);
+
     return finalPixel;
 
 #elif LIGHTING_MODEL_LAMBERT
@@ -346,6 +367,9 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
     {
         litColor += CalculateSpotLight(SpotLights[j], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f);
     }
+
+    // Apply gamma correction (Linear to sRGB)
+    litColor = LinearToSRGB(litColor);
 
     // Preserve original alpha (lighting doesn't affect transparency)
     return float4(litColor, baseColor.a);
@@ -375,12 +399,19 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
         litColor += CalculateSpotLight(SpotLights[j], Input.WorldPos, normal, viewDir, baseColor, true, SpecularPower);
     }
 
+    // Apply gamma correction (Linear to sRGB)
+    litColor = LinearToSRGB(litColor);
+
     // Preserve original alpha (lighting doesn't affect transparency)
     return float4(litColor, baseColor.a);
 
 #else
     // No lighting model defined - use texture color with vertex color
     float4 finalPixel = Input.Color * texColor;
+
+    // Apply gamma correction (Linear to sRGB)
+    finalPixel.rgb = LinearToSRGB(finalPixel.rgb);
+
     return finalPixel;
 
 #endif
