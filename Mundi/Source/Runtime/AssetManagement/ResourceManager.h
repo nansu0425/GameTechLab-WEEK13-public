@@ -43,7 +43,7 @@ public:
 	
 	// 매크로가 있는 UShader를 위한 특수화 Load 함수
 	template<>	
-	UShader* Load<UShader>(const FString& InFilePath, const TArray<FShaderMacro>& InMacros);
+	UShader* Load<UShader>(const FString& InFilePath, TArray<FShaderMacro>& InMacros);
 
 	template<typename T>
 	bool Add(const FString& InFilePath, UObject* InObject);
@@ -177,7 +177,7 @@ inline T* UResourceManager::Load(const FString& InFilePath, Args && ...InArgs)
 }
 
 template<>
-inline UShader* UResourceManager::Load(const FString& InFilePath, const TArray<FShaderMacro>& InMacros)
+inline UShader* UResourceManager::Load(const FString& InFilePath, TArray<FShaderMacro>& InMacros)
 {
 	// 1. 파일 경로와 매크로를 조합하여 고유 키 생성
 	FString UniqueKey = GenerateShaderKey(InFilePath, InMacros);
