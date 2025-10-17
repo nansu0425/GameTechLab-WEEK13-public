@@ -128,6 +128,29 @@ public:
 	}
 
 	/**
+	 * @brief JSON 객체에서 키를 찾아 bool 값을 읽어옵니다.
+	 * @return 성공하면 true, 실패하면 false를 반환합니다.
+	 */
+	static bool ReadBool(const JSON& InJson, const FString& InKey, bool& OutValue, bool InDefaultValue = false, bool bInUseLog = true)
+	{
+		if (InJson.hasKey(InKey))
+		{
+			const JSON& Value = InJson.at(InKey);
+			if (Value.JSONType() == JSON::Class::Boolean)
+			{
+				OutValue = Value.ToBool();
+				return true;
+			}
+		}
+
+		if (bInUseLog)
+			UE_LOG("[JsonSerializer] %s Bool 파싱에 실패했습니다 (기본값 사용)", InKey.c_str());
+
+		OutValue = InDefaultValue;
+		return false;
+	}
+
+	/**
 	 * @brief JSON 객체에서 키를 찾아 FString 값을 읽어옵니다.
 	 * @return 성공하면 true, 실패하면 false를 반환합니다.
 	 */

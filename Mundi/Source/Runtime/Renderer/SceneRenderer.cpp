@@ -318,7 +318,6 @@ void FSceneRenderer::UpdateLightConstant()
 			FVector(1.0f, 1.0f, 1.0f), 
 			3.0f
 			);
-		LightBuffer.DirectionalLightCount = 1;
 		//break;
 	}
 

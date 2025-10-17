@@ -9,28 +9,16 @@ void UPrimitiveComponent::SetMaterial(const FString& FilePath, EVertexLayoutType
     Material = UResourceManager::GetInstance().Load<UMaterial>(FilePath, layoutType);
 }
 
-//void UPrimitiveComponent::Serialize(bool bIsLoading, FSceneCompData& InOut)
-//{
-//    if (bIsLoading)
-//    {
-//        // FPrimitiveData -> 컴포넌트 월드 트랜스폼
-//        FTransform WT = GetWorldTransform();
-//        WT.Translation = InOut.Location;
-//        WT.Rotation = QuatFromEulerZYX_Deg(InOut.Rotation);
-//        WT.Scale3D = InOut.Scale;
-//        SetWorldTransform(WT);
-//    }
-//    else
-//    {
-//        // 컴포넌트 월드 트랜스폼 -> FPrimitiveData
-//        const FTransform WT = GetWorldTransform();
-//        InOut.Location = WT.Translation;
-//        InOut.Rotation = EulerZYX_Deg_FromQuat(WT.Rotation);
-//        InOut.Scale = WT.Scale3D;
-//    }
-//}
-
 void UPrimitiveComponent::DuplicateSubObjects()
 {
     Super::DuplicateSubObjects();
+}
+
+void UPrimitiveComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
+{
+    Super::Serialize(bInIsLoading, InOutHandle);
+
+    // UPrimitiveComponent는 기본적으로 직렬화할 추가 데이터가 없음
+    // Material은 파생 클래스에서 개별적으로 관리
+    // 파생 클래스에서 필요한 데이터를 직렬화하도록 오버라이드
 }

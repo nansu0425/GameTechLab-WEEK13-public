@@ -160,10 +160,10 @@ struct FLightBufferType
     FDirectionalLightInfo DirectionalLight;
     FPointLightInfo PointLights[NUM_POINT_LIGHT_MAX];
     FSpotLightInfo SpotLights[NUM_SPOT_LIGHT_MAX];
-    uint32 DirectionalLightCount;
+
     uint32 PointLightCount;
     uint32 SpotLightCount;
-    uint32 Padding;
+    FVector2D Padding;
 };
 
 #define CONSTANT_BUFFER_INFO(TYPE, SLOT, VS, PS) \

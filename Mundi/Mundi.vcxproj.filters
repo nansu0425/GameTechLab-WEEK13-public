@@ -394,6 +394,27 @@
     <ClCompile Include="ThirdParty\ImGui\imgui_widgets.cpp">
       <Filter>ThirdParty\ImGui</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Components\LightComponentBase.cpp">
+      <Filter>Source\Runtime\Engine\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Components\LightComponent.cpp">
+      <Filter>Source\Runtime\Engine\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Components\LocalLightComponent.cpp">
+      <Filter>Source\Runtime\Engine\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Components\PointLightComponent.cpp">
+      <Filter>Source\Runtime\Engine\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Components\SpotLightComponent.cpp">
+      <Filter>Source\Runtime\Engine\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Components\DirectionalLightComponent.cpp">
+      <Filter>Source\Runtime\Engine\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Components\AmbientLightComponent.cpp">
+      <Filter>Source\Runtime\Engine\Components</Filter>
+    </ClCompile>
   </ItemGroup>
   <!-- ThirdParty/ImGui Files -->
   <!-- Source Files -->
@@ -828,6 +849,27 @@
     </ClInclude>
     <ClInclude Include="Source\Runtime\Renderer\LightInfo.h">
       <Filter>Source\Runtime\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Components\LightComponentBase.h">
+      <Filter>Source\Runtime\Engine\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Components\LightComponent.h">
+      <Filter>Source\Runtime\Engine\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Components\LocalLightComponent.h">
+      <Filter>Source\Runtime\Engine\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Components\PointLightComponent.h">
+      <Filter>Source\Runtime\Engine\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Components\SpotLightComponent.h">
+      <Filter>Source\Runtime\Engine\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Components\DirectionalLightComponent.h">
+      <Filter>Source\Runtime\Engine\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Components\AmbientLightComponent.h">
+      <Filter>Source\Runtime\Engine\Components</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -112,3 +112,11 @@ void UActorComponent::DuplicateSubObjects()
     bCanEverTick = true; // 매 프레임 Tick 가능 여부
     Owner = nullptr; // Actor에서 이거 설정해 줌
 }
+
+void UActorComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
+{
+    Super::Serialize(bInIsLoading, InOutHandle);
+
+    // UActorComponent는 기본적으로 직렬화할 추가 데이터가 없음
+    // 파생 클래스에서 필요한 데이터를 직렬화하도록 오버라이드
+}
