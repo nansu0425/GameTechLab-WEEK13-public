@@ -87,10 +87,6 @@ private:
 
 	void CompositeToBackBuffer();
 
-	void Blit(RHI_SRV_Index InSource, ERTVMode InDestination);
-
-	/** @brief FullSc/
-
 	/** @brief 프레임 렌더링의 마무리 작업을 수행합니다. (예: 로그 출력) */
 	void FinalizeFrame();
 private:

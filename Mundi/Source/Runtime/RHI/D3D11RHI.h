@@ -82,25 +82,6 @@ public:
 	void PSSetDefaultSampler(UINT StartSlot);
 	void PSSetClampSampler(UINT StartSlot);
 
-
-	// 렌더 타겟 스왑
-	void SwapRenderTargets();
-
-	/** 현재 '쓰기' 대상으로 사용되는 렌더 타겟 뷰를 반환합니다. */
-	ID3D11RenderTargetView* GetCurrentTargetRTV() const;
-
-	/** 씬의 주 뎁스-스텐실 뷰를 반환합니다. */
-	ID3D11DepthStencilView* GetSceneDSV() const;
-
-	ID3D11ShaderResourceView* GetCurrentSourceSRV() const;
-
-	// RHI가 관리하는 Texture들을 SRV로 가져오기, SamplerState 가져오기
-	ID3D11ShaderResourceView* GetSRV(RHI_SRV_Index SRVIndex) const;
-	ID3D11SamplerState* GetSamplerState(RHI_Sampler_Index SamplerIndex) const;
-	void OMSetRenderTargets(ERTVMode RTVMode);
-	void SwapPostProcessTextures();
-
-
 	void DrawFullScreenQuad();
 	void Present();
 
@@ -127,6 +108,17 @@ public:
 	void PrepareShader(FShader& InShader);
 	void PrepareShader(UShader* InShader);
 	void PrepareShader(UShader* InVertexShader, UShader* InPixelShader);
+
+	// NOTE: 추후 private 로 이동 필요?
+	// 현재 SRV, RTV 를 다루는 함수
+	ID3D11RenderTargetView* GetCurrentTargetRTV() const;
+	ID3D11DepthStencilView* GetSceneDSV() const;
+	ID3D11ShaderResourceView* GetCurrentSourceSRV() const;
+
+	// [Enum 으로 SRV, RTV 를 다루는 함수]
+	ID3D11ShaderResourceView* GetSRV(RHI_SRV_Index SRVIndex) const;
+	ID3D11SamplerState* GetSamplerState(RHI_Sampler_Index SamplerIndex) const;
+	void OMSetRenderTargets(ERTVMode RTVMode);
 
 public:
 	// getter
@@ -161,7 +153,10 @@ private:
 	void ReleaseFrameBuffer(); // fb, rtv
 	void ReleaseDeviceAndSwapChain();
 
-
+	// FSwapGuard 클래스가 D3D11RHI의 private 멤버에 접근할 수 있도록 허용
+	friend class FSwapGuard;
+	// 씬 컬러 버퍼의 읽기/쓰기 역할을 교환합니다. FSwapGuard에서만 호출하기 때문에 private으로 설정
+	void SwapRenderTargets();
 
 private:
 	//24

@@ -30,6 +30,7 @@
 #include "Gizmo/GizmoArrowComponent.h"
 #include "Gizmo/GizmoRotateComponent.h"
 #include "Gizmo/GizmoScaleComponent.h"
+#include "SwapGuard.h"
 
 FSceneRenderer::FSceneRenderer(UWorld* InWorld, ACameraActor* InCamera, FViewport* InViewport, URenderer* InOwnerRenderer)
 	: World(InWorld)
@@ -438,8 +439,9 @@ void FSceneRenderer::RenderPostProcessingPasses()
 		return;
 	}
 
-	// 이전 단계 결과를 소스롤 사용하기 위해서 Swap 호출
-	RHIDevice->SwapRenderTargets();
+	// Swap 가드 객체 생성: 스왑을 수행하고, 소멸 시 0번 슬롯부터 2개의 SRV를 자동 해제하도록 설정
+	FSwapGuard SwapGuard(RHIDevice, 0, 2);
+
 	// 렌더 타겟 설정
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithoutDepth);
 
@@ -453,7 +455,6 @@ void FSceneRenderer::RenderPostProcessingPasses()
 	if (!FullScreenTriangleVS || !FullScreenTriangleVS->GetVertexShader() || !HeightFogPS || !HeightFogPS->GetPixelShader())
 	{
 		UE_LOG("HeightFog용 셰이더 없음!\n");
-		RHIDevice->SwapRenderTargets();	// 그리기 실패 시 다시 Swap을 호출해서 원래 상태로 만듦
 		return;
 	}
 
@@ -468,7 +469,6 @@ void FSceneRenderer::RenderPostProcessingPasses()
 	if (!DepthSRV || !SceneSRV || !PointClampSamplerState || !LinearClampSamplerState)
 	{
 		UE_LOG("Depth SRV / Scene SRV / PointClamp Sampler / LinearClamp Sampler is null!\n");
-		RHIDevice->SwapRenderTargets();	// 그리기 실패 시 다시 Swap을 호출해서 원래 상태로 만듦
 		return;
 	}
 
@@ -498,15 +498,15 @@ void FSceneRenderer::RenderPostProcessingPasses()
 	// Draw
 	RHIDevice->DrawFullScreenQuad();
 
-	// Unbind SRV (중요! 다음 프레임에서 Depth를 RTV로 사용할 수 있게)
-	ID3D11ShaderResourceView* NullSRVs[2] = { nullptr, nullptr };
-	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, NullSRVs);
+	// 모든 작업이 성공적으로 끝났으므로 Commit 호출
+	// 이제 소멸자는 버퍼 스왑을 되돌리지 않고, SRV 해제 작업만 수행함
+	SwapGuard.Commit();
 }
 
 void FSceneRenderer::RenderSceneDepthPostProcess()
 {
-	// 이전 단계 결과를 소스롤 사용하기 위해서 Swap 호출
-	RHIDevice->SwapRenderTargets();
+	// Swap 가드 객체 생성: 스왑을 수행하고, 소멸 시 0번 슬롯부터 1개의 SRV를 자동 해제하도록 설정
+	FSwapGuard SwapGuard(RHIDevice, 0, 1);
 
 	// 렌더 타겟 설정 (Depth 없이 BackBuffer에만 그리기)
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithoutDepth);
@@ -521,7 +521,6 @@ void FSceneRenderer::RenderSceneDepthPostProcess()
 	if (!FullScreenTriangleVS || !FullScreenTriangleVS->GetVertexShader() || !SceneDepthPS || !SceneDepthPS->GetPixelShader())
 	{
 		UE_LOG("HeightFog용 셰이더 없음!\n");
-		RHIDevice->SwapRenderTargets();	// 그리기 실패 시 다시 Swap을 호출해서 원래 상태로 만듦
 		return;
 	}
 	RHIDevice->PrepareShader(FullScreenTriangleVS, SceneDepthPS);
@@ -531,7 +530,6 @@ void FSceneRenderer::RenderSceneDepthPostProcess()
 	if (!DepthSRV)
 	{
 		UE_LOG("Depth SRV is null!\n");
-		RHIDevice->SwapRenderTargets();	// 그리기 실패 시 다시 Swap을 호출해서 원래 상태로 만듦
 		return;
 	}
 
@@ -539,7 +537,6 @@ void FSceneRenderer::RenderSceneDepthPostProcess()
 	if (!SamplerState)
 	{
 		UE_LOG("PointClamp Sampler is null!\n");
-		RHIDevice->SwapRenderTargets();	// 그리기 실패 시 다시 Swap을 호출해서 원래 상태로 만듦
 		return;
 	}
 
@@ -554,9 +551,9 @@ void FSceneRenderer::RenderSceneDepthPostProcess()
 	// Draw
 	RHIDevice->DrawFullScreenQuad();
 
-	// Unbind SRV (중요! 다음 프레임에서 Depth를 RTV로 사용할 수 있게)
-	ID3D11ShaderResourceView* NullSRV = nullptr;
-	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &NullSRV);
+	// 모든 작업이 성공적으로 끝났으므로 Commit 호출
+	// 이제 소멸자는 버퍼 스왑을 되돌리지 않고, SRV 해제 작업만 수행함
+	SwapGuard.Commit();
 }
 
 void FSceneRenderer::RenderEditorPrimitivesPass()
@@ -657,8 +654,8 @@ void FSceneRenderer::ApplyScreenEffectsPass()
 		return;
 	}
 
-	// 이전 단계 결과를 소스롤 사용하기 위해서 Swap 호출
-	RHIDevice->SwapRenderTargets();
+	// Swap 가드 객체 생성: 스왑을 수행하고, 소멸 시 0번 슬롯부터 1개의 SRV를 자동 해제하도록 설정
+	FSwapGuard SwapGuard(RHIDevice, 0, 1);
 
 	// 렌더 타겟 설정
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithoutDepth);
@@ -669,7 +666,6 @@ void FSceneRenderer::ApplyScreenEffectsPass()
 	if (!SourceSRV || !SamplerState)
 	{
 		UE_LOG("PointClamp Sampler is null!\n");
-		RHIDevice->SwapRenderTargets();	// 그리기 실패 시 다시 Swap을 호출해서 원래 상태로 만듦
 		return;
 	}
 
@@ -682,7 +678,6 @@ void FSceneRenderer::ApplyScreenEffectsPass()
 	if (!FullScreenTriangleVS || !FullScreenTriangleVS->GetVertexShader() || !CopyTexturePS || !CopyTexturePS->GetPixelShader())
 	{
 		UE_LOG("FXAA 셰이더 없음!\n");
-		RHIDevice->SwapRenderTargets();	// 그리기 실패 시 다시 Swap을 호출해서 원래 상태로 만듦
 		return;
 	}
 
@@ -699,11 +694,12 @@ void FSceneRenderer::ApplyScreenEffectsPass()
 
 	RHIDevice->DrawFullScreenQuad();
 
-	// Unbind SRV (중요! 다음 프레임에서 Depth를 RTV로 사용할 수 있게)
-	ID3D11ShaderResourceView* NullSRV = nullptr;
-	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &NullSRV);
+	// 모든 작업이 성공적으로 끝났으므로 Commit 호출
+	// 이제 소멸자는 버퍼 스왑을 되돌리지 않고, SRV 해제 작업만 수행함
+	SwapGuard.Commit();
 }
 
+// 최종 결과물의 실제 BackBuffer에 그리는 함수
 void FSceneRenderer::CompositeToBackBuffer()
 {
 	// 마지막 BackBuffer 그리는 단계에서만 뷰포트 크기 설정
@@ -716,45 +712,41 @@ void FSceneRenderer::CompositeToBackBuffer()
 	vp.MaxDepth = 1.0f;
 	RHIDevice->GetDeviceContext()->RSSetViewports(1, &vp);
 
-	// 최종 타겟 이미지를 백버퍼에 그리기 위해 Swap을 통해 소스로 이동시킴
-	RHIDevice->SwapRenderTargets();
-	Blit(RHI_SRV_Index::SceneColorSource, ERTVMode::BackBufferWithoutDepth);
-}
+	// 1. 최종 결과물을 Source로 만들기 위해 스왑하고, 작업 후 SRV 슬롯 0을 자동 해제하는 가드 생성
+	FSwapGuard SwapGuard(RHIDevice, 0, 1);
 
-// Source 텍스처를 Destination 텍스처로 렌더링(복사)하는 작업
-void FSceneRenderer::Blit(RHI_SRV_Index InSource, ERTVMode InDestination)
-{
-	// 1. Scene RTV와 Depth Buffer Clear
-	RHIDevice->OMSetRenderTargets(InDestination);
+	// 2. 렌더 타겟을 백버퍼로 설정 (깊이 버퍼 없음)
+	RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithoutDepth);
 
-	// 텍스쳐 관련 설정
-	ID3D11ShaderResourceView* SourceSRV = RHIDevice->GetSRV(InSource);
+	// 3. 텍스처 및 샘플러 설정
+	// 이제 RHI_SRV_Index가 아닌, 현재 상태에 맞는 Source SRV를 직접 가져옴
+	ID3D11ShaderResourceView* SourceSRV = RHIDevice->GetCurrentSourceSRV();
 	ID3D11SamplerState* SamplerState = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
 	if (!SourceSRV || !SamplerState)
 	{
-		UE_LOG("PointClamp Sampler is null!\n");
-		return;
+		UE_LOG("CompositeToBackBuffer에 필요한 리소스 없음!\n");
+		return; // 가드가 자동으로 스왑을 되돌리고 SRV를 해제해줌
 	}
 
-	// Shader Resource 바인딩 (슬롯 확인!)
-	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &SourceSRV);  // t0
+	// 4. 셰이더 리소스 바인딩
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &SourceSRV);
 	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &SamplerState);
 
+	// 5. 셰이더 준비
 	UShader* FullScreenTriangleVS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
-	UShader* CopyTexturePS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/Blit_PS.hlsl");
-	if (!FullScreenTriangleVS || !FullScreenTriangleVS->GetVertexShader() || !CopyTexturePS || !CopyTexturePS->GetPixelShader())
+	UShader* BlitPS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/Blit_PS.hlsl");
+	if (!FullScreenTriangleVS || !FullScreenTriangleVS->GetVertexShader() || !BlitPS || !BlitPS->GetPixelShader())
 	{
 		UE_LOG("Blit용 셰이더 없음!\n");
-		return;
+		return; // 가드가 자동으로 스왑을 되돌리고 SRV를 해제해줌
 	}
+	RHIDevice->PrepareShader(FullScreenTriangleVS, BlitPS);
 
-	RHIDevice->PrepareShader(FullScreenTriangleVS, CopyTexturePS);
-
+	// 6. 그리기
 	RHIDevice->DrawFullScreenQuad();
 
-	// Unbind SRV (중요! 다음 프레임에서 Depth를 RTV로 사용할 수 있게)
-	ID3D11ShaderResourceView* NullSRV = nullptr;
-	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &NullSRV);
+	// 7. 모든 작업이 성공했으므로 Commit
+	SwapGuard.Commit();
 }
 
 void FSceneRenderer::FinalizeFrame()
