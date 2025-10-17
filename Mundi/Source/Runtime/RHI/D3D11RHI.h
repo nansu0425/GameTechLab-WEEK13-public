@@ -129,8 +129,6 @@ public:
 
 	void SetViewport(UINT width, UINT height);
 
-	void setviewort(UINT width, UINT height);
-
 	// Viewport query
 	UINT GetViewportWidth() const { return (UINT)ViewportInfo.Width; }
 	UINT GetViewportHeight() const { return (UINT)ViewportInfo.Height; }

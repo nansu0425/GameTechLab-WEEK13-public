@@ -429,9 +429,8 @@ void D3D11RHI::DrawFullScreenQuad()
     DeviceContext->IASetInputLayout(nullptr); // Input Layout도 필요 없습니다.
     DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    // 2. 정점 셰이더를 3번 실행하여 삼각형 하나를 그리도록 명령합니다.
-    //    이 삼각형은 화면보다 더 크게 그려져 전체를 덮게 됩니다.
-    DeviceContext->Draw(3, 0);
+    // 2. 정점 셰이더를 6번 실행하여 큰 삼각형 2개를 그리도록 명령합니다.
+    DeviceContext->Draw(6, 0);
 }
 
 void D3D11RHI::Present()
@@ -992,14 +991,6 @@ void D3D11RHI::SetViewport(UINT width, UINT height)
     ViewportInfo.MaxDepth = 1.0f;
 
     DeviceContext->RSSetViewports(1, &ViewportInfo);
-}
-
-// ──────────────────────────────────────────────────────
-// 기존 오타 호출 호환용 래퍼 (선택)
-// ──────────────────────────────────────────────────────
-void D3D11RHI::setviewort(UINT width, UINT height)
-{
-    SetViewport(width, height);
 }
 
 void D3D11RHI::PSSetDefaultSampler(UINT StartSlot)

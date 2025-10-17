@@ -203,6 +203,29 @@ void FSceneRenderer::PrepareView()
 	RHIDevice->GetDeviceContext()->ClearRenderTargetView(RHIDevice->GetCurrentTargetRTV(), ClearColor);
 	RHIDevice->GetDeviceContext()->ClearRenderTargetView(RHIDevice->GetIdBufferRTV(), ClearColor);
 	RHIDevice->ClearDepthBuffer(1.0f, 0);                 // 깊이값 초기화
+
+	// 뷰포트 크기 설정
+	D3D11_VIEWPORT Vp = {};
+	Vp.TopLeftX = static_cast<float>(Viewport->GetStartX());
+	Vp.TopLeftY = static_cast<float>(Viewport->GetStartY());
+	Vp.Width = static_cast<float>(Viewport->GetSizeX());
+	Vp.Height = static_cast<float>(Viewport->GetSizeY());
+	Vp.MinDepth = 0.0f;
+	Vp.MaxDepth = 1.0f;
+	RHIDevice->GetDeviceContext()->RSSetViewports(1, &Vp);
+
+	FViewportConstants ViewConstData;
+	// 1. 뷰포트 정보 채우기
+	ViewConstData.ViewportRect.X = Vp.TopLeftX;
+	ViewConstData.ViewportRect.Y = Vp.TopLeftY;
+	ViewConstData.ViewportRect.Z = Vp.Width;
+	ViewConstData.ViewportRect.W = Vp.Height;
+	// 2. 전체 화면(렌더 타겟) 크기 정보 채우기
+	ViewConstData.ScreenSize.X = RHIDevice->GetViewportWidth();
+	ViewConstData.ScreenSize.Y = RHIDevice->GetViewportHeight();
+	ViewConstData.ScreenSize.Z = 1.0f / RHIDevice->GetViewportWidth();
+	ViewConstData.ScreenSize.W = 1.0f / RHIDevice->GetViewportHeight();
+	RHIDevice->SetAndUpdateConstantBuffer((FViewportConstants)ViewConstData);
 }
 
 void FSceneRenderer::GatherVisibleProxies()
@@ -803,16 +826,6 @@ void FSceneRenderer::ApplyScreenEffectsPass()
 // 최종 결과물의 실제 BackBuffer에 그리는 함수
 void FSceneRenderer::CompositeToBackBuffer()
 {
-	// 마지막 BackBuffer 그리는 단계에서만 뷰포트 크기 설정
-	D3D11_VIEWPORT vp = {};
-	vp.TopLeftX = static_cast<float>(Viewport->GetStartX());
-	vp.TopLeftY = static_cast<float>(Viewport->GetStartY());
-	vp.Width = static_cast<float>(Viewport->GetSizeX());
-	vp.Height = static_cast<float>(Viewport->GetSizeY());
-	vp.MinDepth = 0.0f;
-	vp.MaxDepth = 1.0f;
-	RHIDevice->GetDeviceContext()->RSSetViewports(1, &vp);
-
 	// 1. 최종 결과물을 Source로 만들기 위해 스왑하고, 작업 후 SRV 슬롯 0을 자동 해제하는 가드 생성
 	FSwapGuard SwapGuard(RHIDevice, 0, 1);
 
