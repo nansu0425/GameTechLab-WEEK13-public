@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "LocalLightComponent.h"
 
 IMPLEMENT_CLASS(ULocalLightComponent)
@@ -25,7 +25,7 @@ float ULocalLightComponent::GetAttenuationFactor(const FVector& WorldPosition) c
 
 	// 거리 기반 감쇠 계산
 	float NormalizedDistance = Distance / AttenuationRadius;
-	float Attenuation = 1.0f - FMath::Pow(NormalizedDistance, FalloffExponent);
+	float Attenuation = 1.0f - pow(NormalizedDistance, FalloffExponent);
 
 	return FMath::Max(0.0f, Attenuation);
 }

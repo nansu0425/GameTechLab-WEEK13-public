@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "SpotLightComponent.h"
 
 IMPLEMENT_CLASS(USpotLightComponent)
@@ -28,7 +28,7 @@ float USpotLightComponent::GetConeAttenuation(const FVector& WorldPosition) cons
 
 	// 방향 벡터와의 각도 계산
 	float CosAngle = FVector::Dot(LightDirection, ToPosition);
-	float Angle = FMath::Acos(CosAngle) * (180.0f / 3.14159265f); // Radians to Degrees
+	float Angle = acos(CosAngle) * (180.0f / 3.14159265f); // Radians to Degrees
 
 	// 내부 원뿔 안: 감쇠 없음
 	if (Angle <= InnerConeAngle)
