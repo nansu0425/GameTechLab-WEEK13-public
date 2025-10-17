@@ -3,6 +3,19 @@
 
 IMPLEMENT_CLASS(USpotLightComponent)
 
+// 리플렉션 프로퍼티 등록
+void USpotLightComponent::StaticRegisterProperties()
+{
+	UClass* Class = StaticClass();
+
+	// 컴포넌트 메타데이터 설정
+	MARK_AS_COMPONENT("Spot Light", "A spot light component that emits light in a cone shape")
+
+	// 프로퍼티 등록
+	ADD_PROPERTY_RANGE(float, InnerConeAngle, "Light", 0.0f, 90.0f)
+	ADD_PROPERTY_RANGE(float, OuterConeAngle, "Light", 0.0f, 90.0f)
+}
+
 USpotLightComponent::USpotLightComponent()
 {
 	InnerConeAngle = 30.0f;
