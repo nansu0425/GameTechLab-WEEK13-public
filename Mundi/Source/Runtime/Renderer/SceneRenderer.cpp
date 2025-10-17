@@ -302,12 +302,14 @@ void FSceneRenderer::GatherVisibleProxies()
 
 				else if (UPointLightComponent* LightComponent = Cast<UPointLightComponent>(Component); LightComponent && bDrawLight)
 				{
-					SceneLocals.PointLights.Add(LightComponent);
-				}
-
-				else if (USpotLightComponent* LightComponent = Cast<USpotLightComponent>(Component); LightComponent && bDrawLight)
-				{
-					SceneLocals.SpotLights.Add(LightComponent);
+					if (USpotLightComponent* SpotLightComponent = Cast<USpotLightComponent>(LightComponent); SpotLightComponent)
+					{
+						SceneLocals.SpotLights.Add(SpotLightComponent);
+					}
+					else
+					{
+						SceneLocals.PointLights.Add(LightComponent);
+					}
 				}
  			}
 		}
