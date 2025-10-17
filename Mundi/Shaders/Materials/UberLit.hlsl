@@ -4,43 +4,46 @@
 //================================================================================================
 
 // --- 전역 상수 정의 ---
-#define NUM_POINT_LIGHT 4
-#define NUM_SPOT_LIGHT 4
+#define NUM_POINT_LIGHT_MAX 16
+#define NUM_SPOT_LIGHT_MAX 16
 
-// --- 조명 정보 구조체 ---
+// --- 조명 정보 구조체 (LightInfo.h와 완전히 일치) ---
 struct FAmbientLightInfo
 {
-    float4 Color;       // FLinearColor (RGBA)
+    float4 Color;       // FLinearColor
     float Intensity;
-    float Padding[3];   // 16-byte alignment
+    float3 Padding;     // FVector Padding
 };
 
 struct FDirectionalLightInfo
 {
+    float4 Color;       // FLinearColor
     float3 Direction;   // FVector
     float Intensity;
-    float4 Color;       // FLinearColor (RGBA)
 };
 
 struct FPointLightInfo
 {
-    float3 Position;    // FVector
-    float Radius;
-    float3 Attenuation; // FVector (constant, linear, quadratic)
+    float4 Color;           // FLinearColor
+    float3 Position;        // FVector
+    float AttenuationRadius; // float
+    float3 Attenuation;     // FVector (constant, linear, quadratic)
+    float FalloffExponent;  // float
     float Intensity;
-    float4 Color;       // FLinearColor (RGBA)
+    float3 Padding;         // FVector Padding
 };
 
 struct FSpotLightInfo
 {
-    float3 Position;    // FVector
-    float InnerConeAngle;
-    float3 Direction;   // FVector
-    float OuterConeAngle;
-    float4 Color;       // FLinearColor (RGBA)
+    float4 Color;           // FLinearColor
+    float3 Position;        // FVector
+    float InnerConeAngle;   // float
+    float3 Direction;       // FVector
+    float OuterConeAngle;   // float
+    float3 Attenuation;     // FVector
+    float AttenuationRadius; // float
     float Intensity;
-    float Radius;
-    float Padding[2];   // 16-byte alignment
+    float3 Padding;         // FVector Padding
 };
 
 // --- 상수 버퍼 (Constant Buffers) ---
@@ -79,12 +82,11 @@ cbuffer LightBuffer : register(b8)
 {
     FAmbientLightInfo AmbientLight;
     FDirectionalLightInfo DirectionalLight;
-    FPointLightInfo PointLights[NUM_POINT_LIGHT];
-    FSpotLightInfo SpotLights[NUM_SPOT_LIGHT];
-    uint DirectionalLightCount;
+    FPointLightInfo PointLights[NUM_POINT_LIGHT_MAX];
+    FSpotLightInfo SpotLights[NUM_SPOT_LIGHT_MAX];
     uint PointLightCount;
     uint SpotLightCount;
-    uint LightPadding;
+    float2 Padding; // FVector2D Padding in C++
 };
 
 // --- 텍스처 및 샘플러 리소스 ---
@@ -112,9 +114,9 @@ struct PS_INPUT
 // --- 유틸리티 함수 ---
 
 // Ambient Light Calculation
-float3 CalculateAmbientLight(FAmbientLightInfo info, float4 materialColor)
+float3 CalculateAmbientLight(FAmbientLightInfo light, float4 materialColor)
 {
-    return info.Color.rgb * info.Intensity * materialColor.rgb;
+    return light.Color.rgb * light.Intensity * materialColor.rgb;
 }
 
 // Diffuse Light Calculation (Lambert)
@@ -163,8 +165,8 @@ float3 CalculatePointLight(FPointLightInfo light, float3 worldPos, float3 normal
     float3 lightVec = light.Position - worldPos;
     float distance = length(lightVec);
 
-    // Early out if beyond radius
-    if (distance > light.Radius)
+    // Early out if beyond radius (using AttenuationRadius from C++ struct)
+    if (distance > light.AttenuationRadius)
         return float3(0.0f, 0.0f, 0.0f);
 
     float3 lightDir = lightVec / distance;
@@ -189,8 +191,8 @@ float3 CalculateSpotLight(FSpotLightInfo light, float3 worldPos, float3 normal, 
     float3 lightVec = light.Position - worldPos;
     float distance = length(lightVec);
 
-    // Early out if beyond radius
-    if (distance > light.Radius)
+    // Early out if beyond radius (using AttenuationRadius from C++ struct)
+    if (distance > light.AttenuationRadius)
         return float3(0.0f, 0.0f, 0.0f);
 
     float3 lightDir = lightVec / distance;
@@ -205,10 +207,8 @@ float3 CalculateSpotLight(FSpotLightInfo light, float3 worldPos, float3 normal, 
     if (cosAngle < outerCos)
         return float3(0.0f, 0.0f, 0.0f);
 
-    // NOTE: FSpotLightInfo does NOT have Attenuation field in the C++ struct
-    // Using simple linear falloff based on radius instead
-    // If you want quadratic attenuation, add Attenuation field to FSpotLightInfo C++ struct
-    float distanceAttenuation = 1.0f - saturate(distance / light.Radius);
+    // Distance attenuation using the Attenuation field from C++ struct
+    float distanceAttenuation = CalculateAttenuation(light.Attenuation, distance);
 
     // Smooth falloff between inner and outer cone
     float spotAttenuation = smoothstep(outerCos, innerCos, cosAngle);
@@ -266,13 +266,13 @@ PS_INPUT mainVS(VS_INPUT Input)
     finalColor += CalculateDirectionalLight(DirectionalLight, worldNormal, viewDir, Input.Color, true, SpecularPower);
 
     // Point lights (diffuse + specular)
-    for (int i = 0; i < NUM_POINT_LIGHT; i++)
+    for (int i = 0; i < PointLightCount; i++)
     {
         finalColor += CalculatePointLight(PointLights[i], Out.WorldPos, worldNormal, viewDir, Input.Color, true, SpecularPower);
     }
 
     // Spot lights (diffuse + specular)
-    for (int j = 0; j < NUM_SPOT_LIGHT; j++)
+    for (int j = 0; j < SpotLightCount; j++)
     {
         finalColor += CalculateSpotLight(SpotLights[j], Out.WorldPos, worldNormal, viewDir, Input.Color, true, SpecularPower);
     }
@@ -319,13 +319,13 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
     litColor += CalculateDirectionalLight(DirectionalLight, normal, float3(0, 0, 0), baseColor, false, 0.0f);
 
     // Point lights (diffuse only)
-    for (int i = 0; i < NUM_POINT_LIGHT; i++)
+    for (int i = 0; i < PointLightCount; i++)
     {
         litColor += CalculatePointLight(PointLights[i], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f);
     }
 
     // Spot lights (diffuse only)
-    for (int j = 0; j < NUM_SPOT_LIGHT; j++)
+    for (int j = 0; j < SpotLightCount; j++)
     {
         litColor += CalculateSpotLight(SpotLights[j], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f);
     }
@@ -347,13 +347,13 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
     litColor += CalculateDirectionalLight(DirectionalLight, normal, viewDir, baseColor, true, SpecularPower);
 
     // Point lights (diffuse + specular)
-    for (int i = 0; i < NUM_POINT_LIGHT; i++)
+    for (int i = 0; i < PointLightCount; i++)
     {
         litColor += CalculatePointLight(PointLights[i], Input.WorldPos, normal, viewDir, baseColor, true, SpecularPower);
     }
 
     // Spot lights (diffuse + specular)
-    for (int j = 0; j < NUM_SPOT_LIGHT; j++)
+    for (int j = 0; j < SpotLightCount; j++)
     {
         litColor += CalculateSpotLight(SpotLights[j], Input.WorldPos, normal, viewDir, baseColor, true, SpecularPower);
     }
