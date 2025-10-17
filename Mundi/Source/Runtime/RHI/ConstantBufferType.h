@@ -166,6 +166,14 @@ struct FLightBufferType
     FVector2D Padding;
 };
 
+struct CameraBufferType
+{
+    FVector CameraPosition;
+    float Padding;
+};
+
+static_assert(sizeof(CameraBufferType) % 16 == 0, "CameraBufferType size must be multiple of 16!");
+
 #define CONSTANT_BUFFER_INFO(TYPE, SLOT, VS, PS) \
 constexpr uint32 TYPE##Slot = SLOT;\
 constexpr bool TYPE##IsVS = VS;\
@@ -185,6 +193,7 @@ MACRO(HighLightBufferType)          \
 MACRO(ColorBufferType)              \
 MACRO(BillboardBufferType)          \
 MACRO(FireBallBufferType)           \
+MACRO(CameraBufferType)             \
 MACRO(FLightBufferType)
 
 //VS, PS 세팅은 함수 파라미터로 결정하게 하는게 훨씬 나을듯 나중에 수정 필요
@@ -201,5 +210,6 @@ CONSTANT_BUFFER_INFO(HighLightBufferType, 2, true, false)
 CONSTANT_BUFFER_INFO(ColorBufferType, 3, false, true)
 CONSTANT_BUFFER_INFO(BillboardBufferType, 0, true, false)
 CONSTANT_BUFFER_INFO(FireBallBufferType, 7, false, true)
+CONSTANT_BUFFER_INFO(CameraBufferType, 7, true, true)  // b7, VS+PS (UberLit.hlsl과 일치)
 CONSTANT_BUFFER_INFO(FLightBufferType, 8, true, true)
 

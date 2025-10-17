@@ -30,6 +30,10 @@
 #include "Gizmo/GizmoArrowComponent.h"
 #include "Gizmo/GizmoRotateComponent.h"
 #include "Gizmo/GizmoScaleComponent.h"
+#include "DirectionalLightComponent.h"
+#include "AmbientLightComponent.h"
+#include "PointLightComponent.h"
+#include "SpotLightComponent.h"
 #include "SwapGuard.h"
 
 FSceneRenderer::FSceneRenderer(UWorld* InWorld, ACameraActor* InCamera, FViewport* InViewport, URenderer* InOwnerRenderer)
@@ -177,6 +181,9 @@ bool FSceneRenderer::IsValid() const
 
 void FSceneRenderer::PrepareView()
 {
+	// 렌더링 시작 시 현재 카메라 설정
+	OwnerRenderer->SetCurrentCamera(Camera);
+
 	RHIDevice->RSSetViewport();
 
 	float ViewportAspectRatio = static_cast<float>(Viewport->GetSizeX()) / static_cast<float>(Viewport->GetSizeY());
@@ -196,7 +203,10 @@ void FSceneRenderer::PrepareView()
 	}
 
 	EffectiveViewMode = World->GetRenderSettings().GetViewModeIndex();
-
+	
+	// 조명 모델 결정 (추후 RenderSettings에서 가져오도록 확장 가능)
+	// 현재는 기본값인 Phong 사용
+	EffectiveLightingModel = ELightingModel::Phong;
 
 	//RHIDevice->OnResize(Viewport->GetSizeX(), Viewport->GetSizeY());
 	float ClearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -274,7 +284,7 @@ void FSceneRenderer::GatherVisibleProxies()
 					SceneGlobals.Fogs.Add(FogComponent);
 				}
 
-				/*else if (UDirectionalLightComponent* LightComponent = Cast<UDirectionalLightComponent>(Component); LightComponent && bDrawLight)
+				else if (UDirectionalLightComponent* LightComponent = Cast<UDirectionalLightComponent>(Component); LightComponent && bDrawLight)
 				{
 					SceneGlobals.DirectionalLights.Add(LightComponent);
 				}
@@ -292,7 +302,7 @@ void FSceneRenderer::GatherVisibleProxies()
 				else if (USpotLightComponent* LightComponent = Cast<USpotLightComponent>(Component); LightComponent && bDrawLight)
 				{
 					SceneLocals.SpotLights.Add(LightComponent);
-				}*/
+				}
  			}
 		}
 	}
@@ -303,63 +313,46 @@ void FSceneRenderer::UpdateLightConstant()
 	FLightBufferType LightBuffer{};
 
 	//테스트코드
-	//for (UAmbientLightComponent* LightComponent : SceneGlobals.AmbientLights)
+	for (UAmbientLightComponent* LightComponent : SceneGlobals.AmbientLights)
 	{
-		//LightBuffer.AmbientLight = FAmbientLightInfo(LightComponent->GetLightInfo());
-		LightBuffer.AmbientLight = FAmbientLightInfo(FLinearColor(0.3f, 1.0f, 0.2f), 0.3f);
-		//break;
+		LightBuffer.AmbientLight = FAmbientLightInfo(LightComponent->GetLightInfo());
+		
+		break;
 	}
 
-	//for (UDirectionalLightComponent* LightComponent : SceneGlobals.DirectionalLights)
+	for (UDirectionalLightComponent* LightComponent : SceneGlobals.DirectionalLights)
 	{
-		//LightBuffer.DirectionalLight = FDirectionalLightInfo(LightComponent->GetLightInfo());
-		/*LightBuffer.DirectionalLight = FDirectionalLightInfo(
-			FLinearColor(0.5f, 0.5f, 0.5f),
-			FVector(1.0f, 1.0f, 1.0f), 
-			3.0f
-			);*/
-		//break;
+		LightBuffer.DirectionalLight = FDirectionalLightInfo(LightComponent->GetLightInfo());
+		
+		break;
 	}
 
-	//for (UPointLightComponent* LightComponent : SceneLocals.PointLights)
-	for(int Index = 0 ; Index < 15; Index++)
+	for (UPointLightComponent* LightComponent : SceneLocals.PointLights)
 	{
 		if (LightBuffer.PointLightCount >= NUM_POINT_LIGHT_MAX)
 		{
 			UE_LOG("PointLight의 최대 개수는 %d개 입니다.", NUM_POINT_LIGHT_MAX);
 			break;
 		}
-		//LightBuffer.PointLights[LightBuffer.PointLightCount++] = FPointLightInfo(LightComponent->GetLightInfo());
-		LightBuffer.PointLights[LightBuffer.PointLightCount++] = FPointLightInfo(
-			FLinearColor(3.0f, 9.4f, 2.3f),
-			FVector(4.0f, 3.0f, 6.0f),
-			3.5f,
-			FVector(3.0f, 3.5f, 3.3f),
-			3.0f * LightBuffer.PointLightCount
-		);
+		LightBuffer.PointLights[LightBuffer.PointLightCount++] = FPointLightInfo(LightComponent->GetLightInfo());
+		
 
 	}
 
-	//for (USpotLightComponent* LightComponent : SceneLocals.SpotLights)
-	for(int Index = 0 ; Index < 32; Index++)
+	for (USpotLightComponent* LightComponent : SceneLocals.SpotLights)
 	{
 		if (LightBuffer.SpotLightCount >= NUM_SPOT_LIGHT_MAX)
 		{
 			UE_LOG("SpotLight의 최대 개수는 %d개 입니다.", NUM_SPOT_LIGHT_MAX);
 			break;
 		}
-		//LightBuffer.SpotLights[LightBuffer.SpotLightCount++] = FSpotLightInfo(LightComponent->GetLightInfo());
-		LightBuffer.SpotLights[LightBuffer.SpotLightCount++] = FSpotLightInfo(
-			FLinearColor(0.3f, 0.6f, 1.0f),
-			FVector(9.0f, 9.0f, 9.0f),
-			30.0f,
-			FVector(14.f, 3.f, 2.3f),
-			32.0f,
-			0.3f
-		);
+		LightBuffer.SpotLights[LightBuffer.SpotLightCount++] = FSpotLightInfo(LightComponent->GetLightInfo());
 	}
 
-	RHIDevice->UpdateConstantBuffer(LightBuffer);
+	// CRITICAL FIX: Use SetAndUpdateConstantBuffer instead of UpdateConstantBuffer
+	// UpdateConstantBuffer only updates the buffer data but doesn't bind it to slot b8
+	// SetAndUpdateConstantBuffer both updates the data AND binds it to VS/PS
+	RHIDevice->SetAndUpdateConstantBuffer(LightBuffer);
 }
 
 void FSceneRenderer::PerformFrustumCulling()
@@ -387,8 +380,15 @@ void FSceneRenderer::RenderOpaquePass()
 	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual); // 깊이 쓰기 ON
 	RHIDevice->OMSetBlendState(false);
 
+	// 모든 메시에 조명 모델 적용
 	for (UMeshComponent* MeshComponent : Proxies.Meshes)
 	{
+		// StaticMeshComponent인 경우 조명 모델 설정
+		if (UStaticMeshComponent* StaticMeshComp = Cast<UStaticMeshComponent>(MeshComponent))
+		{
+			StaticMeshComp->SetLightingModel(EffectiveLightingModel);
+		}
+		
 		MeshComponent->Render(OwnerRenderer, ViewMatrix, ProjectionMatrix);
 	}
 

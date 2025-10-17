@@ -93,17 +93,6 @@ cbuffer ViewProjBuffer : register(b1)
     row_major float4x4 ProjectionMatrix;
 };
 
-// b2: HighLightBuffer (VS) - For selection/gizmo highlighting
-cbuffer HighLightBuffer : register(b2)
-{
-    uint Picked;        // 1 if object is picked/selected
-    float3 PickColor;   // Highlight color
-    uint AxisX;         // X-axis indicator (0=none, 1=red, 2=green, 3=blue)
-    uint AxisY;         // Y-axis indicator (1=yellow)
-    uint AxisZ;         // Z-axis indicator
-    uint IsGizmo;       // 1 if this is a gizmo object
-};
-
 // b3: ColorBuffer (PS) - For color blending/lerping
 cbuffer ColorBuffer : register(b3)
 {
@@ -118,16 +107,6 @@ cbuffer PixelConstBuffer : register(b4)
     FMaterial Material;         // 64 bytes
     bool HasMaterial;           // 4 bytes (HLSL)
     bool HasTexture;            // 4 bytes (HLSL)
-    float2 Padding;             // 8 bytes to reach 80 bytes total
-    // Total: 64 + 4 + 4 + 8 = 80 bytes (matches C++ with 16 bool padding)
-};
-
-// b5: PSScrollCB (PS) - UV scroll animation
-cbuffer PSScrollCB : register(b5)
-{
-    float2 UVScrollSpeed;       // UV scroll speed (u, v)
-    float UVScrollTime;         // Current time for animation
-    float ScrollPadding;
 };
 
 // b7: CameraBuffer (VS+PS) - Camera properties (moved from b2)
@@ -177,7 +156,7 @@ struct PS_INPUT
 // Uses material's AmbientColor (Ka) if available, otherwise uses diffuse color
 float3 CalculateAmbientLight(FAmbientLightInfo light, float4 materialColor)
 {
-    float3 ambientMaterial = HasMaterial ? Material.AmbientColor : materialColor.rgb;
+    float3 ambientMaterial = HasMaterial ? Material.DiffuseColor : materialColor.rgb;
     return light.Color.rgb * light.Intensity * ambientMaterial;
 }
 
@@ -426,26 +405,6 @@ PS_INPUT mainVS(VS_INPUT Input)
 
 #endif
 
-    // Apply highlight/gizmo coloring (from StaticMeshShader)
-    // This happens after lighting to override colors for selection/gizmo display
-    if (IsGizmo == 1)
-    {
-        // Gizmo axis coloring
-        if (AxisY == 1)
-        {
-            Out.Color = float4(1.0f, 1.0f, 0.0f, Out.Color.a); // Yellow for Y-axis
-        }
-        else
-        {
-            if (AxisX == 1)
-                Out.Color = float4(1.0f, 0.0f, 0.0f, Out.Color.a); // Red for X-axis
-            else if (AxisX == 2)
-                Out.Color = float4(0.0f, 1.0f, 0.0f, Out.Color.a); // Green
-            else if (AxisX == 3)
-                Out.Color = float4(0.0f, 0.0f, 1.0f, Out.Color.a); // Blue for Z-axis
-        }
-    }
-
     return Out;
 }
 
@@ -456,10 +415,10 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
 {
     // Apply UV scrolling if enabled
     float2 uv = Input.TexCoord;
-    if (HasMaterial && HasTexture)
-    {
-        uv += UVScrollSpeed * UVScrollTime;
-    }
+    //if (HasMaterial && HasTexture)
+    //{
+    //    uv += UVScrollSpeed * UVScrollTime;
+    //}
 
     // Sample texture
     float4 texColor = g_DiffuseTexColor.Sample(g_Sample, uv);
