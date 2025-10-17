@@ -719,10 +719,15 @@ void FSceneRenderer::RenderDebugPass()
 	{
 		for (USceneComponent* Component : SelectedActor->GetSceneComponents())
 		{
-			// 일단 데칼만 구현됨
+			// Decal 디버그 볼륨
 			if (UDecalComponent* Decal = Cast<UDecalComponent>(Component))
 			{
 				Decal->RenderDebugVolume(OwnerRenderer, ViewMatrix, ProjectionMatrix);
+			}
+			// SpotLight 디버그 볼륨 (원뿔 모양)
+			else if (USpotLightComponent* SpotLight = Cast<USpotLightComponent>(Component))
+			{
+				SpotLight->RenderDebugVolume(OwnerRenderer, ViewMatrix, ProjectionMatrix);
 			}
 		}
 	}
