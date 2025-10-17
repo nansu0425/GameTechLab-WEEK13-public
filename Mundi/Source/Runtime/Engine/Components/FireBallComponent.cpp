@@ -88,12 +88,16 @@ void UFireBallComponent::RenderAffectedPrimitives(URenderer* Renderer, UPrimitiv
 		return;
 	}
 
-	RHIDevice->UpdateConstantBuffers(SMC->GetWorldMatrix(), View, Proj);
+	RHIDevice->SetUpdateConstantBuffer(ModelBufferType(SMC->GetWorldMatrix()));
+	RHIDevice->SetUpdateConstantBuffer(ViewProjBufferType(View, Proj));
 
 	const FVector Center = GetWorldLocation();
 	const float SafeRadius = Radius > KINDA_SMALL_NUMBER ? Radius : KINDA_SMALL_NUMBER;
-	RHIDevice->UpdateFireBallConstantBuffers(Center, SafeRadius, Intensity, RadiusFallOff, Color);
-
+	//RHIDevice->UpdateFireBallConstantBuffers(Center, SafeRadius, Intensity, RadiusFallOff, Color);
+	float Pad[2];
+	FireBallBufferType FireBallConst{ Center, SafeRadius, Intensity, RadiusFallOff };
+	FireBallConst.Color = Color;
+	RHIDevice->SetUpdateConstantBuffer(FireBallConst);
 	RHIDevice->PrepareShader(LightingShader);
 
 	if (StaticMesh->GetVertexType() != EVertexLayoutType::PositionColorTexturNormal)
