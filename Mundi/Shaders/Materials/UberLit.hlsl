@@ -293,8 +293,8 @@ float3 CalculateSpotLight(FSpotLightInfo light, float3 worldPos, float3 normal, 
 
     // Spot cone attenuation
     float cosAngle = dot(-lightDir, spotDir);
-    float innerCos = cos(light.InnerConeAngle);
-    float outerCos = cos(light.OuterConeAngle);
+    float innerCos = cos(radians(light.InnerConeAngle));
+    float outerCos = cos(radians(light.OuterConeAngle));
 
     // Early out if outside cone
     if (cosAngle < outerCos)
