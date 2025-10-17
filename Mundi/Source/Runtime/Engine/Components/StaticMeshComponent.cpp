@@ -110,17 +110,9 @@ void UStaticMeshComponent::Render(URenderer* Renderer, const FMatrix& ViewMatrix
 		Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(
 			ViewProjBufferType(ViewMatrix, ProjectionMatrix));
 
-		// b2: HighLightBuffer (기본값 - 선택되지 않은 상태)
-		Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(
-			HighLightBufferType(0, FVector(1, 1, 1), 0, 0, 0, 0));
-
 		// b3: ColorBuffer (신규 - 기본값)
 		Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(
 			ColorBufferType(FVector4(1, 1, 1, 0)));
-
-		// b5: PSScrollCB (신규 - 스크롤 없음)
-		/*Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(
-			PSScrollCBType(FVector2D(0, 0), 0.0f, 0.0f));*/
 
 		// b7: CameraBuffer - Renderer에서 카메라 위치 가져오기
 		FVector CameraPos = FVector::Zero();
