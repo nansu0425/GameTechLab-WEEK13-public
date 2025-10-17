@@ -71,6 +71,9 @@ public:
     void DuplicateSubObjects() override;
     DECLARE_DUPLICATE(UActorComponent)
 
+    // ───── 직렬화 ────────────────────────────
+    virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
+
 protected:
     AActor* Owner = nullptr;     // 소유 액터
     bool bIsNative = false;      // 액터의 기본 구성 컴포넌트인지 여부. 활성화되면 보호되어 UI에서 삭제 불가 상태가 됨 
