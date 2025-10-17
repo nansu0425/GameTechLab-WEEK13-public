@@ -95,6 +95,43 @@ void URenderer::RenderSceneForView(UWorld* World, ACameraActor* Camera, FViewpor
 	SceneRenderer.Render();
 }
 
+UPrimitiveComponent* URenderer::GetPrimitiveCollided(int MouseX, int MouseY) const
+{
+	//GPU와 동기화 문제 때문에 Map이 호출될때까지 기다려야해서 피킹 하는 프레임에 엄청난 프레임 드랍이 일어남.
+   //******비동기 방식으로 무조건 바꿔야함****************
+	uint32 PickedId = 0;
+
+	ID3D11DeviceContext* DeviceContext = RHIDevice->GetDeviceContext();
+	//스테이징 버퍼를 가져와야 하는데 이걸 Device 추상 클래스가 Getter로 가지고 있는게 좋은 설계가 아닌 것 같아서 일단 캐스팅함
+
+
+	D3D11_BOX Box{};
+	Box.left = MouseX;
+	Box.right = MouseX + 1;
+	Box.top = MouseY;
+	Box.bottom = MouseY + 1;
+	Box.front = 0;
+	Box.back = 1;
+
+	DeviceContext->CopySubresourceRegion(
+		RHIDevice->GetIdStagingBuffer(),
+		0,
+		0, 0, 0,
+		RHIDevice->GetIdBuffer(),
+		0,
+		&Box);
+	D3D11_MAPPED_SUBRESOURCE MapResource{};
+	if (SUCCEEDED(DeviceContext->Map(RHIDevice->GetIdStagingBuffer(), 0, D3D11_MAP_READ, 0, &MapResource)))
+	{
+		PickedId = *static_cast<uint32*>(MapResource.pData);
+		DeviceContext->Unmap(RHIDevice->GetIdStagingBuffer(), 0);
+	}
+
+	if (PickedId == 0)
+		return nullptr;
+	return Cast<UPrimitiveComponent>(GUObjectArray[PickedId]);
+}
+
 void URenderer::DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITIVE_TOPOLOGY InTopology, const TArray<FMaterialSlot>& InComponentMaterialSlots)
 {
 	UINT stride = 0;

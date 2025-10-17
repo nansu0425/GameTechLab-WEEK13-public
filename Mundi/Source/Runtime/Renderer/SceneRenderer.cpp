@@ -97,7 +97,7 @@ void FSceneRenderer::Render()
 
 void FSceneRenderer::RenderLitPath()
 {
-	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTarget);
+	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorIdTarget);
 
 	// Base Pass
 	RenderOpaquePass();
@@ -199,9 +199,9 @@ void FSceneRenderer::PrepareView()
 
 
 	//RHIDevice->OnResize(Viewport->GetSizeX(), Viewport->GetSizeY());
-	float ClearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	float ClearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	RHIDevice->GetDeviceContext()->ClearRenderTargetView(RHIDevice->GetCurrentTargetRTV(), ClearColor);
-
+	RHIDevice->GetDeviceContext()->ClearRenderTargetView(RHIDevice->GetIdBufferRTV(), ClearColor);
 	RHIDevice->ClearDepthBuffer(1.0f, 0);                 // 깊이값 초기화
 }
 
@@ -303,10 +303,10 @@ void FSceneRenderer::UpdateLightConstant()
 	FLightBufferType LightBuffer{};
 
 	//테스트코드
-	//for (UAmbientLightComponent* LightComponent : SceneGlobals.AmbientLights)
+	for (UAmbientLightComponent* LightComponent : SceneGlobals.AmbientLights)
 	{
 		//LightBuffer.AmbientLight = FAmbientLightInfo(LightComponent->GetLightInfo());
-		LightBuffer.AmbientLight = FAmbientLightInfo(FLinearColor(0.3f, 1.0f, 0.2f), 0.3f);
+		//LightBuffer.AmbientLight = FAmbientLightInfo(FLinearColor(0.3f, 1.0f, 0.2f), 0.3f);
 		//break;
 	}
 
@@ -341,7 +341,7 @@ void FSceneRenderer::UpdateLightConstant()
 	}
 
 	//for (USpotLightComponent* LightComponent : SceneLocals.SpotLights)
-	for(int Index = 0 ; Index < 32; Index++)
+	for(int Index = 0 ; Index < 0; Index++)
 	{
 		if (LightBuffer.SpotLightCount >= NUM_SPOT_LIGHT_MAX)
 		{

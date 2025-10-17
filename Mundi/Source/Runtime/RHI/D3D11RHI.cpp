@@ -7,8 +7,10 @@ void D3D11RHI::Initialize(HWND hWindow)
     // 이곳에서 Device, DeviceContext, viewport, swapchain를 초기화한다
     CreateDeviceAndSwapChain(hWindow);
     CreateFrameBuffer();
+    CreateIdBuffer();
     CreateRasterizerState();
     CreateBlendState();
+    
     CONSTANT_BUFFER_LIST(CREATE_CONSTANT_BUFFER);
 
 	CreateDepthStencilState();
@@ -54,22 +56,6 @@ void D3D11RHI::Release()
 
     // 상수버퍼
     CONSTANT_BUFFER_LIST(RELEASE_CONSTANT_BUFFER);
-    //if (HighLightCB) { HighLightCB->Release(); HighLightCB = nullptr; }
-    //if (ModelCB) { ModelCB->Release(); ModelCB = nullptr; }
-    //if (ColorCB) { ColorCB->Release(); ColorCB = nullptr; }
-    //if (ViewProjCB) { ViewProjCB->Release(); ViewProjCB = nullptr; }
-    //if (BillboardCB) { BillboardCB->Release(); BillboardCB = nullptr; }
-    //if (PixelConstCB) { PixelConstCB->Release(); PixelConstCB = nullptr; }
-    //if (UVScrollCB) { UVScrollCB->Release(); UVScrollCB = nullptr; }
-    //if (DecalCB) { DecalCB->Release(); DecalCB = nullptr; }
-    //if (FireBallCB) { FireBallCB->Release(); FireBallCB = nullptr; }
-    //if (ConstantBuffer) { ConstantBuffer->Release(); ConstantBuffer = nullptr; }
-
-    //// PostProcess 상수버퍼
-    //if (PostProcessCB) { PostProcessCB->Release(); PostProcessCB = nullptr; }
-    //if (InvViewProjCB) { InvViewProjCB->Release(); InvViewProjCB = nullptr; }
-    //if (FogCB) { FogCB->Release(); FogCB = nullptr; }
-    //if (FXAACB) { FXAACB->Release(); FXAACB = nullptr; }
 
     // 상태 객체
     if (DepthStencilState) { DepthStencilState->Release(); DepthStencilState = nullptr; }
@@ -85,10 +71,11 @@ void D3D11RHI::Release()
     if (WireFrameRasterizerState) { WireFrameRasterizerState->Release();   WireFrameRasterizerState = nullptr; }
     if (DecalRasterizerState) { DecalRasterizerState->Release();   DecalRasterizerState = nullptr; }
     if (NoCullRasterizerState) { NoCullRasterizerState->Release();   NoCullRasterizerState = nullptr; }
-    if (BlendState) { BlendState->Release();        BlendState = nullptr; }
 
+    ReleaseBlendState();
     // RTV/DSV/FrameBuffer
     ReleaseFrameBuffer();
+    ReleaseIdBuffer();
 
     // Device + SwapChain
     ReleaseDeviceAndSwapChain();
@@ -97,7 +84,9 @@ void D3D11RHI::Release()
 void D3D11RHI::ClearBackBuffer()
 {
     float ClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.0f };
+    float ClearId[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
     DeviceContext->ClearRenderTargetView(BackBufferRTV, ClearColor);
+    DeviceContext->ClearRenderTargetView(IdBufferRTV, ClearId);
 }
 
 void D3D11RHI::ClearDepthBuffer(float Depth, UINT Stencil)
@@ -109,20 +98,51 @@ void D3D11RHI::ClearDepthBuffer(float Depth, UINT Stencil)
 void D3D11RHI::CreateBlendState()
 {
     // Create once; reuse every frame
-    if (BlendState)
+    if (BlendStateOpaque)
         return;
 
-    D3D11_BLEND_DESC bd = {};
-    auto& rt = bd.RenderTarget[0];
-    rt.BlendEnable = TRUE;
-    rt.SrcBlend = D3D11_BLEND_SRC_ALPHA;      // 스트레이트 알파
-    rt.DestBlend = D3D11_BLEND_INV_SRC_ALPHA;  // (프리멀티면 ONE / INV_SRC_ALPHA)
-    rt.BlendOp = D3D11_BLEND_OP_ADD;
-    rt.SrcBlendAlpha = D3D11_BLEND_ONE;
-    rt.DestBlendAlpha = D3D11_BLEND_ZERO;
-    rt.BlendOpAlpha = D3D11_BLEND_OP_ADD;
-    rt.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-    Device->CreateBlendState(&bd, &BlendState);
+    D3D11_BLEND_DESC BlendDesc = {};
+    
+    BlendDesc.IndependentBlendEnable = true;
+
+    D3D11_RENDER_TARGET_BLEND_DESC& Rt0 = BlendDesc.RenderTarget[0];
+
+    Rt0.BlendEnable = TRUE;
+    Rt0.SrcBlend = D3D11_BLEND_SRC_ALPHA;
+    Rt0.DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+    Rt0.BlendOp = D3D11_BLEND_OP_ADD;
+    Rt0.SrcBlendAlpha = D3D11_BLEND_ONE;
+    Rt0.DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+    Rt0.BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    Rt0.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+
+    D3D11_RENDER_TARGET_BLEND_DESC& Rt1 = BlendDesc.RenderTarget[1];
+    Rt1.BlendEnable = FALSE;
+    Rt1.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+    Device->CreateBlendState(&BlendDesc, &BlendStateTransparent);
+
+    BlendDesc = {};
+    BlendDesc.IndependentBlendEnable = TRUE;
+    Rt0 = BlendDesc.RenderTarget[0];
+    Rt0.BlendEnable = FALSE;
+    Rt0.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+    Rt1 = BlendDesc.RenderTarget[1];
+    Rt1.BlendEnable = FALSE;
+    Rt1.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    Device->CreateBlendState(&BlendDesc, &BlendStateOpaque);
+    //auto& rt = bd.RenderTarget[0];
+    //rt.BlendEnable = TRUE;
+    //rt.SrcBlend = D3D11_BLEND_SRC_ALPHA;      // 스트레이트 알파
+    //rt.DestBlend = D3D11_BLEND_INV_SRC_ALPHA;  // (프리멀티면 ONE / INV_SRC_ALPHA)
+    //rt.BlendOp = D3D11_BLEND_OP_ADD;
+    //rt.SrcBlendAlpha = D3D11_BLEND_ONE;
+    //rt.DestBlendAlpha = D3D11_BLEND_ZERO;
+    //rt.BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    //rt.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    //Device->CreateBlendState(&bd, &BlendState);
 }
 
 void D3D11RHI::CreateDepthStencilState()
@@ -311,6 +331,7 @@ void D3D11RHI::RSSetState(ERasterizerMode ViewModeIndex)
 void D3D11RHI::RSSetViewport()
 {
     DeviceContext->RSSetViewports(1, &ViewportInfo);
+       
 }
 
 void D3D11RHI::SwapRenderTargets() // 이전의 SwapPostProcessTextures
@@ -368,6 +389,12 @@ void D3D11RHI::OMSetRenderTargets(ERTVMode RTVMode)
         DeviceContext->OMSetRenderTargets(1, &CurrentTargetRTV, DepthStencilView);
         break;
     }
+    case ERTVMode::SceneColorIdTarget:
+    {
+        ID3D11RenderTargetView* RTVList[2]{ GetCurrentTargetRTV(), IdBufferRTV };
+        DeviceContext->OMSetRenderTargets(2, RTVList, DepthStencilView);
+        break;
+    }
     case ERTVMode::SceneColorTargetWithoutDepth:
     {
         ID3D11RenderTargetView* CurrentTargetRTV = GetCurrentTargetRTV();
@@ -384,11 +411,11 @@ void D3D11RHI::OMSetBlendState(bool bIsBlendMode)
     if (bIsBlendMode == true)
     {
         float blendFactor[4] = { 0, 0, 0, 0 };
-        DeviceContext->OMSetBlendState(BlendState, blendFactor, 0xffffffff);
+        DeviceContext->OMSetBlendState(BlendStateTransparent, blendFactor, 0xffffffff);
     }
     else
     {
-        DeviceContext->OMSetBlendState(nullptr, nullptr, 0xffffffff);
+        DeviceContext->OMSetBlendState(BlendStateOpaque, nullptr, 0xffffffff);
     }
 }
 
@@ -520,6 +547,47 @@ void D3D11RHI::CreateFrameBuffer()
     Device->CreateShaderResourceView(DepthBuffer, &srvDesc, &DepthSRV);
 }
 
+void D3D11RHI::CreateIdBuffer()
+{
+
+    DXGI_SWAP_CHAIN_DESC SwapDesc;
+    SwapChain->GetDesc(&SwapDesc);
+
+    D3D11_TEXTURE2D_DESC TextureDesc{};
+    TextureDesc.Format = DXGI_FORMAT_R32_UINT;
+    TextureDesc.CPUAccessFlags = 0;
+    TextureDesc.Usage = D3D11_USAGE_DEFAULT;
+    TextureDesc.Width = SwapDesc.BufferDesc.Width;
+    TextureDesc.Height = SwapDesc.BufferDesc.Height;
+    TextureDesc.MipLevels = 1;
+    TextureDesc.ArraySize = 1;
+    TextureDesc.SampleDesc.Count = 1;
+    TextureDesc.SampleDesc.Quality = 0;
+    TextureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+
+    Device->CreateTexture2D(&TextureDesc, nullptr, &IdBuffer);
+
+    D3D11_RENDER_TARGET_VIEW_DESC Desc{};
+    Desc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+    Desc.Format = DXGI_FORMAT_R32_UINT;
+    Device->CreateRenderTargetView(IdBuffer, &Desc, &IdBufferRTV);
+
+    TextureDesc = {};
+
+    TextureDesc.Format = DXGI_FORMAT_R32_UINT;
+    TextureDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    TextureDesc.Usage = D3D11_USAGE_STAGING;
+    TextureDesc.Width = 1;
+    TextureDesc.Height = 1;
+    TextureDesc.MipLevels = 1;
+    TextureDesc.ArraySize = 1;
+    TextureDesc.SampleDesc.Count = 1;
+    TextureDesc.SampleDesc.Quality = 0;
+    TextureDesc.BindFlags = 0;
+
+    Device->CreateTexture2D(&TextureDesc, nullptr, &IdStagingBuffer);
+}
+
 void D3D11RHI::CreateRasterizerState()
 {
     D3D11_RASTERIZER_DESC deafultrasterizerdesc = {};
@@ -604,10 +672,15 @@ void D3D11RHI::ReleaseSamplerState()
 
 void D3D11RHI::ReleaseBlendState()
 {
-    if (BlendState)
+    if (BlendStateOpaque)
     {
-        BlendState->Release();
-        BlendState = nullptr;
+        BlendStateOpaque->Release();
+        BlendStateOpaque = nullptr;
+    }
+    if (BlendStateTransparent)
+    {
+        BlendStateTransparent->Release();
+        BlendStateTransparent = nullptr;
     }
 }
 
@@ -698,6 +771,25 @@ void D3D11RHI::ReleaseFrameBuffer()
             SceneColorTextures[i]->Release();
             SceneColorTextures[i] = nullptr;
         }
+    }
+}
+
+void D3D11RHI::ReleaseIdBuffer()
+{
+    if (IdBufferRTV)
+    {
+        IdBufferRTV->Release();
+        IdBufferRTV = nullptr;
+    }
+    if (IdStagingBuffer)
+    {
+        IdStagingBuffer->Release();
+        IdStagingBuffer = nullptr;
+    }
+    if (IdBuffer)
+    {
+        IdBuffer->Release();
+        IdBuffer = nullptr;
     }
 }
 

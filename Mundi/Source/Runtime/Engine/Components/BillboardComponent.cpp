@@ -89,6 +89,7 @@ void UBillboardComponent::Render(URenderer* Renderer, const FMatrix& View, const
 		View,
 		Proj,
 		FMatrix()));
+	Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ColorBufferType(FVector4(), this->InternalIndex));
 
     Renderer->GetRHIDevice()->PrepareShader(Material->GetShader());
     Renderer->GetRHIDevice()->OMSetDepthStencilState(EComparisonFunc::LessEqual);

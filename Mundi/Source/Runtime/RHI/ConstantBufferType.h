@@ -131,6 +131,8 @@ struct HighLightBufferType
 struct ColorBufferType
 {
     FVector4 Color;
+    uint32 UUID;
+    FVector Padding;
 };
 
 

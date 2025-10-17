@@ -32,6 +32,7 @@ void UStaticMeshComponent::Render(URenderer* Renderer, const FMatrix& ViewMatrix
 	{
 		Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ModelBufferType(GetWorldMatrix()));
 		Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ViewProjBufferType(ViewMatrix, ProjectionMatrix));
+		Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ColorBufferType(FVector4(), this->InternalIndex));
 		Renderer->GetRHIDevice()->PrepareShader(GetMaterial()->GetShader());
 		Renderer->DrawIndexedPrimitiveComponent(GetStaticMesh(), D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST, MaterialSlots);
 	}
