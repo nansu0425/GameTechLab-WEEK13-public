@@ -41,6 +41,6 @@ public:
 protected:
 	float AttenuationRadius = 1000.0f;				 // 감쇠 반경
 	float FalloffExponent = 1.0f;					 // 감쇠 지수 (bUseAttenuationCoefficients = false일 때 사용)
-	FVector Attenuation = FVector(1.0f, 0.0f, 0.0f); // 감쇠 계수: 상수, 일차항, 이차항 (bUseAttenuationCoefficients = true일 때 사용)
+	FVector Attenuation = FVector(0.0f, 0.0f, 1.0f); // 감쇠 계수: 상수, 일차항, 이차항 (bUseAttenuationCoefficients = true일 때 사용)
 	bool bUseAttenuationCoefficients = true;		 // true: Attenuation 사용, false: FalloffExponent 사용 (기본값)
 };
