@@ -97,6 +97,7 @@ cbuffer ViewProjBuffer : register(b1)
 cbuffer ColorBuffer : register(b3)
 {
     float4 LerpColor;   // Color to blend with (alpha controls blend amount)
+    uint UUID;
 };
 
 // b4: PixelConstBuffer (PS) - Material information from OBJ files
@@ -148,6 +149,12 @@ struct PS_INPUT
     float3 Normal : NORMAL0;
     float4 Color : COLOR;
     float2 TexCoord : TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+    float4 Color : SV_Target0;
+    uint UUID : SV_Target1;
 };
 
 // --- 유틸리티 함수 ---
@@ -410,8 +417,10 @@ PS_INPUT mainVS(VS_INPUT Input)
 //================================================================================================
 // 픽셀 셰이더 (Pixel Shader)
 //================================================================================================
-float4 mainPS(PS_INPUT Input) : SV_TARGET
+PS_OUTPUT mainPS(PS_INPUT Input) 
 {
+    PS_OUTPUT Output;
+    Output.UUID = UUID;
     // Apply UV scrolling if enabled
     float2 uv = Input.TexCoord;
     //if (HasMaterial && HasTexture)
@@ -451,8 +460,8 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
     // Apply gamma correction (Linear to sRGB)
     finalPixel.rgb = LinearToSRGB(finalPixel.rgb);
 #endif
-
-    return finalPixel;
+    Output.Color = finalPixel;
+    return Output;
 
 #elif LIGHTING_MODEL_LAMBERT
     // Lambert Shading: Calculate diffuse lighting per-pixel (no specular)
@@ -505,9 +514,9 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
     // Apply gamma correction (Linear to sRGB)
     litColor = LinearToSRGB(litColor);
 #endif
-
+    Output.Color = float4(litColor, baseColor.a);
     // Preserve original alpha (lighting doesn't affect transparency)
-    return float4(litColor, baseColor.a);
+    return Output;
 
 #elif LIGHTING_MODEL_PHONG
     // Phong Shading: Calculate diffuse and specular lighting per-pixel (Blinn-Phong)
@@ -563,7 +572,8 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
 #endif
 
     // Preserve original alpha (lighting doesn't affect transparency)
-    return float4(litColor, baseColor.a);
+    Output.Color = float4(litColor, baseColor.a);
+    return Output;
 
 #else
     // No lighting model defined - use StaticMeshShader behavior
@@ -592,6 +602,7 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
     finalPixel.rgb = LinearToSRGB(finalPixel.rgb);
 #endif
     
-    return finalPixel;
+    Output.Color = finalPixel;
+    return Output;
 #endif
 }
