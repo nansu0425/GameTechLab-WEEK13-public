@@ -382,16 +382,6 @@ void USceneManagerWidget::HandleActorSelection(AActor* Actor)
         W->GetSelectionManager()->SelectActor(Actor);
     }
     
-    // Sync with UIManager for gizmo positioning
-    if (UIManager)
-    {
-        UIManager->SetPickedActor(Actor);
-        
-        if (AGizmoActor* Gizmo = GEngine.GetDefaultWorld()->GetGizmoActor())
-        {
-            Gizmo->SetActorLocation(Actor->GetActorLocation());
-        }
-    }
     
     UE_LOG("SceneManager: Selected actor %s", Actor->GetName().ToString().c_str());
 }
@@ -651,11 +641,6 @@ void USceneManagerWidget::SyncSelectionFromViewport()
     }
     if (!SelectedActor)
     {
-        // 선택된 액터가 null이면 UI를 업데이트
-        if (UIManager)
-        {
-            UIManager->ResetPickedActor();
-        }
     }
 }
 

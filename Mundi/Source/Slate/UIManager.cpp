@@ -461,45 +461,45 @@ void UUIManager::UpdateMouseRotation(float InPitch, float InYaw)
 /**
  * @brief 액터 선택 설정 (안전하게)
  */
-void UUIManager::SetPickedActor(AActor* InPickedActor)
-{
-	if (InPickedActor)
-	{
-		try
-		{
-			// 기존 선택 해제
-			ResetPickedActor();
-			
-			// 새 액터 선택
-			PickedActorRef = InPickedActor;
-			PickedActorRef->SetIsPicked(true);
-		}
-		catch (...)
-		{
-			// 유효하지 않은 액터인 경우
-			PickedActorRef = nullptr;
-		}
-	}
-}
+//void UUIManager::SetPickedActor(AActor* InPickedActor)
+//{
+//	if (InPickedActor)
+//	{
+//		try
+//		{
+//			// 기존 선택 해제
+//			ResetPickedActor();
+//			
+//			// 새 액터 선택
+//			PickedActorRef = InPickedActor;
+//			PickedActorRef->SetIsPicked(true);
+//		}
+//		catch (...)
+//		{
+//			// 유효하지 않은 액터인 경우
+//			PickedActorRef = nullptr;
+//		}
+//	}
+//}
 
 /**
  * @brief 액터 선택 해제 (안전하게)
  */
-void UUIManager::ResetPickedActor()
-{
-	if (PickedActorRef)
-	{
-		try
-		{
-			PickedActorRef->SetIsPicked(false);
-		}
-		catch (...)
-		{
-			// 삭제된 액터인 경우 예외 무시
-		}
-		PickedActorRef = nullptr;
-	}
-}
+//void UUIManager::ResetPickedActor()
+//{
+//	if (PickedActorRef)
+//	{
+//		try
+//		{
+//			PickedActorRef->SetIsPicked(false);
+//		}
+//		catch (...)
+//		{
+//			// 삭제된 액터인 경우 예외 무시
+//		}
+//		PickedActorRef = nullptr;
+//	}
+//}
 
 
 
