@@ -30,6 +30,7 @@
 #include "DecalComponent.h"
 #include "DecalStatManager.h"
 #include "SceneRenderer.h"
+#include "SceneView.h"
 
 #include <Windows.h>
 
@@ -65,8 +66,13 @@ void URenderer::EndFrame()
 
 void URenderer::RenderSceneForView(UWorld* World, ACameraActor* Camera, FViewport* Viewport)
 {
-	// 매 프레임 FSceneRenderer 생성 후 삭제한다
-	FSceneRenderer SceneRenderer(World, Camera, Viewport, this);
+	// 1. 렌더에 필요한 정보를 모은 FSceneView를 생성합니다.
+	FSceneView View(Camera, Viewport, World->GetRenderSettings().GetViewModeIndex());	// NOTE: 현재 viewport에 해당하는 ViewMode가 적용되는지 확인 필요
+
+	// 2. FSceneRenderer 생성자에 'View'의 주소(&View)를 전달합니다.
+	FSceneRenderer SceneRenderer(World, &View, this);
+
+	// 3. 실제로 렌더를 수행합니다.
 	SceneRenderer.Render();
 }
 
@@ -181,6 +187,7 @@ void URenderer::DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITI
 			//RHIDevice->UpdatePixelConstantBuffers(MaterialInfo, true, bHasTexture); // 성공 여부 기반
 			FPixelConstBufferType PixelConst{ FPixelConstBufferType(FMaterialInPs(MaterialInfo), true) };
 			PixelConst.bHasTexture = bHasTexture;
+			PixelConst.Padding = FVector2D(0.0f, 0.0f);
 			RHIDevice->SetAndUpdateConstantBuffer(PixelConst);
 			RHIDevice->GetDeviceContext()->DrawIndexed(MeshGroupInfos[i].IndexCount, MeshGroupInfos[i].StartIndex, 0);
 		}
@@ -191,6 +198,7 @@ void URenderer::DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITI
 		FPixelConstBufferType PixelConst{ FPixelConstBufferType(FMaterialInPs(ObjMaterialInfo)) };
 		PixelConst.bHasTexture = false;
 		PixelConst.bHasMaterial = false;
+		PixelConst.Padding = FVector2D(0.0f, 0.0f);
 		//RHIDevice->UpdatePixelConstantBuffers(ObjMaterialInfo, false, false); // PSSet도 해줌
 		RHIDevice->SetAndUpdateConstantBuffer(PixelConst);
 		RHIDevice->GetDeviceContext()->DrawIndexed(IndexCount, 0, 0);
@@ -384,7 +392,8 @@ void URenderer::EndLineBatch(const FMatrix& ModelMatrix, const FMatrix& ViewMatr
 	}
 
 	// Set up rendering state
-	RHIDevice->SetAndUpdateConstantBuffer(ModelBufferType(ModelMatrix));
+	FMatrix ModelInvTranspose = ModelMatrix.InverseAffine().Transpose();
+	RHIDevice->SetAndUpdateConstantBuffer(ModelBufferType(ModelMatrix, ModelInvTranspose));
 	RHIDevice->SetAndUpdateConstantBuffer(ViewProjBufferType(ViewMatrix, ProjectionMatrix));
 	RHIDevice->PrepareShader(LineShader);
 

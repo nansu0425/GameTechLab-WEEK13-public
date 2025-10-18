@@ -206,8 +206,6 @@ void UCameraControlWidget::RenderWidget()
 		if (ImGui::Combo("Gizmo Space", &currentSpaceIndex, spaceItems, IM_ARRAYSIZE(spaceItems)))
 		{
 			CurrentGizmoSpace = static_cast<EGizmoSpace>(currentSpaceIndex);
-
-			GizmoActor->SetSpaceWorldMatrix(CurrentGizmoSpace, SelectedActor);
 		}
 		ImGui::Separator();
 	}

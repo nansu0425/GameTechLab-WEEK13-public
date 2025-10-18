@@ -194,7 +194,11 @@ bool UWorld::DestroyActor(AActor* Actor)
 		ObjectFactory::DeleteObject(Actor);
 
 		// 삭제된 액터 정리
-		if (SelectionMgr) SelectionMgr->CleanupInvalidActors();
+		if (SelectionMgr)
+		{
+			SelectionMgr->CleanupInvalidActors();
+			SelectionMgr->ClearSelection();
+		}
 
 		return true; // 성공적으로 삭제
 	}

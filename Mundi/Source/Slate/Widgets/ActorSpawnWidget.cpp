@@ -200,15 +200,15 @@ void UActorSpawnWidget::HandleActorSelection(AActor* Actor)
 	}
 
 	// Sync with UIManager for gizmo positioning
-	if (UIManager)
-	{
-		UIManager->SetPickedActor(Actor);
+	//if (UIManager)
+	//{
+	//	UIManager->SetPickedActor(Actor);
 
-		if (AGizmoActor* Gizmo = GEngine.GetDefaultWorld()->GetGizmoActor())
-		{
-			Gizmo->SetActorLocation(Actor->GetActorLocation());
-		}
-	}
+	//	if (AGizmoActor* Gizmo = GEngine.GetDefaultWorld()->GetGizmoActor())
+	//	{
+	//		Gizmo->SetActorLocation(Actor->GetActorLocation());
+	//	}
+	//}
 
 	UE_LOG("SceneManager: Selected actor %s", Actor->GetName().ToString().c_str());
 }

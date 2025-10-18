@@ -121,7 +121,7 @@ void USceneComponent::AddRelativeScale3D(const FVector& DeltaScale)
 FTransform USceneComponent::GetWorldTransform() const
 {
     if (AttachParent)
-        return AttachParent->GetWorldTransform() * RelativeTransform;
+        return AttachParent->GetWorldTransform().GetWorldTransform(RelativeTransform);
     return RelativeTransform;
 }
 
@@ -130,7 +130,7 @@ void USceneComponent::SetWorldTransform(const FTransform& W)
     if (AttachParent)
     {
         const FTransform ParentWorld = AttachParent->GetWorldTransform();
-        RelativeTransform = ParentWorld.Inverse() * W;
+        RelativeTransform = ParentWorld.GetRelativeTransform(W);
     }
     else
     {
@@ -264,7 +264,7 @@ void USceneComponent::SetupAttachment(USceneComponent* InParent, EAttachmentRule
         if (Rule == EAttachmentRule::KeepWorld)
         {
             const FTransform ParentWorld = AttachParent->GetWorldTransform();
-            RelativeTransform = ParentWorld.Inverse() * OldWorld;
+            RelativeTransform = ParentWorld.GetRelativeTransform(OldWorld);
         }
         // KeepRelative: 기존 RelativeTransform 유지
     }
