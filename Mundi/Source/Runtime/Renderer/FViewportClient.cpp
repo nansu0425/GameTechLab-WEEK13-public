@@ -194,10 +194,6 @@ void FViewportClient::MouseButtonDown(FViewport* Viewport, int32 X, int32 Y, int
         {
             if (World) World->GetSelectionManager()->SelectComponent(PickedComponent);
             UUIManager::GetInstance().SetPickedActor(PickedComponent->GetOwner());
-            if (World->GetGizmoActor())
-            {
-                World->GetGizmoActor()->SetTargetActor(PickedComponent->GetOwner());
-            }
         }
         else
         {

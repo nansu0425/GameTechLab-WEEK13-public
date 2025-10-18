@@ -462,7 +462,7 @@ void UTargetActorTransformWidget::RenderComponentHierarchy(AActor* SelectedActor
 	ImGui::PushID("ActorDisplay");
 	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.85f, 0.3f, 1.0f));
 	const bool bActorSelected = (SelectedComponent == nullptr);
-	if (ImGui::Selectable(CachedActorName.c_str(), bActorSelected, ImGuiSelectableFlags_SelectOnClick | ImGuiSelectableFlags_SpanAvailWidth))
+	if (ImGui::Selectable(SelectedActor->GetName().ToString().c_str(), bActorSelected, ImGuiSelectableFlags_SelectOnClick | ImGuiSelectableFlags_SpanAvailWidth))
 	{
 		SelectedComponent = nullptr;
 	}

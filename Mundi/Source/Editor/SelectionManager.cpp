@@ -16,6 +16,7 @@ void USelectionManager::SelectActor(AActor* Actor)
     
     // 새 액터 선택
     SelectedActors.Add(Actor);
+    SelectedComponent = Actor->GetRootComponent();
 }
 
 void USelectionManager::SelectComponent(USceneComponent* Component)

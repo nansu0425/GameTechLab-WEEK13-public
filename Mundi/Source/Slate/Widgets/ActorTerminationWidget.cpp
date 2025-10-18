@@ -100,13 +100,13 @@ void UActorTerminationWidget::DeleteSelectedActor()
 	GWorld->GetSelectionManager()->DeselectActor(SelectedActor);
 
 	// 기즈모가 이 액터를 타겟으로 잡고 있다면 해제
-	if (AGizmoActor* Gizmo = GEngine.GetDefaultWorld()->GetGizmoActor())
-	{
-		if (Gizmo->GetTargetActor() == ActorToDelete)
-		{
-			Gizmo->SetTargetActor(nullptr);
-		}
-	}
+	//if (AGizmoActor* Gizmo = GEngine.GetDefaultWorld()->GetGizmoActor())
+	//{
+	//	if (Gizmo->GetTargetActor() == ActorToDelete)
+	//	{
+	//		Gizmo->SetTargetActor(nullptr);
+	//	}
+	//}
 
 	// World를 통해 액터 삭제
 	if (GWorld->DestroyActor(ActorToDelete))
