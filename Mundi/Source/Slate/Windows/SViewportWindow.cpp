@@ -212,18 +212,20 @@ void SViewportWindow::RenderToolbar()
 
 		if (ImGui::Button("Reset")) { /* TODO: 카메라 Reset */ }
 
-		// 1단계: 메인 ViewMode 선택 (Lit, Unlit, Wireframe, SceneDepth)
-		const char* mainViewModes[] = { "Lit", "Unlit", "Wireframe", "SceneDepth" };
+		// 1단계: 메인 ViewMode 선택 (Lit, Unlit, WorldNormal, Wireframe, SceneDepth)
+		const char* mainViewModes[] = { "Lit", "Unlit", "WorldNormal", "Wireframe", "SceneDepth" };
 
 		// 현재 ViewMode에서 메인 모드 인덱스 계산
 		int currentMainMode = 0; // 기본값: Lit
 		EViewModeIndex currentViewMode = ViewportClient->GetViewModeIndex();
 		if (currentViewMode == EViewModeIndex::VMI_Unlit)
 			currentMainMode = 1;
-		else if (currentViewMode == EViewModeIndex::VMI_Wireframe)
+		else if (currentViewMode == EViewModeIndex::VMI_WorldNormal)
 			currentMainMode = 2;
-		else if (currentViewMode == EViewModeIndex::VMI_SceneDepth)
+		else if (currentViewMode == EViewModeIndex::VMI_Wireframe)
 			currentMainMode = 3;
+		else if (currentViewMode == EViewModeIndex::VMI_SceneDepth)
+			currentMainMode = 4;
 		else // Lit 계열 (Gouraud, Lambert, Phong)
 		{
 			currentMainMode = 0;
@@ -277,8 +279,9 @@ void SViewportWindow::RenderToolbar()
 				}
 				break;
 			case 1: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Unlit); break;
-			case 2: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Wireframe); break;
-			case 3: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_SceneDepth); break;
+			case 2: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_WorldNormal); break;
+			case 3: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Wireframe); break;
+			case 4: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_SceneDepth); break;
 			}
 		}
 		// 🔘 여기 ‘한 번 클릭’ 버튼 추가

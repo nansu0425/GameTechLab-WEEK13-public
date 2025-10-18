@@ -85,6 +85,11 @@ void FSceneRenderer::Render()
 		// Unlit 모드는 조명 없이 렌더링
 		RenderLitPath();
 	}
+	else if (View->ViewMode == EViewModeIndex::VMI_WorldNormal)
+	{
+		// World Normal 시각화 모드
+		RenderLitPath();
+	}
 	else if (View->ViewMode == EViewModeIndex::VMI_Wireframe)
 	{
 		RenderWireframePath();
@@ -411,6 +416,9 @@ void FSceneRenderer::RenderOpaquePass()
 		break;
 	case EViewModeIndex::VMI_Unlit:         // Unlit
 		// 매크로 없이 기본 동작 (조명 없음)
+		break;
+	case EViewModeIndex::VMI_WorldNormal:   // World Normal 시각화
+		ShaderMacros.push_back(FShaderMacro{ "VIEWMODE_WORLD_NORMAL", "1" });
 		break;
 	default:
 		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" }); // 기본값
