@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "PrimitiveComponent.h"
 #include "Object.h"
 
 class UQuad;

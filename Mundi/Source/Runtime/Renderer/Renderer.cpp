@@ -21,7 +21,6 @@
 #include "BVHierarchy.h"
 #include "Occlusion.h"
 #include "Frustum.h"
-#include "AABoundingBoxComponent.h"
 #include "ResourceManager.h"
 #include "RHIDevice.h"
 #include "Material.h"
