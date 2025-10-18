@@ -61,7 +61,8 @@ FSpotLightInfo USpotLightComponent::GetLightInfo() const
 	Info.AttenuationRadius = GetAttenuationRadius();
 	Info.FalloffExponent = IsUsingAttenuationCoefficients() ? 0.0f : GetFalloffExponent();
 	Info.bUseAttenuationCoefficients = IsUsingAttenuationCoefficients() ? 1u : 0u;
-	Info.Padding = FVector2D(0.0f, 0.0f);
+	Info.Padding = FVector2D(0.0f, 0.0f); // 패딩 초기화
+
 	return Info;
 }
 

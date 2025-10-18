@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "DirectionalLightComponent.h"
 
 IMPLEMENT_CLASS(UDirectionalLightComponent)
@@ -23,8 +23,9 @@ FDirectionalLightInfo UDirectionalLightComponent::GetLightInfo() const
 	FDirectionalLightInfo Info;
 	// Use GetLightColorWithIntensity() to include Temperature + Intensity
 	Info.Color = GetLightColorWithIntensity();
-	Info.Padding0 = 0.0f;
 	Info.Direction = GetLightDirection();
+	Info.Padding = 0.0f; // 패딩 초기화
+
 	return Info;
 }
 
