@@ -748,6 +748,15 @@ void FSceneRenderer::RenderDebugPass()
 			{
 				SpotLight->RenderDebugVolume(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
 			}
+			// PointLight 디버그 볼륨 (구형 - 3개의 원)
+			else if (UPointLightComponent* PointLight = Cast<UPointLightComponent>(Component))
+			{
+				// SpotLight는 PointLight를 상속하므로, SpotLight가 아닌 경우만 처리
+				if (!Cast<USpotLightComponent>(PointLight))
+				{
+					PointLight->RenderDebugVolume(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
+				}
+			}
 		}
 	}
 
