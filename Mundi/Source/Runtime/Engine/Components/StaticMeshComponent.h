@@ -26,8 +26,6 @@ protected:
 	~UStaticMeshComponent() override;
 
 public:
-	void SetViewModeShader(UShader* InShader) override;
-
 	void Render(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) override;
 	void CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View) override;
 

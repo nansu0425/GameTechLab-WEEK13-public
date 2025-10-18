@@ -46,17 +46,6 @@ UStaticMeshComponent::~UStaticMeshComponent()
 	}
 }
 
-void UStaticMeshComponent::SetViewModeShader(UShader* InShader)
-{
-	if (!InShader)
-		return;
-
-	for (int i = 0; i < MaterialSlots.Num(); i++)
-	{
-		MaterialSlots[i]->SetShader(InShader);
-	}
-}
-
 void UStaticMeshComponent::Render(URenderer* Renderer, const FMatrix& ViewMatrix, const FMatrix& ProjectionMatrix)
 {
 	//// NOTE: 기즈모 출력을 위해 일단 남겨둠

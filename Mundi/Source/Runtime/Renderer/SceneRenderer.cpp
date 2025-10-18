@@ -72,7 +72,8 @@ void FSceneRenderer::Render()
 	RenderDebugPass();	//  선택한 물체의 경계 출력
 
 	// ViewMode에 따라 렌더링 경로 결정
-	if (View->ViewMode == EViewModeIndex::VMI_Lit_Gouraud ||
+	if (View->ViewMode == EViewModeIndex::VMI_Lit ||
+		View->ViewMode == EViewModeIndex::VMI_Lit_Gouraud ||
 		View->ViewMode == EViewModeIndex::VMI_Lit_Lambert ||
 		View->ViewMode == EViewModeIndex::VMI_Lit_Phong)
 	{
@@ -144,8 +145,6 @@ void FSceneRenderer::RenderWireframePath()
 
 	// 상태 복구: 원래의 Lit(Solid) 상태로 되돌림 (매우 중요!)
 	RHIDevice->RSSetState(ERasterizerMode::Solid);
-
-	// Wireframe은 Post 프로세싱 처리하지 않음
 }
 
 void FSceneRenderer::RenderSceneDepthPath()
@@ -450,7 +449,6 @@ void FSceneRenderer::RenderOpaquePass()
 	MeshBatchElements.Empty();
 	for (UMeshComponent* MeshComponent : Proxies.Meshes)
 	{
-		MeshComponent->SetViewModeShader(ViewModeShader);
 		MeshComponent->CollectMeshBatches(MeshBatchElements, View);
 	}
 	// --- UMeshComponent 셰이더 오버라이드 ---
@@ -514,7 +512,7 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 	// 정렬된 리스트 순회
 	for (const FMeshBatchElement& Batch : InMeshBatches)
 	{
-		// --- [추가] 필수 요소 유효성 검사 ---
+		// --- 필수 요소 유효성 검사 ---
 		if (!Batch.VertexShader || !Batch.PixelShader || !Batch.Mesh)
 		{
 			// 셰이더나 메시가 없으면 그릴 수 없음
@@ -532,7 +530,7 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 		// 2. 머티리얼 상태 변경 (텍스처, 재질 상수 버퍼 바인딩)
 		if (Batch.Material != CurrentMaterial)
 		{
-			ID3D11ShaderResourceView* srv = nullptr; // 바인딩할 텍스처 SRV
+			ID3D11ShaderResourceView* Srv = nullptr; // 바인딩할 텍스처 SRV
 			bool bHasTexture = false;
 			FPixelConstBufferType PixelConst{}; // 기본값으로 초기화
 
@@ -556,7 +554,7 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 					{
 						if (TextureData->TextureSRV)
 						{
-							srv = TextureData->TextureSRV;
+							Srv = TextureData->TextureSRV;
 							bHasTexture = true;
 						}
 					}
@@ -578,7 +576,7 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 
 			// --- RHI 상태 업데이트 ---
 			// 텍스처 바인딩 (srv가 nullptr이어도 안전하게 호출 가능)
-			RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &srv);
+			RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &Srv);
 			// 샘플러 바인딩 (기본 샘플러 사용)
 			RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &DefaultSampler);
 			// 픽셀 상수 버퍼 업데이트
@@ -624,7 +622,7 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 		RHIDevice->SetAndUpdateConstantBuffer(ModelBufferType(Batch.WorldMatrix, Batch.WorldMatrix.InverseAffine()));
 		RHIDevice->SetAndUpdateConstantBuffer(ColorBufferType(FLinearColor(), Batch.ObjectID));
 
-		// 5. 드로우 콜 실행!
+		// 5. 드로우 콜 실행
 		RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(Batch.PrimitiveTopology);
 		RHIDevice->GetDeviceContext()->DrawIndexed(Batch.IndexCount, Batch.StartIndex, Batch.BaseVertexIndex); // BaseVertexIndex 사용
 	}

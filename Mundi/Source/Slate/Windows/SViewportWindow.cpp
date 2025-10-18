@@ -86,9 +86,9 @@ void SViewportWindow::OnUpdate(float DeltaSeconds)
 	// 툴바 높이만큼 뷰포트 영역 조정
 
 	uint32 NewStartX = static_cast<uint32>(Rect.Left);
-	uint32 NewStartY = static_cast<uint32>(Rect.Top );
+	uint32 NewStartY = static_cast<uint32>(Rect.Top);
 	uint32 NewWidth = static_cast<uint32>(Rect.Right - Rect.Left);
-	uint32 NewHeight = static_cast<uint32>(Rect.Bottom - Rect.Top );
+	uint32 NewHeight = static_cast<uint32>(Rect.Bottom - Rect.Top);
 
 	Viewport->Resize(NewStartX, NewStartY, NewWidth, NewHeight);
 	ViewportClient->Tick(DeltaSeconds);
@@ -99,7 +99,7 @@ void SViewportWindow::OnMouseMove(FVector2D MousePos)
 	if (!Viewport) return;
 
 	// 툴바 영역 아래에서만 마우스 이벤트 처리
-	FVector2D LocalPos = MousePos - FVector2D(Rect.Left, Rect.Top );
+	FVector2D LocalPos = MousePos - FVector2D(Rect.Left, Rect.Top);
 	Viewport->ProcessMouseMove((int32)LocalPos.X, (int32)LocalPos.Y);
 }
 
@@ -108,10 +108,10 @@ void SViewportWindow::OnMouseDown(FVector2D MousePos, uint32 Button)
 	if (!Viewport) return;
 
 	// 툴바 영역 아래에서만 마우스 이벤트 처리s
-		bIsMouseDown = true;
-		FVector2D LocalPos = MousePos - FVector2D(Rect.Left, Rect.Top );
-		Viewport->ProcessMouseButtonDown((int32)LocalPos.X, (int32)LocalPos.Y, Button);
-	
+	bIsMouseDown = true;
+	FVector2D LocalPos = MousePos - FVector2D(Rect.Left, Rect.Top);
+	Viewport->ProcessMouseButtonDown((int32)LocalPos.X, (int32)LocalPos.Y, Button);
+
 }
 
 void SViewportWindow::OnMouseUp(FVector2D MousePos, uint32 Button)
@@ -213,63 +213,74 @@ void SViewportWindow::RenderToolbar()
 		if (ImGui::Button("Reset")) { /* TODO: 카메라 Reset */ }
 
 		// 1단계: 메인 ViewMode 선택 (Lit, Unlit, Buffer Visualization, Wireframe)
-		const char* mainViewModes[] = { "Lit", "Unlit", "Buffer Visualization", "Wireframe" };
+		const char* MainViewModes[] = { "Lit", "Unlit", "Buffer Visualization", "Wireframe" };
 
 		// 현재 ViewMode에서 메인 모드 인덱스 계산
-		int currentMainMode = 0; // 기본값: Lit
-		EViewModeIndex currentViewMode = ViewportClient->GetViewModeIndex();
-		if (currentViewMode == EViewModeIndex::VMI_Unlit)
-			currentMainMode = 1;
-		else if (currentViewMode == EViewModeIndex::VMI_WorldNormal || currentViewMode == EViewModeIndex::VMI_SceneDepth)
+		int CurrentMainMode = 0; // 기본값: Lit
+		EViewModeIndex CurrentViewMode = ViewportClient->GetViewModeIndex();
+		if (CurrentViewMode == EViewModeIndex::VMI_Unlit)
 		{
-			currentMainMode = 2; // Buffer Visualization
+			CurrentMainMode = 1;
+		}
+		else if (CurrentViewMode == EViewModeIndex::VMI_WorldNormal || CurrentViewMode == EViewModeIndex::VMI_SceneDepth)
+		{
+			CurrentMainMode = 2; // Buffer Visualization
 			// 현재 BufferVis 서브모드도 동기화
-			if (currentViewMode == EViewModeIndex::VMI_SceneDepth)
+			if (CurrentViewMode == EViewModeIndex::VMI_SceneDepth)
 				CurrentBufferVisSubMode = 0;
-			else if (currentViewMode == EViewModeIndex::VMI_WorldNormal)
+			else if (CurrentViewMode == EViewModeIndex::VMI_WorldNormal)
 				CurrentBufferVisSubMode = 1;
 		}
-		else if (currentViewMode == EViewModeIndex::VMI_Wireframe)
-			currentMainMode = 3;
+		else if (CurrentViewMode == EViewModeIndex::VMI_Wireframe)
+		{
+			CurrentMainMode = 3;
+		}
+		else if (CurrentViewMode == EViewModeIndex::VMI_SceneDepth)
+		{
+			CurrentMainMode = 4;
+		}
 		else // Lit 계열 (Gouraud, Lambert, Phong)
 		{
-			currentMainMode = 0;
+			CurrentMainMode = 0;
 			// 현재 Lit 서브모드도 동기화
-			if (currentViewMode == EViewModeIndex::VMI_Lit_Gouraud)
+			if (CurrentViewMode == EViewModeIndex::VMI_Lit)
 				CurrentLitSubMode = 0;
-			else if (currentViewMode == EViewModeIndex::VMI_Lit_Lambert)
+			else if (CurrentViewMode == EViewModeIndex::VMI_Lit_Gouraud)
 				CurrentLitSubMode = 1;
-			else if (currentViewMode == EViewModeIndex::VMI_Lit_Phong)
+			else if (CurrentViewMode == EViewModeIndex::VMI_Lit_Lambert)
 				CurrentLitSubMode = 2;
+			else if (CurrentViewMode == EViewModeIndex::VMI_Lit_Phong)
+				CurrentLitSubMode = 3;
 		}
 
 		ImGui::SameLine();
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 2));
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 0));
 		ImGui::SetNextItemWidth(80.0f);
-		bool mainModeChanged = ImGui::Combo("##MainViewMode", &currentMainMode, mainViewModes, IM_ARRAYSIZE(mainViewModes));
+		bool MainModeChanged = ImGui::Combo("##MainViewMode", &CurrentMainMode, MainViewModes, IM_ARRAYSIZE(MainViewModes));
 
 		// 2단계: Lit 서브모드 선택 (Lit 선택 시에만 표시)
-		if (currentMainMode == 0) // Lit 선택됨
+		if (CurrentMainMode == 0) // Lit 선택됨
 		{
 			ImGui::SameLine();
-			const char* litSubModes[] = { "Gouraud", "Lambert", "Phong" };
+			const char* LitSubModes[] = { "Default(Phong)", "Gouraud", "Lambert", "Phong" };
 			ImGui::SetNextItemWidth(80.0f);
-			bool subModeChanged = ImGui::Combo("##LitSubMode", &CurrentLitSubMode, litSubModes, IM_ARRAYSIZE(litSubModes));
+			bool SubModeChanged = ImGui::Combo("##LitSubMode", &CurrentLitSubMode, LitSubModes, IM_ARRAYSIZE(LitSubModes));
 
-			if (subModeChanged && ViewportClient)
+			if (SubModeChanged && ViewportClient)
 			{
 				switch (CurrentLitSubMode)
 				{
-				case 0: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Gouraud); break;
-				case 1: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Lambert); break;
-				case 2: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Phong); break;
+				case 0: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit); break;
+				case 1: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Gouraud); break;
+				case 2: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Lambert); break;
+				case 3: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Phong); break;
 				}
 			}
 		}
 
 		// 2단계: Buffer Visualization 서브모드 선택 (Buffer Visualization 선택 시에만 표시)
-		if (currentMainMode == 2) // Buffer Visualization 선택됨
+		if (CurrentMainMode == 2) // Buffer Visualization 선택됨
 		{
 			ImGui::SameLine();
 			const char* bufferVisSubModes[] = { "SceneDepth", "WorldNormal" };
@@ -289,16 +300,17 @@ void SViewportWindow::RenderToolbar()
 		ImGui::PopStyleVar(2);
 
 		// 메인 모드 변경 시 처리
-		if (mainModeChanged && ViewportClient)
+		if (MainModeChanged && ViewportClient)
 		{
-			switch (currentMainMode)
+			switch (CurrentMainMode)
 			{
 			case 0: // Lit - 현재 선택된 서브모드 적용
 				switch (CurrentLitSubMode)
 				{
-				case 0: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Gouraud); break;
-				case 1: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Lambert); break;
-				case 2: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Phong); break;
+				case 0: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit); break;
+				case 1: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Gouraud); break;
+				case 2: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Lambert); break;
+				case 3: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Phong); break;
 				}
 				break;
 			case 1: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Unlit); break;
@@ -318,7 +330,8 @@ void SViewportWindow::RenderToolbar()
 
 		ImGui::SameLine();
 		float avail = ImGui::GetContentRegionAvail().x;      // 현재 라인에서 남은 가로폭
-		if (avail > btnW) {
+		if (avail > btnW)
+		{
 			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - btnW));
 		}
 
