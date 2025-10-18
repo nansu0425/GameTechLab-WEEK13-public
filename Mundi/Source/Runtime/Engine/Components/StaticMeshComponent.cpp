@@ -95,25 +95,9 @@ void UStaticMeshComponent::Render(URenderer* Renderer, const FMatrix& ViewMatrix
 	UStaticMesh* Mesh = GetStaticMesh();
 	if (Mesh && Mesh->GetStaticMeshAsset())
 	{
-		// Material 유효성 검사
-		if (!Material || !Material->GetShader())
-		{
-			UE_LOG("StaticMeshComponent has no valid Material or Shader!");
-			return;
-		}
-
-		// b0: ModelBuffer (기존)
-		Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(
-			ModelBufferType(GetWorldMatrix()));
-
-		// b1: ViewProjBuffer (기존)
-		Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(
-			ViewProjBufferType(ViewMatrix, ProjectionMatrix));
-
-		// b3: ColorBuffer (신규 - 기본값)
-		Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(
-			ColorBufferType(FVector4(1, 1, 1, 0)));
-
+		Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ModelBufferType(GetWorldMatrix()));
+		Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ViewProjBufferType(ViewMatrix, ProjectionMatrix));
+		Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ColorBufferType(FVector4(), this->InternalIndex));
 		// b7: CameraBuffer - Renderer에서 카메라 위치 가져오기
 		FVector CameraPos = FVector::Zero();
 		if (ACameraActor* Camera = Renderer->GetCurrentCamera())
@@ -125,13 +109,8 @@ void UStaticMeshComponent::Render(URenderer* Renderer, const FMatrix& ViewMatrix
 		}
 		Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(CameraBufferType(CameraPos, 0.0f));
 
-		// b8: LightBuffer는 SceneRenderer::UpdateLightConstant()에서 설정됨
-
-		// b4: PixelConstBuffer는 Renderer.cpp::DrawIndexedPrimitiveComponent에서 자동 설정됨
-
 		Renderer->GetRHIDevice()->PrepareShader(GetMaterial()->GetShader());
-		Renderer->DrawIndexedPrimitiveComponent(GetStaticMesh(),
-			D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST, MaterialSlots);
+		Renderer->DrawIndexedPrimitiveComponent(GetStaticMesh(), D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST, MaterialSlots);
 	}
 }
 

@@ -28,6 +28,7 @@ public:
 	void SetCurrentViewportSize(uint32 InWidth, uint32 InHeight) { CurrentViewportWidth = InWidth; CurrentViewportHeight = InHeight; }
 	uint32 GetCurrentViewportWidth() const { return CurrentViewportWidth; }
 	uint32 GetCurrentViewportHeight() const { return CurrentViewportHeight; }
+	UPrimitiveComponent* GetPrimitiveCollided(int MouseX, int MouseY) const;
 
 	// 추후 다른 곳을 이동
 	void DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITIVE_TOPOLOGY InTopology, const TArray<FMaterialSlot>& InComponentMaterialSlots);
