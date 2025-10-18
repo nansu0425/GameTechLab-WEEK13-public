@@ -29,7 +29,8 @@ void UMaterial::Load(const FString& InFilePath, ID3D11Device* InDevice)
         FString shaderName = UResourceManager::GetInstance().GetProperShader(InFilePath);
 
         Shader = UResourceManager::GetInstance().Load<UShader>(shaderName);
-        Texture = UResourceManager::GetInstance().Load<UTexture>(InFilePath);
+        UResourceManager::GetInstance().Load<UTexture>(InFilePath);
+        MaterialInfo.DiffuseTextureFileName = InFilePath;
     } // hlsl 의 경우 
     else if (InFilePath.find(".hlsl") != std::string::npos)
     {
@@ -51,19 +52,12 @@ UShader* UMaterial::GetShader()
 	return Shader;
 }
 
-void UMaterial::SetTexture(UTexture* TextureResource)
+void UMaterial::SetDiffuseTexture(const FString& TexturePath)
 {
-	Texture = TextureResource;
+    MaterialInfo.DiffuseTextureFileName = TexturePath;
 }
 
-void UMaterial::SetTexture(const FString& TexturePath)
+UTexture* UMaterial::GetDiffuseTexture()
 {
-    //UResourceManager::GetInstance().CreateOrGetTextureData(TexturePath);
-    Texture->SetTextureName(TexturePath);
-}
-
-
-UTexture* UMaterial::GetTexture()
-{
-	return Texture;
+    return UResourceManager::GetInstance().Load<UTexture>(MaterialInfo.DiffuseTextureFileName);
 }
