@@ -69,9 +69,9 @@ public:
 	// Actor management methods
 	void SetCamera(ACameraActor* InCameraActor) { CameraActorRef = InCameraActor; }
 	ACameraActor* GetCamera() const { return CameraActorRef; }
-	void SetPickedActor(AActor* InPickedActor);
+	//void SetPickedActor(AActor* InPickedActor);
 	AActor* GetPickedActor() const { return PickedActorRef; }
-	void ResetPickedActor();
+	//void ResetPickedActor();
 	
 	// Selection management helper
 	//AActor* GetSelectedActor() const;

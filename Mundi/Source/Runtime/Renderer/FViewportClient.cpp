@@ -195,11 +195,10 @@ void FViewportClient::MouseButtonDown(FViewport* Viewport, int32 X, int32 Y, int
         if (PickedComponent)
         {
             if (World) World->GetSelectionManager()->SelectComponent(PickedComponent);
-            UUIManager::GetInstance().SetPickedActor(PickedComponent->GetOwner());
+            
         }
         else
         {
-            UUIManager::GetInstance().ResetPickedActor();
             // Clear selection if nothing was picked
             if (World) World->GetSelectionManager()->ClearSelection();
         }

@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <exception>
 #include "UIManager.h"
+#include "SelectionManager.h"
 #include "Object.h"
 #include "Level.h"
 #include "CameraActor.h"
@@ -277,7 +278,8 @@ void USceneIOWidget::LoadLevel(const FString& InFilePath)
 
 		// 로드 직전: Transform 위젯/선택 초기화
 		UUIManager::GetInstance().ClearTransformWidgetSelection();
-		UUIManager::GetInstance().ResetPickedActor();
+		GWorld->GetSelectionManager()->ClearSelection();
+		//UUIManager::GetInstance().ResetPickedActor();
 
 		// 2) 레벨 서비스로 로드 후 월드에 적용
 
@@ -325,7 +327,7 @@ void USceneIOWidget::CreateNewLevel()
 
 		// 로드 직전: Transform 위젯/선택 초기화
 		UUIManager::GetInstance().ClearTransformWidgetSelection();
-		UUIManager::GetInstance().ResetPickedActor();
+		GWorld->GetSelectionManager()->ClearSelection();
 
 		// 새 레벨 생성 후 월드에 적용
 		CurrentWorld->SetLevel(ULevelService::CreateNewLevel());

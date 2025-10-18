@@ -161,8 +161,6 @@ bool UWorld::DestroyActor(AActor* Actor)
 
 	// 선택/UI 해제
 	if (SelectionMgr) SelectionMgr->DeselectActor(Actor);
-	if (UI.GetPickedActor() == Actor)
-		UI.ResetPickedActor();
 
 	// 게임 수명 종료
 	Actor->EndPlay(EEndPlayReason::Destroyed);
@@ -250,7 +248,6 @@ inline FString RemoveObjExtension(const FString& FileName)
 void UWorld::CreateLevel()
 {
 	if (SelectionMgr) SelectionMgr->ClearSelection();
-	UI.ResetPickedActor();
 	
 	SetLevel(ULevelService::CreateNewLevel());
 	// 이름 카운터 초기화: 씬을 새로 시작할 때 각 BaseName 별 suffix를 0부터 다시 시작
@@ -261,7 +258,6 @@ void UWorld::SetLevel(std::unique_ptr<ULevel> InLevel)
 {
     // Make UI/selection safe before destroying previous actors
     if (SelectionMgr) SelectionMgr->ClearSelection();
-    UI.ResetPickedActor();
 
     // Cleanup current
     if (Level)
