@@ -194,7 +194,7 @@ float CalculateAttenuationWithFalloff(float3 attenuation, float distance, float 
     float baseAttenuation = CalculateAttenuation(attenuation, distance);
     // Apply falloff exponent to create steeper or gentler falloff curves
     // falloffExponent = 1.0 means linear, > 1.0 means sharper falloff, < 1.0 means gentler
-    return pow(baseAttenuation, falloffExponent);
+    return baseAttenuation;
 }
 
 // Linear to sRGB conversion (Gamma Correction)
@@ -258,9 +258,9 @@ float3 CalculatePointLight(FPointLightInfo light, float3 worldPos, float3 normal
         // Inverse square falloff (physically accurate)
         // Scale by radius squared to normalize brightness across different radius values
         float radiusSq = light.AttenuationRadius * light.AttenuationRadius;
-        attenuation = radiusSq / (distance * distance);
+        attenuation = (distance * distance) / radiusSq;
         // Clamp to avoid over-bright values at very close distances
-        attenuation = min(attenuation, 1.0f);
+        attenuation = pow(min(1.0f - attenuation, 1.0f), light.FalloffExponent);
     }
 
     // Diffuse
@@ -309,12 +309,11 @@ float3 CalculateSpotLight(FSpotLightInfo light, float3 worldPos, float3 normal, 
     }
     else
     {
-        // Inverse square falloff (physically accurate)
         // Scale by radius squared to normalize brightness across different radius values
         float radiusSq = light.AttenuationRadius * light.AttenuationRadius;
-        distanceAttenuation = radiusSq / (distance * distance);
+        distanceAttenuation = (distance * distance) / radiusSq;
         // Clamp to avoid over-bright values at very close distances
-        distanceAttenuation = min(distanceAttenuation, 1.0f);
+        distanceAttenuation = pow(min(1.0f - distanceAttenuation, 1.0f), light.FalloffExponent);
     }
 
     // Smooth falloff between inner and outer cone
