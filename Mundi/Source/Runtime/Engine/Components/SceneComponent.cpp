@@ -251,16 +251,15 @@ void USceneComponent::SetupAttachment(USceneComponent* InParent, EAttachmentRule
     {
         auto& Siblings = AttachParent->AttachChildren;
         Siblings.erase(std::remove(Siblings.begin(), Siblings.end(), this), Siblings.end());
+
     }
 
     // 새 부모 설정
     AttachParent = InParent;
-    if (AttachParent)
-        AttachParent->AttachChildren.push_back(this);
 
-    // 규칙 적용
-    if (AttachParent)
-    {
+    if(AttachParent)
+    { 
+        AttachParent->AttachChildren.push_back(this);
         if (Rule == EAttachmentRule::KeepWorld)
         {
             const FTransform ParentWorld = AttachParent->GetWorldTransform();

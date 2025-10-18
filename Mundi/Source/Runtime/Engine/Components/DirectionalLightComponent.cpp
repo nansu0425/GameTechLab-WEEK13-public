@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "DirectionalLightComponent.h"
+#include "BillboardComponent.h"
 
 UDirectionalLightComponent::UDirectionalLightComponent()
 {
@@ -31,6 +32,13 @@ FDirectionalLightInfo UDirectionalLightComponent::GetLightInfo() const
 	Info.Padding = 0.0f; // 패딩 초기화
 
 	return Info;
+}
+
+void UDirectionalLightComponent::OnRegister()
+{
+	Super_t::OnRegister();
+	SpriteComponent->SetTextureName("Data/UI/Icons/S_LightDirectional.dds");
+	
 }
 
 void UDirectionalLightComponent::UpdateLightData()

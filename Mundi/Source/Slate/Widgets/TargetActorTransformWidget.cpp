@@ -146,7 +146,11 @@ namespace
 			return;
 
 		Visited.insert(Component);
-
+		
+		if (!Component->IsEditable())
+		{
+			return;
+		}
 		const TArray<USceneComponent*>& Children = Component->GetAttachChildren();
 		const bool bHasChildren = !Children.IsEmpty();
 

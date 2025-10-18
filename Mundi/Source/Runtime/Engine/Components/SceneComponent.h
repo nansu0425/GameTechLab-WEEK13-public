@@ -123,6 +123,9 @@ protected:
      */
     void PropagateTransformUpdate();
 
+    //Component 위치 나타내기 위함
+    UBillboardComponent* SpriteComponent = nullptr;
+
     FVector RelativeLocation{ 0,0,0 };
     FQuat   RelativeRotation;
     FVector RelativeScale{ 1,1,1 };

@@ -1,5 +1,6 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "AmbientLightComponent.h"
+#include "BillboardComponent.h"
 
 IMPLEMENT_CLASS(UAmbientLightComponent)
 
@@ -28,6 +29,12 @@ void UAmbientLightComponent::UpdateLightData()
 {
 	Super::UpdateLightData();
 	// 환경광 특화 업데이트 로직
+}
+
+void UAmbientLightComponent::OnRegister()
+{
+	Super_t::OnRegister();
+	SpriteComponent->SetTextureName("Data/UI/Icons/SkyLight.dds");
 }
 
 void UAmbientLightComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)

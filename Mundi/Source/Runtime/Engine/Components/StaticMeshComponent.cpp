@@ -72,7 +72,7 @@ void UStaticMeshComponent::Render(URenderer* Renderer, const FMatrix& ViewMatrix
 		FMatrix WorldInverseTranspose = WorldMatrix.InverseAffine().Transpose();
 		Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ModelBufferType(WorldMatrix, WorldInverseTranspose));
 		Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ViewProjBufferType(ViewMatrix, ProjectionMatrix));
-		Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ColorBufferType(FVector4(), this->InternalIndex));
+		Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ColorBufferType(FLinearColor(), this->InternalIndex));
 		// b7: CameraBuffer - Renderer에서 카메라 위치 가져오기
 		FVector CameraPos = FVector::Zero();
 		if (ACameraActor* Camera = Renderer->GetCurrentCamera())

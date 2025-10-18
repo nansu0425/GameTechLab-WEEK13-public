@@ -38,6 +38,8 @@ public:
     // Rendering
     void RenderHeightFog(URenderer* Renderer);
 
+
+    void OnRegister() override;
 	// Serialize
 	void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
 

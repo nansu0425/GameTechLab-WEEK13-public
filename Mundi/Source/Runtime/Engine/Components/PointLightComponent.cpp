@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "PointLightComponent.h"
+#include "BillboardComponent.h"
 
 IMPLEMENT_CLASS(UPointLightComponent)
 
@@ -36,6 +37,12 @@ void UPointLightComponent::UpdateLightData()
 {
 	Super::UpdateLightData();
 	// 점광원 특화 업데이트 로직
+}
+
+void UPointLightComponent::OnRegister()
+{
+	Super_t::OnRegister();
+	SpriteComponent->SetTextureName("Data/UI/Icons/PointLight_64x.png");
 }
 
 void UPointLightComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)

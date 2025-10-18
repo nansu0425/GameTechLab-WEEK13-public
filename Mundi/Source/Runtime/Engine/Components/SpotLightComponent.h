@@ -35,6 +35,7 @@ public:
 
 	// Virtual Interface
 	virtual void UpdateLightData() override;
+	void OnRegister() override;
 
 	// Debug Rendering
 	void RenderDebugVolume(class URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) const;

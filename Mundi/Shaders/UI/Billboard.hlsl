@@ -52,6 +52,7 @@ PS_OUTPUT mainPS(PS_INPUT i)
     float4 c = BillboardTex.Sample(LinearSamp, i.uv);
     if (c.a < 0.1f)
         discard;
+    c = c * Color;
     Output.Color = c;
     Output.UUID = UUID;
     return Output;

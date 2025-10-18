@@ -9,6 +9,7 @@
 #include "ResourceManager.h"
 #include "CameraActor.h"
 #include "JsonSerializer.h"
+#include "LightComponentBase.h"
 
 IMPLEMENT_CLASS(UBillboardComponent)
 
@@ -98,7 +99,12 @@ void UBillboardComponent::Render(URenderer* Renderer, const FMatrix& View, const
 		View,
 		Proj,
 		View.InverseAffineFast()));
-	Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ColorBufferType(FVector4(), this->InternalIndex));
+	FLinearColor Color{1,1,1,1};
+	if (ULightComponentBase* LightBase = Cast<ULightComponentBase>(this->GetAttachParent()))
+	{
+		Color = LightBase->GetLightColor();
+	}
+	Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ColorBufferType(Color, this->InternalIndex));
 
     Renderer->GetRHIDevice()->PrepareShader(Material->GetShader());
     Renderer->GetRHIDevice()->OMSetDepthStencilState(EComparisonFunc::LessEqual);

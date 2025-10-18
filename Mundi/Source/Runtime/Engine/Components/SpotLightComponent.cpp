@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "SpotLightComponent.h"
+#include "BillboardComponent.h"
 
 IMPLEMENT_CLASS(USpotLightComponent)
 
@@ -76,6 +77,12 @@ void USpotLightComponent::UpdateLightData()
 {
 	Super::UpdateLightData();
 	// 스포트라이트 특화 업데이트 로직
+}
+
+void USpotLightComponent::OnRegister()
+{
+	Super_t::OnRegister();
+	SpriteComponent->SetTextureName("Data/UI/Icons/SpotLight_64x.png");
 }
 
 void USpotLightComponent::RenderDebugVolume(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) const
