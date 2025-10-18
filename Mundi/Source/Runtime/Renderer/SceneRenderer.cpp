@@ -71,8 +71,7 @@ void FSceneRenderer::Render()
 	RenderDebugPass();	//  선택한 물체의 경계 출력
 
 	// ViewMode에 따라 렌더링 경로 결정
-	if (EffectiveViewMode == EViewModeIndex::VMI_Lit ||
-		EffectiveViewMode == EViewModeIndex::VMI_Lit_Gouraud ||
+	if (EffectiveViewMode == EViewModeIndex::VMI_Lit_Gouraud ||
 		EffectiveViewMode == EViewModeIndex::VMI_Lit_Lambert ||
 		EffectiveViewMode == EViewModeIndex::VMI_Lit_Phong)
 	{
@@ -417,8 +416,7 @@ void FSceneRenderer::RenderOpaquePass()
 
 	switch (EffectiveViewMode)
 	{
-	case EViewModeIndex::VMI_Lit:           // 기본 Lit (Phong)
-	case EViewModeIndex::VMI_Lit_Phong:     // 명시적 Phong
+	case EViewModeIndex::VMI_Lit_Phong:     // Phong
 		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" });
 		break;
 	case EViewModeIndex::VMI_Lit_Gouraud:   // Gouraud
