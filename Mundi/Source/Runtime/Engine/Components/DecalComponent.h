@@ -30,7 +30,7 @@ protected:
 public:
 	// Render API
 	void RenderAffectedPrimitives(URenderer* Renderer, UPrimitiveComponent* Target, const FMatrix& View, const FMatrix& Proj);
-	virtual void RenderDebugVolume(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) const;    // NOTE: FakeSpotLight 를 위해서 가상 함수로 선언
+	virtual void RenderDebugVolume(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) const override;
 
 	// Decal Resource API
 	void SetDecalTexture(UTexture* InTexture);

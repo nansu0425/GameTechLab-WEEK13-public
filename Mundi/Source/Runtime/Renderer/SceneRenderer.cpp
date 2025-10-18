@@ -225,8 +225,8 @@ void FSceneRenderer::PrepareView()
 	ViewConstData.ViewportRect.Z = Vp.Width;
 	ViewConstData.ViewportRect.W = Vp.Height;
 	// 2. 전체 화면(렌더 타겟) 크기 정보 채우기
-	ViewConstData.ScreenSize.X = RHIDevice->GetViewportWidth();
-	ViewConstData.ScreenSize.Y = RHIDevice->GetViewportHeight();
+	ViewConstData.ScreenSize.X = static_cast<float>(RHIDevice->GetViewportWidth());
+	ViewConstData.ScreenSize.Y = static_cast<float>(RHIDevice->GetViewportHeight());
 	ViewConstData.ScreenSize.Z = 1.0f / RHIDevice->GetViewportWidth();
 	ViewConstData.ScreenSize.W = 1.0f / RHIDevice->GetViewportHeight();
 	RHIDevice->SetAndUpdateConstantBuffer((FViewportConstants)ViewConstData);
@@ -884,30 +884,14 @@ void FSceneRenderer::RenderDebugPass()
 {
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTarget);
 
-	// 선택된 액터 경계 출력
+	// 선택된 액터의 디버그 볼륨 렌더링 (다형성 활용)
 	for (AActor* SelectedActor : World->GetSelectionManager()->GetSelectedActors())
 	{
 		for (USceneComponent* Component : SelectedActor->GetSceneComponents())
 		{
-			// Decal 디버그 볼륨
-			if (UDecalComponent* Decal = Cast<UDecalComponent>(Component))
-			{
-				Decal->RenderDebugVolume(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
-			}
-			// SpotLight 디버그 볼륨 (원뿔 모양)
-			else if (USpotLightComponent* SpotLight = Cast<USpotLightComponent>(Component))
-			{
-				SpotLight->RenderDebugVolume(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
-			}
-			// PointLight 디버그 볼륨 (구형 - 3개의 원)
-			else if (UPointLightComponent* PointLight = Cast<UPointLightComponent>(Component))
-			{
-				// SpotLight는 PointLight를 상속하므로, SpotLight가 아닌 경우만 처리
-				if (!Cast<USpotLightComponent>(PointLight))
-				{
-					PointLight->RenderDebugVolume(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
-				}
-			}
+			// 모든 컴포넌트에서 RenderDebugVolume 호출
+			// 각 컴포넌트는 필요한 경우 override하여 디버그 시각화 제공
+			Component->RenderDebugVolume(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
 		}
 	}
 
