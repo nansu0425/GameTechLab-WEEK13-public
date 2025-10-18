@@ -441,13 +441,10 @@ void FSceneRenderer::RenderOpaquePass()
 	// 모든 메시 렌더링
 	for (UMeshComponent* MeshComponent : Proxies.Meshes)
 	{
-		// StaticMeshComponent인 경우 ViewMode 셰이더 적용
-		if (UStaticMeshComponent* StaticMeshComp = Cast<UStaticMeshComponent>(MeshComponent))
+		// ViewMode 셰이더 적용 (다형성 활용)
+		if (ViewModeShader)
 		{
-			if (ViewModeShader)
-			{
-				StaticMeshComp->SetViewModeShader(ViewModeShader);
-			}
+			MeshComponent->SetViewModeShader(ViewModeShader);
 		}
 
 		MeshComponent->Render(OwnerRenderer, ViewMatrix, ProjectionMatrix);

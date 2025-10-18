@@ -25,7 +25,7 @@ protected:
 
 public:
     // ViewMode에 따른 셰이더 설정 (SceneRenderer에서 호출)
-    void SetViewModeShader(UShader* InShader);
+    void SetViewModeShader(UShader* InShader) override;
 
     void Render(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) override;
 
