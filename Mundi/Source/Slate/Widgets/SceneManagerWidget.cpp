@@ -526,8 +526,8 @@ void USceneManagerWidget::RenderToolbar()
     ImGui::Text("View Mode:");
     ImGui::SameLine();
     
-    const char* ViewModeNames[] = { "Lit", "Unlit", "Wireframe" };
-    
+    const char* ViewModeNames[] = { "Lit", "Unlit", "WorldNormal", "Wireframe" };
+
     UWorld* World = GetCurrentWorld();
     if (World)
     {
@@ -545,8 +545,11 @@ EViewModeIndex CurrentEnum = World->GetRenderSettings().GetViewModeIndex();
         case EViewModeIndex::VMI_Unlit:
             CurrentViewMode = 1;
             break;
-        case EViewModeIndex::VMI_Wireframe:
+        case EViewModeIndex::VMI_WorldNormal:
             CurrentViewMode = 2;
+            break;
+        case EViewModeIndex::VMI_Wireframe:
+            CurrentViewMode = 3;
             break;
         default:
             CurrentViewMode = 0;
@@ -566,6 +569,9 @@ EViewModeIndex CurrentEnum = World->GetRenderSettings().GetViewModeIndex();
                 NewEnum = EViewModeIndex::VMI_Unlit;
                 break;
             case 2:
+                NewEnum = EViewModeIndex::VMI_WorldNormal;
+                break;
+            case 3:
                 NewEnum = EViewModeIndex::VMI_Wireframe;
                 break;
             }
