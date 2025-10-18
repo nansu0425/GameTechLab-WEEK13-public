@@ -44,6 +44,9 @@ public:
 
 	D3D11RHI* GetRHIDevice() { return RHIDevice; }
 
+	void SetCurrentCamera(ACameraActor* InCamera) { CurrentCamera = InCamera; }
+	ACameraActor* GetCurrentCamera() const { return CurrentCamera; }
+
 private:
 	D3D11RHI* RHIDevice;    // NOTE: 개발 편의성을 위해서 DX11를 종속적으로 사용한다 (URHIDevice를 사용하지 않음)
 
@@ -67,5 +70,7 @@ private:
 	//UStaticMesh* PreStaticMesh = nullptr; // VertexBuffer, IndexBuffer
 	/*ID3D11Buffer* PreVertexBuffer = nullptr;
 	ID3D11ShaderResourceView* PreSRV = nullptr;*/
+
+	ACameraActor* CurrentCamera = nullptr;
 };
 
