@@ -481,7 +481,7 @@ void AActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 			if (FJsonSerializer::ReadArray(InOutHandle, "OwnedComponents", ComponentsJson))
 			{
 				// 1) OwnedComponents와 SceneComponents에 Component들 추가
-				for (uint32 i = 0; i < ComponentsJson.size(); ++i)
+				for (uint32 i = 0; i < static_cast<uint32>(ComponentsJson.size()); ++i)
 				{
 					JSON ComponentJson = ComponentsJson.at(i);
 					

@@ -225,8 +225,8 @@ void FSceneRenderer::PrepareView()
 	ViewConstData.ViewportRect.Z = Vp.Width;
 	ViewConstData.ViewportRect.W = Vp.Height;
 	// 2. 전체 화면(렌더 타겟) 크기 정보 채우기
-	ViewConstData.ScreenSize.X = RHIDevice->GetViewportWidth();
-	ViewConstData.ScreenSize.Y = RHIDevice->GetViewportHeight();
+	ViewConstData.ScreenSize.X = static_cast<float>(RHIDevice->GetViewportWidth());
+	ViewConstData.ScreenSize.Y = static_cast<float>(RHIDevice->GetViewportHeight());
 	ViewConstData.ScreenSize.Z = 1.0f / RHIDevice->GetViewportWidth();
 	ViewConstData.ScreenSize.W = 1.0f / RHIDevice->GetViewportHeight();
 	RHIDevice->SetAndUpdateConstantBuffer((FViewportConstants)ViewConstData);

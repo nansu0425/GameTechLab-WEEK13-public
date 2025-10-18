@@ -6,7 +6,7 @@
 struct FSceneCompData;
 
 class URenderer;
-class FMeshBatchElement;
+struct FMeshBatchElement;
 class FSceneView;
 
 class UPrimitiveComponent :public USceneComponent

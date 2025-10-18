@@ -15,7 +15,7 @@ class UAmbientLightComponent;
 class UDirectionalLightComponent;
 class UPointLightComponent;
 class USpotLightComponent;
-class FMeshBatchElement;
+struct FMeshBatchElement;
 class UMeshComponent;
 class UBillboardComponent;
 class UTextRenderComponent;
