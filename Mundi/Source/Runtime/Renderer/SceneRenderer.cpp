@@ -35,6 +35,8 @@
 #include "PointLightComponent.h"
 #include "SpotLightComponent.h"
 #include "SwapGuard.h"
+#include "Shader.h"
+#include "ResourceManager.h"
 
 FSceneRenderer::FSceneRenderer(UWorld* InWorld, ACameraActor* InCamera, FViewport* InViewport, URenderer* InOwnerRenderer)
 	: World(InWorld)
@@ -409,36 +411,43 @@ void FSceneRenderer::RenderOpaquePass()
 	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual); // 깊이 쓰기 ON
 	RHIDevice->OMSetBlendState(false);
 
-	// ViewMode에 따라 조명 모델 결정
-	ELightingModel LightingModel = ELightingModel::None;
+	// ViewMode에 따라 셰이더 매크로 결정
+	TArray<FShaderMacro> ShaderMacros;
+	FString ShaderPath = "Shaders/Materials/UberLit.hlsl";
 
 	switch (EffectiveViewMode)
 	{
 	case EViewModeIndex::VMI_Lit:           // 기본 Lit (Phong)
 	case EViewModeIndex::VMI_Lit_Phong:     // 명시적 Phong
-		LightingModel = ELightingModel::Phong;
+		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" });
 		break;
 	case EViewModeIndex::VMI_Lit_Gouraud:   // Gouraud
-		LightingModel = ELightingModel::Gouraud;
+		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_GOURAUD", "1" });
 		break;
 	case EViewModeIndex::VMI_Lit_Lambert:   // Lambert
-		LightingModel = ELightingModel::Lambert;
+		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_LAMBERT", "1" });
 		break;
 	case EViewModeIndex::VMI_Unlit:         // Unlit
-		LightingModel = ELightingModel::None;
+		// 매크로 없이 기본 동작 (조명 없음)
 		break;
 	default:
-		LightingModel = ELightingModel::Phong; // 기본값
+		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" }); // 기본값
 		break;
 	}
 
-	// 모든 메시에 조명 모델 적용
+	// ViewMode에 맞는 셰이더 로드
+	UShader* ViewModeShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath, ShaderMacros);
+
+	// 모든 메시 렌더링
 	for (UMeshComponent* MeshComponent : Proxies.Meshes)
 	{
-		// StaticMeshComponent인 경우 조명 모델 설정
+		// StaticMeshComponent인 경우 ViewMode 셰이더 적용
 		if (UStaticMeshComponent* StaticMeshComp = Cast<UStaticMeshComponent>(MeshComponent))
 		{
-			StaticMeshComp->SetLightingModel(LightingModel);
+			if (ViewModeShader)
+			{
+				StaticMeshComp->SetViewModeShader(ViewModeShader);
+			}
 		}
 
 		MeshComponent->Render(OwnerRenderer, ViewMatrix, ProjectionMatrix);

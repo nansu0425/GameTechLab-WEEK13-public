@@ -269,15 +269,6 @@ enum class EGizmoSpace : uint8
     Local
 };
 
-// 조명 모델 열거형 (UberLit.hlsl 매크로와 대응)
-enum class ELightingModel : uint8
-{
-    None,       // 조명 없음 (기본 동작)
-    Gouraud,    // Per-Vertex 조명 (Diffuse + Specular)
-    Lambert,    // Per-Pixel Diffuse만
-    Phong       // Per-Pixel Diffuse + Specular (Blinn-Phong)
-};
-
 enum class EKeyInput : uint8
 {
     // Keyboard Keys
