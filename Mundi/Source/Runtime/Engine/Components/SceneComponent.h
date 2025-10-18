@@ -107,7 +107,11 @@ public:
     uint32 GetParentId() const { return ParentId; }
     void SetParentId(uint32 InParentId) { ParentId = InParentId; }
 
-    
+    // Debug Rendering
+    // Virtual function for rendering debug visualization (bounds, volumes, etc.)
+    // Override in derived classes that need debug visualization
+    virtual void RenderDebugVolume(class URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) const {}
+
     static TMap<uint32, USceneComponent*>& GetSceneIdMap()
     {
         return SceneIdMap;

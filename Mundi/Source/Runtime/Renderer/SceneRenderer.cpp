@@ -868,30 +868,14 @@ void FSceneRenderer::RenderDebugPass()
 {
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTarget);
 
-	// 선택된 액터 경계 출력
+	// 선택된 액터의 디버그 볼륨 렌더링 (다형성 활용)
 	for (AActor* SelectedActor : World->GetSelectionManager()->GetSelectedActors())
 	{
 		for (USceneComponent* Component : SelectedActor->GetSceneComponents())
 		{
-			// Decal 디버그 볼륨
-			if (UDecalComponent* Decal = Cast<UDecalComponent>(Component))
-			{
-				Decal->RenderDebugVolume(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
-			}
-			// SpotLight 디버그 볼륨 (원뿔 모양)
-			else if (USpotLightComponent* SpotLight = Cast<USpotLightComponent>(Component))
-			{
-				SpotLight->RenderDebugVolume(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
-			}
-			// PointLight 디버그 볼륨 (구형 - 3개의 원)
-			else if (UPointLightComponent* PointLight = Cast<UPointLightComponent>(Component))
-			{
-				// SpotLight는 PointLight를 상속하므로, SpotLight가 아닌 경우만 처리
-				if (!Cast<USpotLightComponent>(PointLight))
-				{
-					PointLight->RenderDebugVolume(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
-				}
-			}
+			// 모든 컴포넌트에서 RenderDebugVolume 호출
+			// 각 컴포넌트는 필요한 경우 override하여 디버그 시각화 제공
+			Component->RenderDebugVolume(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
 		}
 	}
 
