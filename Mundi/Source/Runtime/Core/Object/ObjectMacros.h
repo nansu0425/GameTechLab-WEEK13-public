@@ -1,6 +1,6 @@
 ﻿#pragma once
-
 #include "Property.h"
+#include "Color.h"
 #include <type_traits>
 
 // ===== 타입 자동 감지 템플릿 =====
@@ -53,13 +53,22 @@ private: \
 public:
 
 // CPP 파일에서 사용: 프로퍼티 등록 헬퍼 매크로들
-// 사용법: ADD_PROPERTY(타입, 변수, 카테고리);
-// void UMyComponent::StaticRegisterProperties()
-// {
-//     UClass* Class = StaticClass();
-//     ADD_PROPERTY(bool, bIsEnabled, "Light");
-//     ADD_PROPERTY_RANGE(float, Intensity, "Light", 0.0f, 100.0f);
-// }
+// 사용법:
+// BEGIN_PROPERTIES(UMyComponent)
+//     MARK_AS_COMPONENT("My Component", "...")
+//     ADD_PROPERTY(bool, bIsEnabled, "Light", true)
+//     ADD_PROPERTY_RANGE(float, Intensity, "Light", 0.0f, 100.0f, true)
+// END_PROPERTIES()
+
+// StaticRegisterProperties 함수 시작
+#define BEGIN_PROPERTIES(ClassName) \
+	void ClassName::StaticRegisterProperties() \
+	{ \
+		UClass* Class = StaticClass(); \
+
+// StaticRegisterProperties 함수 종료
+#define END_PROPERTIES() \
+	}
 
 // 범위 제한이 있는 프로퍼티 추가
 #define ADD_PROPERTY_RANGE(VarType, VarName, CategoryName, MinVal, MaxVal, bEditAnywhere) \

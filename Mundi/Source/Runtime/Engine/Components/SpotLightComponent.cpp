@@ -3,19 +3,12 @@
 
 IMPLEMENT_CLASS(USpotLightComponent)
 
-// 리플렉션 프로퍼티 등록
-void USpotLightComponent::StaticRegisterProperties()
-{
-	UClass* Class = StaticClass();
-
-	// 컴포넌트 메타데이터 설정
+BEGIN_PROPERTIES(USpotLightComponent)
 	MARK_AS_COMPONENT("스포트 라이트", "스포트 라이트 컴포넌트를 추가합니다.")
-
-	// 프로퍼티 등록
-	ADD_PROPERTY(FLinearColor, LightColor, "Light", true);
+	ADD_PROPERTY(FLinearColor, LightColor, "Light", true)
 	ADD_PROPERTY_RANGE(float, InnerConeAngle, "Light", 0.0f, 90.0f, true)
 	ADD_PROPERTY_RANGE(float, OuterConeAngle, "Light", 0.0f, 90.0f, true)
-}
+END_PROPERTIES()
 
 USpotLightComponent::USpotLightComponent()
 {
@@ -182,8 +175,8 @@ void USpotLightComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
 	Super::Serialize(bInIsLoading, InOutHandle);
 
-	// 리플렉션 기반 자동 직렬화
-	AutoSerialize(bInIsLoading, InOutHandle);
+	// 리플렉션 기반 자동 직렬화 (이 클래스의 프로퍼티만)
+	AutoSerialize(bInIsLoading, InOutHandle, USpotLightComponent::StaticClass());
 }
 
 void USpotLightComponent::DuplicateSubObjects()

@@ -143,8 +143,8 @@ public:
 
     virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle);
 
-    // 리플렉션 기반 자동 직렬화
-    virtual void AutoSerialize(const bool bInIsLoading, JSON& InOutHandle);
+    // 리플렉션 기반 자동 직렬화 (현재 클래스의 프로퍼티만 처리)
+    void AutoSerialize(const bool bInIsLoading, JSON& InOutHandle, UClass* TargetClass);
 public:
     // GenerateUUID()에 의해 자동 발급
     uint32_t UUID;

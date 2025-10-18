@@ -12,14 +12,12 @@ FString UObject::GetComparisonName()
 
 void UObject::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
-
 }
 
-// 리플렉션 기반 자동 직렬화
-void UObject::AutoSerialize(const bool bInIsLoading, JSON& InOutHandle)
+// 리플렉션 기반 자동 직렬화 (현재 클래스의 프로퍼티만 처리)
+void UObject::AutoSerialize(const bool bInIsLoading, JSON& InOutHandle, UClass* TargetClass)
 {
-	UClass* Class = GetClass();
-	const TArray<FProperty>& Properties = Class->GetProperties();
+	const TArray<FProperty>& Properties = TargetClass->GetProperties();
 
 	for (const FProperty& Prop : Properties)
 	{
