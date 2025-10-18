@@ -64,7 +64,6 @@ void UResourceManager::Initialize(ID3D11Device* InDevice, ID3D11DeviceContext* I
     CreateBillboardMesh(); // Billboard
     CreateTextBillboardTexture();
     CreateDefaultShader();
-    
 }
 
 UMaterial* UResourceManager::GetOrCreateMaterial(const FString& Name, EVertexLayoutType layoutType)
@@ -99,7 +98,7 @@ UMaterial* UResourceManager::GetOrCreateMaterial(const FString& Name, EVertexLay
     // Material 생성
     UMaterial* Mat = NewObject<UMaterial>();
     if (Shader)  Mat->SetShader(Shader);
-    if (Texture) Mat->SetTexture(Texture);
+    if (Texture) Mat->SetDiffuseTexture(Name);
 
     MaterialMap[Name] = Mat;
     return Mat;
