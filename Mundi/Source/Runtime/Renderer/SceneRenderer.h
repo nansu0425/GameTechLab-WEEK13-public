@@ -86,6 +86,8 @@ private:
 	/** @brief 불투명(Opaque) 객체들을 렌더링하는 패스입니다. */
 	void RenderOpaquePass();
 
+	void DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, bool bClearListAfterDraw);
+
 	/** @brief 데칼(Decal)을 렌더링하는 패스입니다. */
 	void RenderDecalPass();
 

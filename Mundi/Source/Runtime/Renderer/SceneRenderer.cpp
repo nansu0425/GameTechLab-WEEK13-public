@@ -396,13 +396,9 @@ void FSceneRenderer::PerformFrustumCulling()
 
 void FSceneRenderer::RenderOpaquePass()
 {
-	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual); // 깊이 쓰기 ON
-	RHIDevice->OMSetBlendState(false);
-
 	// ViewMode에 따라 셰이더 매크로 결정
 	TArray<FShaderMacro> ShaderMacros;
 	FString ShaderPath = "Shaders/Materials/UberLit.hlsl";
-
 	switch (View->ViewMode)
 	{
 	case EViewModeIndex::VMI_Lit_Phong:     // Phong
@@ -424,30 +420,169 @@ void FSceneRenderer::RenderOpaquePass()
 		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" }); // 기본값
 		break;
 	}
-
 	// ViewMode에 맞는 셰이더 로드
 	UShader* ViewModeShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath, ShaderMacros);
 
-	// 모든 메시 렌더링
+	// --- 1. 수집 (Collect) ---
+	MeshBatchElements.Empty();
 	for (UMeshComponent* MeshComponent : Proxies.Meshes)
 	{
-		// ViewMode 셰이더 적용 (다형성 활용)
-		if (ViewModeShader)
-		{
-			MeshComponent->SetViewModeShader(ViewModeShader);
-		}
-
-		MeshComponent->Render(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
+		MeshComponent->SetViewModeShader(ViewModeShader);
+		MeshComponent->CollectMeshBatches(MeshBatchElements, View);
 	}
-
 	for (UBillboardComponent* BillboardComponent : Proxies.Billboards)
 	{
+		// TODO: UBillboardComponent도 CollectMeshBatches를 통해 FMeshBatchElement를 생성하도록 구현
+		//BillboardComponent->CollectMeshBatches(MeshBatchElements, View);
 		BillboardComponent->Render(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
 	}
-
 	for (UTextRenderComponent* TextRenderComponent : Proxies.Texts)
 	{
-		TextRenderComponent->Render(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
+		// TODO: UTextRenderComponent도 CollectMeshBatches를 통해 FMeshBatchElement를 생성하도록 구현
+		//TextRenderComponent->CollectMeshBatches(MeshBatchElements, View);
+	}
+
+	// --- 2. 정렬 (Sort) ---
+	MeshBatchElements.Sort([](const FMeshBatchElement& A, const FMeshBatchElement& B)
+		{
+			if (A.VertexShader != B.VertexShader) return A.VertexShader < B.VertexShader;
+			if (A.PixelShader != B.PixelShader) return A.PixelShader < B.PixelShader;
+			if (A.Material != B.Material) return A.Material < B.Material;
+			if (A.Mesh != B.Mesh) return A.Mesh < B.Mesh;
+			return false;
+		});
+
+	// --- 3. 그리기 (Draw) ---
+	DrawMeshBatches(MeshBatchElements, false);
+}
+
+void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, bool bClearListAfterDraw)
+{
+	if (InMeshBatches.IsEmpty()) return;
+
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual); // 깊이 쓰기 ON
+	RHIDevice->OMSetBlendState(false);
+
+	// 현재 GPU 상태 캐싱용 변수
+	UShader* CurrentVertexShader = nullptr;
+	UShader* CurrentPixelShader = nullptr;
+	UMaterial* CurrentMaterial = nullptr;
+	UStaticMesh* CurrentMesh = nullptr;
+
+	// 공통 상수 버퍼 설정 (View, Projection 등)
+	RHIDevice->SetAndUpdateConstantBuffer(ViewProjBufferType(View->ViewMatrix, View->ProjectionMatrix));
+	FVector CameraPos = View->ViewLocation;
+	RHIDevice->SetAndUpdateConstantBuffer(CameraBufferType(CameraPos, 0.0f));
+
+	// 정렬된 리스트 순회
+	for (const FMeshBatchElement& Batch : InMeshBatches)
+	{
+		// 1. 셰이더 상태 변경
+		if (Batch.VertexShader != CurrentVertexShader || Batch.PixelShader != CurrentPixelShader)
+		{
+			RHIDevice->PrepareShader(Batch.VertexShader, Batch.PixelShader);
+			CurrentVertexShader = Batch.VertexShader;
+			CurrentPixelShader = Batch.PixelShader;
+		}
+
+		// 2. 머티리얼 상태 변경 (텍스처, 재질 상수 버퍼 바인딩)
+		if (Batch.Material != CurrentMaterial)
+		{
+			const FMaterialParameters& MaterialInfo = Batch.Material->GetMaterialInfo();
+
+			// --- [추가된 텍스처 바인딩 로직 시작] ---
+			ID3D11ShaderResourceView* srv = nullptr;
+			bool bHasTexture = false;
+			if (!MaterialInfo.DiffuseTextureFileName.empty())
+			{
+				// UTF-8 -> UTF-16 변환 (Windows)
+				int needW = ::MultiByteToWideChar(CP_UTF8, 0, MaterialInfo.DiffuseTextureFileName.c_str(), -1, nullptr, 0);
+				std::wstring WTextureFileName;
+				if (needW > 0)
+				{
+					WTextureFileName.resize(needW - 1);
+					::MultiByteToWideChar(CP_UTF8, 0, MaterialInfo.DiffuseTextureFileName.c_str(), -1, WTextureFileName.data(), needW);
+				}
+
+				// 리소스 매니저를 통해 텍스처 데이터(SRV) 가져오기
+				if (FTextureData* TextureData = UResourceManager::GetInstance().CreateOrGetTextureData(WTextureFileName))
+				{
+					if (TextureData->TextureSRV)
+					{
+						srv = TextureData->TextureSRV;
+						bHasTexture = true;
+					}
+				}
+			}
+
+			// 셰이더 리소스(텍스처)를 픽셀 셰이더 0번 슬롯에 바인딩
+			RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &srv);
+			// 기본 샘플러를 0번 슬롯에 바인딩
+			RHIDevice->PSSetDefaultSampler(0);
+
+			// 픽셀 상수 버퍼(머티리얼 파라미터) 업데이트
+			FPixelConstBufferType PixelConst{ FPixelConstBufferType(FMaterialInPs(MaterialInfo), true) };
+			PixelConst.bHasTexture = bHasTexture;
+			// PixelConst.Padding = FVector2D(0.0f, 0.0f); // (필요시 패딩 설정)
+			RHIDevice->SetAndUpdateConstantBuffer(PixelConst);
+			// --- [추가된 텍스처 바인딩 로직 끝] ---
+
+			CurrentMaterial = Batch.Material;
+		}
+
+		// 3. 메시 상태 변경 (Vertex Buffer, Index Buffer 바인딩)
+		if (Batch.Mesh != CurrentMesh)
+		{
+			//RHIDevice->BindMeshBuffers(Batch.Mesh); // 이 함수는 IASetVertexBuffers/IndexBuffer를 호출
+
+			UINT Stride = 0;
+			switch (Batch.Mesh->GetVertexType())
+			{
+			case EVertexLayoutType::PositionColor:
+				Stride = sizeof(FVertexSimple);
+				break;
+			case EVertexLayoutType::PositionColorTexturNormal:
+				Stride = sizeof(FVertexDynamic);
+				break;
+			case EVertexLayoutType::PositionTextBillBoard:
+				Stride = sizeof(FBillboardVertexInfo_GPU);
+				break;
+			case EVertexLayoutType::PositionBillBoard:
+				Stride = sizeof(FBillboardVertex);
+				break;
+			default:
+				// Handle unknown or unsupported vertex types
+				assert(false && "Unknown vertex type!");
+				return; // or log an error
+			}
+
+			ID3D11Buffer* VertexBuffer = Batch.Mesh->GetVertexBuffer();
+			ID3D11Buffer* IndexBuffer = Batch.Mesh->GetIndexBuffer();
+
+			UINT Offset = 0;
+			RHIDevice->GetDeviceContext()->IASetVertexBuffers(
+				0, 1, &VertexBuffer, &Stride, &Offset
+			);
+
+			RHIDevice->GetDeviceContext()->IASetIndexBuffer(
+				IndexBuffer, DXGI_FORMAT_R32_UINT, 0
+			);
+
+			CurrentMesh = Batch.Mesh;
+		}
+
+		// 4. 오브젝트별 상수 버퍼 설정 (매번 변경)
+		RHIDevice->SetAndUpdateConstantBuffer(ModelBufferType(Batch.WorldMatrix));
+		RHIDevice->SetAndUpdateConstantBuffer(ColorBufferType(FVector4(), Batch.ObjectID));
+
+		// 5. 드로우 콜 실행!
+		RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(Batch.PrimitiveTopology);
+		RHIDevice->GetDeviceContext()->DrawIndexed(Batch.IndexCount, Batch.StartIndex, 0);
+	}
+
+	if (bClearListAfterDraw)
+	{
+		InMeshBatches.Empty();
 	}
 }
 

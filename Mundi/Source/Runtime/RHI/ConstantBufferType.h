@@ -80,7 +80,7 @@ struct FMaterialInPs
     FVector TransmissionFilter; // Tf
     float dummy; // 4 bytes padding
     FMaterialInPs() = default;
-    FMaterialInPs(const FObjMaterialInfo& MaterialInfo)
+    FMaterialInPs(const FMaterialParameters& MaterialInfo)
         :DiffuseColor(MaterialInfo.DiffuseColor),
         OpticalDensity(MaterialInfo.OpticalDensity),
         AmbientColor(MaterialInfo.AmbientColor),

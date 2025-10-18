@@ -30,15 +30,18 @@ public:
 
     void Render(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) override;
 
+    void CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View) override;
+
     void SetStaticMesh(const FString& PathFileName);
 
     UStaticMesh* GetStaticMesh() const { return StaticMesh; }
+    UMaterial* GetMaterial(uint32 InSectionIndex) const;
+    const TArray<FMaterialSlot>& GetMaterialSlots() const { return MaterialSlots; }
 
     void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
 
     void SetMaterialByUser(const uint32 InMaterialSlotIndex, const FString& InMaterialName);
 
-    const TArray<FMaterialSlot>& GetMaterialSlots() const { return MaterialSlots; }
 
     bool IsChangedMaterialByUser() const
     {

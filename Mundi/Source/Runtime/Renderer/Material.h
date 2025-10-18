@@ -8,7 +8,7 @@ class UMaterial : public UResourceBase
 {
 	DECLARE_CLASS(UMaterial, UResourceBase)
 public:
-    UMaterial() = default;
+    UMaterial();
     void Load(const FString& InFilePath, ID3D11Device* InDevice);
 
 protected:
@@ -22,20 +22,20 @@ public:
     void SetTexture(const FString& TexturePath);
     UTexture* GetTexture();
 
-    void SetMaterialInfo(const FObjMaterialInfo& InMaterialInfo) { MaterialInfo = InMaterialInfo; }
-    const FObjMaterialInfo& GetMaterialInfo() const { return MaterialInfo; }
+    void SetMaterialInfo(const FMaterialParameters& InMaterialInfo) { MaterialInfo = InMaterialInfo; }
+    const FMaterialParameters& GetMaterialInfo() const { return MaterialInfo; }
 
     // TEST
     FString& GetTextName() { return TextureName; }
     void SetTextName(FString& InName) { TextureName = InName; };
 
 private:
+    // 이 머티리얼이 사용할 셰이더 프로그램 (예: UberLit.hlsl)
 	UShader* Shader = nullptr;
+    FMaterialParameters MaterialInfo;
+
+    // NOTE: 삭제 필요, FMaterialParameters 만을 사용하도록 변경
 	UTexture* Texture= nullptr;
-    FObjMaterialInfo MaterialInfo;
-
-
-    // TEST 
     FString TextureName;
 };
 

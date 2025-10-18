@@ -6,7 +6,7 @@
 #include "Archive.h"
 #include <d3d11.h>
 
-struct FObjMaterialInfo
+struct FMaterialParameters
 {
     // Diffuse Scalar
     // Diffuse Texture
@@ -35,7 +35,7 @@ struct FObjMaterialInfo
 
     FString MaterialName;
 
-    friend FArchive& operator<<(FArchive& Ar, FObjMaterialInfo& Info)
+    friend FArchive& operator<<(FArchive& Ar, FMaterialParameters& Info)
     {
         Ar << Info.IlluminationModel;
         Ar << Info.DiffuseColor;
@@ -79,14 +79,14 @@ struct FObjMaterialInfo
 // ---- FObjMaterialInfo 전용 Serialization 특수화 ----
 namespace Serialization {
     template<>
-    inline void WriteArray<FObjMaterialInfo>(FArchive& Ar, const TArray<FObjMaterialInfo>& Arr) {
+    inline void WriteArray<FMaterialParameters>(FArchive& Ar, const TArray<FMaterialParameters>& Arr) {
         uint32 Count = (uint32)Arr.size();
         Ar << Count;
-        for (auto& Mat : Arr) Ar << const_cast<FObjMaterialInfo&>(Mat);
+        for (auto& Mat : Arr) Ar << const_cast<FMaterialParameters&>(Mat);
     }
 
     template<>
-    inline void ReadArray<FObjMaterialInfo>(FArchive& Ar, TArray<FObjMaterialInfo>& Arr) {
+    inline void ReadArray<FMaterialParameters>(FArchive& Ar, TArray<FMaterialParameters>& Arr) {
         uint32 Count;
         Ar << Count;
         Arr.resize(Count);

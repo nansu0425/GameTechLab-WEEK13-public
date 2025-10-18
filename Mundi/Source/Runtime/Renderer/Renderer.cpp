@@ -160,7 +160,7 @@ void URenderer::DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITI
 		for (uint32 i = 0; i < NumMeshGroupInfos; ++i)
 		{
 			UMaterial* const Material = UResourceManager::GetInstance().Get<UMaterial>(InComponentMaterialSlots[i].MaterialName.ToString());
-			const FObjMaterialInfo& MaterialInfo = Material->GetMaterialInfo();
+			const FMaterialParameters& MaterialInfo = Material->GetMaterialInfo();
 			ID3D11ShaderResourceView* srv = nullptr;
 			bool bHasTexture = false;
 			if (!MaterialInfo.DiffuseTextureFileName.empty())
@@ -194,7 +194,7 @@ void URenderer::DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITI
 	}
 	else
 	{
-		FObjMaterialInfo ObjMaterialInfo;
+		FMaterialParameters ObjMaterialInfo;
 		FPixelConstBufferType PixelConst{ FPixelConstBufferType(FMaterialInPs(ObjMaterialInfo)) };
 		PixelConst.bHasTexture = false;
 		PixelConst.bHasMaterial = false;

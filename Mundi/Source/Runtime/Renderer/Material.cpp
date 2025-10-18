@@ -6,6 +6,20 @@
 
 IMPLEMENT_CLASS(UMaterial)
 
+UMaterial::UMaterial()
+{
+    // 기본 Material 생성 (기본 Phong 셰이더 사용)
+    FString ShaderPath = "Shaders/Materials/UberLit.hlsl";
+    TArray<FShaderMacro> DefaultMacros;
+    DefaultMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" });
+
+    UShader* DefaultShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath, DefaultMacros);
+    if (DefaultShader)
+    {
+        SetShader(DefaultShader);
+    }
+}
+
 void UMaterial::Load(const FString& InFilePath, ID3D11Device* InDevice)
 {
     // 기본 쉐이더 로드 (LayoutType에 따라)
