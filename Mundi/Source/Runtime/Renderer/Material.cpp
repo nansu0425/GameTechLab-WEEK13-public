@@ -6,6 +6,20 @@
 
 IMPLEMENT_CLASS(UMaterial)
 
+UMaterial::UMaterial()
+{
+    // 기본 Material 생성 (기본 Phong 셰이더 사용)
+    FString ShaderPath = "Shaders/Materials/UberLit.hlsl";
+    TArray<FShaderMacro> DefaultMacros;
+    DefaultMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" });
+
+    UShader* DefaultShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath, DefaultMacros);
+    if (DefaultShader)
+    {
+        SetShader(DefaultShader);
+    }
+}
+
 void UMaterial::Load(const FString& InFilePath, ID3D11Device* InDevice)
 {
     // 기본 쉐이더 로드 (LayoutType에 따라)
@@ -15,7 +29,8 @@ void UMaterial::Load(const FString& InFilePath, ID3D11Device* InDevice)
         FString shaderName = UResourceManager::GetInstance().GetProperShader(InFilePath);
 
         Shader = UResourceManager::GetInstance().Load<UShader>(shaderName);
-        Texture = UResourceManager::GetInstance().Load<UTexture>(InFilePath);
+        UResourceManager::GetInstance().Load<UTexture>(InFilePath);
+        MaterialInfo.DiffuseTextureFileName = InFilePath;
     } // hlsl 의 경우 
     else if (InFilePath.find(".hlsl") != std::string::npos)
     {
@@ -37,19 +52,12 @@ UShader* UMaterial::GetShader()
 	return Shader;
 }
 
-void UMaterial::SetTexture(UTexture* TextureResource)
+void UMaterial::SetDiffuseTexture(const FString& TexturePath)
 {
-	Texture = TextureResource;
+    MaterialInfo.DiffuseTextureFileName = TexturePath;
 }
 
-void UMaterial::SetTexture(const FString& TexturePath)
+UTexture* UMaterial::GetDiffuseTexture()
 {
-    //UResourceManager::GetInstance().CreateOrGetTextureData(TexturePath);
-    Texture->SetTextureName(TexturePath);
-}
-
-
-UTexture* UMaterial::GetTexture()
-{
-	return Texture;
+    return UResourceManager::GetInstance().Load<UTexture>(MaterialInfo.DiffuseTextureFileName);
 }

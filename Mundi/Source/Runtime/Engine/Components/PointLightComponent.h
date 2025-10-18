@@ -24,6 +24,9 @@ public:
 	virtual void UpdateLightData() override;
 	void OnRegister() override;
 
+	// Debug Rendering
+	void RenderDebugVolume(class URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) const;
+
 	// Serialization & Duplication
 	virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
 	virtual void DuplicateSubObjects() override;

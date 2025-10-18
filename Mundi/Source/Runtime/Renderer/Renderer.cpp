@@ -160,7 +160,7 @@ void URenderer::DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITI
 		for (uint32 i = 0; i < NumMeshGroupInfos; ++i)
 		{
 			UMaterial* const Material = UResourceManager::GetInstance().Get<UMaterial>(InComponentMaterialSlots[i].MaterialName.ToString());
-			const FObjMaterialInfo& MaterialInfo = Material->GetMaterialInfo();
+			const FMaterialParameters& MaterialInfo = Material->GetMaterialInfo();
 			ID3D11ShaderResourceView* srv = nullptr;
 			bool bHasTexture = false;
 			if (!MaterialInfo.DiffuseTextureFileName.empty())
@@ -194,7 +194,7 @@ void URenderer::DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITI
 	}
 	else
 	{
-		FObjMaterialInfo ObjMaterialInfo;
+		FMaterialParameters ObjMaterialInfo;
 		FPixelConstBufferType PixelConst{ FPixelConstBufferType(FMaterialInPs(ObjMaterialInfo)) };
 		PixelConst.bHasTexture = false;
 		PixelConst.bHasMaterial = false;
@@ -221,7 +221,7 @@ void URenderer::DrawIndexedPrimitiveComponent(UTextRenderComponent* Comp, D3D11_
 	RHIDevice->GetDeviceContext()->IASetIndexBuffer(
 		IndexBuff, DXGI_FORMAT_R32_UINT, 0
 	);
-	ID3D11ShaderResourceView* TextureSRV = Comp->GetMaterial()->GetTexture()->GetShaderResourceView();
+	ID3D11ShaderResourceView* TextureSRV = Comp->GetMaterial()->GetDiffuseTexture()->GetShaderResourceView();
 	RHIDevice->PSSetDefaultSampler(0);
 	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &TextureSRV);
 	RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(InTopology);

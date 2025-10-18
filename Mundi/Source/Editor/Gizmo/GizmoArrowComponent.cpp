@@ -7,7 +7,10 @@ IMPLEMENT_CLASS(UGizmoArrowComponent)
 UGizmoArrowComponent::UGizmoArrowComponent()
 {
     SetStaticMesh("Data/Gizmo/TranslationHandle.obj");
-    SetMaterial("Shaders/StaticMesh/StaticMeshShader.hlsl");
+    //MaterialSlots 크기 체크 필요
+    MaterialSlots[0].MaterialName = "Shaders/StaticMesh/StaticMeshShader.hlsl";
+
+    //UShader* FixedShader = UResourceManager::GetInstance().Load<UShader>("Shaders/StaticMesh/StaticMeshShader.hlsl");
 }
 
 float UGizmoArrowComponent::ComputeScreenConstantScale(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj, float targetPixels) const

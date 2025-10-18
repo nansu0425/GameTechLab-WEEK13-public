@@ -415,10 +415,19 @@ PS_INPUT mainVS(VS_INPUT Input)
 //================================================================================================
 // 픽셀 셰이더 (Pixel Shader)
 //================================================================================================
-PS_OUTPUT mainPS(PS_INPUT Input) 
+PS_OUTPUT mainPS(PS_INPUT Input)
 {
     PS_OUTPUT Output;
     Output.UUID = UUID;
+
+#ifdef VIEWMODE_WORLD_NORMAL
+    // World Normal 시각화: Normal 벡터를 색상으로 변환
+    // Normal 범위: -1~1 → 색상 범위: 0~1
+    float3 normalColor = Input.Normal * 0.5 + 0.5;
+    Output.Color = float4(normalColor, 1.0);
+    return Output;
+#endif
+
     // Apply UV scrolling if enabled
     float2 uv = Input.TexCoord;
     //if (bHasMaterial && bHasTexture)

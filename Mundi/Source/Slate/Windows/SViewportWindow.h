@@ -41,4 +41,5 @@ private:
 
     // ViewMode 관련 상태 저장
     int CurrentLitSubMode = 2; // 0=Gouraud, 1=Lambert, 2=Phong (기본값: Phong)
+    int CurrentBufferVisSubMode = 1; // 0=SceneDepth, 1=WorldNormal (기본값: WorldNormal)
 };

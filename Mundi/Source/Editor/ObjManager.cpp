@@ -222,7 +222,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 
 	// 3. 캐시 유효성 검사 및 데이터 준비
 	FStaticMesh* NewFStaticMesh = new FStaticMesh();
-	TArray<FObjMaterialInfo> MaterialInfos;
+	TArray<FMaterialParameters> MaterialInfos;
 
 	bool bRegenerate = ShouldRegenerateCache(NormalizedPathStr, BinPathFileName, MatBinPathFileName);
 
@@ -248,7 +248,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 		Writer.Close();
 
 		FWindowsBinWriter MatWriter(MatBinPathFileName);
-		Serialization::WriteArray<FObjMaterialInfo>(MatWriter, MaterialInfos);
+		Serialization::WriteArray<FMaterialParameters>(MatWriter, MaterialInfos);
 		MatWriter.Close();
 	}
 	else
@@ -274,7 +274,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 			delete NewFStaticMesh;
 			return nullptr;
 		}
-		Serialization::ReadArray<FObjMaterialInfo>(MatReader, MaterialInfos);
+		Serialization::ReadArray<FMaterialParameters>(MatReader, MaterialInfos);
 		MatReader.Close();
 	}
 
@@ -306,7 +306,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 	}
 
 	// 리소스 매니저에 머티리얼 등록
-	for (const FObjMaterialInfo& InMaterialInfo : MaterialInfos)
+	for (const FMaterialParameters& InMaterialInfo : MaterialInfos)
 	{
 		if (!UResourceManager::GetInstance().Get<UMaterial>(InMaterialInfo.MaterialName))
 		{

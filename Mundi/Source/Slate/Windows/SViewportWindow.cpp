@@ -212,17 +212,24 @@ void SViewportWindow::RenderToolbar()
 
 		if (ImGui::Button("Reset")) { /* TODO: 카메라 Reset */ }
 
-		// 1단계: 메인 ViewMode 선택 (Lit, Unlit, Wireframe, SceneDepth)
-		const char* mainViewModes[] = { "Lit", "Unlit", "Wireframe", "SceneDepth" };
+		// 1단계: 메인 ViewMode 선택 (Lit, Unlit, Buffer Visualization, Wireframe)
+		const char* mainViewModes[] = { "Lit", "Unlit", "Buffer Visualization", "Wireframe" };
 
 		// 현재 ViewMode에서 메인 모드 인덱스 계산
 		int currentMainMode = 0; // 기본값: Lit
 		EViewModeIndex currentViewMode = ViewportClient->GetViewModeIndex();
 		if (currentViewMode == EViewModeIndex::VMI_Unlit)
 			currentMainMode = 1;
+		else if (currentViewMode == EViewModeIndex::VMI_WorldNormal || currentViewMode == EViewModeIndex::VMI_SceneDepth)
+		{
+			currentMainMode = 2; // Buffer Visualization
+			// 현재 BufferVis 서브모드도 동기화
+			if (currentViewMode == EViewModeIndex::VMI_SceneDepth)
+				CurrentBufferVisSubMode = 0;
+			else if (currentViewMode == EViewModeIndex::VMI_WorldNormal)
+				CurrentBufferVisSubMode = 1;
+		}
 		else if (currentViewMode == EViewModeIndex::VMI_Wireframe)
-			currentMainMode = 2;
-		else if (currentViewMode == EViewModeIndex::VMI_SceneDepth)
 			currentMainMode = 3;
 		else // Lit 계열 (Gouraud, Lambert, Phong)
 		{
@@ -261,6 +268,24 @@ void SViewportWindow::RenderToolbar()
 			}
 		}
 
+		// 2단계: Buffer Visualization 서브모드 선택 (Buffer Visualization 선택 시에만 표시)
+		if (currentMainMode == 2) // Buffer Visualization 선택됨
+		{
+			ImGui::SameLine();
+			const char* bufferVisSubModes[] = { "SceneDepth", "WorldNormal" };
+			ImGui::SetNextItemWidth(100.0f);
+			bool subModeChanged = ImGui::Combo("##BufferVisSubMode", &CurrentBufferVisSubMode, bufferVisSubModes, IM_ARRAYSIZE(bufferVisSubModes));
+
+			if (subModeChanged && ViewportClient)
+			{
+				switch (CurrentBufferVisSubMode)
+				{
+				case 0: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_SceneDepth); break;
+				case 1: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_WorldNormal); break;
+				}
+			}
+		}
+
 		ImGui::PopStyleVar(2);
 
 		// 메인 모드 변경 시 처리
@@ -277,8 +302,14 @@ void SViewportWindow::RenderToolbar()
 				}
 				break;
 			case 1: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Unlit); break;
-			case 2: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Wireframe); break;
-			case 3: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_SceneDepth); break;
+			case 2: // Buffer Visualization - 현재 선택된 서브모드 적용
+				switch (CurrentBufferVisSubMode)
+				{
+				case 0: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_SceneDepth); break;
+				case 1: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_WorldNormal); break;
+				}
+				break;
+			case 3: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Wireframe); break;
 			}
 		}
 		// 🔘 여기 ‘한 번 클릭’ 버튼 추가
