@@ -8,6 +8,7 @@ class ULightComponentBase : public USceneComponent
 {
 public:
 	DECLARE_CLASS(ULightComponentBase, USceneComponent)
+	GENERATED_REFLECTION_BODY()
 
 	ULightComponentBase();
 	virtual ~ULightComponentBase() override;

@@ -3,6 +3,7 @@
 #include "ImGui/imgui.h"
 #include "Vector.h"
 #include "Color.h"
+#include "SceneComponent.h"
 
 bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectInstance)
 {
@@ -54,6 +55,31 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 	if (Property.Tooltip && Property.Tooltip[0] != '\0' && ImGui::IsItemHovered())
 	{
 		ImGui::SetTooltip("%s", Property.Tooltip);
+	}
+
+	// SceneComponent는 Transform 프로퍼티가 변경되면 Setter를 통해 동기화
+	if (bChanged && ObjectInstance)
+	{
+		UObject* Obj = static_cast<UObject*>(ObjectInstance);
+		if (USceneComponent* SceneComponent = Cast<USceneComponent>(Obj))
+		{
+			// 프로퍼티 이름으로 Transform 프로퍼티 판별 후 Setter 호출
+			if (strcmp(Property.Name, "RelativeRotationEuler") == 0)
+			{
+				FVector* EulerValue = Property.GetValuePtr<FVector>(ObjectInstance);
+				SceneComponent->SetRelativeRotationEuler(*EulerValue);
+			}
+			else if (strcmp(Property.Name, "RelativeLocation") == 0)
+			{
+				FVector* LocationValue = Property.GetValuePtr<FVector>(ObjectInstance);
+				SceneComponent->SetRelativeLocation(*LocationValue);
+			}
+			else if (strcmp(Property.Name, "RelativeScale") == 0)
+			{
+				FVector* ScaleValue = Property.GetValuePtr<FVector>(ObjectInstance);
+				SceneComponent->SetRelativeScale(*ScaleValue);
+			}
+		}
 	}
 
 	return bChanged;

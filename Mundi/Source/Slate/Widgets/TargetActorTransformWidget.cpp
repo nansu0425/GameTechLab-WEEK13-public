@@ -64,20 +64,6 @@ namespace
 					}
 				}
 
-				// 리플렉션에 등록되지 않은 레거시 컴포넌트들 (하위 호환성)
-				/*if (Result.IsEmpty())
-				{
-					Result.push_back({ "Static Mesh Component", UStaticMeshComponent::StaticClass(), "Static mesh 렌더링용 컴포넌트" });
-					Result.push_back({ "Billboard Component", UBillboardComponent::StaticClass(), "빌보드 텍스쳐 표시" });
-					Result.push_back({ "Decal Component", UDecalComponent::StaticClass(), "데칼" });
-					Result.push_back({ "Fog Component", UHeightFogComponent::StaticClass(), "Fog" });
-					Result.push_back({ "FireBall Component", UFireBallComponent::StaticClass(), "파이어볼" });
-					Result.push_back({ "Directional Light Component", UDirectionalLightComponent::StaticClass(), "방향성 조명 (태양광)" });
-					Result.push_back({ "Ambient Light Component", UAmbientLightComponent::StaticClass(), "환경광 (전역 조명)" });
-					Result.push_back({ "Point Light Component", UPointLightComponent::StaticClass(), "점광원" });
-					Result.push_back({ "Spot Light Component", USpotLightComponent::StaticClass(), "스포트라이트 (원뿔형 조명)" });
-				}*/
-
 				return Result;
 			}();
 		return Options;
