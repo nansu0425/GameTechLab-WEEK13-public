@@ -50,6 +50,7 @@ void USelectionManager::DeselectActor(AActor* Actor)
     {
         SelectedActors.erase(it);
     }
+    SelectedComponent = nullptr;
 }
 
 void USelectionManager::ClearSelection()
