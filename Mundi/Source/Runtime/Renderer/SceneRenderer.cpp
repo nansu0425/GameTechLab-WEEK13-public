@@ -587,7 +587,7 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 		}
 
 		// 4. 오브젝트별 상수 버퍼 설정 (매번 변경)
-		RHIDevice->SetAndUpdateConstantBuffer(ModelBufferType(Batch.WorldMatrix));
+		RHIDevice->SetAndUpdateConstantBuffer(ModelBufferType(Batch.WorldMatrix, Batch.WorldMatrix.InverseAffine()));
 		RHIDevice->SetAndUpdateConstantBuffer(ColorBufferType(FLinearColor(), Batch.ObjectID));
 
 		// 5. 드로우 콜 실행!
