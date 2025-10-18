@@ -396,32 +396,44 @@ void FSceneRenderer::PerformFrustumCulling()
 
 void FSceneRenderer::RenderOpaquePass()
 {
-	// ViewMode에 따라 셰이더 매크로 결정
 	TArray<FShaderMacro> ShaderMacros;
 	FString ShaderPath = "Shaders/Materials/UberLit.hlsl";
+	bool bNeedsShaderOverride = true; // 뷰 모드가 셰이더를 강제하는지 여부
+
 	switch (View->ViewMode)
 	{
-	case EViewModeIndex::VMI_Lit_Phong:     // Phong
+	case EViewModeIndex::VMI_Lit_Phong:
 		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" });
 		break;
-	case EViewModeIndex::VMI_Lit_Gouraud:   // Gouraud
+	case EViewModeIndex::VMI_Lit_Gouraud:
 		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_GOURAUD", "1" });
 		break;
-	case EViewModeIndex::VMI_Lit_Lambert:   // Lambert
+	case EViewModeIndex::VMI_Lit_Lambert:
 		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_LAMBERT", "1" });
 		break;
-	case EViewModeIndex::VMI_Unlit:         // Unlit
-		// 매크로 없이 기본 동작 (조명 없음)
+	case EViewModeIndex::VMI_Unlit:
+		// 매크로 없음 (Unlit)
 		break;
-	case EViewModeIndex::VMI_WorldNormal:   // World Normal 시각화
+	case EViewModeIndex::VMI_WorldNormal:
 		ShaderMacros.push_back(FShaderMacro{ "VIEWMODE_WORLD_NORMAL", "1" });
 		break;
 	default:
-		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" }); // 기본값
+		// 기본 Lit 모드 등, 셰이더를 강제하지 않는 모드는 여기서 처리 가능
+		bNeedsShaderOverride = false; // 예시: 기본 Lit 모드는 머티리얼 셰이더 사용
 		break;
 	}
-	// ViewMode에 맞는 셰이더 로드
-	UShader* ViewModeShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath, ShaderMacros);
+	// ViewMode에 맞는 셰이더 로드 (셰이더 오버라이드가 필요한 경우에만)
+	UShader* ViewModeShader = nullptr;
+	if (bNeedsShaderOverride)
+	{
+		ViewModeShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath, ShaderMacros);
+		if (!ViewModeShader)
+		{
+			UE_LOG("RenderOpaquePass: Failed to load ViewMode shader: %s", ShaderPath.c_str());
+			// 필요시 기본 셰이더로 대체하거나 렌더링 중단
+			return;
+		}
+	}
 
 	// --- 1. 수집 (Collect) ---
 	MeshBatchElements.Empty();
@@ -430,6 +442,18 @@ void FSceneRenderer::RenderOpaquePass()
 		MeshComponent->SetViewModeShader(ViewModeShader);
 		MeshComponent->CollectMeshBatches(MeshBatchElements, View);
 	}
+	// --- UMeshComponent 셰이더 오버라이드 ---
+	if (bNeedsShaderOverride && ViewModeShader)
+	{
+		// 수집된 UMeshComponent 배치 요소의 셰이더를 ViewModeShader로 강제 변경
+		for (FMeshBatchElement& BatchElement : MeshBatchElements)
+		{
+			// 예시: 모든 요소의 셰이더를 변경
+			BatchElement.VertexShader = ViewModeShader;
+			BatchElement.PixelShader = ViewModeShader;
+		}
+	}
+
 	for (UBillboardComponent* BillboardComponent : Proxies.Billboards)
 	{
 		// TODO: UBillboardComponent도 CollectMeshBatches를 통해 FMeshBatchElement를 생성하도록 구현
