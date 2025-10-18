@@ -31,8 +31,12 @@ public:
 
     void Render(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) override;
 
+    void CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View) override;
+
     void SetStaticMesh(const FString& PathFileName);
     UStaticMesh* GetStaticMesh() const { return StaticMesh; }
+    UMaterial* GetMaterial(uint32 InSectionIndex) const;
+    const TArray<FMaterialSlot>& GetMaterialSlots() const { return MaterialSlots; }
 
     // 씬 포맷(FPrimitiveData)을 이용한 컴포넌트 직렬화/역직렬화
     // - bIsLoading == true  : InOut로부터 읽어서 컴포넌트 상태(메시) 설정
@@ -44,7 +48,6 @@ public:
 
     void SetMaterialByUser(const uint32 InMaterialSlotIndex, const FString& InMaterialName);
 
-    const TArray<FMaterialSlot>& GetMaterialSlots() const { return MaterialSlots; }
 
     bool IsChangedMaterialByUser() const
     {

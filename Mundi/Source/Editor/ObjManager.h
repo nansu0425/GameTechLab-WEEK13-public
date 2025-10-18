@@ -42,7 +42,7 @@ public:
 	 * @param bIsRightHanded - obj 파일이 오른손 좌표계인지 (오른손 좌표계면 강제로 왼손 좌표계로 변환), 블렌더 등 대부분 3D 파일은 오른손 좌표계를 사용하기에 기본값이 true
 	 * @return 로드 성공 시 true, 실패 시 false
 	 */
-	static bool LoadObjModel(const FString& InFileName, FObjInfo* const OutObjInfo, TArray<FObjMaterialInfo>& OutMaterialInfos, bool bIsRightHanded = true)
+	static bool LoadObjModel(const FString& InFileName, FObjInfo* const OutObjInfo, TArray<FMaterialParameters>& OutMaterialInfos, bool bIsRightHanded = true)
 	{
 		uint32 subsetCount = 0;
 		FString MtlFileName;
@@ -252,7 +252,7 @@ public:
 
 			if (line.rfind("newmtl ", 0) == 0)
 			{
-				FObjMaterialInfo TempMatInfo;
+				FMaterialParameters TempMatInfo;
 				TempMatInfo.MaterialName = line.substr(7);
 				OutMaterialInfos.push_back(TempMatInfo);
 				++MatCount;
@@ -313,7 +313,7 @@ public:
 		size_t operator()(const VertexKey& Key) const { return std::hash<uint32>()(Key.PosIndex) ^ (std::hash<uint32>()(Key.TexIndex) << 1) ^ (std::hash<uint32>()(Key.NormalIndex) << 2); }
 	};
 
-	static void ConvertToStaticMesh(const FObjInfo& InObjInfo, const TArray<FObjMaterialInfo>& InMaterialInfos, FStaticMesh* const OutStaticMesh)
+	static void ConvertToStaticMesh(const FObjInfo& InObjInfo, const TArray<FMaterialParameters>& InMaterialInfos, FStaticMesh* const OutStaticMesh)
 	{
 		OutStaticMesh->PathFileName = InObjInfo.ObjFileName;
 		uint32 NumDuplicatedVertex = static_cast<uint32>(InObjInfo.PositionIndices.size());
