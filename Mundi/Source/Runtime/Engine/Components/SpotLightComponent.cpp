@@ -9,9 +9,10 @@ void USpotLightComponent::StaticRegisterProperties()
 	UClass* Class = StaticClass();
 
 	// 컴포넌트 메타데이터 설정
-	MARK_AS_COMPONENT("Spot Light", "A spot light component that emits light in a cone shape")
+	MARK_AS_COMPONENT("스포트 라이트", "스포트 라이트 컴포넌트를 추가합니다.")
 
 	// 프로퍼티 등록
+	ADD_PROPERTY(FLinearColor, LightColor, "Light");
 	ADD_PROPERTY_RANGE(float, InnerConeAngle, "Light", 0.0f, 90.0f)
 	ADD_PROPERTY_RANGE(float, OuterConeAngle, "Light", 0.0f, 90.0f)
 }
@@ -88,16 +89,8 @@ void USpotLightComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
 	Super::Serialize(bInIsLoading, InOutHandle);
 
-	if (bInIsLoading)
-	{
-		FJsonSerializer::ReadFloat(InOutHandle, "InnerConeAngle", InnerConeAngle, 30.0f);
-		FJsonSerializer::ReadFloat(InOutHandle, "OuterConeAngle", OuterConeAngle, 45.0f);
-	}
-	else
-	{
-		InOutHandle["InnerConeAngle"] = InnerConeAngle;
-		InOutHandle["OuterConeAngle"] = OuterConeAngle;
-	}
+	// 리플렉션 기반 자동 직렬화
+	AutoSerialize(bInIsLoading, InOutHandle);
 }
 
 void USpotLightComponent::DuplicateSubObjects()

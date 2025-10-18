@@ -28,7 +28,7 @@ struct UClass
     const char* Description = nullptr;         // 툴팁 설명
 
     constexpr UClass() = default;
-    constexpr UClass(const char* n, const UClass* s, std::size_t z)//언리얼도 런타임 시간에 관리해주기 때문에 문제가 없습니다.
+    constexpr UClass(const char* n, const UClass* s, std::size_t z)
         :Name(n), Super(s), Size(z) {
     }
     bool IsChildOf(const UClass* Base) const noexcept
@@ -41,7 +41,6 @@ struct UClass
 
     static TArray<UClass*>& GetAllClasses()
     {
-        // 이 함수가 최초로 호출될 때 단 한 번만 안전하게 초기화됩니다.
         static TArray<UClass*> AllClasses;
         return AllClasses;
     }
@@ -51,7 +50,6 @@ struct UClass
         if (InClass)
         {
             GetAllClasses().emplace_back(InClass);
-            //UE_LOG("UClass: Class registered: %s (Total: %llu)", InClass->Name, GetAllClasses().size());
         }
     }
     static UClass* FindClass(const FName& InClassName)
@@ -144,6 +142,9 @@ public:
     FString GetComparisonName(); // lower-case
 
     virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle);
+
+    // 리플렉션 기반 자동 직렬화
+    virtual void AutoSerialize(const bool bInIsLoading, JSON& InOutHandle);
 public:
     // GenerateUUID()에 의해 자동 발급
     uint32_t UUID;

@@ -53,7 +53,7 @@ private: \
 public:
 
 // CPP 파일에서 사용: 프로퍼티 등록 헬퍼 매크로들
-// 사용법:
+// 사용법: ADD_PROPERTY(타입, 변수, 카테고리);
 // void UMyComponent::StaticRegisterProperties()
 // {
 //     UClass* Class = StaticClass();
@@ -83,14 +83,14 @@ public:
 // StaticRegisterProperties() 함수 내에서 사용
 
 // 스폰 가능한 액터로 설정
-// 사용법: MARK_AS_SPAWNABLE("Static Mesh Actor", "Spawns a static mesh actor")
+// 사용법: MARK_AS_SPAWNABLE("스태틱 메시", "스태틱 메시 액터를 구현합니다.")
 #define MARK_AS_SPAWNABLE(InDisplayName, InDesc) \
 	Class->bIsSpawnable = true; \
 	Class->DisplayName = InDisplayName; \
 	Class->Description = InDesc; \
 
 // 컴포넌트로 설정
-// 사용법: MARK_AS_COMPONENT("Point Light", "A point light component")
+// 사용법: MARK_AS_COMPONENT("포인트 라이트", "포인트 라이트 컴포넌트를 추가합니다.")
 #define MARK_AS_COMPONENT(InDisplayName, InDesc) \
 	Class->bIsComponent = true; \
 	Class->DisplayName = InDisplayName; \
