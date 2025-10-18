@@ -21,6 +21,7 @@ struct FMaterialParameters
     FVector EmissiveColor = FVector::One(); // Ke
 
     FString DiffuseTextureFileName;
+    FString NormalTextureFileName;
     FString AmbientTextureFileName;
     FString SpecularTextureFileName;
     FString EmissiveTextureFileName;
@@ -319,9 +320,10 @@ enum class EViewModeIndex : uint32
 {
     None,
 
-    VMI_Lit_Gouraud,        // Gouraud 조명 (Per-Vertex)
-    VMI_Lit_Lambert,        // Lambert 조명 (Per-Pixel Diffuse)
-    VMI_Lit_Phong,          // Phong 조명 (Per-Pixel Full)
+    VMI_Lit,                // 기본 Phong 조명 모드
+    VMI_Lit_Gouraud,        // [Shader override] Gouraud 조명 (Per-Vertex)
+    VMI_Lit_Lambert,        // [Shader override] Lambert 조명 (Per-Pixel Diffuse)
+    VMI_Lit_Phong,          // [Shader override] Phong 조명 (Per-Pixel Full)
     VMI_Unlit,              // 조명 없음
     VMI_WorldNormal,        // World Normal 시각화
     VMI_Wireframe,          // 와이어프레임

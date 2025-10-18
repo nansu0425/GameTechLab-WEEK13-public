@@ -4,9 +4,9 @@
 
 IMPLEMENT_CLASS(UPrimitiveComponent)
 
-void UPrimitiveComponent::SetMaterial(const FString& FilePath)
+void UPrimitiveComponent::SetMaterialByName(uint32 InElementIndex, const FString& InMaterialName)
 {
-    Material = UResourceManager::GetInstance().Load<UMaterial>(FilePath);
+    SetMaterial(InElementIndex, UResourceManager::GetInstance().Load<UMaterial>(InMaterialName));
 }
 
 void UPrimitiveComponent::DuplicateSubObjects()

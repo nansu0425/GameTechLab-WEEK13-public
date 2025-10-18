@@ -146,7 +146,11 @@ namespace
 			return;
 
 		Visited.insert(Component);
-
+		
+		if (!Component->IsEditable())
+		{
+			return;
+		}
 		const TArray<USceneComponent*>& Children = Component->GetAttachChildren();
 		const bool bHasChildren = !Children.IsEmpty();
 
@@ -481,7 +485,7 @@ void UTargetActorTransformWidget::RenderSelectedComponentDetails(USceneComponent
 
 				if (i < TargetStaticMeshComponent->GetMaterialSlots().size())
 				{
-					const FString& AssignedName = TargetStaticMeshComponent->GetMaterialSlots()[i].MaterialName.ToString();
+					const FString& AssignedName = TargetStaticMeshComponent->GetMaterial(i)->GetMaterialInfo().MaterialName;
 					for (int idx = 0; idx < static_cast<int>(MaterialNames.size()); ++idx)
 					{
 						if (MaterialNames[idx] == AssignedName)

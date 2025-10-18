@@ -44,6 +44,9 @@ public:
     void SetTickEnabled(bool bEnabled) { bTickEnabled = bEnabled; }
     bool IsTickEnabled() const { return bTickEnabled; }
 
+    void SetEditability(bool InEditable) { bIsEditable = InEditable; }
+    bool IsEditable() const { return bIsEditable; }
+
     void SetCanEverTick(bool b) { bCanEverTick = b; }
     bool CanEverTick() const { return bCanEverTick; }
 
@@ -84,4 +87,5 @@ protected:
     bool bRegistered = false;    // RegisterComponent가 호출됐는가
     bool bHasBegunPlay = false;  // BeginPlay가 호출됐는가
     bool bPendingDestroy = false;// DestroyComponent 의도 플래그
+    bool bIsEditable = true;    //UI에서 Edit이 가능한가
 };

@@ -9,6 +9,7 @@
 #include "ResourceManager.h"
 #include "CameraActor.h"
 #include "JsonSerializer.h"
+#include "LightComponentBase.h"
 
 IMPLEMENT_CLASS(UBillboardComponent)
 
@@ -30,7 +31,7 @@ UBillboardComponent::UBillboardComponent()
 	}
 
 	// HSLS 설정 
-	SetMaterial("Shaders/UI/Billboard.hlsl");
+	SetMaterialByName(0, "Shaders/UI/Billboard.hlsl");
 
 	// 일단 디폴트 텍스쳐로 설정하기 .
 	SetTextureName("Data/UI/Icons/Pawn_64x.png");
@@ -44,6 +45,16 @@ void UBillboardComponent::SetTextureName( FString TexturePath)
 	{
 		Texture->SetTextureName(TexturePath);
 	}
+}
+
+UMaterial* UBillboardComponent::GetMaterial(uint32 InSectionIndex) const
+{
+	return Material;
+}
+
+void UBillboardComponent::SetMaterial(uint32 InElementIndex, UMaterial* InNewMaterial)
+{
+	Material = InNewMaterial;
 }
 
 void UBillboardComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
@@ -83,8 +94,22 @@ void UBillboardComponent::Render(URenderer* Renderer, const FMatrix& View, const
 	FVector CamUp = CameraActor->GetActorUp();
 	FVector cameraPosition = CameraActor->GetActorLocation();
 
+    //Renderer->GetRHIDevice()->UpdateBillboardConstantBuffers(Owner->GetActorLocation() + GetRelativeLocation() + FVector(0.f, 0.f, 1.f) * Owner->GetActorScale().Z, View, Proj, CamRight, CamUp);
+	//정작 location, view proj만 사용하고 있길래 그냥 Identity넘김
+	Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(BillboardBufferType(
+		GetWorldLocation(),
+		View,
+		Proj,
+		View.InverseAffineFast()));
+	FLinearColor Color{1,1,1,1};
+	if (ULightComponentBase* LightBase = Cast<ULightComponentBase>(this->GetAttachParent()))
+	{
+		Color = LightBase->GetLightColor();
+	}
+	Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ColorBufferType(Color, this->InternalIndex));
+
+
 	Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(BillboardBufferType(GetWorldLocation(), View, Proj, View.InverseAffineFast()));
-	Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ColorBufferType(FVector4(), this->InternalIndex));
     Renderer->GetRHIDevice()->PrepareShader(Material->GetShader());
     Renderer->GetRHIDevice()->OMSetDepthStencilState(EComparisonFunc::LessEqual);
 	Renderer->GetRHIDevice()->RSSetState(ERasterizerMode::Solid_NoCull);

@@ -20,6 +20,7 @@ public:
 	FDirectionalLightInfo GetLightInfo() const;
 
 	// Virtual Interface
+	void OnRegister() override;
 	virtual void UpdateLightData() override;
 
 	// Serialization & Duplication

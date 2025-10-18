@@ -107,7 +107,11 @@ public:
     uint32 GetParentId() const { return ParentId; }
     void SetParentId(uint32 InParentId) { ParentId = InParentId; }
 
-    
+    // Debug Rendering
+    // Virtual function for rendering debug visualization (bounds, volumes, etc.)
+    // Override in derived classes that need debug visualization
+    virtual void RenderDebugVolume(class URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) const {}
+
     static TMap<uint32, USceneComponent*>& GetSceneIdMap()
     {
         return SceneIdMap;
@@ -122,6 +126,9 @@ protected:
      * 자식 컴포넌트들의 로컬 트랜스폼을 직접 변경시키지 않습니다. 
      */
     void PropagateTransformUpdate();
+
+    //Component 위치 나타내기 위함
+    UBillboardComponent* SpriteComponent = nullptr;
 
     FVector RelativeLocation{ 0,0,0 };
     FQuat   RelativeRotation;

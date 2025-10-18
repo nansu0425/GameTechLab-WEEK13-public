@@ -18,6 +18,7 @@ public:
 
 	// Virtual Interface
 	virtual void UpdateLightData() override;
+	void OnRegister() override;
 
 	// Serialization & Duplication
 	virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
