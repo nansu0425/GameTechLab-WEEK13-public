@@ -26,4 +26,6 @@ private:
 	static bool RenderColorProperty(const FProperty& Prop, void* Instance);
 	static bool RenderStringProperty(const FProperty& Prop, void* Instance);
 	static bool RenderNameProperty(const FProperty& Prop, void* Instance);
+	static bool RenderObjectPtrProperty(const FProperty& Prop, void* Instance);
+	static bool RenderStructProperty(const FProperty& Prop, void* Instance);
 };

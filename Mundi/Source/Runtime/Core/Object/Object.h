@@ -26,6 +26,8 @@ struct UClass
     bool bIsComponent = false;                 // 컴포넌트 여부
     const char* DisplayName = nullptr;         // UI 표시 이름
     const char* Description = nullptr;         // 툴팁 설명
+    mutable TArray<FProperty> CachedAllProperties;  // GetAllProperties() 캐시 (성능 최적화)
+    mutable bool bAllPropertiesCached = false;      // 캐시 유효성 플래그
 
     constexpr UClass() = default;
     constexpr UClass(const char* n, const UClass* s, std::size_t z)
@@ -66,6 +68,7 @@ struct UClass
     }
 
     // 리플렉션 시스템 메서드
+    // 주의: 프로퍼티는 static 초기화 시점에만 등록되며, 런타임 중 추가/삭제 불가
     void AddProperty(const FProperty& Property)
     {
         Properties.Add(Property);
@@ -76,18 +79,27 @@ struct UClass
         return Properties;
     }
 
-    TArray<FProperty> GetAllProperties() const
+    // 모든 프로퍼티 가져오기 (부모 클래스 포함, 캐싱됨)
+    const TArray<FProperty>& GetAllProperties() const
     {
-        TArray<FProperty> AllProps;
-        if (Super)
+        if (!bAllPropertiesCached)
         {
-            AllProps = Super->GetAllProperties();
+            CachedAllProperties.clear();
+            if (Super)
+            {
+                const TArray<FProperty>& ParentProps = Super->GetAllProperties();
+                for (const FProperty& Prop : ParentProps)
+                {
+                    CachedAllProperties.Add(Prop);
+                }
+            }
+            for (const FProperty& Prop : Properties)
+            {
+                CachedAllProperties.Add(Prop);
+            }
+            bAllPropertiesCached = true;
         }
-        for (const FProperty& Prop : Properties)
-        {
-            AllProps.Add(Prop);
-        }
-        return AllProps;
+        return CachedAllProperties;
     }
 
     static TArray<UClass*> GetAllSpawnableActors()

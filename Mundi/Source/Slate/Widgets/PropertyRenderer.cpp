@@ -39,16 +39,21 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 		break;
 
 	case EPropertyType::ObjectPtr:
-		ImGui::Text("%s: [Object Ref]", Property.Name);
+		bChanged = RenderObjectPtrProperty(Property, ObjectInstance);
 		break;
 
 	case EPropertyType::Struct:
-		ImGui::Text("%s: [Struct]", Property.Name);
+		bChanged = RenderStructProperty(Property, ObjectInstance);
 		break;
 
 	default:
 		ImGui::Text("%s: [Unknown Type]", Property.Name);
 		break;
+	}
+
+	if (Property.Tooltip && Property.Tooltip[0] != '\0' && ImGui::IsItemHovered())
+	{
+		ImGui::SetTooltip("%s", Property.Tooltip);
 	}
 
 	return bChanged;
@@ -103,7 +108,7 @@ void UPropertyRenderer::RenderAllPropertiesWithInheritance(UObject* Object)
 		return;
 
 	UClass* Class = Object->GetClass();
-	TArray<FProperty> AllProperties = Class->GetAllProperties();
+	const TArray<FProperty>& AllProperties = Class->GetAllProperties();
 
 	if (AllProperties.IsEmpty())
 		return;
@@ -207,5 +212,33 @@ bool UPropertyRenderer::RenderNameProperty(const FProperty& Prop, void* Instance
 	FString NameStr = Value->ToString();
 	ImGui::Text("%s: %s", Prop.Name, NameStr.c_str());
 
+	return false;
+}
+
+bool UPropertyRenderer::RenderObjectPtrProperty(const FProperty& Prop, void* Instance)
+{
+	UObject** ObjPtr = Prop.GetValuePtr<UObject*>(Instance);
+
+	if (*ObjPtr)
+	{
+		// 객체가 있으면 클래스 이름과 객체 이름 표시
+		UClass* ObjClass = (*ObjPtr)->GetClass();
+		FString ObjName = (*ObjPtr)->GetName();
+		ImGui::Text("%s: %s (%s)", Prop.Name, ObjName.c_str(), ObjClass->Name);
+	}
+	else
+	{
+		// nullptr이면 None 표시
+		ImGui::Text("%s: None", Prop.Name);
+	}
+
+	return false; // 읽기 전용
+}
+
+bool UPropertyRenderer::RenderStructProperty(const FProperty& Prop, void* Instance)
+{
+	// Struct는 읽기 전용으로 표시
+	// FVector, FLinearColor 등 주요 타입은 이미 별도로 처리됨
+	ImGui::Text("%s: [Struct]", Prop.Name);
 	return false;
 }

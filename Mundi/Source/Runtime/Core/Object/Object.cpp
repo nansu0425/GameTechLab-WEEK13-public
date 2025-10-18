@@ -21,8 +21,6 @@ void UObject::AutoSerialize(const bool bInIsLoading, JSON& InOutHandle, UClass* 
 
 	for (const FProperty& Prop : Properties)
 	{
-		if (!Prop.bIsEditAnywhere) continue; // UI에 노출되지 않는 프로퍼티는 스킵
-
 		switch (Prop.Type)
 		{
 		case EPropertyType::Bool:

@@ -12,7 +12,6 @@ enum class EPropertyType : uint8
 	FString,
 	FName,
 	ObjectPtr,      // UObject* 및 파생 타입
-	Enum,
 	Struct,
 	
 	// 추후 추가될 프로퍼티들은 직접 해줘야함.
