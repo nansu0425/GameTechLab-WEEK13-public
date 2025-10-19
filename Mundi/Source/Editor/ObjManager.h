@@ -276,6 +276,7 @@ public:
 				else if (line.rfind("map_Ks ", 0) == 0) { FString TextureRel = line.substr(7); std::replace(TextureRel.begin(), TextureRel.end(), '\\', '/'); OutMaterialInfos[MatCount - 1].SpecularTextureFileName = TextureRel; }
 				else if (line.rfind("map_Ns ", 0) == 0) { FString TextureRel = line.substr(7); std::replace(TextureRel.begin(), TextureRel.end(), '\\', '/'); OutMaterialInfos[MatCount - 1].SpecularExponentTextureFileName = TextureRel; }
 				else if (line.rfind("map_Ke ", 0) == 0) { FString TextureRel = line.substr(7); std::replace(TextureRel.begin(), TextureRel.end(), '\\', '/'); OutMaterialInfos[MatCount - 1].EmissiveTextureFileName = TextureRel; }
+				else if (line.rfind("map_Bump ", 0) == 0) { FString TextureRel = line.substr(9); std::replace(TextureRel.begin(), TextureRel.end(), '\\', '/'); OutMaterialInfos[MatCount - 1].NormalTextureFileName = TextureRel; }
 			}
 		}
 		FileIn.close();

@@ -124,7 +124,9 @@ cbuffer LightBuffer : register(b8)
 
 // --- 텍스처 및 샘플러 리소스 ---
 Texture2D g_DiffuseTexColor : register(t0);
+Texture2D g_NormalTexColor : register(t1);
 SamplerState g_Sample : register(s0);
+SamplerState g_Sample2 : register(s1);
 
 // --- 셰이더 입출력 구조체 ---
 struct VS_INPUT

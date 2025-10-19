@@ -132,7 +132,10 @@ void FSceneRenderer::RenderLitPath()
 
 void FSceneRenderer::RenderWireframePath()
 {
+	RHIDevice->RSSetState(ERasterizerMode::Solid);
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneIdTarget);
+
+	RHIDevice->SetAndUpdateConstantBuffer(FLightBufferType());
 
 	RenderOpaquePass();
 
@@ -485,7 +488,7 @@ void FSceneRenderer::RenderOpaquePass()
 		});
 
 	// --- 3. 그리기 (Draw) ---
-	DrawMeshBatches(MeshBatchElements, false);
+	DrawMeshBatches(MeshBatchElements, true);
 }
 
 void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, bool bClearListAfterDraw)
@@ -530,7 +533,8 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 		// 2. 머티리얼 상태 변경 (텍스처, 재질 상수 버퍼 바인딩)
 		if (Batch.Material != CurrentMaterial)
 		{
-			ID3D11ShaderResourceView* Srv = nullptr; // 바인딩할 텍스처 SRV
+			ID3D11ShaderResourceView* Srv1 = nullptr; // 바인딩할 텍스처 SRV
+			ID3D11ShaderResourceView* Srv2 = nullptr; // 바인딩할 텍스처 SRV
 			bool bHasTexture = false;
 			FPixelConstBufferType PixelConst{}; // 기본값으로 초기화
 
@@ -542,19 +546,22 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 				// --- 텍스처 로드 및 SRV 준비 ---
 				if (!MaterialInfo.DiffuseTextureFileName.empty())
 				{
-					// (이 부분은 성능상 UMaterial::Load에서 미리 수행되어야 이상적입니다)
-					int needW = ::MultiByteToWideChar(CP_UTF8, 0, MaterialInfo.DiffuseTextureFileName.c_str(), -1, nullptr, 0);
-					std::wstring WTextureFileName;
-					if (needW > 0)
+					if (UTexture* TextureData = Batch.Material->GetTexture(EMaterialTextureSlot::Diffuse))
 					{
-						WTextureFileName.resize(needW - 1);
-						::MultiByteToWideChar(CP_UTF8, 0, MaterialInfo.DiffuseTextureFileName.c_str(), -1, WTextureFileName.data(), needW);
-					}
-					if (FTextureData* TextureData = UResourceManager::GetInstance().CreateOrGetTextureData(WTextureFileName))
-					{
-						if (TextureData->TextureSRV)
+						if (TextureData->GetShaderResourceView())
 						{
-							Srv = TextureData->TextureSRV;
+							Srv1 = TextureData->GetShaderResourceView();
+							bHasTexture = true;
+						}
+					}
+				}
+				if (!MaterialInfo.NormalTextureFileName.empty())
+				{
+					if (UTexture* TextureData = Batch.Material->GetTexture(EMaterialTextureSlot::Normal))
+					{
+						if (TextureData->GetShaderResourceView())
+						{
+							Srv2 = TextureData->GetShaderResourceView();
 							bHasTexture = true;
 						}
 					}
@@ -576,9 +583,11 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 
 			// --- RHI 상태 업데이트 ---
 			// 텍스처 바인딩 (srv가 nullptr이어도 안전하게 호출 가능)
-			RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &Srv);
+			ID3D11ShaderResourceView* Srvs[2] = { Srv2, Srv1 };
+			RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
 			// 샘플러 바인딩 (기본 샘플러 사용)
-			RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &DefaultSampler);
+			ID3D11SamplerState* Samplers[2] = { DefaultSampler, DefaultSampler };
+			RHIDevice->GetDeviceContext()->PSSetSamplers(0, 2, Samplers);
 			// 픽셀 상수 버퍼 업데이트
 			RHIDevice->SetAndUpdateConstantBuffer(PixelConst);
 
@@ -983,7 +992,7 @@ void FSceneRenderer::RenderOverayEditorPrimitivesPass()
 
 						// 3. [그리기] 수집된 배치를 *즉시* 그립니다.
 						//    bClearListAfterDraw = false (위에서 이미 수동으로 Empty 했으므로)
-						DrawMeshBatches(MeshBatchElements, false);
+						DrawMeshBatches(MeshBatchElements, true);
 
 						// --- 기즈모 1개 렌더링 끝 ---
 					}
