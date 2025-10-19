@@ -219,7 +219,7 @@ float CalculateExponentFalloff(float distance, float attenuationRadius, float fa
     // - exponent = 1: linear falloff
     // - exponent > 1: faster falloff (sharper)
     // - exponent < 1: slower falloff (gentler)
-    float attenuation = pow(1.0f - distanceRatio, max(falloffExponent, 0.1f));
+    float attenuation = pow(1.0f - pow(distanceRatio, 2.0f), max(falloffExponent, 0.1f));
 
     return attenuation;
 }
