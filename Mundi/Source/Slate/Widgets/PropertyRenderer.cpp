@@ -11,6 +11,7 @@
 #include "BillboardComponent.h"
 #include "DecalComponent.h"
 #include "StaticMeshComponent.h"
+#include "LightComponentBase.h"
 
 bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectInstance)
 {
@@ -93,6 +94,19 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 			{
 				FVector* ScaleValue = Property.GetValuePtr<FVector>(ObjectInstance);
 				SceneComponent->SetRelativeScale(*ScaleValue);
+			}
+		}
+
+		// LightComponent는 Light 프로퍼티가 변경되면 UpdateLightData를 호출하여 동기화
+		if (ULightComponentBase* LightComponent = Cast<ULightComponentBase>(Obj))
+		{
+			// Light 관련 프로퍼티가 변경되면 UpdateLightData 호출
+			if (strcmp(Property.Name, "LightColor") == 0 ||
+				strcmp(Property.Name, "Intensity") == 0 ||
+				strcmp(Property.Name, "Temperature") == 0 ||
+				strcmp(Property.Name, "bIsEnabled") == 0)
+			{
+				LightComponent->UpdateLightData();
 			}
 		}
 	}

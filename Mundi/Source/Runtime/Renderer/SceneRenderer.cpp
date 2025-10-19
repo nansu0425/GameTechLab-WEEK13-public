@@ -253,12 +253,12 @@ void FSceneRenderer::GatherVisibleProxies()
 	const bool bDrawLight = World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Lighting);
 	const bool bUseAntiAliasing = World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_FXAA);
 
-
-	for (AActor* Actor : World->GetActors())
+	// Helper lambda to collect components from an actor
+	auto CollectComponentsFromActor = [&](AActor* Actor, bool bIsEditorActor)
 	{
 		if (!Actor || Actor->GetActorHiddenInGame())
 		{
-			continue;
+			return;
 		}
 
 		for (USceneComponent* Component : Actor->GetSceneComponents())
@@ -266,6 +266,13 @@ void FSceneRenderer::GatherVisibleProxies()
 			if (!Component || !Component->IsActive())
 			{
 				continue;
+			}
+
+			// Collect Gizmo components (for editor overlay rendering)
+			if (UGizmoArrowComponent* GizmoComponent = Cast<UGizmoArrowComponent>(Component))
+			{
+				Proxies.Gizmos.Add(GizmoComponent);
+				continue; // Gizmos are handled separately in overlay pass
 			}
 
 			if (UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Component); PrimitiveComponent && bDrawPrimitives)
@@ -332,6 +339,18 @@ void FSceneRenderer::GatherVisibleProxies()
 				}
 			}
 		}
+	};
+
+	// Collect from Editor Actors (Gizmo, Grid, etc.)
+	for (AActor* EditorActor : World->GetEditorActors())
+	{
+		CollectComponentsFromActor(EditorActor, true);
+	}
+
+	// Collect from Level Actors (including their Gizmo components)
+	for (AActor* Actor : World->GetActors())
+	{
+		CollectComponentsFromActor(Actor, false);
 	}
 }
 
@@ -1088,45 +1107,47 @@ void FSceneRenderer::RenderOverayEditorPrimitivesPass()
 	// 오버레이 끼리는 깊이 테스트가 가능함
 	RHIDevice->ClearDepthBuffer(1.0f, 0);
 
-	// MeshBatchElements는 FSceneRenderer의 멤버 변수라고 가정합니다.
-
-	for (AActor* EngineActor : World->GetEditorActors())
+	// Sort Gizmos by render priority (lower priority first, so higher priority renders on top)
+	Proxies.Gizmos.Sort([](const UGizmoArrowComponent* A, const UGizmoArrowComponent* B)
 	{
-		if (!EngineActor || EngineActor->GetActorHiddenInGame()) continue;
+		// Null 체크 추가 (안전성)
+		if (!A || !B) return false;
+		return A->GetRenderPriority() < B->GetRenderPriority();
+	});
 
-		for (USceneComponent* Component : EngineActor->GetSceneComponents())
+	// Render all collected Gizmo components (from both Editor Actors and Level Actors)
+	// Clear depth buffer when priority changes to prevent lower priority gizmos from occluding higher priority ones
+	int32 CurrentPriority = INT32_MIN;
+	for (UGizmoArrowComponent* GizmoComp : Proxies.Gizmos)
+	{
+		// --- 기즈모 1개 렌더링 시작 ---
+
+		// Clear depth buffer when switching to a new priority level
+		// This ensures higher priority gizmos always render on top, regardless of depth
+		if (GizmoComp->GetRenderPriority() > CurrentPriority)
 		{
-			if (Component && Component->IsActive())
-			{
-				if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
-				{
-					// UGizmoArrowComponent를 다른 기즈모도 상속하고 있어서 Arrow만 검사해도 충분
-					if (UGizmoArrowComponent* GizmoComp = Cast<UGizmoArrowComponent>(Primitive))
-					{
-						// --- 기즈모 1개 렌더링 시작 ---
-
-						// 1. [상태 설정] 이 기즈모의 하이라이트 상수 버퍼 설정
-						RHIDevice->SetAndUpdateConstantBuffer(
-							HighLightBufferType(true, FVector(1, 1, 1),
-								GizmoComp->GetAxisIndex(), GizmoComp->IsHighlighted() ? 1 : 0, 0, 1)
-						);
-						// [상태 설정] Gizmo는 자체 머티리얼 색상을 쓰므로, 글로벌 컬러 오버라이드 끄기
-						RHIDevice->SetAndUpdateConstantBuffer(ColorBufferType(FLinearColor(), 0));
-
-						// 2. [수집] 이 기즈모의 FMeshBatchElement만 수집
-						//    (CollectMeshBatches 내부에서 스케일 계산 및 상태 업데이트)
-						MeshBatchElements.Empty(); // 리스트를 비우고 시작
-						GizmoComp->CollectMeshBatches(MeshBatchElements, View);
-
-						// 3. [그리기] 수집된 배치를 *즉시* 그립니다.
-						//    bClearListAfterDraw = false (위에서 이미 수동으로 Empty 했으므로)
-						DrawMeshBatches(MeshBatchElements, true);
-
-						// --- 기즈모 1개 렌더링 끝 ---
-					}
-				}
-			}
+			RHIDevice->ClearDepthBuffer(1.0f, 0);
+			CurrentPriority = GizmoComp->GetRenderPriority();
 		}
+
+		// 1. [상태 설정] 이 기즈모의 하이라이트 상수 버퍼 설정 (색상 포함)
+		RHIDevice->SetAndUpdateConstantBuffer(
+			HighLightBufferType(true, GizmoComp->GetColor(),
+				GizmoComp->GetAxisIndex(), GizmoComp->IsHighlighted() ? 1 : 0, 0, 1)
+		);
+		// [상태 설정] Gizmo는 자체 머티리얼 색상을 쓰므로, 글로벌 컬러 오버라이드 끄기
+		RHIDevice->SetAndUpdateConstantBuffer(ColorBufferType(FLinearColor(), 0));
+
+		// 2. [수집] 이 기즈모의 FMeshBatchElement만 수집
+		//    (CollectMeshBatches 내부에서 스케일 계산 및 상태 업데이트)
+		MeshBatchElements.Empty(); // 리스트를 비우고 시작
+		GizmoComp->CollectMeshBatches(MeshBatchElements, View);
+
+		// 3. [그리기] 수집된 배치를 *즉시* 그립니다.
+		//    bClearListAfterDraw = false (위에서 이미 수동으로 Empty 했으므로)
+		DrawMeshBatches(MeshBatchElements, true);
+
+		// --- 기즈모 1개 렌더링 끝 ---
 	}
 
 	// 모든 기즈모 렌더링 후 하이라이트 상태 비활성화
