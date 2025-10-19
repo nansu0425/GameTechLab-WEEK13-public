@@ -100,6 +100,7 @@ private:
 
 	void RenderPostProcessingPasses();
 	void RenderSceneDepthPostProcess();
+	void RenderTileCullingDebug();
 
 	/** @brief 그리드 등 에디터 전용 객체들을 렌더링하는 패스입니다. */
 	void RenderEditorPrimitivesPass();
@@ -137,6 +138,6 @@ private:
 	// 각 패스에서 수집된 드로우 콜 정보 리스트
 	TArray<FMeshBatchElement> MeshBatchElements;
 
-	// 타일 기반 라이트 컬링 시스템
+	// 타일 기반 라이트 컬링 시스템 (매 프레임 생성되고 소멸되어서 스마트 포인터로 설정)
 	std::unique_ptr<FTileLightCuller> TileLightCuller;
 };

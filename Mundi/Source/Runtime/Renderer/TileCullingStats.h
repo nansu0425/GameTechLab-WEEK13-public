@@ -93,3 +93,41 @@ inline bool operator!=(FTileCullingStats::EVisualizationMode a, int b)
 {
 	return static_cast<uint8>(a) != b;
 }
+
+// 타일 컬링 통계 전역 매니저 (싱글톤)
+// UStatsOverlayD2D에서 접근할 수 있도록 전역 통계 제공
+class FTileCullingStatManager
+{
+public:
+	static FTileCullingStatManager& GetInstance()
+	{
+		static FTileCullingStatManager Instance;
+		return Instance;
+	}
+
+	// 통계 업데이트
+	void UpdateStats(const FTileCullingStats& InStats)
+	{
+		CurrentStats = InStats;
+	}
+
+	// 통계 조회
+	const FTileCullingStats& GetStats() const
+	{
+		return CurrentStats;
+	}
+
+	// 통계 리셋
+	void ResetStats()
+	{
+		CurrentStats.Reset();
+	}
+
+private:
+	FTileCullingStatManager() = default;
+	~FTileCullingStatManager() = default;
+	FTileCullingStatManager(const FTileCullingStatManager&) = delete;
+	FTileCullingStatManager& operator=(const FTileCullingStatManager&) = delete;
+
+	FTileCullingStats CurrentStats;
+};

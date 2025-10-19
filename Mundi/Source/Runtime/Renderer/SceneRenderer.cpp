@@ -136,6 +136,9 @@ void FSceneRenderer::RenderLitPath()
 
 	// 후처리 체인 실행
 	RenderPostProcessingPasses();
+
+	// 타일 컬링 디버그 시각화 (ShowFlag 활성화 시에만)
+	RenderTileCullingDebug();
 }
 
 void FSceneRenderer::RenderWireframePath()
@@ -451,6 +454,9 @@ void FSceneRenderer::PerformTileLightCulling()
 	{
 		RHIDevice->GetDeviceContext()->PSSetShaderResources(2, 1, &TileLightIndexSRV);
 	}
+
+	// 통계를 전역 매니저에 업데이트
+	FTileCullingStatManager::GetInstance().UpdateStats(TileLightCuller->GetStats());
 }
 
 void FSceneRenderer::PerformFrustumCulling()
@@ -962,6 +968,61 @@ void FSceneRenderer::RenderSceneDepthPostProcess()
 
 	// 모든 작업이 성공적으로 끝났으므로 Commit 호출
 	// 이제 소멸자는 버퍼 스왑을 되돌리지 않고, SRV 해제 작업만 수행함
+	SwapGuard.Commit();
+}
+
+void FSceneRenderer::RenderTileCullingDebug()
+{
+	// SF_TileCullingDebug가 비활성화되어 있으면 아무것도 하지 않음
+	if (!World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_TileCullingDebug))
+	{
+		return;
+	}
+
+	// Swap 가드 객체 생성: 스왑을 수행하고, 소멸 시 SRV를 자동 해제하도록 설정
+	// t0 (SceneColorSource), t2 (TileLightIndices) 사용
+	FSwapGuard SwapGuard(RHIDevice, 0, 1);
+
+	// 렌더 타겟 설정 (Depth 없이 SceneColor에 블렌딩)
+	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithoutDepth);
+
+	// Depth State: Depth Test/Write 모두 OFF
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
+	RHIDevice->OMSetBlendState(false);
+
+	// 셰이더 설정
+	UShader* FullScreenTriangleVS = UResourceManager::GetInstance().Load<UShader>("Shaders/Utility/FullScreenTriangle_VS.hlsl");
+	UShader* TileDebugPS = UResourceManager::GetInstance().Load<UShader>("Shaders/PostProcess/TileDebugVisualization_PS.hlsl");
+	if (!FullScreenTriangleVS || !FullScreenTriangleVS->GetVertexShader() || !TileDebugPS || !TileDebugPS->GetPixelShader())
+	{
+		UE_LOG("TileDebugVisualization 셰이더 없음!\n");
+		return;
+	}
+	RHIDevice->PrepareShader(FullScreenTriangleVS, TileDebugPS);
+
+	// 텍스처 관련 설정
+	ID3D11ShaderResourceView* SceneSRV = RHIDevice->GetSRV(RHI_SRV_Index::SceneColorSource);
+	ID3D11SamplerState* SamplerState = RHIDevice->GetSamplerState(RHI_Sampler_Index::LinearClamp);
+	if (!SceneSRV || !SamplerState)
+	{
+		UE_LOG("TileDebugVisualization: Scene SRV or Sampler is null!\n");
+		return;
+	}
+
+	// t0: 원본 씬 텍스처
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 1, &SceneSRV);
+	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 1, &SamplerState);
+
+	// t2: 타일 라이트 인덱스 버퍼 (이미 PerformTileLightCulling에서 바인딩됨)
+	// 별도 바인딩 불필요, 유지됨
+
+	// b11: 타일 컬링 상수 버퍼 (이미 PerformTileLightCulling에서 설정됨)
+	// 별도 업데이트 불필요, 유지됨
+
+	// 전체 화면 쿼드 그리기
+	RHIDevice->DrawFullScreenQuad();
+
+	// 모든 작업이 성공적으로 끝났으므로 Commit 호출
 	SwapGuard.Commit();
 }
 
