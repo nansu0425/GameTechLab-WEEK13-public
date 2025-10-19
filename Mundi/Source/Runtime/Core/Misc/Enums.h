@@ -25,9 +25,10 @@ struct FMaterialParameters
 
     FVector TransmissionFilter = FVector::One(); // Tf
 
-    float OpticalDensity = -1.f; // Ni
-    float Transparency = -1.f; // Tr Or d
-    float SpecularExponent = -1.f; // Ns
+    float OpticalDensity = -1.0f; // Ni
+    float Transparency = -1.0f; // Tr Or d
+    float SpecularExponent = -1.0f; // Ns
+    float BumpMultiplier = 1.0f; // map_Bump -bm
 
     FString MaterialName;
 
@@ -401,6 +402,9 @@ enum class EEngineShowFlags : uint64
     SF_Fog = 1ull << 11,
 
     SF_FXAA = 1ull << 12,
+
+    // Tile-based light culling debug
+    SF_TileCullingDebug = 1ull << 13,  // Show tile culling debug visualization
 
     // Default enabled flags
     SF_DefaultEnabled = SF_Primitives | SF_StaticMeshes | SF_Grid | SF_Lighting | SF_Decals | SF_Fog | SF_FXAA,
