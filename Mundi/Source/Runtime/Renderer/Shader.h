@@ -18,9 +18,6 @@ public:
 	ID3D11VertexShader* GetVertexShader() const { return VertexShader; }
 	ID3D11PixelShader* GetPixelShader() const { return PixelShader; }
 
-
-
-
 protected:
 	virtual ~UShader();
 

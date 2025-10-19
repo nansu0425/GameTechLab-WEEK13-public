@@ -8,11 +8,6 @@
 
 struct FMaterialParameters
 {
-    // Diffuse Scalar
-    // Diffuse Texture
-    // other...
-
-    // Unspecified properties designated by negative values
     int32 IlluminationModel = 2;  // illum. Default illumination model to Phong for non-Pbr materials
 
     FVector DiffuseColor = FVector::One(); // Kd

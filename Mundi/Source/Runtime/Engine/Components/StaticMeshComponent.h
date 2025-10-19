@@ -20,7 +20,7 @@ public:
 	DECLARE_CLASS(UStaticMeshComponent, UMeshComponent)
 	GENERATED_REFLECTION_BODY()
 
-		UStaticMeshComponent();
+	UStaticMeshComponent();
 
 protected:
 	~UStaticMeshComponent() override;

@@ -435,6 +435,7 @@ void FSceneRenderer::RenderOpaquePass()
 		bNeedsShaderOverride = false; // 예시: 기본 Lit 모드는 머티리얼 셰이더 사용
 		break;
 	}
+
 	// ViewMode에 맞는 셰이더 로드 (셰이더 오버라이드가 필요한 경우에만)
 	UShader* ViewModeShader = nullptr;
 	if (bNeedsShaderOverride)
@@ -442,8 +443,8 @@ void FSceneRenderer::RenderOpaquePass()
 		ViewModeShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath, ShaderMacros);
 		if (!ViewModeShader)
 		{
-			UE_LOG("RenderOpaquePass: Failed to load ViewMode shader: %s", ShaderPath.c_str());
 			// 필요시 기본 셰이더로 대체하거나 렌더링 중단
+			UE_LOG("RenderOpaquePass: Failed to load ViewMode shader: %s", ShaderPath.c_str());
 			return;
 		}
 	}
@@ -454,6 +455,7 @@ void FSceneRenderer::RenderOpaquePass()
 	{
 		MeshComponent->CollectMeshBatches(MeshBatchElements, View);
 	}
+
 	// --- UMeshComponent 셰이더 오버라이드 ---
 	if (bNeedsShaderOverride && ViewModeShader)
 	{
@@ -471,6 +473,7 @@ void FSceneRenderer::RenderOpaquePass()
 		//BillboardComponent->CollectMeshBatches(MeshBatchElements, View);
 		BillboardComponent->Render(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
 	}
+
 	for (UTextRenderComponent* TextRenderComponent : Proxies.Texts)
 	{
 		// TODO: UTextRenderComponent도 CollectMeshBatches를 통해 FMeshBatchElement를 생성하도록 구현
@@ -504,12 +507,13 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 	UShader* CurrentPixelShader = nullptr;
 	UMaterial* CurrentMaterial = nullptr;
 	UStaticMesh* CurrentMesh = nullptr;
+
 	// 기본 샘플러 미리 가져오기 (루프 내 반복 호출 방지)
 	ID3D11SamplerState* DefaultSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::Default);
 
 	// 공통 상수 버퍼 설정 (View, Projection 등) - 루프 전에 한 번만
-	RHIDevice->SetAndUpdateConstantBuffer(ViewProjBufferType(View->ViewMatrix, View->ProjectionMatrix));
 	FVector CameraPos = View->ViewLocation;
+	RHIDevice->SetAndUpdateConstantBuffer(ViewProjBufferType(View->ViewMatrix, View->ProjectionMatrix));
 	RHIDevice->SetAndUpdateConstantBuffer(CameraBufferType(CameraPos, 0.0f));
 
 	// 정렬된 리스트 순회
@@ -533,10 +537,11 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 		// 2. 머티리얼 상태 변경 (텍스처, 재질 상수 버퍼 바인딩)
 		if (Batch.Material != CurrentMaterial)
 		{
-			ID3D11ShaderResourceView* Srv1 = nullptr; // 바인딩할 텍스처 SRV
-			ID3D11ShaderResourceView* Srv2 = nullptr; // 바인딩할 텍스처 SRV
-			bool bHasTexture = false;
+			ID3D11ShaderResourceView* DiffuseTextureSRV = nullptr;
+			ID3D11ShaderResourceView* NormalTextureSRV = nullptr;
+
 			FPixelConstBufferType PixelConst{}; // 기본값으로 초기화
+			bool bHasTexture = false;
 
 			if (Batch.Material) // 머티리얼 유효성 검사
 			{
@@ -550,25 +555,26 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 					{
 						if (TextureData->GetShaderResourceView())
 						{
-							Srv1 = TextureData->GetShaderResourceView();
+							DiffuseTextureSRV = TextureData->GetShaderResourceView();
 							bHasTexture = true;
 						}
 					}
 				}
+
 				if (!MaterialInfo.NormalTextureFileName.empty())
 				{
 					if (UTexture* TextureData = Batch.Material->GetTexture(EMaterialTextureSlot::Normal))
 					{
 						if (TextureData->GetShaderResourceView())
 						{
-							Srv2 = TextureData->GetShaderResourceView();
+							NormalTextureSRV = TextureData->GetShaderResourceView();
 							bHasTexture = true;
 						}
 					}
 				}
 
 				// --- 픽셀 상수 버퍼 준비 (머티리얼 정보 사용) ---
-				PixelConst = FPixelConstBufferType(FMaterialInPs(MaterialInfo), true /*bHasMaterial*/);
+				PixelConst = FPixelConstBufferType(FMaterialInPs(MaterialInfo), true);
 				PixelConst.bHasTexture = bHasTexture;
 			}
 			else
@@ -576,18 +582,20 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 				// 머티리얼이 없는 경우 (예: 기본 버텍스 컬러 사용)
 				// 기본값 FMaterialParameters 생성 (모든 값이 기본값)
 				FMaterialParameters DefaultMaterialInfo;
-				PixelConst = FPixelConstBufferType(FMaterialInPs(DefaultMaterialInfo), false /*bHasMaterial*/);
+				PixelConst = FPixelConstBufferType(FMaterialInPs(DefaultMaterialInfo), false);
 				PixelConst.bHasTexture = false;
 				// srv는 nullptr 유지
 			}
 
 			// --- RHI 상태 업데이트 ---
 			// 텍스처 바인딩 (srv가 nullptr이어도 안전하게 호출 가능)
-			ID3D11ShaderResourceView* Srvs[2] = { Srv2, Srv1 };
+			ID3D11ShaderResourceView* Srvs[2] = { DiffuseTextureSRV, NormalTextureSRV };
 			RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
+
 			// 샘플러 바인딩 (기본 샘플러 사용)
 			ID3D11SamplerState* Samplers[2] = { DefaultSampler, DefaultSampler };
 			RHIDevice->GetDeviceContext()->PSSetSamplers(0, 2, Samplers);
+
 			// 픽셀 상수 버퍼 업데이트
 			RHIDevice->SetAndUpdateConstantBuffer(PixelConst);
 
@@ -604,6 +612,7 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 			case EVertexLayoutType::PositionColorTexturNormal:   Stride = sizeof(FVertexDynamic); break;
 			case EVertexLayoutType::PositionTextBillBoard:       Stride = sizeof(FBillboardVertexInfo_GPU); break;
 			case EVertexLayoutType::PositionBillBoard:           Stride = sizeof(FBillboardVertex); break;
+
 			default:
 				// 이 경우는 CollectMeshBatches 단계에서 걸러졌어야 함
 				UE_LOG("DrawMeshBatches: Unknown vertex type for Mesh!");

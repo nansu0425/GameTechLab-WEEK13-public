@@ -78,7 +78,8 @@ struct FMaterialInPs
     uint32 IlluminationModel; // illum. Default illumination model to Phong for non-Pbr materials
 
     FVector TransmissionFilter; // Tf
-    float dummy; // 4 bytes padding
+    float Padding; // 4 bytes padding
+
     FMaterialInPs() = default;
     FMaterialInPs(const FMaterialParameters& MaterialInfo)
         :DiffuseColor(MaterialInfo.DiffuseColor),
@@ -90,9 +91,8 @@ struct FMaterialInPs
         EmissiveColor(MaterialInfo.EmissiveColor),
         IlluminationModel(MaterialInfo.IlluminationModel),
         TransmissionFilter(MaterialInfo.TransmissionFilter),
-        dummy(0)
+        Padding(0.f)
     { 
-
     }
 };
 
