@@ -283,7 +283,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 	// 텍스처 파일의 상대 경로를 .obj 파일 기준의 절대 경로로 변환
 	// [수정된 부분] FString을 fs::path로 변환 후 parent_path() 호출
 	fs::path BaseDir = fs::path(NormalizedPathStr).parent_path();
-	for (auto& MI : MaterialInfos)
+	for (auto& MaterialInfo : MaterialInfos)
 	{
 		auto FixPath = [&](FString& TexturePath)
 			{
@@ -297,12 +297,14 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 					std::replace(TexturePath.begin(), TexturePath.end(), '\\', '/');
 				}
 			};
-		FixPath(MI.DiffuseTextureFileName);
-		FixPath(MI.TransparencyTextureFileName);
-		FixPath(MI.AmbientTextureFileName);
-		FixPath(MI.SpecularTextureFileName);
-		FixPath(MI.SpecularExponentTextureFileName);
-		FixPath(MI.EmissiveTextureFileName);
+
+		FixPath(MaterialInfo.DiffuseTextureFileName);
+		FixPath(MaterialInfo.NormalTextureFileName);
+		FixPath(MaterialInfo.TransparencyTextureFileName);
+		FixPath(MaterialInfo.AmbientTextureFileName);
+		FixPath(MaterialInfo.SpecularTextureFileName);
+		FixPath(MaterialInfo.SpecularExponentTextureFileName);
+		FixPath(MaterialInfo.EmissiveTextureFileName);
 	}
 
 	// 리소스 매니저에 머티리얼 등록

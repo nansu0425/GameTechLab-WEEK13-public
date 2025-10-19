@@ -42,6 +42,7 @@ struct FMaterialParameters
         if (Ar.IsSaving())
         {
             Serialization::WriteString(Ar, Info.DiffuseTextureFileName);
+            Serialization::WriteString(Ar, Info.NormalTextureFileName);
             Serialization::WriteString(Ar, Info.AmbientTextureFileName);
             Serialization::WriteString(Ar, Info.SpecularTextureFileName);
             Serialization::WriteString(Ar, Info.EmissiveTextureFileName);
@@ -51,6 +52,7 @@ struct FMaterialParameters
         else if (Ar.IsLoading())
         {
             Serialization::ReadString(Ar, Info.DiffuseTextureFileName);
+            Serialization::ReadString(Ar, Info.NormalTextureFileName);
             Serialization::ReadString(Ar, Info.AmbientTextureFileName);
             Serialization::ReadString(Ar, Info.SpecularTextureFileName);
             Serialization::ReadString(Ar, Info.EmissiveTextureFileName);
