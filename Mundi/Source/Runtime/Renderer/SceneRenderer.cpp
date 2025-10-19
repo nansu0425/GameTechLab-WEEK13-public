@@ -1110,10 +1110,28 @@ void FSceneRenderer::RenderOverayEditorPrimitivesPass()
 	// 오버레이 끼리는 깊이 테스트가 가능함
 	RHIDevice->ClearDepthBuffer(1.0f, 0);
 
+	// Sort Gizmos by render priority (lower priority first, so higher priority renders on top)
+	Proxies.Gizmos.Sort([](const UGizmoArrowComponent* A, const UGizmoArrowComponent* B)
+	{
+		// Null 체크 추가 (안전성)
+		if (!A || !B) return false;
+		return A->GetRenderPriority() < B->GetRenderPriority();
+	});
+
 	// Render all collected Gizmo components (from both Editor Actors and Level Actors)
+	// Clear depth buffer when priority changes to prevent lower priority gizmos from occluding higher priority ones
+	int32 CurrentPriority = INT32_MIN;
 	for (UGizmoArrowComponent* GizmoComp : Proxies.Gizmos)
 	{
 		// --- 기즈모 1개 렌더링 시작 ---
+
+		// Clear depth buffer when switching to a new priority level
+		// This ensures higher priority gizmos always render on top, regardless of depth
+		if (GizmoComp->GetRenderPriority() > CurrentPriority)
+		{
+			RHIDevice->ClearDepthBuffer(1.0f, 0);
+			CurrentPriority = GizmoComp->GetRenderPriority();
+		}
 
 		// 1. [상태 설정] 이 기즈모의 하이라이트 상수 버퍼 설정
 		RHIDevice->SetAndUpdateConstantBuffer(

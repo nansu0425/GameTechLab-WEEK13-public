@@ -29,6 +29,10 @@ public:
     void SetUseScreenConstantScale(bool bInUseScreenConstantScale) { bUseScreenConstantScale = bInUseScreenConstantScale; }
     bool GetUseScreenConstantScale() const { return bUseScreenConstantScale; }
 
+    // Render priority (higher values render later/on top). Default: 0 for DirectionGizmos, 100 for selection GizmoActor
+    void SetRenderPriority(int32 InPriority) { RenderPriority = InPriority; }
+    int32 GetRenderPriority() const { return RenderPriority; }
+
     UMaterial* GetMaterial(uint32 InSectionIndex) const override;
     void SetMaterial(uint32 InElementIndex, UMaterial* InNewMaterial) override;
 
@@ -47,6 +51,9 @@ protected:
 
     // Screen-constant scale: true = scale with distance to maintain screen size, false = use world scale
     bool bUseScreenConstantScale = true;
+
+    // Render priority: higher values render later (on top)
+    int32 RenderPriority = 0;
 
     // 기즈모가 항상 사용할 고정 머티리얼입니다.
     UMaterial* GizmoMaterial = nullptr;
