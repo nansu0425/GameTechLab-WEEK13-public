@@ -553,12 +553,11 @@ void FSceneRenderer::RenderOpaquePass()
 		}
 	}
 
-	for (UBillboardComponent* BillboardComponent : Proxies.Billboards)
-	{
-		// TODO: UBillboardComponent도 CollectMeshBatches를 통해 FMeshBatchElement를 생성하도록 구현
-		//BillboardComponent->CollectMeshBatches(MeshBatchElements, View);
-		BillboardComponent->Render(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
-	}
+	// Billboard는 Overlay Pass에서 렌더링됨 (DirectionGizmo 다음, Selection Gizmo 전)
+	// for (UBillboardComponent* BillboardComponent : Proxies.Billboards)
+	// {
+	// 	BillboardComponent->Render(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
+	// }
 
 	for (UTextRenderComponent* TextRenderComponent : Proxies.Texts)
 	{
@@ -1115,15 +1114,23 @@ void FSceneRenderer::RenderOverayEditorPrimitivesPass()
 		return A->GetRenderPriority() < B->GetRenderPriority();
 	});
 
-	// Render all collected Gizmo components (from both Editor Actors and Level Actors)
-	// Clear depth buffer when priority changes to prevent lower priority gizmos from occluding higher priority ones
+	// Render all overlays (Gizmos and Billboards) with priority-based ordering
+	// Priority 0: DirectionGizmos + Billboards (same depth buffer)
+	// Priority 100: Selection Gizmos
+	// Clear depth buffer when priority changes to prevent lower priority elements from occluding higher priority ones
 	int32 CurrentPriority = INT32_MIN;
+	bool bBillboardsRendered = false;
+
+	// Render Priority 0 elements (DirectionGizmos + Billboards)
 	for (UGizmoArrowComponent* GizmoComp : Proxies.Gizmos)
 	{
-		// --- 기즈모 1개 렌더링 시작 ---
+		// Check if we've moved past priority 0
+		if (GizmoComp->GetRenderPriority() > 0)
+		{
+			break; // Stop processing priority 0 gizmos
+		}
 
 		// Clear depth buffer when switching to a new priority level
-		// This ensures higher priority gizmos always render on top, regardless of depth
 		if (GizmoComp->GetRenderPriority() > CurrentPriority)
 		{
 			RHIDevice->ClearDepthBuffer(1.0f, 0);
@@ -1139,18 +1146,54 @@ void FSceneRenderer::RenderOverayEditorPrimitivesPass()
 		RHIDevice->SetAndUpdateConstantBuffer(ColorBufferType(FLinearColor(), 0));
 
 		// 2. [수집] 이 기즈모의 FMeshBatchElement만 수집
-		//    (CollectMeshBatches 내부에서 스케일 계산 및 상태 업데이트)
-		MeshBatchElements.Empty(); // 리스트를 비우고 시작
+		MeshBatchElements.Empty();
 		GizmoComp->CollectMeshBatches(MeshBatchElements, View);
 
 		// 3. [그리기] 수집된 배치를 *즉시* 그립니다.
-		//    bClearListAfterDraw = false (위에서 이미 수동으로 Empty 했으므로)
 		DrawMeshBatches(MeshBatchElements, true);
-
-		// --- 기즈모 1개 렌더링 끝 ---
 	}
 
-	// 모든 기즈모 렌더링 후 하이라이트 상태 비활성화
+	// Render Billboards at Priority 0 (same depth buffer as DirectionGizmos)
+	// No depth clear needed - share depth buffer with Priority 0 gizmos
+	for (UBillboardComponent* BillboardComponent : Proxies.Billboards)
+	{
+		BillboardComponent->Render(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
+	}
+	bBillboardsRendered = true;
+
+	// Render higher priority gizmos (Priority 100: Selection Gizmos)
+	for (UGizmoArrowComponent* GizmoComp : Proxies.Gizmos)
+	{
+		// Skip priority 0 gizmos (already rendered)
+		if (GizmoComp->GetRenderPriority() <= 0)
+		{
+			continue;
+		}
+
+		// Clear depth buffer when switching to a new priority level
+		if (GizmoComp->GetRenderPriority() > CurrentPriority)
+		{
+			RHIDevice->ClearDepthBuffer(1.0f, 0);
+			CurrentPriority = GizmoComp->GetRenderPriority();
+		}
+
+		// 1. [상태 설정] 이 기즈모의 하이라이트 상수 버퍼 설정 (색상 포함)
+		RHIDevice->SetAndUpdateConstantBuffer(
+			HighLightBufferType(true, GizmoComp->GetColor(),
+				GizmoComp->GetAxisIndex(), GizmoComp->IsHighlighted() ? 1 : 0, 0, 1)
+		);
+		// [상태 설정] Gizmo는 자체 머티리얼 색상을 쓰므로, 글로벌 컬러 오버라이드 끄기
+		RHIDevice->SetAndUpdateConstantBuffer(ColorBufferType(FLinearColor(), 0));
+
+		// 2. [수집] 이 기즈모의 FMeshBatchElement만 수집
+		MeshBatchElements.Empty();
+		GizmoComp->CollectMeshBatches(MeshBatchElements, View);
+
+		// 3. [그리기] 수집된 배치를 *즉시* 그립니다.
+		DrawMeshBatches(MeshBatchElements, true);
+	}
+
+	// 모든 오버레이 렌더링 후 하이라이트 상태 비활성화
 	RHIDevice->SetAndUpdateConstantBuffer(HighLightBufferType(false, FVector(1, 1, 1), 0, 0, 0, 0));
 }
 
