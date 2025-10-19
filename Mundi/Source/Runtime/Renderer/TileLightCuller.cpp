@@ -287,12 +287,16 @@ bool FTileLightCuller::TestSpotLightAgainstFrustum(
 	const FFrustum& Frustum,
 	const FMatrix& ViewMatrix)
 {
-	// Spot Light를 구체로 보수적으로 근사
-	// 실제로는 원뿔과 프러스텀 교차를 테스트해야 하지만, 간단하게 구체로 처리
-	FVector LightPos = Light.Position;
-	float Radius = Light.AttenuationRadius;
+	// SpotLight의 원뿔과 프러스텀 교차 테스트
+	FVector Apex = Light.Position;
+	FVector Direction = Light.Direction.GetSafeNormal();
+	float Height = Light.AttenuationRadius;
 
-	return SphereIntersectsFrustum(LightPos, Radius, Frustum);
+	// OuterConeAngle은 전체 원뿔 각도이므로 반으로 나눔
+	float HalfAngleRadians = DegreesToRadians(Light.OuterConeAngle * 0.5f);
+	float CosHalfAngle = cos(HalfAngleRadians);
+
+	return ConeIntersectsFrustum(Apex, Direction, Height, CosHalfAngle, Frustum);
 }
 
 bool FTileLightCuller::SphereIntersectsFrustum(
@@ -327,6 +331,74 @@ bool FTileLightCuller::SphereIntersectsFrustum(
 		}
 	}
 
+	return true;
+}
+
+bool FTileLightCuller::ConeIntersectsFrustum(
+	const FVector& Apex,
+	const FVector& Direction,
+	float Height,
+	float CosHalfAngle,
+	const FFrustum& Frustum)
+{
+	// 원뿔-프러스텀 교차 테스트
+	float SinHalfAngle = sqrt(1.0f - CosHalfAngle * CosHalfAngle);
+
+	// 원뿔 밑면의 반지름
+	float BaseRadius = Height * SinHalfAngle;
+
+	// 경계 구체의 중심은 원뿔 축을 따라 이동
+	float K = (CosHalfAngle > 0.707f) ? 0.5f : (0.5f + 0.5f * SinHalfAngle);
+	FVector SphereCenter = Apex + Direction * (Height * K);
+
+	// 경계 구체의 반지름 (원뿔의 꼭지점과 밑면 가장자리를 모두 포함)
+	float SphereRadius;
+	if (CosHalfAngle > 0.707f) // 각도가 45도 이하 (좁은 원뿔)
+	{
+		// 좁은 원뿔: 밑면 중심에서 가장자리까지의 거리
+		SphereRadius = sqrt(BaseRadius * BaseRadius + (Height * 0.5f) * (Height * 0.5f));
+	}
+	else // 각도가 45도 이상 (넓은 원뿔)
+	{
+		// 넓은 원뿔: 더 보수적인 반지름 사용
+		SphereRadius = Height * 0.866f; // sqrt(3)/2 ≈ 0.866
+	}
+
+	// 2. 경계 구체가 프러스텀과 교차하는지 먼저 테스트 (빠른 거부)
+	if (!SphereIntersectsFrustum(SphereCenter, SphereRadius, Frustum))
+	{
+		return false;
+	}
+
+	// 3. 추가 정밀 테스트: 원뿔 끝점(밑면 중심)도 체크
+	FVector ConeEnd = Apex + Direction * Height;
+
+	// 6개 평면 각각에 대해 테스트
+	const FPlane* Planes[6] = {
+		&Frustum.LeftFace,
+		&Frustum.RightFace,
+		&Frustum.TopFace,
+		&Frustum.BottomFace,
+		&Frustum.NearFace,
+		&Frustum.FarFace
+	};
+
+	// 원뿔의 꼭지점과 끝점이 모두 같은 평면 뒤쪽에 있는지 확인
+	for (int i = 0; i < 6; ++i)
+	{
+		FVector Normal3D(Planes[i]->Normal.X, Planes[i]->Normal.Y, Planes[i]->Normal.Z);
+
+		float ApexDistance = FVector::Dot(Normal3D, Apex) + Planes[i]->Distance;
+		float EndDistance = FVector::Dot(Normal3D, ConeEnd) + Planes[i]->Distance;
+
+		// 두 점이 모두 평면 뒤쪽에 있고, 밑면 반지름보다 멀리 있으면 완전히 외부
+		if (ApexDistance < -BaseRadius && EndDistance < -BaseRadius)
+		{
+			return false;
+		}
+	}
+
+	// 모든 테스트를 통과하면 교차한다고 판단
 	return true;
 }
 

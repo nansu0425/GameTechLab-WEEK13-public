@@ -53,6 +53,15 @@ private:
 	// 구체와 프러스텀 교차 테스트
 	bool SphereIntersectsFrustum(const FVector& Center, float Radius, const FFrustum& Frustum);
 
+	// 원뿔과 프러스텀 교차 테스트 (SpotLight용)
+	bool ConeIntersectsFrustum(
+		const FVector& Apex,           // 원뿔 꼭지점 (라이트 위치)
+		const FVector& Direction,      // 원뿔 방향 (정규화됨)
+		float Height,                  // 원뿔 높이 (AttenuationRadius)
+		float CosHalfAngle,            // cos(OuterConeAngle / 2)
+		const FFrustum& Frustum
+	);
+
 private:
 	D3D11RHI* RHI;
 
