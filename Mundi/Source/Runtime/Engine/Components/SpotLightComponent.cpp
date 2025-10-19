@@ -160,9 +160,9 @@ void USpotLightComponent::UpdateDirectionGizmo()
 	FVector LightDir = GetDirection();
 	DirectionGizmo->SetDirection(LightDir);
 
-	// Set color to match light color (with intensity and temperature)
-	FLinearColor LightColorWithIntensity = GetLightColorWithIntensity();
-	DirectionGizmo->SetColor(FVector(LightColorWithIntensity.R, LightColorWithIntensity.G, LightColorWithIntensity.B));
+	// Set color to match base light color (without intensity or temperature multipliers)
+	const FLinearColor& BaseColor = GetLightColor();
+	DirectionGizmo->SetColor(FVector(BaseColor.R, BaseColor.G, BaseColor.B));
 }
 
 void USpotLightComponent::RenderDebugVolume(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) const
