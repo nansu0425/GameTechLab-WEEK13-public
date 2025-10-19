@@ -82,9 +82,10 @@ void FSceneRenderer::Render()
 		View->ViewMode == EViewModeIndex::VMI_Lit_Lambert ||
 		View->ViewMode == EViewModeIndex::VMI_Lit_Phong)
 	{
-		// 조명이 있는 모드는 LightBuffer 업데이트 필요
 		UpdateLightConstant();
+		PerformTileLightCulling();	// 타일 기반 라이트 컬링 수행
 		RenderLitPath();
+		RenderTileCullingDebug();	// 타일 컬링 디버그 시각화 draw
 	}
 	else if (View->ViewMode == EViewModeIndex::VMI_Unlit)
 	{
@@ -126,9 +127,6 @@ void FSceneRenderer::RenderLitPath()
 {
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithId);
 
-	// 타일 기반 라이트 컬링 수행
-	PerformTileLightCulling();
-
 	// Base Pass
 	RenderOpaquePass();
 	RenderDecalPass();
@@ -136,9 +134,6 @@ void FSceneRenderer::RenderLitPath()
 
 	// 후처리 체인 실행
 	RenderPostProcessingPasses();
-
-	// 타일 컬링 디버그 시각화 (ShowFlag 활성화 시에만)
-	RenderTileCullingDebug();
 }
 
 void FSceneRenderer::RenderWireframePath()
