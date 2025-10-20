@@ -20,6 +20,7 @@
 #include "Gizmo/GizmoActor.h"
 #include "Grid/GridActor.h"
 #include "StaticMeshComponent.h"
+#include "DirectionalLightActor.h"
 #include "Frustum.h"
 #include "Level.h"
 #include "FireBallActor.h"
@@ -31,7 +32,6 @@ UWorld::UWorld()
 {
 	SelectionMgr = std::make_unique<USelectionManager>();
 	Level = std::make_unique<ULevel>();
-	CreateLevel();
 }
 
 UWorld::~UWorld()
@@ -254,6 +254,11 @@ void UWorld::CreateLevel()
 	ObjectTypeCounts.clear();
 }
 
+//어느 레벨이든 기본적으로 존재하는 엑터(디렉셔널 라이트) 생성
+void UWorld::SpawnDefaultActors()
+{
+	SpawnActor<ADirectionalLightActor>();
+}
 void UWorld::SetLevel(std::unique_ptr<ULevel> InLevel)
 {
     // Make UI/selection safe before destroying previous actors

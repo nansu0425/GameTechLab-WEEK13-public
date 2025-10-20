@@ -13,6 +13,7 @@ AFakeSpotLightActor::AFakeSpotLightActor()
 {
 	Name = "Fake Spot Light Actor";
 	BillboardComponent = CreateDefaultSubobject<UBillboardComponent>("BillboardComponent");
+	BillboardComponent->SetEditability(false);
 	DecalComponent = CreateDefaultSubobject<UPerspectiveDecalComponent>("DecalComponent");
 
 	BillboardComponent->SetTextureName("Editor/SpotLight_64x.png");
@@ -21,9 +22,9 @@ AFakeSpotLightActor::AFakeSpotLightActor()
 	DecalComponent->SetRelativeRotation(FQuat::MakeFromEulerZYX(FVector(0, 90, 0)));
 	DecalComponent->SetDecalTexture("Data/Textures/GreenLight.png");
 	DecalComponent->SetFovY(60);
-
+	
+	RootComponent = DecalComponent;
 	BillboardComponent->SetupAttachment(RootComponent);
-	DecalComponent->SetupAttachment(RootComponent);
 }
 
 AFakeSpotLightActor::~AFakeSpotLightActor()

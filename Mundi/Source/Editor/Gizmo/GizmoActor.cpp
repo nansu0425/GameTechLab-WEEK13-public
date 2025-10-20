@@ -25,6 +25,7 @@ AGizmoActor::AGizmoActor()
 	/*ArrowX = NewObject<UGizmoArrowComponent>();
 	ArrowY = NewObject<UGizmoArrowComponent>();
 	ArrowZ = NewObject<UGizmoArrowComponent>();*/
+	RootComponent = CreateDefaultSubobject<USceneComponent>("DefaultSceneComponent");
 
 	ArrowX = CreateDefaultSubobject<UGizmoArrowComponent>("GizmoArrowComponent");
 	ArrowY = CreateDefaultSubobject<UGizmoArrowComponent>("GizmoArrowComponent");

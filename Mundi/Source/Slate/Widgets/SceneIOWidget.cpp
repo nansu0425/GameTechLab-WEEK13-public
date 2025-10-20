@@ -156,6 +156,7 @@ void USceneIOWidget::RenderSaveLoadSection()
 	if (ImGui::Button("New Scene", ImVec2(110, 25)))
 	{
 		CreateNewLevel();
+
 	}
 }
 

@@ -13,9 +13,7 @@ ADirectionalLightActor::ADirectionalLightActor()
 	Name = "Directional Light Actor";
 	LightComponent = CreateDefaultSubobject<UDirectionalLightComponent>("DirectionalLightComponent");
 
-	USceneComponent* TempRootComponent = RootComponent;
 	RootComponent = LightComponent;
-	RemoveOwnedComponent(TempRootComponent);
 }
 
 ADirectionalLightActor::~ADirectionalLightActor()

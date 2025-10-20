@@ -15,7 +15,6 @@ IMPLEMENT_CLASS(AActor)
 AActor::AActor()
 {
 	Name = "DefaultActor";
-	RootComponent = CreateDefaultSubobject<USceneComponent>(FName("SceneComponent"));
 }
 
 AActor::~AActor()
@@ -459,6 +458,14 @@ void AActor::DuplicateSubObjects()
 				SceneComponents.push_back(NewSceneComp);
 			}
 		}
+	}
+}
+
+void AActor::OnRegister()
+{
+	if (!RootComponent)
+	{
+		RootComponent = CreateDefaultSubobject<USceneComponent>(FName("SceneComponent"));
 	}
 }
 

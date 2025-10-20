@@ -13,9 +13,7 @@ APointLightActor::APointLightActor()
 	Name = "Point Light Actor";
 	LightComponent = CreateDefaultSubobject<UPointLightComponent>("PointLightComponent");
 
-	USceneComponent* TempRootComponent = RootComponent;
 	RootComponent = LightComponent;
-	RemoveOwnedComponent(TempRootComponent);
 }
 
 APointLightActor::~APointLightActor()

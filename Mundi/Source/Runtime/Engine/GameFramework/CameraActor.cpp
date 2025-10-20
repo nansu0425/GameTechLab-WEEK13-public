@@ -22,6 +22,7 @@ ACameraActor::ACameraActor()
     Name = "Camera Actor";
     // 카메라 컴포넌트
     //CameraComponent = NewObject<UCameraComponent>();
+    RootComponent = CreateDefaultSubobject<USceneComponent>("SceneComponent");
     CameraComponent = CreateDefaultSubobject<UCameraComponent>("CameraComponent");
     CameraComponent->SetupAttachment(RootComponent);
     //SceneComponents.Add(CameraComponent);

@@ -16,9 +16,7 @@ AStaticMeshActor::AStaticMeshActor()
     StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>("StaticMeshComponent");
     
     // 루트 교체
-    USceneComponent* TempRootComponent = RootComponent;
     RootComponent = StaticMeshComponent;
-    RemoveOwnedComponent(TempRootComponent);
 }
 
 void AStaticMeshActor::Tick(float DeltaTime)
