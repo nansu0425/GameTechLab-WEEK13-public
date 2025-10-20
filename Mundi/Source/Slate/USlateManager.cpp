@@ -275,17 +275,16 @@ void USlateManager::OnMouseDown(FVector2D MousePos, uint32 Button)
 
 void USlateManager::OnMouseUp(FVector2D MousePos, uint32 Button)
 {
+    // 우클릭 해제 시 커서 복원 (ActiveViewport와 무관하게 처리)
+    if (Button == 1 && INPUT.IsCursorLocked())
+    {
+        INPUT.SetCursorVisible(true);
+        INPUT.ReleaseCursor();
+    }
+
     if (ActiveViewport)
     {
         ActiveViewport->OnMouseUp(MousePos, Button);
-
-        // 우클릭 해제 시 커서 복원
-        if (Button == 1)
-        {
-            INPUT.SetCursorVisible(true);
-            INPUT.ReleaseCursor();
-        }
-
         ActiveViewport = nullptr; // 드래그 끝나면 해제
     }
     else if (RootSplitter)
