@@ -174,10 +174,9 @@ bool UEditorEngine::Startup(HINSTANCE hInstance)
 
     ///////////////////////////////////
     WorldContexts.Add(FWorldContext(NewObject<UWorld>(), EWorldType::Editor));
+    GWorld = WorldContexts[0].World;
     WorldContexts[0].World->Initialize();
     ///////////////////////////////////
-
-    GWorld = WorldContexts[0].World;
 
     // 슬레이트 매니저 (singleton)
     FRect ScreenRect(0, 0, ClientWidth, ClientHeight);

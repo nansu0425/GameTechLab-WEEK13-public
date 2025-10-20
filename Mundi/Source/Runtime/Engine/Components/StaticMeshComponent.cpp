@@ -86,7 +86,7 @@ void UStaticMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMesh
 			{
 				// [Fallback 로직]
 				// 머티리얼이 없거나 셰이더가 없으면 기본 머티리얼 사용
-				UE_LOG("UStaticMeshComponent: Material or Shader invalid for section %u. Falling back to default.", SectionIndex);
+				UE_LOG("UStaticMeshComponent: 머티리얼이 없거나 셰이더가 없어서 기본 머티리얼 사용 section %u.", SectionIndex);
 
 				Material = UResourceManager::GetInstance().GetDefaultMaterial(); // 기본 머티리얼 요청
 				if (Material)
@@ -97,7 +97,7 @@ void UStaticMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMesh
 				// 기본 머티리얼/셰이더조차 없으면 렌더링 불가
 				if (!Material || !Shader)
 				{
-					UE_LOG("UStaticMeshComponent: Default material/shader not found!");
+					UE_LOG("UStaticMeshComponent: 기본 머티리얼이 없습니다.");
 					return { nullptr, nullptr }; // 렌더링 불가 표시
 				}
 			}

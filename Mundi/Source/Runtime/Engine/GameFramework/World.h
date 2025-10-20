@@ -61,6 +61,8 @@ public:
 
     void CreateLevel();
 
+    void SpawnDefaultActors();
+
     // Level ownership API
     void SetLevel(std::unique_ptr<ULevel> InLevel);
     ULevel* GetLevel() const { return Level.get(); }

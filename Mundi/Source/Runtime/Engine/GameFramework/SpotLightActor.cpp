@@ -13,9 +13,7 @@ ASpotLightActor::ASpotLightActor()
 	Name = "Spot Light Actor";
 	LightComponent = CreateDefaultSubobject<USpotLightComponent>("SpotLightComponent");
 
-	USceneComponent* TempRootComponent = RootComponent;
 	RootComponent = LightComponent;
-	RemoveOwnedComponent(TempRootComponent);
 }
 
 ASpotLightActor::~ASpotLightActor()

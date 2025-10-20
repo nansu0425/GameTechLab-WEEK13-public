@@ -13,9 +13,7 @@ AAmbientLightActor::AAmbientLightActor()
 	Name = "Ambient Light Actor";
 	LightComponent = CreateDefaultSubobject<UAmbientLightComponent>("AmbientLightComponent");
 
-	USceneComponent* TempRootComponent = RootComponent;
 	RootComponent = LightComponent;
-	RemoveOwnedComponent(TempRootComponent);
 }
 
 AAmbientLightActor::~AAmbientLightActor()

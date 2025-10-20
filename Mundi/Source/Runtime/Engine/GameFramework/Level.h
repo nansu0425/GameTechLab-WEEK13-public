@@ -1,9 +1,8 @@
 ﻿#pragma once
 #include "Object.h"
 #include "UEContainer.h"
+#include "Actor.h"
 #include <algorithm>
-
-class AActor;
 
 class ULevel : public UObject
 {
@@ -13,7 +12,8 @@ public:
     ~ULevel() override = default;
 
     const TArray<AActor*>& GetActors() const { return Actors; }
-    void AddActor(AActor* Actor) { if (Actor) Actors.Add(Actor); }
+    void AddActor(AActor* Actor) { if (Actor) Actors.Add(Actor); Actor->OnRegister(); }
+    void SpawnDefaultActors();
     bool RemoveActor(AActor* Actor)
     {
         auto it = std::find(Actors.begin(), Actors.end(), Actor);

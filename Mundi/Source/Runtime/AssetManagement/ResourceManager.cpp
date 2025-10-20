@@ -64,6 +64,7 @@ void UResourceManager::Initialize(ID3D11Device* InDevice, ID3D11DeviceContext* I
     CreateBillboardMesh(); // Billboard
     CreateTextBillboardTexture();
     CreateDefaultShader();
+    CreateDefaultMaterial();
 }
 
 // 전체 해제
@@ -437,14 +438,37 @@ void UResourceManager::CreateDefaultShader()
 {
     // 템플릿 Load 멤버함수 호출해서 Resources[UShader의 typeIndex][shader 파일 이름]에 UShader 포인터 할당
     Load<UShader>("Shaders/Primitives/Primitive.hlsl");
-    Load<UShader>("Shaders/StaticMesh/StaticMeshShader.hlsl");
+    Load<UShader>("Shaders/StaticMesh/Gizmo.hlsl");
     Load<UShader>("Shaders/UI/TextBillboard.hlsl");
     Load<UShader>("Shaders/UI/Billboard.hlsl");
+}
+
+void UResourceManager::CreateDefaultMaterial()
+{
+    // 1. NewObject<UMaterial>()로 인스턴스 생성
+    DefaultMaterialInstance = NewObject<UMaterial>();
+    // 2. 엔진이 사용할 고유 경로(이름) 설정
+    FString ShaderPath = "Shaders/Materials/UberLit.hlsl";
+    TArray<FShaderMacro> DefaultMacros;
+    DefaultMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" });
+    UShader* DefaultShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath, DefaultMacros);
+    FString NewName = GenerateShaderKey(ShaderPath, DefaultMacros);
+    DefaultMaterialInstance->SetMaterialName(NewName);
+    DefaultMaterialInstance->SetShader(DefaultShader);
+
+    // (참고: UMaterial에 SetMaterialName 같은 함수가 없다면 MaterialInfo.MaterialName을 직접 설정)
+    // DefaultMaterialInstance->GetMaterialInfo().MaterialName = DefaultMaterialName;
+    // 3. 리소스 매니저에 "UMaterial" 타입으로 등록 (핵심)
+    Add<UMaterial>(NewName, DefaultMaterialInstance);
 }
 
 void UResourceManager::InitShaderILMap()
 {
     TArray<D3D11_INPUT_ELEMENT_DESC> layout;
+
+    layout.Add({ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 });
+    ShaderToInputLayoutMap["Shaders/StaticMesh/Gizmo.hlsl"] = layout;
+	layout.clear();
 
     layout.Add({ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 });
     layout.Add({ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 16, D3D11_INPUT_PER_VERTEX_DATA, 0 });
@@ -458,7 +482,6 @@ void UResourceManager::InitShaderILMap()
     layout.Add({ "TANGENT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 32, D3D11_INPUT_PER_VERTEX_DATA, 0 });
     layout.Add({ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 48, D3D11_INPUT_PER_VERTEX_DATA, 0 });
    
-    ShaderToInputLayoutMap["Shaders/StaticMesh/StaticMeshShader.hlsl"] = layout;
     ShaderToInputLayoutMap["Shaders/Effects/Decal.hlsl"] = layout;
     ShaderToInputLayoutMap["Shaders/Effects/FireBallShader.hlsl"] = layout;
 	ShaderToInputLayoutMap["Shaders/Materials/UberLit.hlsl"] = layout;
@@ -548,8 +571,7 @@ void UResourceManager::UpdateDynamicVertexBuffer(const FString& Name, TArray<FBi
 
 UMaterial* UResourceManager::GetDefaultMaterial()
 {
-    // 기본 Material 생성 (기본 Phong 셰이더 사용)
-    return Load<UMaterial>("Shaders/Materials/UberLit.hlsl");
+    return DefaultMaterialInstance;
 }
 
 // 여기서 텍스처 데이터 로드 및 

@@ -6,6 +6,10 @@
 #include "PrimitiveComponent.h"
 #include "CameraActor.h"
 #include "CameraComponent.h"
+#include "DirectionalLightActor.h"
+#include "AmbientLightActor.h"
+#include "AmbientLightComponent.h"
+#include "World.h"
 #include "JsonSerializer.h"
 
 static inline FString RemoveObjExtension(const FString& FileName)
@@ -22,7 +26,21 @@ static inline FString RemoveObjExtension(const FString& FileName)
 
 std::unique_ptr<ULevel> ULevelService::CreateNewLevel()
 {
-    return std::make_unique<ULevel>();
+    std::unique_ptr<ULevel> NewLevel = std::make_unique<ULevel>();
+    NewLevel->SpawnDefaultActors();
+    return NewLevel;
+}
+
+//어느 레벨이든 기본적으로 존재하는 엑터(디렉셔널 라이트) 생성
+void ULevel::SpawnDefaultActors()
+{
+    ADirectionalLightActor* DirectionalLightActor = NewObject<ADirectionalLightActor>();
+    this->AddActor(DirectionalLightActor);
+    DirectionalLightActor->SetActorRotation(FQuat::FromAxisAngle(FVector(1.f, -1.f, 1.f), 30.f));
+    AAmbientLightActor* AmbientLightActor = NewObject<AAmbientLightActor>();
+    this->AddActor(AmbientLightActor);
+    AmbientLightActor->GetLightComponent()->SetIntensity(0.1f);
+   
 }
 
 void ULevel::Serialize(const bool bInIsLoading, JSON& InOutHandle)
