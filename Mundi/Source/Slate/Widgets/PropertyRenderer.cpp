@@ -536,6 +536,13 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterial** 
 	bool bElementChanged = false;
 	UMaterial* CurrentMaterial = *MaterialPtr;
 
+	// 캐시가 비어있으면 아무것도 렌더링하지 않음 (필수)
+	if (CachedMaterialItems.empty())
+	{
+		ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "No materials available in cache.");
+		return false;
+	}
+
 	// --- UMaterial 애셋 선택 콤보박스 ---
 	FString CurrentMaterialPath = (CurrentMaterial) ? CurrentMaterial->GetFilePath() : "None";
 
@@ -560,7 +567,15 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterial** 
 
 		if (UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(OwningObject))
 		{
-			PrimitiveComponent->SetMaterialByName(MaterialIndex, SelectedPath);
+			// "None"을 선택한 경우
+			if (SelectedMaterialIdx == 0)
+			{
+				PrimitiveComponent->SetMaterial(MaterialIndex, nullptr);
+			}
+			else
+			{
+				PrimitiveComponent->SetMaterialByName(MaterialIndex, SelectedPath);
+			}
 		}
 		else
 		{
@@ -684,7 +699,7 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterial** 
 			if (ImGui::BeginCombo(TextureLabel.c_str(), PreviewText))
 			{
 				// --- 콤보박스 드롭다운 리스트 렌더링 ---
-				
+
 				// 드롭다운 리스트 내부의 아이템 간 수직 간격 설정
 				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(ImGui::GetStyle().ItemSpacing.x, 1.0f));
 
