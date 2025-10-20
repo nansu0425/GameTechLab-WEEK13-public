@@ -13,6 +13,13 @@
 #include "StaticMeshComponent.h"
 #include "LightComponentBase.h"
 
+TArray<FString> UPropertyRenderer::CachedMaterialPaths;
+TArray<const char*> UPropertyRenderer::CachedMaterialItems;
+TArray<FString> UPropertyRenderer::CachedShaderPaths;
+TArray<const char*> UPropertyRenderer::CachedShaderItems;
+TArray<FString> UPropertyRenderer::CachedTexturePaths;
+TArray<const char*> UPropertyRenderer::CachedTextureItems;
+
 bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectInstance)
 {
 	bool bChanged = false;
@@ -61,6 +68,18 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 
 	case EPropertyType::StaticMesh:
 		bChanged = RenderStaticMeshProperty(Property, ObjectInstance);
+		break;
+
+	case EPropertyType::Material:
+		return RenderMaterialProperty(Property, ObjectInstance);
+
+	case EPropertyType::Array:
+		switch (Property.InnerType)
+		{
+		case EPropertyType::Material:
+			bChanged = RenderMaterialArrayProperty(Property, ObjectInstance);
+			break;
+		}
 		break;
 
 	default:
@@ -198,6 +217,53 @@ void UPropertyRenderer::RenderAllPropertiesWithInheritance(UObject* Object)
 			RenderProperty(*Prop, Object);
 		}
 	}
+}
+
+// ===== 리소스 캐싱 =====
+
+void UPropertyRenderer::CacheMaterialResources()
+{
+	// 이미 캐시되어 있다면 다시 로드하지 않습니다.
+	if (!CachedMaterialPaths.IsEmpty())
+	{
+		return;
+	}
+
+	UResourceManager& ResMgr = UResourceManager::GetInstance();
+
+	// 1. 머티리얼
+	CachedMaterialPaths = ResMgr.GetAllFilePaths<UMaterial>();
+	CachedMaterialItems.Add("None");
+	for (const FString& path : CachedMaterialPaths)
+	{
+		CachedMaterialItems.push_back(path.c_str());
+	}
+
+	// 2. 셰이더
+	CachedShaderPaths = ResMgr.GetAllFilePaths<UShader>();
+	CachedShaderItems.Add("None");
+	for (const FString& path : CachedShaderPaths)
+	{
+		CachedShaderItems.push_back(path.c_str());
+	}
+
+	// 3. 텍스처
+	CachedTexturePaths = ResMgr.GetAllFilePaths<UTexture>();
+	CachedTextureItems.Add("None");
+	for (const FString& path : CachedTexturePaths)
+	{
+		CachedTextureItems.push_back(path.c_str());
+	}
+}
+
+void UPropertyRenderer::ClearMaterialResourcesCache()
+{
+	CachedMaterialPaths.Empty();
+	CachedMaterialItems.Empty();
+	CachedShaderPaths.Empty();
+	CachedShaderItems.Empty();
+	CachedTexturePaths.Empty();
+	CachedTextureItems.Empty();
 }
 
 // ===== 타입별 렌더링 구현 =====
@@ -414,4 +480,171 @@ bool UPropertyRenderer::RenderStaticMeshProperty(const FProperty& Prop, void* In
 	}
 
 	return false;
+}
+
+bool UPropertyRenderer::RenderMaterialProperty(const FProperty& Prop, void* Instance)
+{
+	// 렌더링에 필요한 리소스가 캐시되었는지 확인하고, 없으면 로드합니다.
+	CacheMaterialResources();
+
+	UMaterial** MaterialPtr = Prop.GetValuePtr<UMaterial*>(Instance);
+	if (!MaterialPtr)
+	{
+		ImGui::Text("%s: [Invalid Material Ptr]", Prop.Name);
+		return false;
+	}
+
+	UObject* OwningObject = static_cast<UObject*>(Instance);
+
+	// Material 렌더 함수 호출
+	return RenderSingleMaterialSlot(Prop.Name, MaterialPtr, OwningObject, 0);	// 단일 슬롯은 0번 인덱스
+}
+
+bool UPropertyRenderer::RenderMaterialArrayProperty(const FProperty& Prop, void* Instance)
+{
+	// 렌더링에 필요한 리소스가 캐시되었는지 확인하고, 없으면 로드합니다.
+	CacheMaterialResources();
+
+	TArray<UMaterial*>* MaterialSlots = Prop.GetValuePtr<TArray<UMaterial*>>(Instance);
+	if (!MaterialSlots)
+	{
+		ImGui::Text("%s: [Invalid Array Ptr]", Prop.Name);
+		return false;
+	}
+
+	UObject* OwningObject = static_cast<UObject*>(Instance);
+	bool bArrayChanged = false;
+
+	// 배열의 각 요소를 순회하며 헬퍼 함수 호출 (매개변수 없음)
+	for (uint32 MaterialIndex = 0; MaterialIndex < MaterialSlots->Num(); ++MaterialIndex)
+	{
+		FString Label = FString(Prop.Name) + " [" + std::to_string(MaterialIndex) + "]";
+		UMaterial** MaterialPtr = &(*MaterialSlots)[MaterialIndex];
+
+		if (RenderSingleMaterialSlot(Label.c_str(), MaterialPtr, OwningObject, MaterialIndex))
+		{
+			bArrayChanged = true;
+		}
+	}
+
+	return bArrayChanged;
+}
+
+bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterial** MaterialPtr, UObject* OwningObject, uint32 MaterialIndex)
+{
+	bool bElementChanged = false;
+	UMaterial* CurrentMaterial = *MaterialPtr;
+
+	// --- 5-1. UMaterial 애셋 선택 콤보박스 ---
+	FString CurrentMaterialPath = (CurrentMaterial) ? CurrentMaterial->GetFilePath() : "None";
+
+	int SelectedMaterialIdx = 0; // "None"
+	for (int j = 0; j < (int)CachedMaterialPaths.size(); ++j)
+	{
+		if (CachedMaterialPaths[j] == CurrentMaterialPath)
+		{
+			SelectedMaterialIdx = j + 1;
+			break;
+		}
+	}
+
+	ImGui::SetNextItemWidth(240);
+	if (ImGui::Combo(Label, &SelectedMaterialIdx, CachedMaterialItems.data(), static_cast<int>(CachedMaterialItems.size())))
+	{
+		FString SelectedPath = "None";
+		if (SelectedMaterialIdx > 0)
+		{
+			SelectedPath = CachedMaterialPaths[SelectedMaterialIdx - 1];
+		}
+
+		if (UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(OwningObject))
+		{
+			PrimitiveComponent->SetMaterialByName(MaterialIndex, SelectedPath);
+		}
+		else
+		{
+			// 다른 컴포넌트는 Set 함수를 모르기 때문에 그냥 대입 처리
+			*MaterialPtr = (SelectedMaterialIdx == 0) ? nullptr : UResourceManager::GetInstance().Load<UMaterial>(SelectedPath);
+		}
+
+		bElementChanged = true;
+		CurrentMaterial = *MaterialPtr;
+	}
+
+	// --- 5-2. UMaterial 내부 프로퍼티 렌더링 (셰이더, 텍스처) ---
+	if (CurrentMaterial)
+	{
+		ImGui::Indent();
+
+		// --- 5-2a. 셰이더 렌더링 ---
+		UShader* CurrentShader = CurrentMaterial->GetShader();
+		FString CurrentShaderPath = (CurrentShader) ? CurrentShader->GetFilePath() : "None";
+
+		int SelectedShaderIdx = 0;
+		// 'CachedShaderPaths' 멤버 변수 사용
+		for (int j = 0; j < (int)CachedShaderPaths.size(); ++j)
+		{
+			if (CachedShaderPaths[j] == CurrentShaderPath)
+			{
+				SelectedShaderIdx = j + 1;
+				break;
+			}
+		}
+
+		FString ShaderLabel = "Shader##" + FString(Label);
+		ImGui::SetNextItemWidth(220);
+		// 'CachedShaderItems' 멤버 변수 사용
+		if (ImGui::Combo(ShaderLabel.c_str(), &SelectedShaderIdx, CachedShaderItems.data(), static_cast<int>(CachedShaderItems.size())))
+		{
+			if (SelectedShaderIdx > 0)
+			{
+				CurrentMaterial->SetShaderByName(CachedShaderPaths[SelectedShaderIdx - 1]);
+				bElementChanged = true;
+			}
+		}
+
+		// --- 5-2b. 텍스처 슬롯 렌더링 ---
+		for (uint8 TexSlotIndex = 0; TexSlotIndex < (uint8)EMaterialTextureSlot::Max; ++TexSlotIndex)
+		{
+			EMaterialTextureSlot Slot = static_cast<EMaterialTextureSlot>(TexSlotIndex);
+			UTexture* CurrentTexture = CurrentMaterial->GetTexture(Slot);
+			FString CurrentTexturePath = (CurrentTexture) ? CurrentTexture->GetTextureName() : "None";
+
+			int SelectedTextureIdx = 0; // "None"
+
+			for (int j = 0; j < (int)CachedTexturePaths.size(); ++j)
+			{
+				if (CachedTexturePaths[j] == CurrentTexturePath)
+				{
+					SelectedTextureIdx = j + 1;
+					break;
+				}
+			}
+
+			const char* SlotName = "Unknown Slot";
+			switch (Slot)
+			{
+			case EMaterialTextureSlot::Diffuse:
+				SlotName = "Diffuse Texture";
+				break;
+			case EMaterialTextureSlot::Normal:
+				SlotName = "Normal Texture";
+				break;
+				// ... (다른 텍스처 슬롯이 EMaterialTextureSlot에 추가되면 여기에도 case 추가) ...
+			}
+
+			FString TextureLabel = FString(SlotName) + "##" + Label;
+			ImGui::SetNextItemWidth(220);
+			if (ImGui::Combo(TextureLabel.c_str(), &SelectedTextureIdx, CachedTextureItems.data(), static_cast<int>(CachedTextureItems.size())))
+			{
+				FString SelectedTexturePath = (SelectedTextureIdx == 0) ? "None" : CachedTexturePaths[SelectedTextureIdx - 1];
+				CurrentMaterial->SetTexture(Slot, SelectedTexturePath);
+				bElementChanged = true;
+			}
+		}
+
+		ImGui::Unindent();
+	}
+
+	return bElementChanged;
 }
