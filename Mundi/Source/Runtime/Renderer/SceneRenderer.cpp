@@ -167,7 +167,7 @@ void FSceneRenderer::RenderSceneDepthPath()
 		vpBefore.Width, vpBefore.Height, vpBefore.TopLeftX, vpBefore.TopLeftY);
 
 	// 1. Scene RTV와 Depth Buffer Clear
-	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTarget);
+	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithId);
 
 	// ✅ 디버그: SceneRTV 전환 후 viewport 확인
 	D3D11_VIEWPORT vpAfter;
