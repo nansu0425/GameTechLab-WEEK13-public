@@ -260,6 +260,13 @@ void USlateManager::OnMouseDown(FVector2D MousePos, uint32 Button)
             if (VP && VP->Rect.Contains(MousePos))
             {
                 ActiveViewport = VP; // 고정
+
+                // 우클릭인 경우 커서 숨김 및 잠금
+                if (Button == 1)
+                {
+                    INPUT.SetCursorVisible(false);
+                    INPUT.SetCursorToCenter();
+                }
                 break;
             }
         }
@@ -271,6 +278,14 @@ void USlateManager::OnMouseUp(FVector2D MousePos, uint32 Button)
     if (ActiveViewport)
     {
         ActiveViewport->OnMouseUp(MousePos, Button);
+
+        // 우클릭 해제 시 커서 복원
+        if (Button == 1)
+        {
+            INPUT.SetCursorVisible(true);
+            INPUT.ReleaseCursor();
+        }
+
         ActiveViewport = nullptr; // 드래그 끝나면 해제
     }
     else if (RootSplitter)

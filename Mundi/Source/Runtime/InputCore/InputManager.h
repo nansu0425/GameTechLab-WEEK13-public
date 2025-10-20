@@ -70,6 +70,12 @@ public:
     uint32 GetDraggingAxis() const { return DraggingAxis; }
     void SetDraggingAxis(uint32 Axis) { DraggingAxis = Axis; }
 
+    // 커서 제어 함수
+    void SetCursorVisible(bool bVisible);
+    void SetCursorToCenter();
+    void ReleaseCursor();
+    bool IsCursorLocked() const { return bIsCursorLocked; }
+
 private:
     // 내부 헬퍼 함수들
     void UpdateMousePosition(int X, int Y);
@@ -99,4 +105,9 @@ private:
 
     bool bIsGizmoDragging = false;
     uint32 DraggingAxis = 0;
+
+    // 커서 잠금 상태
+    bool bIsCursorLocked = false;
+    FVector2D CenterPosition;
+    FVector2D OriginalCursorPosition; // 우클릭 시작 시 커서 위치
 };

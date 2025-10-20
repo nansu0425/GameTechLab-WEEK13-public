@@ -67,12 +67,9 @@ void UInputManager::Initialize(HWND hWindow)
 
 void UInputManager::Update()
 {
-    // 이전 프레임 상태 저장
-    PreviousMousePosition = MousePosition;
-
     // 마우스 휠 델타 초기화 (프레임마다 리셋)
     MouseWheelDelta = 0.0f;
-    
+
     // 매 프레임마다 실시간 마우스 위치 업데이트
     if (WindowHandle)
     {
@@ -80,8 +77,26 @@ void UInputManager::Update()
         if (GetCursorPos(&CursorPos))
         {
             ScreenToClient(WindowHandle, &CursorPos);
-            MousePosition.X = static_cast<float>(CursorPos.x);
-            MousePosition.Y = static_cast<float>(CursorPos.y);
+
+            // 커서 잠금 모드: 무한 드래그 처리
+            if (bIsCursorLocked)
+            {
+                MousePosition.X = static_cast<float>(CursorPos.x);
+                MousePosition.Y = static_cast<float>(CursorPos.y);
+
+                POINT CenterPoint = { static_cast<int>(CenterPosition.X), static_cast<int>(CenterPosition.Y) };
+                ClientToScreen(WindowHandle, &CenterPoint);
+                SetCursorPos(CenterPoint.x, CenterPoint.y);
+
+                PreviousMousePosition = CenterPosition;
+            }
+            else
+            {
+                // 일반 모드: 이전 위치 저장 후 현재 위치 업데이트
+                PreviousMousePosition = MousePosition;
+                MousePosition.X = static_cast<float>(CursorPos.x);
+                MousePosition.Y = static_cast<float>(CursorPos.y);
+            }
         }
 
         // 화면 크기 갱신 (윈도우 리사이즈 대응)
@@ -94,16 +109,7 @@ void UInputManager::Update()
             ScreenSize.Y = (h > 0.0f) ? h : 1.0f;
         }
     }
-    
-    // 디버그: 왼쪽 마우스 버튼 상태 변화 확인
-    if (bEnableDebugLogging && (MouseButtons[LeftButton] != PreviousMouseButtons[LeftButton]))
-    {
-        char debugMsg[128];
-        sprintf_s(debugMsg, "Update: Mouse state changing from %d to %d\n", 
-                  PreviousMouseButtons[LeftButton], MouseButtons[LeftButton]);
-        UE_LOG(debugMsg);
-    }
-    
+
     memcpy(PreviousMouseButtons, MouseButtons, sizeof(MouseButtons));
     memcpy(PreviousKeyStates, KeyStates, sizeof(KeyStates));
 }
@@ -396,4 +402,63 @@ FVector2D UInputManager::GetScreenSize() const
         }
     }
     return FVector2D(1.0f, 1.0f);
+}
+
+void UInputManager::SetCursorVisible(bool bVisible)
+{
+    ShowCursor(bVisible ? TRUE : FALSE);
+}
+
+void UInputManager::SetCursorToCenter()
+{
+    if (!WindowHandle) return;
+
+    // 현재 커서 위치를 저장 (나중에 복원하기 위해)
+    POINT currentCursor;
+    if (GetCursorPos(&currentCursor))
+    {
+        ScreenToClient(WindowHandle, &currentCursor);
+        OriginalCursorPosition = FVector2D(static_cast<float>(currentCursor.x), static_cast<float>(currentCursor.y));
+    }
+
+    // 클라이언트 영역 크기 가져오기
+    RECT clientRect;
+    if (!GetClientRect(WindowHandle, &clientRect))
+        return;
+
+    // 클라이언트 영역 중앙 좌표 계산
+    int centerX = (clientRect.right - clientRect.left) / 2;
+    int centerY = (clientRect.bottom - clientRect.top) / 2;
+
+    // 클라이언트 좌표를 스크린 좌표로 변환
+    POINT centerPoint = { centerX, centerY };
+    ClientToScreen(WindowHandle, &centerPoint);
+
+    // 커서를 화면 중앙으로 이동
+    SetCursorPos(centerPoint.x, centerPoint.y);
+
+    // 중앙 위치 캐시 및 잠금 상태 설정
+    CenterPosition = FVector2D(static_cast<float>(centerX), static_cast<float>(centerY));
+    bIsCursorLocked = true;
+
+    // 마우스 위치 동기화 (델타 계산을 위해)
+    MousePosition = CenterPosition;
+    PreviousMousePosition = CenterPosition;
+}
+
+void UInputManager::ReleaseCursor()
+{
+    if (!WindowHandle) return;
+
+    // 잠금 해제
+    bIsCursorLocked = false;
+
+    // 원래 커서 위치로 복원
+    POINT originalPoint = { static_cast<int>(OriginalCursorPosition.X), static_cast<int>(OriginalCursorPosition.Y) };
+    ClientToScreen(WindowHandle, &originalPoint);
+    SetCursorPos(originalPoint.x, originalPoint.y);
+
+    // 마우스 위치 동기화
+    MousePosition = OriginalCursorPosition;
+    PreviousMousePosition = OriginalCursorPosition;
 }

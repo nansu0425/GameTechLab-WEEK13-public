@@ -555,6 +555,12 @@ void AGizmoActor::ProcessGizmoDragging(ACameraActor* Camera, FViewport* Viewport
 
 void AGizmoActor::ProcessGizmoModeSwitch()
 {
+	// 우클릭 드래그 중에는 기즈모 모드/스페이스 변경 불가
+	if (InputManager->IsMouseButtonDown(RightButton))
+	{
+		return;
+	}
+
 	// Q 키: Select 모드
 	if (InputManager->IsKeyPressed('Q'))
 	{
