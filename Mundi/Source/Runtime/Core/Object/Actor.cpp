@@ -466,6 +466,10 @@ void AActor::OnRegister()
 	if (!RootComponent)
 	{
 		RootComponent = CreateDefaultSubobject<USceneComponent>(FName("SceneComponent"));
+		UBillboardComponent* SpriteComponent = CreateDefaultSubobject<UBillboardComponent>("SpriteComponent");
+		SpriteComponent->SetEditability(false);
+		SpriteComponent->SetupAttachment(RootComponent);
+		SpriteComponent->SetTextureName("Data/UI/Icons/EmptyActor.dds");
 	}
 }
 
