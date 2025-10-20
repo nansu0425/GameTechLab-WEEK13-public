@@ -160,7 +160,7 @@ void AActor::RegisterAllComponents(UWorld* InWorld)
 	{
 		for (UActorComponent* Component : OwnedComponents)
 		{
-			Component->OnRegister(InWorld);
+			Component->RegisterComponent(InWorld);
 		}
 	}
 	else

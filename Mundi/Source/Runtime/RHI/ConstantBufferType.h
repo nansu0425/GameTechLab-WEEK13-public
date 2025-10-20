@@ -1,7 +1,7 @@
 ﻿#pragma once
 // b0 in VS    
 #include "Color.h"
-#include "LightInfo.h"
+#include "LightManager.h"
 
 struct ModelBufferType
 {
@@ -156,8 +156,6 @@ struct FLightBufferType
 {
     FAmbientLightInfo AmbientLight;
     FDirectionalLightInfo DirectionalLight;
-    FPointLightInfo PointLights[NUM_POINT_LIGHT_MAX];
-    FSpotLightInfo SpotLights[NUM_SPOT_LIGHT_MAX];
 
     uint32 PointLightCount;
     uint32 SpotLightCount;

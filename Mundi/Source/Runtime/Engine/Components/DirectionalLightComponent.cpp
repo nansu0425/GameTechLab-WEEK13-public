@@ -58,15 +58,27 @@ void UDirectionalLightComponent::OnRegister(UWorld* InWorld)
 		// Update gizmo properties to match light
 		UpdateDirectionGizmo();
 	}
+	InWorld->GetLightManager()->RegisterLight(this);
+}
+
+void UDirectionalLightComponent::OnUnregister()
+{
+	GWorld->GetLightManager()->DeRegisterLight(this);
 }
 
 void UDirectionalLightComponent::UpdateLightData()
 {
 	Super::UpdateLightData();
 	// 방향성 라이트 특화 업데이트 로직
-
+	GWorld->GetLightManager()->UpdateLight(this);
 	// Update direction gizmo to reflect any changes
 	UpdateDirectionGizmo();
+}
+
+void UDirectionalLightComponent::OnTransformUpdated()
+{
+	Super::OnTransformUpdated();
+	GWorld->GetLightManager()->UpdateLight(this);
 }
 
 void UDirectionalLightComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)

@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "LightComponent.h"
-#include "LightInfo.h"
+#include "LightManager.h"
 
 // 방향성 라이트 (태양광 같은 평행광)
 class UDirectionalLightComponent : public ULightComponent
@@ -21,7 +21,9 @@ public:
 
 	// Virtual Interface
 	void OnRegister(UWorld* InWorld) override;
+	void OnUnregister() override;
 	virtual void UpdateLightData() override;
+	void OnTransformUpdated() override;
 
 	// Serialization & Duplication
 	virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;

@@ -14,9 +14,6 @@
 // 조명 사용 시 활성화 권장
 // #define USE_GAMMA_CORRECTION 1
 
-// --- 전역 상수 정의 ---
-#define NUM_POINT_LIGHT_MAX 16
-#define NUM_SPOT_LIGHT_MAX 16
 
 // --- 조명 정보 구조체 (LightInfo.h와 완전히 일치) ---
 // Note: Color already includes Intensity and Temperature (calculated in C++)
@@ -118,8 +115,7 @@ cbuffer LightBuffer : register(b8)
 {
     FAmbientLightInfo AmbientLight;
     FDirectionalLightInfo DirectionalLight;
-    FPointLightInfo PointLights[NUM_POINT_LIGHT_MAX];
-    FSpotLightInfo SpotLights[NUM_SPOT_LIGHT_MAX];
+
     uint PointLightCount;
     uint SpotLightCount;
 };
@@ -135,6 +131,10 @@ SamplerState g_Sample2 : register(s1);
 // 구조:  [TileIndex * MaxLightsPerTile] = LightCount
 //        [TileIndex * MaxLightsPerTile + 1 ~ ...] = LightIndices (상위 16비트: 타입, 하위 16비트: 인덱스)
 StructuredBuffer<uint> g_TileLightIndices : register(t2);
+
+//PointLight, SpotLight Structured Buffer
+StructuredBuffer<FPointLightInfo> g_PointLightList : register(t3);
+StructuredBuffer<FSpotLightInfo> g_SpotLightList : register(t4);
 
 // b11: 타일 컬링 설정 상수 버퍼
 cbuffer TileCullingBuffer : register(b11)
@@ -446,13 +446,13 @@ PS_INPUT mainVS(VS_INPUT Input)
     // Point lights (diffuse + specular)
     for (int i = 0; i < PointLightCount; i++)
     {
-        finalColor += CalculatePointLight(PointLights[i], Out.WorldPos, worldNormal, viewDir, baseColor, true, specPower);
+        finalColor += CalculatePointLight(g_PointLightList[i], Out.WorldPos, worldNormal, viewDir, baseColor, true, specPower);
     }
 
     // Spot lights (diffuse + specular)
     for (int j = 0; j < SpotLightCount; j++)
     {
-        finalColor += CalculateSpotLight(SpotLights[j], Out.WorldPos, worldNormal, viewDir, baseColor, true, specPower);
+        finalColor += CalculateSpotLight(g_SpotLightList[j], Out.WorldPos, worldNormal, viewDir, baseColor, true, specPower);
     }
 
     Out.Color = float4(finalColor, baseColor.a);
@@ -583,11 +583,11 @@ PS_OUTPUT mainPS(PS_INPUT Input)
 
             if (lightType == 0)  // Point Light
             {
-                litColor += CalculatePointLight(PointLights[lightIdx], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f);
+                litColor += CalculatePointLight(g_PointLightList[lightIdx], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f);
             }
             else if (lightType == 1)  // Spot Light
             {
-                litColor += CalculateSpotLight(SpotLights[lightIdx], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f);
+                litColor += CalculateSpotLight(g_SpotLightList[lightIdx], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f);
             }
         }
     }
@@ -596,12 +596,12 @@ PS_OUTPUT mainPS(PS_INPUT Input)
         // 타일 컬링 비활성화: 모든 라이트 순회 (기존 방식)
         for (int i = 0; i < PointLightCount; i++)
         {
-            litColor += CalculatePointLight(PointLights[i], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f);
+            litColor += CalculatePointLight(g_PointLightList[i], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f);
         }
 
         for (int j = 0; j < SpotLightCount; j++)
         {
-            litColor += CalculateSpotLight(SpotLights[j], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f);
+            litColor += CalculateSpotLight(g_SpotLightList[j], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f);
         }
     }
 
@@ -674,11 +674,11 @@ PS_OUTPUT mainPS(PS_INPUT Input)
 
             if (lightType == 0)  // Point Light
             {
-                litColor += CalculatePointLight(PointLights[lightIdx], Input.WorldPos, normal, viewDir, baseColor, true, specPower);
+                litColor += CalculatePointLight(g_PointLightList[lightIdx], Input.WorldPos, normal, viewDir, baseColor, true, specPower);
             }
             else if (lightType == 1)  // Spot Light
             {
-                litColor += CalculateSpotLight(SpotLights[lightIdx], Input.WorldPos, normal, viewDir, baseColor, true, specPower);
+                litColor += CalculateSpotLight(g_SpotLightList[lightIdx], Input.WorldPos, normal, viewDir, baseColor, true, specPower);
             }
         }
     }
@@ -687,12 +687,12 @@ PS_OUTPUT mainPS(PS_INPUT Input)
         // 타일 컬링 비활성화: 모든 라이트 순회 (기존 방식)
         for (int i = 0; i < PointLightCount; i++)
         {
-            litColor += CalculatePointLight(PointLights[i], Input.WorldPos, normal, viewDir, baseColor, true, specPower);
+            litColor += CalculatePointLight(g_PointLightList[i], Input.WorldPos, normal, viewDir, baseColor, true, specPower);
         }
 
         for (int j = 0; j < SpotLightCount; j++)
         {
-            litColor += CalculateSpotLight(SpotLights[j], Input.WorldPos, normal, viewDir, baseColor, true, specPower);
+            litColor += CalculateSpotLight(g_SpotLightList[j], Input.WorldPos, normal, viewDir, baseColor, true, specPower);
         }
     }
 

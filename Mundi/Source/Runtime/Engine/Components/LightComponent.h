@@ -13,7 +13,7 @@ public:
 
 public:
 	// Temperature
-	void SetTemperature(float InTemperature) { Temperature = InTemperature; }
+	void SetTemperature(float InTemperature) { Temperature = InTemperature;}
 	float GetTemperature() const { return Temperature; }
 
 	// 색상과 강도를 합쳐서 반환

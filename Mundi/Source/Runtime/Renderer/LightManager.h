@@ -1,8 +1,5 @@
 ﻿#pragma once
 
-constexpr uint32 NUM_POINT_LIGHT_MAX = 16;
-constexpr uint32 NUM_SPOT_LIGHT_MAX = 16;
-
 class UAmbientLightComponent;
 class UDirectionalLightComponent;
 class UPointLightComponent;
@@ -60,23 +57,63 @@ class FLightManager
 {
 
 public:
+    FLightManager() = default;
+    ~FLightManager();
+
+    void Initialize(D3D11RHI* RHIDevice);
+    void Release();
+
+
     void UpdateLightBuffer(D3D11RHI* RHIDevice);
 
-    void RegisterLight(ULightComponent* LightComponent, ELightType Type);
-    void DeRegisterLight(ULightComponent* LightComponent, ELightType Type);
+    TArray<FPointLightInfo>& GetPointLightInfoList() { return PointLightInfoList; }
+    TArray<FSpotLightInfo>& GetSpotLightInfoList() { return SpotLightInfoList; }
+
+    template<typename T>
+    void RegisterLight(T* LightComponent);
+    template<typename T>
+    void DeRegisterLight(T* LightComponent);
+    template<typename T>
+    void UpdateLight(T* LightComponent);
 private:
 
     bool bHaveToUpdate = true;
     bool bPointLightDirty = true;
     bool bSpotLightDirty = true;
 
+    //structured buffer
+    ID3D11Buffer* PointLightBuffer = nullptr;
+    ID3D11Buffer* SpotLightBuffer = nullptr;
+    ID3D11ShaderResourceView* PointLightBufferSRV = nullptr;
+    ID3D11ShaderResourceView* SpotLightBufferSRV = nullptr;
+
+
     TArray<UAmbientLightComponent*> AmbientLightList;
     TArray<UDirectionalLightComponent*> DIrectionalLightList;
     TArray<UPointLightComponent*> PointLightList;
     TArray<USpotLightComponent*> SpotLightList;
+
+    //업데이트 시에만 clear하고 다시 수집할 실제 데이터 리스트
+    TArray<FPointLightInfo> PointLightInfoList;
+    TArray<FSpotLightInfo> SpotLightInfoList;
 
     //이미 레지스터된 라이트인지 확인하는 용도
     TSet<ULightComponent*> LightComponentList;
     uint32 PointLightNum = 0;
     uint32 SpotLightNum = 0;
 };
+
+template<> void FLightManager::RegisterLight<UAmbientLightComponent>(UAmbientLightComponent* LightComponent);
+template<> void FLightManager::RegisterLight<UDirectionalLightComponent>(UDirectionalLightComponent* LightComponent);
+template<> void FLightManager::RegisterLight<UPointLightComponent>(UPointLightComponent* LightComponent);
+template<> void FLightManager::RegisterLight<USpotLightComponent>(USpotLightComponent* LightComponent);
+
+template<> void FLightManager::DeRegisterLight<UAmbientLightComponent>(UAmbientLightComponent* LightComponent);
+template<> void FLightManager::DeRegisterLight<UDirectionalLightComponent>(UDirectionalLightComponent* LightComponent);
+template<> void FLightManager::DeRegisterLight<UPointLightComponent>(UPointLightComponent* LightComponent);
+template<> void FLightManager::DeRegisterLight<USpotLightComponent>(USpotLightComponent* LightComponent);
+
+template<> void FLightManager::UpdateLight<UAmbientLightComponent>(UAmbientLightComponent* LightComponent);
+template<> void FLightManager::UpdateLight<UDirectionalLightComponent>(UDirectionalLightComponent* LightComponent);
+template<> void FLightManager::UpdateLight<UPointLightComponent>(UPointLightComponent* LightComponent);
+template<> void FLightManager::UpdateLight<USpotLightComponent>(USpotLightComponent* LightComponent);
