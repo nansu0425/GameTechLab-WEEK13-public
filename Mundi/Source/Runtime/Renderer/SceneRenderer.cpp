@@ -632,7 +632,7 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 			if (Batch.Material) // 머티리얼 유효성 검사
 			{
 				// 유효한 머티리얼이 있는 경우
-				const FMaterialParameters& MaterialInfo = Batch.Material->GetMaterialInfo();
+				const FMaterialInfo& MaterialInfo = Batch.Material->GetMaterialInfo();
 				PixelConst.Material = MaterialInfo;
 				PixelConst.bHasMaterial = true;
 				// --- 텍스처 로드 및 SRV 준비 ---
@@ -664,7 +664,7 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 			{
 				// 머티리얼이 없는 경우 (예: 기본 버텍스 컬러 사용)
 				// 기본값 FMaterialParameters 생성 (모든 값이 기본값)
-				FMaterialParameters DefaultMaterialInfo;
+				FMaterialInfo DefaultMaterialInfo;
 				PixelConst.Material = DefaultMaterialInfo;
 				PixelConst.bHasDiffuseTexture = false;
 				PixelConst.bHasNormalTexture = false;

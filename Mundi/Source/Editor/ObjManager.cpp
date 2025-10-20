@@ -299,7 +299,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 
 	// 3. 캐시 데이터 로드 시도 및 실패 시 재생성 로직
 	FStaticMesh* NewFStaticMesh = new FStaticMesh();
-	TArray<FMaterialParameters> MaterialInfos;
+	TArray<FMaterialInfo> MaterialInfos;
 	bool bLoadedSuccessfully = false;
 
 	// 캐시가 오래되었는지 먼저 확인
@@ -326,7 +326,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 			{
 				throw std::runtime_error("Failed to open material bin file for reading.");
 			}
-			Serialization::ReadArray<FMaterialParameters>(MatReader, MaterialInfos);
+			Serialization::ReadArray<FMaterialInfo>(MatReader, MaterialInfos);
 			MatReader.Close();
 
 			// 모든 로드가 성공적으로 완료됨
@@ -379,7 +379,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 		Writer.Close();
 
 		FWindowsBinWriter MatWriter(MatBinPathFileName);
-		Serialization::WriteArray<FMaterialParameters>(MatWriter, MaterialInfos);
+		Serialization::WriteArray<FMaterialInfo>(MatWriter, MaterialInfos);
 		MatWriter.Close();
 
 		UE_LOG("Cache regeneration complete for '%s'.", NormalizedPathStr.c_str());
@@ -413,7 +413,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 		FixPath(MaterialInfo.EmissiveTextureFileName);
 	}
 
-	for (const FMaterialParameters& InMaterialInfo : MaterialInfos)
+	for (const FMaterialInfo& InMaterialInfo : MaterialInfos)
 	{
 		if (!UResourceManager::GetInstance().Get<UMaterial>(InMaterialInfo.MaterialName))
 		{
@@ -454,7 +454,7 @@ UStaticMesh* FObjManager::LoadObjStaticMesh(const FString& PathFileName)
 }
 
 // obj File to FObjInfo, FMaterialParameters
-bool FObjImporter::LoadObjModel(const FString& InFileName, FObjInfo* const OutObjInfo, TArray<FMaterialParameters>& OutMaterialInfos, bool bIsRightHanded)
+bool FObjImporter::LoadObjModel(const FString& InFileName, FObjInfo* const OutObjInfo, TArray<FMaterialInfo>& OutMaterialInfos, bool bIsRightHanded)
 {
 	uint32 subsetCount = 0;
 	FString MtlFileName;
@@ -668,7 +668,7 @@ bool FObjImporter::LoadObjModel(const FString& InFileName, FObjInfo* const OutOb
 
 		if (line.rfind("newmtl ", 0) == 0)
 		{
-			FMaterialParameters TempMatInfo;
+			FMaterialInfo TempMatInfo;
 			TempMatInfo.MaterialName = line.substr(7);
 			OutMaterialInfos.push_back(TempMatInfo);
 			++MatCount;
@@ -751,7 +751,7 @@ bool FObjImporter::LoadObjModel(const FString& InFileName, FObjInfo* const OutOb
 }
 
 // FObjInfo to FStaticMesh
-void FObjImporter::ConvertToStaticMesh(const FObjInfo& InObjInfo, const TArray<FMaterialParameters>& InMaterialInfos, FStaticMesh* const OutStaticMesh)
+void FObjImporter::ConvertToStaticMesh(const FObjInfo& InObjInfo, const TArray<FMaterialInfo>& InMaterialInfos, FStaticMesh* const OutStaticMesh)
 {
 	OutStaticMesh->PathFileName = InObjInfo.ObjFileName;
 	uint32 NumDuplicatedVertex = static_cast<uint32>(InObjInfo.PositionIndices.size());

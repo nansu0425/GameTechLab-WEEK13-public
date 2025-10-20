@@ -45,9 +45,9 @@ public:
 		size_t operator()(const VertexKey& Key) const { return std::hash<uint32>()(Key.PosIndex) ^ (std::hash<uint32>()(Key.TexIndex) << 1) ^ (std::hash<uint32>()(Key.NormalIndex) << 2); }
 	};
 
-	static bool LoadObjModel(const FString& InFileName, FObjInfo* const OutObjInfo, TArray<FMaterialParameters>& OutMaterialInfos, bool bIsRightHanded = true);
+	static bool LoadObjModel(const FString& InFileName, FObjInfo* const OutObjInfo, TArray<FMaterialInfo>& OutMaterialInfos, bool bIsRightHanded = true);
 
-	static void ConvertToStaticMesh(const FObjInfo& InObjInfo, const TArray<FMaterialParameters>& InMaterialInfos, FStaticMesh* const OutStaticMesh);
+	static void ConvertToStaticMesh(const FObjInfo& InObjInfo, const TArray<FMaterialInfo>& InMaterialInfos, FStaticMesh* const OutStaticMesh);
 
 private:
 	struct FFaceVertex { uint32 PositionIndex, TexCoordIndex, NormalIndex; };

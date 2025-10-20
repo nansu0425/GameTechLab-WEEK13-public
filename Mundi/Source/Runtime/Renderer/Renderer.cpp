@@ -161,7 +161,7 @@ void URenderer::DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITI
 		for (uint32 i = 0; i < NumMeshGroupInfos; ++i)
 		{
 			UMaterial* const Material = UResourceManager::GetInstance().Get<UMaterial>(InComponentMaterialSlots[i].MaterialName.ToString());
-			const FMaterialParameters& MaterialInfo = Material->GetMaterialInfo();
+			const FMaterialInfo& MaterialInfo = Material->GetMaterialInfo();
 			FPixelConstBufferType PixelConst{ FPixelConstBufferType(FMaterialInPs(MaterialInfo)) };
 			PixelConst.bHasMaterial = true;
 			TArray<ID3D11ShaderResourceView*> SrvList;
@@ -214,7 +214,7 @@ void URenderer::DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITI
 	}
 	else
 	{
-		FMaterialParameters ObjMaterialInfo{};
+		FMaterialInfo ObjMaterialInfo{};
 		FPixelConstBufferType PixelConst{ FPixelConstBufferType(FMaterialInPs(ObjMaterialInfo)) };
 		PixelConst.bHasDiffuseTexture = false;
 		PixelConst.bHasNormalTexture = false;
