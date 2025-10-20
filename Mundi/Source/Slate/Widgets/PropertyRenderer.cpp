@@ -536,7 +536,7 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterial** 
 	bool bElementChanged = false;
 	UMaterial* CurrentMaterial = *MaterialPtr;
 
-	// --- 5-1. UMaterial 애셋 선택 콤보박스 ---
+	// --- UMaterial 애셋 선택 콤보박스 ---
 	FString CurrentMaterialPath = (CurrentMaterial) ? CurrentMaterial->GetFilePath() : "None";
 
 	int SelectedMaterialIdx = 0; // "None"
@@ -572,12 +572,12 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterial** 
 		CurrentMaterial = *MaterialPtr;
 	}
 
-	// --- 5-2. UMaterial 내부 프로퍼티 렌더링 (셰이더, 텍스처) ---
+	// --- UMaterial 내부 프로퍼티 렌더링 (셰이더, 텍스처) ---
 	if (CurrentMaterial)
 	{
 		ImGui::Indent();
 
-		// --- 5-2a. 셰이더 렌더링 (읽기 전용, 비활성화된 InputText 사용) ---
+		// --- 셰이더 렌더링 (읽기 전용, 비활성화된 InputText 사용) ---
 		UShader* CurrentShader = CurrentMaterial->GetShader();
 		FString CurrentShaderPath = (CurrentShader) ? CurrentShader->GetFilePath() : "None";
 
@@ -597,15 +597,20 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterial** 
 		// 비활성화 상태를 해제합니다.
 		ImGui::EndDisabled();
 
-		// --- 5-2b. 텍스처 슬롯 렌더링 ---
+		// --- 텍스처 슬롯 렌더링 ---
+
+		// 썸네일 미리보기 크기를 상수로 정의
+		const float ThumbnailSize = 24.0f;
+		const ImVec2 ThumbnailImVec(ThumbnailSize, ThumbnailSize);
+
 		for (uint8 TexSlotIndex = 0; TexSlotIndex < (uint8)EMaterialTextureSlot::Max; ++TexSlotIndex)
 		{
 			EMaterialTextureSlot Slot = static_cast<EMaterialTextureSlot>(TexSlotIndex);
 			UTexture* CurrentTexture = CurrentMaterial->GetTexture(Slot);
 			FString CurrentTexturePath = (CurrentTexture) ? CurrentTexture->GetTextureName() : "None";
 
+			// 1. 현재 선택된 텍스처의 인덱스 찾기
 			int SelectedTextureIdx = 0; // "None"
-
 			for (int j = 0; j < (int)CachedTexturePaths.size(); ++j)
 			{
 				if (CachedTexturePaths[j] == CurrentTexturePath)
@@ -615,6 +620,7 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterial** 
 				}
 			}
 
+			// 2. 슬롯 이름 (Label) 설정
 			const char* SlotName = "Unknown Slot";
 			switch (Slot)
 			{
@@ -626,14 +632,159 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterial** 
 				break;
 				// ... (다른 텍스처 슬롯이 EMaterialTextureSlot에 추가되면 여기에도 case 추가) ...
 			}
-
 			FString TextureLabel = FString(SlotName) + "##" + Label;
-			ImGui::SetNextItemWidth(220);
-			if (ImGui::Combo(TextureLabel.c_str(), &SelectedTextureIdx, CachedTextureItems.data(), static_cast<int>(CachedTextureItems.size())))
+
+			// 3. 콤보박스 왼쪽에 썸네일 표시
+			if (CurrentTexture && CurrentTexture->GetShaderResourceView())
 			{
-				FString SelectedTexturePath = (SelectedTextureIdx == 0) ? "None" : CachedTexturePaths[SelectedTextureIdx - 1];
-				CurrentMaterial->SetTexture(Slot, SelectedTexturePath);
-				bElementChanged = true;
+				ImGui::Image(reinterpret_cast<ImTextureID>(CurrentTexture->GetShaderResourceView()), ThumbnailImVec);
+
+				// 썸네일 이미지에 마우스를 올렸을 때 이미지/크기 툴팁
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::BeginTooltip();
+					ImGui::TextUnformatted(CurrentTexture->GetTextureName().c_str());
+					ImGui::Text("Size: %u x %u", CurrentTexture->GetWidth(), CurrentTexture->GetHeight());
+
+					// 썸네일 크기 계산 (가로/세로 비율 유지, 최대 128x128)
+					const float MAX_THUMBNAIL_SIZE = 128.0f;
+					float width = (float)CurrentTexture->GetWidth();
+					float height = (float)CurrentTexture->GetHeight();
+					float ratio = width / height;
+
+					ImVec2 thumbSize;
+					if (ratio > 1.0f) // 가로가 더 긴 이미지
+					{
+						thumbSize = { MAX_THUMBNAIL_SIZE, MAX_THUMBNAIL_SIZE / ratio };
+					}
+					else // 세로가 더 길거나 같은 이미지
+					{
+						thumbSize = { MAX_THUMBNAIL_SIZE * ratio, MAX_THUMBNAIL_SIZE };
+					}
+
+					ImGui::Image(reinterpret_cast<ImTextureID>(CurrentTexture->GetShaderResourceView()), thumbSize);
+					ImGui::EndTooltip();
+				}
+			}
+			else
+			{
+				// 리소스가 없을 때도 레이아웃 유지를 위해 Dummy 사용
+				ImGui::Dummy(ThumbnailImVec);
+			}
+
+			ImGui::SameLine();
+
+			// 4. 커스텀 콤보박스 시작
+			// 콤보박스에 표시될 텍스트 (현재 선택된 항목의 텍스트)
+			const char* PreviewText = CachedTextureItems[SelectedTextureIdx];
+
+			// SetNextItemWidth를 썸네일 크기만큼 보정
+			ImGui::SetNextItemWidth(220.0f - ThumbnailSize - ImGui::GetStyle().ItemSpacing.x);
+
+			if (ImGui::BeginCombo(TextureLabel.c_str(), PreviewText))
+			{
+				// --- 콤보박스 드롭다운 리스트 렌더링 ---
+				
+				// 드롭다운 리스트 내부의 아이템 간 수직 간격 설정
+				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(ImGui::GetStyle().ItemSpacing.x, 1.0f));
+
+				// 텍스처 리스트 (미리보기 포함) - "None" 옵션(i=0)을 루프에 포함
+				for (int i = 0; i < (int)CachedTextureItems.size(); ++i)
+				{
+					bool is_selected = (SelectedTextureIdx == i);
+					const char* ItemText = CachedTextureItems[i];
+
+					UTexture* previewTexture = nullptr;
+					FString TexturePath = "None";
+
+					if (i > 0)
+					{
+						TexturePath = CachedTexturePaths[i - 1];
+						previewTexture = UResourceManager::GetInstance().Load<UTexture>(TexturePath);
+					}
+
+					FString SelectableID = FString("##Selectable_") + TexturePath + std::to_string(i);
+
+					// 1. Selectable을 먼저 호출
+					if (ImGui::Selectable(SelectableID.c_str(), is_selected, 0, ImVec2(0, ThumbnailSize - 1.0f)))	// 계속 1픽셀 씩 남아서 처리
+					{
+						CurrentMaterial->SetTexture(Slot, TexturePath);
+						bElementChanged = true;
+					}
+					ImVec2 NextItemCursorPos = ImGui::GetCursorPos(); // 다음 아이템 위치 저장
+
+					// 2. 툴팁 표시
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						if (previewTexture && previewTexture->GetTexture2D() && previewTexture->GetShaderResourceView())
+						{
+							ImGui::TextUnformatted(previewTexture->GetTextureName().c_str());
+							ImGui::Text("Size: %u x %u", previewTexture->GetWidth(), previewTexture->GetHeight());
+							float width = (float)previewTexture->GetWidth();
+							float height = (float)previewTexture->GetHeight();
+							float ratio = width / height;
+							ImVec2 thumbSize = (ratio > 1.0f) ? ImVec2(128.0f, 128.0f / ratio) : ImVec2(128.0f * ratio, 128.0f);
+							ImGui::Image(reinterpret_cast<ImTextureID>(previewTexture->GetShaderResourceView()), thumbSize);
+						}
+						else
+						{
+							ImGui::TextUnformatted("텍스처 없음");
+						}
+						ImGui::EndTooltip();
+					}
+
+					// 3. Selectable 위에 겹쳐 그리기 위해 커서를 되돌림
+					ImVec2 ItemPos = ImGui::GetItemRectMin();
+
+					// 4. 내용물(썸네일) 그리기
+					ImVec2 ImagePos = ImVec2(ItemPos.x, ItemPos.y);
+					ImGui::SetCursorScreenPos(ImagePos);
+
+					if (previewTexture && previewTexture->GetShaderResourceView())
+					{
+						ImGui::Image(reinterpret_cast<ImTextureID>(previewTexture->GetShaderResourceView()), ThumbnailImVec);
+					}
+					else
+					{
+						ImGui::Dummy(ThumbnailImVec);
+					}
+
+					// 5. 내용물(텍스트) 그리기 (수정: SetCursorScreenPos 사용)
+					// SameLine() + SetCursorPosY() 대신 절대 위치로 그림
+					ImVec2 TextPos = ImVec2(
+						ItemPos.x + ThumbnailSize + ImGui::GetStyle().ItemSpacing.x,
+						ItemPos.y
+					);
+					ImGui::SetCursorScreenPos(TextPos);
+					ImGui::TextUnformatted(ItemText);
+
+					if (is_selected)
+						ImGui::SetItemDefaultFocus();
+
+					// 6. 커서 위치 복원
+					ImGui::SetCursorPos(NextItemCursorPos);
+
+					// --- 어설션 해결을 위해 Dummy 위젯 추가 ---
+					// SetCursorPos로 커서를 강제 이동시킨 후,
+					// ImGui가 레이아웃 경계를 인지하도록 더미 위젯을 추가합니다.
+					ImGui::Dummy(ImVec2(0.0f, 0.0f));
+				}
+
+				// PushStyleVar로 변경했던 스타일을 원래대로 복원합니다.
+				ImGui::PopStyleVar();
+
+				ImGui::EndCombo();
+			}
+
+			// 닫힌 콤보박스 '텍스트' 부분에 마우스를 올렸을 때 전체 경로 툴팁
+			// ImGui::IsItemHovered()는 마지막 아이템인 BeginCombo 위젯을 참조합니다.
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::BeginTooltip();
+				// CurrentTexturePath는 CurrentTexture가 null일 때 "None"을 표시합니다.
+				ImGui::TextUnformatted(CurrentTexturePath.c_str());
+				ImGui::EndTooltip();
 			}
 		}
 
