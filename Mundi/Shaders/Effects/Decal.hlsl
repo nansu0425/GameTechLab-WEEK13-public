@@ -5,10 +5,12 @@
 //================================================================================================
 
 // --- 조명 모델 선택 ---
-// Uncomment one of these to enable lighting:
-// #define LIGHTING_MODEL_GOURAUD 1
-// #define LIGHTING_MODEL_LAMBERT 1
-#define LIGHTING_MODEL_PHONG 1
+// ViewMode에서 동적으로 설정됨 (SceneRenderer::RenderDecalPass)
+// 가능한 매크로:
+// - LIGHTING_MODEL_GOURAUD
+// - LIGHTING_MODEL_LAMBERT
+// - LIGHTING_MODEL_PHONG
+// - (매크로 없음 = Unlit)
 
 // --- 공통 조명 시스템 include ---
 #include "../Common/LightStructures.hlsl"

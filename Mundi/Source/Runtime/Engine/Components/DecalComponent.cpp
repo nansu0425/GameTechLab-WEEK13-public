@@ -71,7 +71,7 @@ void UDecalComponent::TickComponent(float DeltaTime)
 }
 
 
-void UDecalComponent::RenderAffectedPrimitives(URenderer* Renderer, UPrimitiveComponent* Target, const FMatrix& View, const FMatrix& Proj)
+void UDecalComponent::RenderAffectedPrimitives(URenderer* Renderer, UPrimitiveComponent* Target, const FMatrix& View, const FMatrix& Proj, EViewModeIndex ViewMode)
 {
 	UStaticMeshComponent* SMC = Cast<UStaticMeshComponent>(Target);
 	if (!SMC || !SMC->GetStaticMesh())
@@ -98,8 +98,40 @@ void UDecalComponent::RenderAffectedPrimitives(URenderer* Renderer, UPrimitiveCo
 	FVector CameraPosition(ViewInverse.M[3][0], ViewInverse.M[3][1], ViewInverse.M[3][2]);
 	RHIDevice->SetAndUpdateConstantBuffer(CameraBufferType(CameraPosition));
 
-	// Shader 설정
-	UShader* DecalShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Effects/Decal.hlsl");
+	// ViewMode에 따라 조명 모델 매크로 설정
+	TArray<FShaderMacro> ShaderMacros;
+	FString ShaderPath = "Shaders/Effects/Decal.hlsl";
+
+	switch (ViewMode)
+	{
+	case EViewModeIndex::VMI_Lit_Phong:
+		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" });
+		break;
+	case EViewModeIndex::VMI_Lit_Gouraud:
+		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_GOURAUD", "1" });
+		break;
+	case EViewModeIndex::VMI_Lit_Lambert:
+		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_LAMBERT", "1" });
+		break;
+	case EViewModeIndex::VMI_Lit:
+		// 기본 Lit 모드는 Phong 사용
+		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" });
+		break;
+	case EViewModeIndex::VMI_Unlit:
+		// 매크로 없음 (Unlit)
+		break;
+	default:
+		// 기타 ViewMode (Wireframe, SceneDepth 등)는 매크로 없음
+		break;
+	}
+
+	// Shader 설정 (ViewMode에 따른 매크로 적용)
+	UShader* DecalShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath, ShaderMacros);
+	if (!DecalShader)
+	{
+		UE_LOG("DecalComponent: Failed to load shader with macros!");
+		return;
+	}
 
 	RHIDevice->GetDeviceContext()->VSSetShader(DecalShader->GetVertexShader(), nullptr, 0);
 	RHIDevice->GetDeviceContext()->PSSetShader(DecalShader->GetPixelShader(), nullptr, 0);

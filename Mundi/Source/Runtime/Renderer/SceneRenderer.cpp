@@ -785,10 +785,10 @@ void FSceneRenderer::RenderDecalPass()
 		// --- 데칼 렌더 시간 측정 시작 ---
 		auto CpuTimeStart = std::chrono::high_resolution_clock::now();
 
-		// 3. TargetPrimitive 순회하며 렌더링
+		// 3. TargetPrimitive 순회하며 렌더링 (ViewMode 전달)
 		for (UPrimitiveComponent* Target : TargetPrimitives)
 		{
-			Decal->RenderAffectedPrimitives(OwnerRenderer, Target, View->ViewMatrix, View->ProjectionMatrix);
+			Decal->RenderAffectedPrimitives(OwnerRenderer, Target, View->ViewMatrix, View->ProjectionMatrix, View->ViewMode);
 		}
 
 		// --- 데칼 렌더 시간 측정 종료 및 결과 저장 ---
