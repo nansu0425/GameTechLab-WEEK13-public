@@ -57,9 +57,14 @@ void FLightManager::UpdateLightBuffer(D3D11RHI* RHIDevice)
 	{
 		FLightBufferType LightBuffer{};
 
-		LightBuffer.AmbientLight = AmbientLightList[0]->GetLightInfo();
-
-		LightBuffer.DirectionalLight = DIrectionalLightList[0]->GetLightInfo();
+		if (AmbientLightList.Num() > 0)
+		{
+			LightBuffer.AmbientLight = AmbientLightList[0]->GetLightInfo();
+		}
+		if (DIrectionalLightList.Num() > 0)
+		{
+			LightBuffer.DirectionalLight = DIrectionalLightList[0]->GetLightInfo();
+		}
 
 
 		if (bPointLightDirty)
