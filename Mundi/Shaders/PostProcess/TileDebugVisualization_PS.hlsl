@@ -103,7 +103,7 @@ float4 mainPS(float4 Pos : SV_Position, float2 TexCoord : TEXCOORD0) : SV_Target
     bool isBorder = (tileLocalPos.x < 1.0f || tileLocalPos.y < 1.0f);
 
     // 원본 씬과 히트맵을 블렌딩 (50% 투명도)
-    float3 finalColor = lerp(sceneColor, heatmapColor, 0.4f);
+    float3 finalColor = lerp(sceneColor, heatmapColor, 0.25f);
 
     // 경계선은 흰색으로 표시
     if (isBorder)

@@ -61,7 +61,6 @@ void FTileLightCuller::CullLights(
 	memset(TileLightIndices.GetData(), 0, RequiredSize * sizeof(uint32));
 
 	// Inverse View-Projection 행렬 계산
-	//FMatrix InvViewProj = ProjMatrix.InversePerspectiveProjection() * ViewMatrix.InverseAffineFast();
 	FMatrix InvViewProj = ProjMatrix.InversePerspectiveProjection() * ViewMatrix.InverseAffine();
 
 	// 각 타일에 대해 컬링 수행
