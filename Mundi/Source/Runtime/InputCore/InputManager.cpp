@@ -81,24 +81,17 @@ void UInputManager::Update()
             // 커서 잠금 모드: 무한 드래그 처리
             if (bIsCursorLocked)
             {
-                // 1. 현재 실제 커서 위치를 MousePosition에 저장
                 MousePosition.X = static_cast<float>(CursorPos.x);
                 MousePosition.Y = static_cast<float>(CursorPos.y);
 
-                // 2. 델타 계산 = MousePosition - PreviousMousePosition
-                //    (우클릭한 위치에서 얼마나 움직였는지)
-
-                // 3. 커서를 다시 원래 우클릭한 위치로 재배치
                 POINT lockedPoint = { static_cast<int>(LockedCursorPosition.X), static_cast<int>(LockedCursorPosition.Y) };
                 ClientToScreen(WindowHandle, &lockedPoint);
                 SetCursorPos(lockedPoint.x, lockedPoint.y);
 
-                // 4. 다음 프레임을 위해 PreviousMousePosition을 잠긴 위치로 설정
                 PreviousMousePosition = LockedCursorPosition;
             }
             else
             {
-                // 일반 모드: 이전 위치 저장 후 현재 위치 업데이트
                 PreviousMousePosition = MousePosition;
                 MousePosition.X = static_cast<float>(CursorPos.x);
                 MousePosition.Y = static_cast<float>(CursorPos.y);
@@ -106,11 +99,11 @@ void UInputManager::Update()
         }
 
         // 화면 크기 갱신 (윈도우 리사이즈 대응)
-        RECT rc{};
-        if (GetClientRect(WindowHandle, &rc))
+        RECT Rectangle{};
+        if (GetClientRect(WindowHandle, &Rectangle))
         {
-            float w = static_cast<float>(rc.right - rc.left);
-            float h = static_cast<float>(rc.bottom - rc.top);
+            float w = static_cast<float>(Rectangle.right - Rectangle.left);
+            float h = static_cast<float>(Rectangle.bottom - Rectangle.top);
             ScreenSize.X = (w > 0.0f) ? w : 1.0f;
             ScreenSize.Y = (h > 0.0f) ? h : 1.0f;
         }
