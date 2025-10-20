@@ -114,6 +114,11 @@ void UActorComponent::DuplicateSubObjects()
     Owner = nullptr; // Actor에서 이거 설정해 줌
 }
 
+void UActorComponent::PostDuplicate()
+{
+    bRegistered = false;
+}
+
 void UActorComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
     Super::Serialize(bInIsLoading, InOutHandle);
