@@ -280,14 +280,8 @@ void USceneIOWidget::LoadLevel(const FString& InFilePath)
 		// 로드 직전: Transform 위젯/선택 초기화
 		UUIManager::GetInstance().ClearTransformWidgetSelection();
 		GWorld->GetSelectionManager()->ClearSelection();
-		//UUIManager::GetInstance().ResetPickedActor();
 
-		// 2) 레벨 서비스로 로드 후 월드에 적용
-
-		//FLoadedLevel Loaded = ULevelService::LoadLevel(SceneName);
-
-		std::unique_ptr<ULevel> NewLevel = ULevelService::CreateNewLevel();
-		//FString FilePath = "Scene/" + InFilePath + ".Scene";
+		std::unique_ptr<ULevel> NewLevel = ULevelService::CreateDefaultLevel();
 		JSON LevelJsonData;
 		if (FJsonSerializer::LoadJsonFromFile(LevelJsonData, InFilePath))
 		{

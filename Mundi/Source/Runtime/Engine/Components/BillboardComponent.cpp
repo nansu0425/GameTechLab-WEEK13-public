@@ -62,20 +62,17 @@ void UBillboardComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
 	Super::Serialize(bInIsLoading, InOutHandle);
 
-	// TextureName은 프로퍼티로 등록되지 않았으므로 수동 직렬화 필요
-	if (bInIsLoading)
+	if (bInIsLoading && InOutHandle.hasKey("TextureName") && !InOutHandle.hasKey("Texture"))
 	{
-		FString TextureNameTemp;
-		FJsonSerializer::ReadString(InOutHandle, "TextureName", TextureNameTemp);
-		SetTextureName(TextureNameTemp);
-	}
-	else
-	{
-		InOutHandle["TextureName"] = TextureName;
+		InOutHandle["Texture"] = InOutHandle["TextureName"];
 	}
 
-	// Width, Height, Texture는 프로퍼티로 등록되어 있으므로 AutoSerialize가 처리
 	AutoSerialize(bInIsLoading, InOutHandle, UBillboardComponent::StaticClass());
+
+	if (bInIsLoading && Texture)
+	{
+		TextureName = Texture->GetTextureName();
+	}
 }
 
 void UBillboardComponent::DuplicateSubObjects()
