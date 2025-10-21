@@ -283,6 +283,7 @@ void UEditorEngine::MainLoop()
             }
 
             GWorld = WorldContexts[0].World;
+            GWorld->GetLightManager()->SetDirtyFlag();
             SLATE.SetPIEWorld(GWorld);
 
             bPIEActive = false;
@@ -341,6 +342,7 @@ void UEditorEngine::StartPIE()
     UWorld* PIEWorld = UWorld::DuplicateWorldForPIE(EditorWorld);
 
     GWorld = PIEWorld;
+    GWorld->GetLightManager()->SetDirtyFlag();
     SLATE.SetPIEWorld(GWorld);
 
     bPIEActive = true;
