@@ -156,7 +156,6 @@ void USceneIOWidget::RenderSaveLoadSection()
 	if (ImGui::Button("New Scene", ImVec2(110, 25)))
 	{
 		CreateNewLevel();
-
 	}
 }
 
@@ -325,6 +324,7 @@ void USceneIOWidget::CreateNewLevel()
 		GWorld->GetSelectionManager()->ClearSelection();
 
 		// 새 레벨 생성 후 월드에 적용
+		CurrentWorld->GetLightManager()->ClearAllLightList(); // TODO: 김민찬
 		CurrentWorld->SetLevel(ULevelService::CreateNewLevel());
 
 		UE_LOG("SceneIO: New scene created");
