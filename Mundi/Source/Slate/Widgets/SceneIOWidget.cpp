@@ -219,7 +219,7 @@ void USceneIOWidget::SaveLevel(const FString& InSceneName)
 			// 파일 경로에서 베이스 이름만 추출하여 넘김
 			/*FString SceneName = InSceneName;
 			size_t LastSlash = SceneName.find_last_of("\\/");
-			if (LastSlash != std::string::npos) 
+			if (LastSlash != std::string::npos)
 			{
 				SceneName = SceneName.substr(LastSlash + 1);
 			}
@@ -227,6 +227,15 @@ void USceneIOWidget::SaveLevel(const FString& InSceneName)
 			{
 				if (LastDot != std::string::npos) SceneName = SceneName.substr(0, LastDot);
 			}*/
+
+			// Scene 디렉토리가 없으면 생성
+			namespace fs = std::filesystem;
+			fs::path SceneDir = "Scene";
+			if (!fs::exists(SceneDir))
+			{
+				fs::create_directories(SceneDir);
+				UE_LOG("SceneIO: Created Scene directory");
+			}
 
 			FString FilePath = "Scene/" + InSceneName + ".Scene";
 
