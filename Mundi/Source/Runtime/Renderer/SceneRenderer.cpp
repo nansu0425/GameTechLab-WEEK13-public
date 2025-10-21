@@ -85,6 +85,7 @@ void FSceneRenderer::Render()
 		GWorld->GetLightManager()->UpdateLightBuffer(RHIDevice);
 		PerformTileLightCulling();	// 타일 기반 라이트 컬링 수행
 		RenderLitPath();
+		RenderPostProcessingPasses();	// 후처리 체인 실행
 		RenderTileCullingDebug();	// 타일 컬링 디버그 시각화 draw
 	}
 	else if (View->ViewMode == EViewModeIndex::VMI_Unlit)
@@ -107,7 +108,7 @@ void FSceneRenderer::Render()
 	}
 
 	//그리드와 디버그용 Primitive는 Post Processing 적용하지 않음.
-	RenderEditorPrimitivesPass();	// 그리드 출력
+	RenderEditorPrimitivesPass();	// 그리드, 빌보드, 기타 화살표 출력 
 	RenderDebugPass();	//  선택한 물체의 경계 출력
 
 	// 3. 공통 오버레이(Overlay) 렌더링
@@ -132,31 +133,25 @@ void FSceneRenderer::RenderLitPath()
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithId);
 
 	// Base Pass
-	RenderOpaquePass();
+	RenderOpaquePass(View->ViewMode);
 	RenderDecalPass();
 	RenderFireBallPass();
-
-	// 후처리 체인 실행
-	RenderPostProcessingPasses();
 }
 
 void FSceneRenderer::RenderWireframePath()
 {
+	// 깊이 버퍼 초기화 후 ID만 그리기
 	RHIDevice->RSSetState(ERasterizerMode::Solid);
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneIdTarget);
+	RenderOpaquePass(EViewModeIndex::VMI_Unlit);
 
-	RHIDevice->SetAndUpdateConstantBuffer(FLightBufferType());
-
-	RenderOpaquePass();
-
-	// 상태 변경: Wireframe으로 레스터라이즈 모드 설정하도록 설정
+	// Wireframe으로 그리기
+	RHIDevice->ClearDepthBuffer(1.0f, 0);
 	RHIDevice->RSSetState(ERasterizerMode::Wireframe);
-
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTarget);
+	RenderOpaquePass(EViewModeIndex::VMI_Unlit);
 
-	RenderOpaquePass();
-
-	// 상태 복구: 원래의 Lit(Solid) 상태로 되돌림 (매우 중요!)
+	// 상태 복구
 	RHIDevice->RSSetState(ERasterizerMode::Solid);
 }
 
@@ -183,7 +178,7 @@ void FSceneRenderer::RenderSceneDepthPath()
 	RHIDevice->ClearDepthBuffer(1.0f, 0);
 
 	// 2. Base Pass - Scene에 메시 그리기
-	RenderOpaquePass();
+	RenderOpaquePass(EViewModeIndex::VMI_Unlit);
 
 	// ✅ 디버그: BackBuffer 전환 전 viewport 확인
 	RHIDevice->GetDeviceContext()->RSGetViewports(&numVP, &vpBefore);
@@ -270,7 +265,6 @@ void FSceneRenderer::GatherVisibleProxies()
 	//// 절두체 컬링 수행 -> 결과가 멤버 변수 PotentiallyVisibleActors에 저장됨
 	//PerformFrustumCulling();
 
-	const bool bDrawPrimitives = World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Primitives);
 	const bool bDrawStaticMeshes = World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_StaticMeshes);
 	const bool bDrawDecals = World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Decals);
 	const bool bDrawFog = World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Fog);
@@ -293,15 +287,32 @@ void FSceneRenderer::GatherVisibleProxies()
 				continue;
 			}
 
-			// Collect Gizmo components (for editor overlay rendering)
-			if (UGizmoArrowComponent* GizmoComponent = Cast<UGizmoArrowComponent>(Component))
+			if (UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Component); PrimitiveComponent)
 			{
-				Proxies.Gizmos.Add(GizmoComponent);
-				continue; // Gizmos are handled separately in overlay pass
-			}
+				// 엔진 에디터 액터 컴포넌트
+				if (bIsEditorActor)
+				{
+					if (UGizmoArrowComponent* GizmoComponent = Cast<UGizmoArrowComponent>(Component))
+					{
+						// 조작 기즈모
+						Proxies.OverlayPrimitives.Add(GizmoComponent);
+					}
+					else
+					{
+						Proxies.EditorPrimitives.Add(PrimitiveComponent);
+					}
 
-			if (UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Component); PrimitiveComponent && bDrawPrimitives)
-			{
+					continue;
+				}
+
+				// 에디터 보조 컴포넌트
+				if (!PrimitiveComponent->IsEditable())
+				{
+					Proxies.EditorPrimitives.Add(PrimitiveComponent);
+					continue;
+				}
+
+				// 일반 컴포넌트
 				if (UMeshComponent* MeshComponent = Cast<UMeshComponent>(PrimitiveComponent))
 				{
 					bool bShouldAdd = true;
@@ -514,13 +525,13 @@ void FSceneRenderer::PerformFrustumCulling()
 	//}
 }
 
-void FSceneRenderer::RenderOpaquePass()
+void FSceneRenderer::RenderOpaquePass(EViewModeIndex InRenderViewMode)
 {
 	TArray<FShaderMacro> ShaderMacros;
 	FString ShaderPath = "Shaders/Materials/UberLit.hlsl";
 	bool bNeedsShaderOverride = true; // 뷰 모드가 셰이더를 강제하는지 여부
 
-	switch (View->ViewMode)
+	switch (InRenderViewMode)
 	{
 	case EViewModeIndex::VMI_Lit_Phong:
 		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" });
@@ -574,11 +585,10 @@ void FSceneRenderer::RenderOpaquePass()
 		}
 	}
 
-	// Billboard는 Overlay Pass에서 렌더링됨 (DirectionGizmo 다음, Selection Gizmo 전)
-	// for (UBillboardComponent* BillboardComponent : Proxies.Billboards)
-	// {
-	// 	BillboardComponent->Render(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
-	// }
+	for (UBillboardComponent* BillboardComponent : Proxies.Billboards)
+	{
+		BillboardComponent->CollectMeshBatches(MeshBatchElements, View);
+	}
 
 	for (UTextRenderComponent* TextRenderComponent : Proxies.Texts)
 	{
@@ -1076,8 +1086,18 @@ void FSceneRenderer::RenderTileCullingDebug()
 
 void FSceneRenderer::RenderEditorPrimitivesPass()
 {
-	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTarget);
+	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithId);
+	// 빌보드, 에디터 화살표 그리기
+	for (UPrimitiveComponent* GizmoComp : Proxies.EditorPrimitives)
+	{
+		GizmoComp->CollectMeshBatches(MeshBatchElements, View);
+	}
 
+	// 수집된 배치를 그립니다.
+	DrawMeshBatches(MeshBatchElements, true);
+
+	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTarget);
+	// 그리드 그리기
 	for (AActor* EngineActor : World->GetEditorActors())
 	{
 		if (!EngineActor || EngineActor->GetActorHiddenInGame()) continue;
@@ -1142,93 +1162,13 @@ void FSceneRenderer::RenderOverayEditorPrimitivesPass()
 	// 오버레이 끼리는 깊이 테스트가 가능함
 	RHIDevice->ClearDepthBuffer(1.0f, 0);
 
-	// Sort Gizmos by render priority (lower priority first, so higher priority renders on top)
-	Proxies.Gizmos.Sort([](const UGizmoArrowComponent* A, const UGizmoArrowComponent* B)
+	for (UPrimitiveComponent* GizmoComp : Proxies.OverlayPrimitives)
 	{
-		// Null 체크 추가 (안전성)
-		if (!A || !B) return false;
-		return A->GetRenderPriority() < B->GetRenderPriority();
-	});
-
-	// Render all overlays (Gizmos and Billboards) with priority-based ordering
-	// Priority 0: DirectionGizmos + Billboards (same depth buffer)
-	// Priority 100: Selection Gizmos
-	// Clear depth buffer when priority changes to prevent lower priority elements from occluding higher priority ones
-	int32 CurrentPriority = INT32_MIN;
-	bool bBillboardsRendered = false;
-
-	// Render Priority 0 elements (DirectionGizmos + Billboards)
-	for (UGizmoArrowComponent* GizmoComp : Proxies.Gizmos)
-	{
-		// Check if we've moved past priority 0
-		if (GizmoComp->GetRenderPriority() > 0)
-		{
-			break; // Stop processing priority 0 gizmos
-		}
-
-		// Clear depth buffer when switching to a new priority level
-		if (GizmoComp->GetRenderPriority() > CurrentPriority)
-		{
-			RHIDevice->ClearDepthBuffer(1.0f, 0);
-			CurrentPriority = GizmoComp->GetRenderPriority();
-		}
-
-		// 1. [상태 설정] 이 기즈모의 색상 및 하이라이트 상태 설정
-		RHIDevice->SetAndUpdateConstantBuffer(
-			GizmoBufferType{ GizmoComp->GetColor(), GizmoComp->IsHighlighted() ? 1u : 0u }
-		);
-
-		// 2. [수집] 이 기즈모의 FMeshBatchElement만 수집
-		MeshBatchElements.Empty();
 		GizmoComp->CollectMeshBatches(MeshBatchElements, View);
-
-		// 3. [그리기] 수집된 배치를 *즉시* 그립니다.
-		DrawMeshBatches(MeshBatchElements, true);
 	}
 
-	// 빌보드 렌더링에 필요한 카메라 정보 (기존 Render() 함수에서 가져옴)
-	for (UBillboardComponent* BillboardComponent : Proxies.Billboards)
-	{
-		// 2. [수집]
-		MeshBatchElements.Empty();
-		BillboardComponent->CollectMeshBatches(MeshBatchElements, View);
-
-		// 3. [그리기]
-		DrawMeshBatches(MeshBatchElements, true);
-	}
-	bBillboardsRendered = true;
-
-	// Render higher priority gizmos (Priority 100: Selection Gizmos)
-	for (UGizmoArrowComponent* GizmoComp : Proxies.Gizmos)
-	{
-		// Skip priority 0 gizmos (already rendered)
-		if (GizmoComp->GetRenderPriority() <= 0)
-		{
-			continue;
-		}
-
-		// Clear depth buffer when switching to a new priority level
-		if (GizmoComp->GetRenderPriority() > CurrentPriority)
-		{
-			RHIDevice->ClearDepthBuffer(1.0f, 0);
-			CurrentPriority = GizmoComp->GetRenderPriority();
-		}
-
-		// 1. [상태 설정] 이 기즈모의 색상 및 하이라이트 상태 설정
-		RHIDevice->SetAndUpdateConstantBuffer(
-			GizmoBufferType{ GizmoComp->GetColor(), GizmoComp->IsHighlighted() ? 1u : 0u }
-		);
-
-		// 2. [수집] 이 기즈모의 FMeshBatchElement만 수집
-		MeshBatchElements.Empty();
-		GizmoComp->CollectMeshBatches(MeshBatchElements, View);
-
-		// 3. [그리기] 수집된 배치를 *즉시* 그립니다.
-		DrawMeshBatches(MeshBatchElements, true);
-	}
-
-	// 모든 오버레이 렌더링 후 하이라이트 상태 비활성화
-	// No need to reset GizmoBuffer - it's set per-gizmo during rendering
+	// 수집된 배치를 그립니다.
+	DrawMeshBatches(MeshBatchElements, true);
 }
 
 void FSceneRenderer::ApplyScreenEffectsPass()
