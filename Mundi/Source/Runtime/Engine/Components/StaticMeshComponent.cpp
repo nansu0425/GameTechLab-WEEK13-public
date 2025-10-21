@@ -33,34 +33,6 @@ UStaticMeshComponent::~UStaticMeshComponent()
 	}
 }
 
-void UStaticMeshComponent::Render(URenderer* Renderer, const FMatrix& ViewMatrix, const FMatrix& ProjectionMatrix)
-{
-	//// NOTE: 기즈모 출력을 위해 일단 남겨둠
-
-	//UStaticMesh* Mesh = GetStaticMesh();
-	//if (Mesh && Mesh->GetStaticMeshAsset())
-	//{
-	//	FMatrix WorldMatrix = GetWorldMatrix();
-	//	FMatrix WorldInverseTranspose = WorldMatrix.InverseAffine().Transpose();
-	//	Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ModelBufferType(WorldMatrix, WorldInverseTranspose));
-	//	Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ViewProjBufferType(ViewMatrix, ProjectionMatrix));
-	//	Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ColorBufferType(FLinearColor(), this->InternalIndex));
-	//	// b7: CameraBuffer - Renderer에서 카메라 위치 가져오기
-	//	FVector CameraPos = FVector::Zero();
-	//	if (ACameraActor* Camera = Renderer->GetCurrentCamera())
-	//	{
-	//		if (UCameraComponent* CamComp = Camera->GetCameraComponent())
-	//		{
-	//			CameraPos = CamComp->GetWorldLocation();
-	//		}
-	//	}
-	//	Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(CameraBufferType(CameraPos, 0.0f));
-
-	//	Renderer->GetRHIDevice()->PrepareShader(GetMaterial(0)->GetShader());
-	//	Renderer->DrawIndexedPrimitiveComponent(GetStaticMesh(), D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST, MaterialSlots);
-	//}
-}
-
 void UStaticMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View)
 {
 	// 1. 렌더링할 메시 애셋이 유효한지 검사

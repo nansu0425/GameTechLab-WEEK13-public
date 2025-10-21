@@ -8,12 +8,6 @@ class UShader;
 class UTexture;
 struct FSceneCompData;
 
-struct FMaterialSlot
-{
-	FName MaterialName;
-	bool bChangedByUser = false; // user에 의해 직접 Material이 바뀐 적이 있는지.
-};
-
 class UStaticMeshComponent : public UMeshComponent
 {
 public:
@@ -26,7 +20,6 @@ protected:
 	~UStaticMeshComponent() override;
 
 public:
-	void Render(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) override;
 	void CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View) override;
 
 	void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
