@@ -30,6 +30,7 @@ void UQuad::Load(const FString& InFilePath, ID3D11Device* InDevice)
 	CreateIndexBuffer(StaticMeshAsset, InDevice);
 	VertexCount = static_cast<uint32>(StaticMeshAsset->Vertices.size());
 	IndexCount = static_cast<uint32>(StaticMeshAsset->Indices.size());
+	VertexStride = sizeof(FBillboardVertex);
 
 	/*MeshDataCPU = UMeshLoader::GetInstance().LoadMesh(InFilePath.c_str());
 	CreateVertexBuffer(MeshDataCPU, InDevice, InVertexType);
@@ -55,6 +56,7 @@ void UQuad::Load(FMeshData* InData, ID3D11Device* InDevice, bool IsTextQuad)
 
 	VertexCount = static_cast<uint32>(InData->Vertices.size());
 	IndexCount = static_cast<uint32>(InData->Indices.size());
+	VertexStride = sizeof(FBillboardVertex);
 }
 
 void UQuad::CreateVertexBuffer(FMeshData* InMeshData, ID3D11Device* InDevice, bool IsTextQuad)

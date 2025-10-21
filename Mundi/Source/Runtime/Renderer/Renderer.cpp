@@ -233,9 +233,9 @@ void URenderer::DrawIndexedPrimitiveComponent(UTextRenderComponent* Comp, D3D11_
 // 단일 Quad 용 -> Billboard에서 호출 
 void URenderer::DrawIndexedPrimitiveComponent(UBillboardComponent* Comp, D3D11_PRIMITIVE_TOPOLOGY InTopology)
 {
-	UINT Stride = sizeof(FBillboardVertex);
 	ID3D11Buffer* VertexBuff = Comp->GetStaticMesh()->GetVertexBuffer();
 	ID3D11Buffer* IndexBuff = Comp->GetStaticMesh()->GetIndexBuffer();
+	UINT Stride = Comp->GetStaticMesh()->GetVertexStride();
 
 	// Input layout comes from the shader bound to the material
 	RHIDevice->GetDeviceContext()->IASetInputLayout(Comp->GetMaterial(0)->GetShader()->GetInputLayout());

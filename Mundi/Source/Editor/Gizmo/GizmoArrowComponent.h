@@ -58,4 +58,3 @@ protected:
     // 기즈모가 항상 사용할 고정 머티리얼입니다.
     UMaterial* GizmoMaterial = nullptr;
 };
-

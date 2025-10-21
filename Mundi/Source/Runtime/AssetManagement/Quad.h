@@ -19,6 +19,7 @@ public:
     ID3D11Buffer* GetIndexBuffer() const { return IndexBuffer; }
     uint32 GetVertexCount() { return VertexCount; }
     uint32 GetIndexCount() { return IndexCount; }
+    uint32 GetVertexStride() const { return VertexStride; }
     void SetIndexCount(uint32 Cnt) { IndexCount = Cnt; }
 
     //const FString& GetAssetPathFileName() const { return StaticMeshAsset ? StaticMeshAsset->PathFileName : FilePath; }
@@ -38,6 +39,7 @@ private:
     ID3D11Buffer* IndexBuffer = nullptr;
     uint32 VertexCount = 0;     // 정점 개수
     uint32 IndexCount = 0;     // 버텍스 점의 개수 
+    uint32 VertexStride = 0;
     // EVertexLayoutType VertexType = EVertexLayoutType::PositionColor;  // 버텍스 타입
 
     // CPU 리소스

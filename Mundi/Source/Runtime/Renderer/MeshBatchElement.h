@@ -58,6 +58,13 @@ struct FMeshBatchElement
 	// 피킹(Picking) 등에 사용될 고유 ID입니다.
 	uint32 ObjectID = 0;
 
+	// 빌보드나 데칼처럼 머티리얼이 아닌 컴포넌트 인스턴스가
+	// 직접 텍스처를 지정해야 할 때 사용합니다.
+	ID3D11ShaderResourceView* InstanceShaderResourceView = nullptr;
+
+	// 기즈모 하이라이트, 빌보드 틴트 등 인스턴스별 색상 오버라이드입니다.
+	// (기본값으로 흰색(1,1,1,1)을 설정하는 것이 일반적입니다.)
+	FLinearColor InstanceColor = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
 	// --- 기본 생성자 ---
 	FMeshBatchElement() = default;
