@@ -1,6 +1,6 @@
 ﻿/**
  * @file TextureConverter.cpp
- * @brief Implementation of texture conversion utilities using DirectXTex
+ * @brief DirectXTex를 사용한 텍스처 변환 유틸리티 구현
  */
 
 #include "pch.h"
@@ -8,7 +8,7 @@
 #include <DirectXTex.h>
 #include <algorithm>
 
-// Helper function: Convert UTF-8 string to wide string
+// 헬퍼 함수: UTF-8 문자열을 와이드 문자열로 변환
 static std::wstring UTF8ToWide(const std::string& str)
 {
 	if (str.empty()) return std::wstring();
@@ -23,7 +23,7 @@ static std::wstring UTF8ToWide(const std::string& str)
 	return result;
 }
 
-// Helper function: Convert wide string to UTF-8 string
+// 헬퍼 함수: 와이드 문자열을 UTF-8 문자열로 변환
 static std::string WideToUTF8(const std::wstring& wstr)
 {
 	if (wstr.empty()) return std::string();
@@ -45,7 +45,7 @@ bool FTextureConverter::ConvertToDDS(
 {
 	using namespace DirectX;
 
-	// 1. Load source image
+	// 1. 원본 이미지 로드
 	std::wstring WSourcePath = UTF8ToWide(SourcePath);
 	std::filesystem::path SourceFile(WSourcePath);
 
@@ -58,7 +58,7 @@ bool FTextureConverter::ConvertToDDS(
 	TexMetadata metadata;
 	ScratchImage image;
 
-	// Load based on file extension
+	// 파일 확장자에 따라 로드
 	std::wstring ext = SourceFile.extension().wstring();
 	std::transform(ext.begin(), ext.end(), ext.begin(), ::towlower);
 
@@ -66,7 +66,7 @@ bool FTextureConverter::ConvertToDDS(
 
 	if (ext == L".dds")
 	{
-		// Already DDS format, no conversion needed
+		// 이미 DDS 포맷이면 변환 불필요
 		return true;
 	}
 	else if (ext == L".tga")
@@ -79,7 +79,7 @@ bool FTextureConverter::ConvertToDDS(
 	}
 	else
 	{
-		// Use WIC for common formats (PNG, JPG, BMP, etc.)
+		// 일반적인 포맷(PNG, JPG, BMP 등)은 WIC 사용
 		hr = LoadFromWICFile(WSourcePath.c_str(), WIC_FLAGS_NONE, &metadata, image);
 	}
 
@@ -90,13 +90,13 @@ bool FTextureConverter::ConvertToDDS(
 		return false;
 	}
 
-	// 2. Resize to 4-pixel alignment if using block compression
+	// 2. 블록 압축 사용 시 4픽셀 정렬로 리사이즈
 	if (IsCompressed(Format))
 	{
 		size_t width = metadata.width;
 		size_t height = metadata.height;
 
-		// Round up to next multiple of 4
+		// 4의 배수로 올림
 		size_t alignedWidth = (width + 3) & ~3;
 		size_t alignedHeight = (height + 3) & ~3;
 
@@ -122,7 +122,7 @@ bool FTextureConverter::ConvertToDDS(
 		}
 	}
 
-	// 3. Generate mipmaps if needed
+	// 3. 필요 시 밉맵 생성
 	ScratchImage mipChain;
 	if (bShouldGenerateMipmaps && metadata.mipLevels == 1)
 	{
@@ -135,11 +135,11 @@ bool FTextureConverter::ConvertToDDS(
 		}
 	}
 
-	// 4. Compress to target format
+	// 4. 대상 포맷으로 압축
 	ScratchImage compressed;
 	if (IsCompressed(Format))
 	{
-		// Fast multi-threaded compression
+		// 빠른 멀티스레드 압축
 		hr = Compress(image.GetImages(), image.GetImageCount(), metadata,
 		              Format, TEX_COMPRESS_PARALLEL | TEX_COMPRESS_DITHER,
 		              TEX_THRESHOLD_DEFAULT, compressed);
@@ -153,15 +153,15 @@ bool FTextureConverter::ConvertToDDS(
 	}
 	else
 	{
-		// Uncompressed format, just convert
+		// 비압축 포맷은 그냥 변환
 		compressed = std::move(image);
 	}
 
-	// 4. Determine output path
+	// 5. 출력 경로 결정
 	FString FinalOutputPath = OutputPath.empty() ? GetDDSCachePath(SourcePath) : OutputPath;
 	EnsureCacheDirectoryExists(FinalOutputPath);
 
-	// 5. Save to DDS
+	// 6. DDS로 저장
 	std::wstring WOutputPath = UTF8ToWide(FinalOutputPath);
 	hr = SaveToDDSFile(compressed.GetImages(), compressed.GetImageCount(),
 	                   compressed.GetMetadata(), DDS_FLAGS_NONE, WOutputPath.c_str());
@@ -184,25 +184,25 @@ bool FTextureConverter::ShouldRegenerateDDS(
 {
 	namespace fs = std::filesystem;
 
-	// Check if DDS cache exists
+	// DDS 캐시 존재 여부 확인
 	fs::path SourceFile(UTF8ToWide(SourcePath));
 	fs::path DDSFile(UTF8ToWide(DDSPath));
 
 	if (!fs::exists(DDSFile))
 	{
-		return true; // Cache doesn't exist
+		return true; // 캐시가 없으면 재생성
 	}
 
 	if (!fs::exists(SourceFile))
 	{
-		return false; // Source missing, use existing cache
+		return false; // 원본이 없으면 기존 캐시 사용
 	}
 
-	// Compare timestamps
+	// 타임스탬프 비교
 	auto SourceTime = fs::last_write_time(SourceFile);
 	auto DDSTime = fs::last_write_time(DDSFile);
 
-	// Regenerate if source is newer than cache
+	// 원본이 캐시보다 최신이면 재생성
 	return SourceTime > DDSTime;
 }
 
@@ -213,28 +213,28 @@ FString FTextureConverter::GetDDSCachePath(const FString& SourcePath)
 	fs::path SourceFile(UTF8ToWide(SourcePath));
 	fs::path RelativePath;
 
-	// Try to make path relative to Data/ directory
+	// Data/ 디렉토리를 기준으로 상대 경로 생성 시도
 	fs::path DataDir = fs::current_path() / "Data";
 
 	if (SourceFile.is_absolute())
 	{
-		// Try to extract relative path from Data directory
+		// Data 디렉토리 기준 상대 경로 추출 시도
 		std::error_code ec;
 		RelativePath = fs::relative(SourceFile, DataDir, ec);
 
 		if (ec || RelativePath.empty() || RelativePath.string().find("..") == 0)
 		{
-			// File is outside Data directory, use filename only
+			// Data 디렉토리 외부 파일이면 파일명만 사용
 			RelativePath = SourceFile.filename();
 		}
 	}
 	else
 	{
-		// Already relative path
+		// 이미 상대 경로
 		RelativePath = SourceFile;
 	}
 
-	// Build cache path: Data/TextureCache/<relative_path>/<filename>.dds
+	// 캐시 경로 생성: Data/TextureCache/<relative_path>/<filename>.dds
 	fs::path CachePath = DataDir / "TextureCache" / RelativePath;
 	CachePath.replace_extension(".dds");
 
@@ -260,9 +260,9 @@ void FTextureConverter::SetGenerateMipmaps(bool bGenerateMips)
 
 DXGI_FORMAT FTextureConverter::GetRecommendedFormat(bool bHasAlpha)
 {
-	// BC3 (DXT5) for textures with alpha - fast compression, good quality
-	// BC1 (DXT1) for opaque textures - fastest compression, smaller size
-	// BC7 available but very slow (10-20x slower than BC3)
+	// BC3 (DXT5): 알파 포함 텍스처용 - 빠른 압축, 좋은 품질
+	// BC1 (DXT1): 불투명 텍스처용 - 가장 빠른 압축, 작은 크기
+	// BC7: 사용 가능하지만 매우 느림 (BC3보다 10~20배)
 
 	return bHasAlpha ? DXGI_FORMAT_BC3_UNORM : DXGI_FORMAT_BC1_UNORM;
 }
