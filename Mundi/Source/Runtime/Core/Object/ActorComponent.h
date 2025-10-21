@@ -47,6 +47,9 @@ public:
     void SetEditability(bool InEditable) { bIsEditable = InEditable; }
     bool IsEditable() const { return bIsEditable; }
 
+    void SetHiddenInGame(bool bInHidden) { bHiddenInGame = bInHidden; }
+    bool GetHiddenInGame() const { return bHiddenInGame; }
+
     void SetCanEverTick(bool b) { bCanEverTick = b; }
     bool CanEverTick() const { return bCanEverTick; }
 
@@ -81,7 +84,8 @@ public:
 protected:
     AActor* Owner = nullptr;     // 소유 액터
     bool bIsNative = false;      // 액터의 기본 구성 컴포넌트인지 여부. 활성화되면 보호되어 UI에서 삭제 불가 상태가 됨 
-    bool bIsActive = true;       // 활성 상태(사용자 on/off)
+    bool bIsActive = true;       // 활성 상태(사용자 on/off), 물리 적용
+    bool bHiddenInGame = false; // 게임에서 숨김 여부
     bool bCanEverTick = false;   // 컴포넌트 설계상 틱 지원 여부
     bool bTickEnabled = false;   // 현재 틱 켜짐 여부
 

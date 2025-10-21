@@ -124,7 +124,7 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 			if (strcmp(Property.Name, "LightColor") == 0 ||
 				strcmp(Property.Name, "Intensity") == 0 ||
 				strcmp(Property.Name, "Temperature") == 0 ||
-				strcmp(Property.Name, "bIsEnabled") == 0)
+				strcmp(Property.Name, "bIsVisible") == 0)
 			{
 				LightComponent->UpdateLightData();
 			}

@@ -392,8 +392,8 @@ void USceneManagerWidget::HandleActorVisibilityToggle(AActor* Actor)
 		return;
 
 	// Toggle the actor's actual visibility state
-	bool bNewVisible = Actor->GetActorHiddenInGame(); // If hidden, make visible
-	Actor->SetActorHiddenInGame(!bNewVisible);
+	bool bNewVisible = Actor->GetActorHiddenInEditor(); // If hidden, make visible
+	Actor->SetActorHiddenInEditor(!bNewVisible);
 
 	// Update the node to match the actor's state
 	FActorTreeNode* Node = FindNodeByActor(Actor);
@@ -763,7 +763,7 @@ void USceneManagerWidget::HandleCategoryVisibilityToggle(FActorTreeNode* Categor
 	{
 		if (Child && Child->IsActor() && Child->Actor)
 		{
-			Child->Actor->SetActorHiddenInGame(!CategoryNode->bIsVisible);
+			Child->Actor->SetActorHiddenInEditor(!CategoryNode->bIsVisible);
 			Child->bIsVisible = CategoryNode->bIsVisible;
 		}
 	}

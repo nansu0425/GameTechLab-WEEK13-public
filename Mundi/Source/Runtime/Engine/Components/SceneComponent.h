@@ -102,6 +102,9 @@ public:
     uint32 GetParentId() const { return ParentId; }
     void SetParentId(uint32 InParentId) { ParentId = InParentId; }
 
+    void SetVisibility(bool bInVisibility) { bIsVisible = bInVisibility; }
+    bool IsVisible() const { return bIsVisible; }
+
     // Debug Rendering
     // Virtual function for rendering debug visualization (bounds, volumes, etc.)
     // Override in derived classes that need debug visualization
@@ -126,6 +129,7 @@ protected:
     UBillboardComponent* SpriteComponent = nullptr;
 
     bool bWantsOnUpdateTransform = false;
+    bool bIsVisible = true;
 
     FVector RelativeLocation{ 0,0,0 };
     FQuat   RelativeRotation;

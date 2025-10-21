@@ -113,8 +113,8 @@ void UBillboardComponent::Render(URenderer* Renderer, const FMatrix& View, const
 void UBillboardComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View)
 {
 	// 1. 렌더링할 애셋이 유효한지 검사
-	// (IsActive()는 UPrimitiveComponent 또는 그 부모에 있다고 가정)
-	if (!IsActive() || !Quad || Quad->GetIndexCount() == 0 || !Texture || !Texture->GetShaderResourceView())
+	// (IsVisible()는 UPrimitiveComponent 또는 그 부모에 있다고 가정)
+	if (!IsVisible() || !Quad || Quad->GetIndexCount() == 0 || !Texture || !Texture->GetShaderResourceView())
 	{
 		return; // 그릴 메시 데이터 없음
 	}

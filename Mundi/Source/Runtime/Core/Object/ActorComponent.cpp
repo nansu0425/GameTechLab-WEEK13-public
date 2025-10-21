@@ -76,7 +76,6 @@ void UActorComponent::DestroyComponent()
     if (bRegistered) UnregisterComponent();
 
     DeleteObject(this);
-    GWorld->GetSelectionManager()->ClearSelection();
     // Owner 참조 끊기
     //Owner = nullptr;
 }

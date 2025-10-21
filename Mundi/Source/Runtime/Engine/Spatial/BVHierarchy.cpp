@@ -434,7 +434,7 @@ void FBVHierarchy::QueryRayClosest(const FRay& Ray, AActor*& OutActor, OUT float
                 if (!Component) continue;
                 AActor* Owner = Component->GetOwner();
                 if (!Owner) continue;
-                if (Owner->GetActorHiddenInGame()) continue;
+                if (Owner->GetActorHiddenInEditor()) continue;
 
                 const FAABB* Cached = StaticMeshComponentBounds.Find(Component);
                 const FAABB Box = Cached ? *Cached : Component->GetWorldAABB();

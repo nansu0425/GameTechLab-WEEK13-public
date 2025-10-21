@@ -14,9 +14,9 @@ public:
 	virtual ~ULightComponentBase() override;
 
 public:
-	// Light Properties
-	void SetEnabled(bool bInEnabled) { bIsEnabled = bInEnabled; }
-	bool IsEnabled() const { return bIsEnabled; }
+	//// Light Properties
+	//void SetEnabled(bool bInEnabled) { bIsEnabled = bInEnabled; }
+	//bool IsEnabled() const { return bIsEnabled; }
 
 	void SetIntensity(float InIntensity) { Intensity = InIntensity;  }
 	float GetIntensity() const { return Intensity; }
@@ -33,7 +33,7 @@ public:
 	DECLARE_DUPLICATE(ULightComponentBase)
 
 protected:
-	bool bIsEnabled = true;
+	//bool bIsEnabled = true;
 	float Intensity = 1.0f;
 	FLinearColor LightColor = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f);
 };

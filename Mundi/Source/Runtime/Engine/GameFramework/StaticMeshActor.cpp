@@ -32,11 +32,7 @@ void AStaticMeshActor::Tick(float DeltaTime)
 
 AStaticMeshActor::~AStaticMeshActor()
 {
-    if (StaticMeshComponent)
-    {
-        ObjectFactory::DeleteObject(StaticMeshComponent);
-    }
-    StaticMeshComponent = nullptr;
+   
 }
 
 FAABB AStaticMeshActor::GetBounds() const

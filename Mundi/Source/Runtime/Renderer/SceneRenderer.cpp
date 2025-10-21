@@ -275,14 +275,14 @@ void FSceneRenderer::GatherVisibleProxies()
 	// Helper lambda to collect components from an actor
 	auto CollectComponentsFromActor = [&](AActor* Actor, bool bIsEditorActor)
 	{
-		if (!Actor || Actor->GetActorHiddenInGame())
+		if (!Actor || Actor->GetActorHiddenInEditor())
 		{
 			return;
 		}
 
 		for (USceneComponent* Component : Actor->GetSceneComponents())
 		{
-			if (!Component || !Component->IsActive())
+			if (!Component || !Component->IsVisible())
 			{
 				continue;
 			}
@@ -515,7 +515,7 @@ void FSceneRenderer::PerformFrustumCulling()
 
 	//for (AActor* Actor : World->GetActors())
 	//{
-	//	if (!Actor || Actor->GetActorHiddenInGame()) continue;
+	//	if (!Actor || Actor->GetActorHiddenInEditor()) continue;
 
 	//	// 절두체 컬링을 통과한 액터만 목록에 추가
 	//	if (ViewFrustum.Intersects(Actor->GetBounds()))
@@ -1100,12 +1100,12 @@ void FSceneRenderer::RenderEditorPrimitivesPass()
 	// 그리드 그리기
 	for (AActor* EngineActor : World->GetEditorActors())
 	{
-		if (!EngineActor || EngineActor->GetActorHiddenInGame()) continue;
+		if (!EngineActor || EngineActor->GetActorHiddenInEditor()) continue;
 		if (Cast<AGridActor>(EngineActor) && !World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Grid)) continue;
 
 		for (USceneComponent* Component : EngineActor->GetSceneComponents())
 		{
-			if (Component && Component->IsActive())
+			if (Component && Component->IsVisible())
 			{
 				if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
 				{

@@ -385,6 +385,12 @@ void AActor::AddActorLocalLocation(const FVector& DeltaLocation)
 	}
 }
 
+void AActor::SetActorHiddenInEditor(bool bNewHidden)
+{
+	bHiddenInEditor = bNewHidden; 
+	GWorld->GetLightManager()->SetDirtyFlag();
+}
+
 void AActor::DuplicateSubObjects()
 {
 	Super::DuplicateSubObjects();
@@ -392,7 +398,7 @@ void AActor::DuplicateSubObjects()
 	// 기본 프로퍼티 초기화
 	bIsPicked = false;
 	bCanEverTick = true;
-	bHiddenInGame = false;
+	bHiddenInEditor = false;
 	bIsCulled = false;
 	World = nullptr; // PIE World는 복제 프로세스의 상위 레벨에서 설정해 주어야 합니다.
 
@@ -418,7 +424,10 @@ void AActor::DuplicateSubObjects()
 		{
 			continue; // 에디터 전용 컴포넌트는 PIE World로 복사하지 않음
 		}
-
+		if (OriginalComp->GetHiddenInGame())
+		{
+			continue;
+		}
 		// 컴포넌트를 깊은 복사합니다.
 		UActorComponent* NewComp = OriginalComp->Duplicate();
 		NewComp->SetOwner(this);

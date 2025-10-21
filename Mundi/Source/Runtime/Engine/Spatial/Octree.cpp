@@ -470,7 +470,7 @@ void FOctree::QueryRayClosest(const FRay& Ray, AActor*& OutActor, OUT float& Out
             {
                 continue;
             }
-            if (Actor->GetActorHiddenInGame())
+            if (Actor->GetActorHiddenInEditor())
             {
                 continue;
             }

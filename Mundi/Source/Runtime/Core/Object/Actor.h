@@ -3,6 +3,8 @@
 #include "Vector.h"
 #include "ActorComponent.h"
 #include "AABB.h"
+#include "LightManager.h"
+
 
 class UWorld;
 class USceneComponent;
@@ -121,9 +123,12 @@ public:
     bool GetCulled() { return bIsCulled; }
 
     // 가시성
+    void SetActorHiddenInEditor(bool bNewHidden);
+    bool GetActorHiddenInEditor() const { return bHiddenInEditor; }
+    // Visible false인 경우 게임, 에디터 모두 안 보임
     void SetActorHiddenInGame(bool bNewHidden) { bHiddenInGame = bNewHidden; }
-    bool GetActorHiddenInGame() const { return bHiddenInGame; }
-    bool IsActorVisible() const { return !bHiddenInGame; }
+    bool GetActorHiddenInGame() { return bHiddenInGame; }
+    bool IsActorVisible() const { return !bHiddenInEditor; }
 
     bool CanTickInEditor() const
     {
@@ -151,6 +156,8 @@ protected:
     
     bool bTickInEditor = false; // 에디터에서도 틱 허용
     bool bHiddenInGame = false;
+    // Actor의 Visibility는 루트 컴포넌트로 설정
+    bool bHiddenInEditor = false;
     bool bPendingDestroy = false;
 
     bool bIsPicked = false;

@@ -249,7 +249,7 @@ AActor* CPickingSystem::PerformPicking(const TArray<AActor*>& Actors, ACameraAct
 		if (!Actor) continue;
 
 		// Skip hidden actors for picking
-		if (Actor->GetActorHiddenInGame()) continue;
+		if (Actor->GetActorHiddenInEditor()) continue;
 
 		float hitDistance;
 		if (CheckActorPicking(Actor, ray, hitDistance))
@@ -306,7 +306,7 @@ AActor* CPickingSystem::PerformViewportPicking(const TArray<AActor*>& Actors,
 		if (!Actor) continue;
 
 		// Skip hidden actors for picking
-		if (Actor->GetActorHiddenInGame()) continue;
+		if (Actor->GetActorHiddenInEditor()) continue;
 
 		float hitDistance;
 		if (CheckActorPicking(Actor, ray, hitDistance))
