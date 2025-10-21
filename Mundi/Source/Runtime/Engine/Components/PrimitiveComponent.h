@@ -51,7 +51,7 @@ public:
     DECLARE_DUPLICATE(UPrimitiveComponent)
 
     // ───── 직렬화 ────────────────────────────
-    virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
+    virtual void OnSerialized() override;
 
 protected:
     bool bIsCulled = false;

@@ -22,7 +22,7 @@ public:
 	UQuad* GetStaticMesh() const { return TextQuad; }
 
 	// Serialize
-	void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
+	void OnSerialized() override;
 
 	UMaterial* GetMaterial(uint32 InSectionIndex) const override;
 	void SetMaterial(uint32 InElementIndex, UMaterial* InNewMaterial) override;

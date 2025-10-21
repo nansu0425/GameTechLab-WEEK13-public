@@ -33,7 +33,7 @@ public:
     void SetMaterial(uint32 InElementIndex, UMaterial* InNewMaterial) override;
 
     // Serialize
-    void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
+    void OnSerialized() override;
 
     // Duplication
     void DuplicateSubObjects() override;

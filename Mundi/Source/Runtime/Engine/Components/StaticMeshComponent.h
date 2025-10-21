@@ -29,7 +29,7 @@ public:
 	void Render(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj) override;
 	void CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View) override;
 
-	void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
+	void OnSerialized() override;
 
 	void SetStaticMesh(const FString& PathFileName);
 

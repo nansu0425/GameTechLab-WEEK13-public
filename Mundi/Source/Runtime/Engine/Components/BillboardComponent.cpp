@@ -58,21 +58,12 @@ void UBillboardComponent::SetMaterial(uint32 InElementIndex, UMaterial* InNewMat
 	Material = InNewMaterial;
 }
 
-void UBillboardComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
+void UBillboardComponent::OnSerialized()
 {
-	Super::Serialize(bInIsLoading, InOutHandle);
+	Super::OnSerialized();
 
-	if (bInIsLoading && InOutHandle.hasKey("TextureName") && !InOutHandle.hasKey("Texture"))
-	{
-		InOutHandle["Texture"] = InOutHandle["TextureName"];
-	}
+	TextureName = Texture->GetTextureName();
 
-	AutoSerialize(bInIsLoading, InOutHandle, UBillboardComponent::StaticClass());
-
-	if (bInIsLoading && Texture)
-	{
-		TextureName = Texture->GetTextureName();
-	}
 }
 
 void UBillboardComponent::DuplicateSubObjects()

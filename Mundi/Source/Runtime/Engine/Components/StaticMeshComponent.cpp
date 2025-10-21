@@ -256,30 +256,21 @@ UMaterial* UStaticMeshComponent::GetMaterial(uint32 InSectionIndex) const
 //    }
 //}
 
-void UStaticMeshComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
+void UStaticMeshComponent::OnSerialized()
 {
-	Super::Serialize(bInIsLoading, InOutHandle);
+	Super::OnSerialized();
 
-	if (bInIsLoading && InOutHandle.hasKey("ObjStaticMeshAsset") && !InOutHandle.hasKey("StaticMesh"))
+	StaticMesh->AddUsingComponents(this);
+
+	const TArray<FGroupInfo>& GroupInfos = StaticMesh->GetMeshGroupInfo();
+	MaterialSlots.resize(GroupInfos.size());
+	for (int i = 0; i < GroupInfos.size(); ++i)
 	{
-		InOutHandle["StaticMesh"] = InOutHandle["ObjStaticMeshAsset"];
+		SetMaterialByName(i, GroupInfos[i].InitialMaterialName);
 	}
 
-	AutoSerialize(bInIsLoading, InOutHandle, UStaticMeshComponent::StaticClass());
-
-	if (bInIsLoading && StaticMesh && StaticMesh->GetStaticMeshAsset())
-	{
-		StaticMesh->AddUsingComponents(this);
-
-		const TArray<FGroupInfo>& GroupInfos = StaticMesh->GetMeshGroupInfo();
-		MaterialSlots.resize(GroupInfos.size());
-		for (int i = 0; i < GroupInfos.size(); ++i)
-		{
-			SetMaterialByName(i, GroupInfos[i].InitialMaterialName);
-		}
-
-		MarkWorldPartitionDirty();
-	}
+	MarkWorldPartitionDirty();
+	
 }
 
 void UStaticMeshComponent::SetMaterialByUser(const uint32 InMaterialSlotIndex, const FString& InMaterialName)
