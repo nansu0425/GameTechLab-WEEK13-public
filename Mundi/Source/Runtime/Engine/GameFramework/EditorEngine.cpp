@@ -286,6 +286,7 @@ void UEditorEngine::MainLoop()
 
             GWorld = WorldContexts[0].World;
             GWorld->GetSelectionManager()->ClearSelection();
+            GWorld->GetLightManager()->SetDirtyFlag();
             SLATE.SetPIEWorld(GWorld);
 
             bPIEActive = false;
