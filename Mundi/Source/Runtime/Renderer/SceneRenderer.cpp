@@ -567,14 +567,7 @@ void FSceneRenderer::RenderOpaquePass()
 	}
 
 	// --- 2. 정렬 (Sort) ---
-	MeshBatchElements.Sort([](const FMeshBatchElement& A, const FMeshBatchElement& B)
-		{
-			if (A.VertexShader != B.VertexShader) return A.VertexShader < B.VertexShader;
-			if (A.PixelShader != B.PixelShader) return A.PixelShader < B.PixelShader;
-			if (A.Material != B.Material) return A.Material < B.Material;
-			if (A.Mesh != B.Mesh) return A.Mesh < B.Mesh;
-			return false;
-		});
+	MeshBatchElements.Sort();
 
 	// --- 3. 그리기 (Draw) ---
 	DrawMeshBatches(MeshBatchElements, true);
@@ -588,11 +581,15 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual); // 깊이 쓰기 ON
 	RHIDevice->OMSetBlendState(false);
 
-	// 현재 GPU 상태 캐싱용 변수
+	// 현재 GPU 상태 캐싱용 변수 (UStaticMesh* 대신 실제 GPU 리소스로 변경)
 	UShader* CurrentVertexShader = nullptr;
 	UShader* CurrentPixelShader = nullptr;
 	UMaterial* CurrentMaterial = nullptr;
-	UStaticMesh* CurrentMesh = nullptr;
+	ID3D11ShaderResourceView* CurrentInstanceSRV = nullptr; // [추가] Instance SRV 캐시
+	ID3D11Buffer* CurrentVertexBuffer = nullptr;
+	ID3D11Buffer* CurrentIndexBuffer = nullptr;
+	UINT CurrentVertexStride = 0;
+	D3D11_PRIMITIVE_TOPOLOGY CurrentTopology = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
 
 	// 기본 샘플러 미리 가져오기 (루프 내 반복 호출 방지)
 	ID3D11SamplerState* DefaultSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::Default);
@@ -606,9 +603,9 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 	for (const FMeshBatchElement& Batch : InMeshBatches)
 	{
 		// --- 필수 요소 유효성 검사 ---
-		if (!Batch.VertexShader || !Batch.PixelShader || !Batch.Mesh)
+		if (!Batch.VertexShader || !Batch.PixelShader || !Batch.VertexBuffer || !Batch.IndexBuffer || Batch.VertexStride == 0)
 		{
-			// 셰이더나 메시가 없으면 그릴 수 없음
+			// 셰이더나 버퍼, 스트라이드 정보가 없으면 그릴 수 없음
 			continue;
 		}
 
@@ -620,112 +617,105 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 			CurrentPixelShader = Batch.PixelShader;
 		}
 
-		// 2. 머티리얼 상태 변경 (텍스처, 재질 상수 버퍼 바인딩)
-		if (Batch.Material != CurrentMaterial)
+		// --- 2. 픽셀 상태 (텍스처, 샘플러, 재질CBuffer) 변경 (캐싱됨) ---
+		//
+		// 'Material' 또는 'Instance SRV' 둘 중 하나라도 바뀌면
+		// 모든 픽셀 리소스를 다시 바인딩해야 합니다.
+		if (Batch.Material != CurrentMaterial || Batch.InstanceShaderResourceView != CurrentInstanceSRV)
 		{
-			ID3D11ShaderResourceView* DiffuseTextureSRV = nullptr;
-			ID3D11ShaderResourceView* NormalTextureSRV = nullptr;
+			ID3D11ShaderResourceView* DiffuseTextureSRV = nullptr; // t0
+			ID3D11ShaderResourceView* NormalTextureSRV = nullptr;  // t1
+			FPixelConstBufferType PixelConst{};
 
-			FPixelConstBufferType PixelConst{}; // 기본값으로 초기화
-
-			if (Batch.Material) // 머티리얼 유효성 검사
+			if (Batch.Material)
 			{
-				// 유효한 머티리얼이 있는 경우
-				const FMaterialInfo& MaterialInfo = Batch.Material->GetMaterialInfo();
-				PixelConst.Material = MaterialInfo;
+				PixelConst.Material = Batch.Material->GetMaterialInfo();
 				PixelConst.bHasMaterial = true;
-				// --- 텍스처 로드 및 SRV 준비 ---
+			}
+			else
+			{
+				FMaterialInfo DefaultMaterialInfo;
+				PixelConst.Material = DefaultMaterialInfo;
+				PixelConst.bHasMaterial = false;
+				PixelConst.bHasDiffuseTexture = false;
+				PixelConst.bHasNormalTexture = false;
+			}
+
+			// 1순위: 인스턴스 텍스처 (빌보드)
+			if (Batch.InstanceShaderResourceView)
+			{
+				DiffuseTextureSRV = Batch.InstanceShaderResourceView;
+				PixelConst.bHasDiffuseTexture = true;
+				PixelConst.bHasNormalTexture = false;
+			}
+			// 2순위: 머티리얼 텍스처 (스태틱 메시)
+			else if (Batch.Material)
+			{
+				const FMaterialInfo& MaterialInfo = Batch.Material->GetMaterialInfo();
 				if (!MaterialInfo.DiffuseTextureFileName.empty())
 				{
 					if (UTexture* TextureData = Batch.Material->GetTexture(EMaterialTextureSlot::Diffuse))
 					{
-						if (TextureData->GetShaderResourceView())
-						{
-							DiffuseTextureSRV = TextureData->GetShaderResourceView();
-							PixelConst.bHasDiffuseTexture = true;
-						}
+						DiffuseTextureSRV = TextureData->GetShaderResourceView();
+						PixelConst.bHasDiffuseTexture = (DiffuseTextureSRV != nullptr);
 					}
 				}
-
 				if (!MaterialInfo.NormalTextureFileName.empty())
 				{
 					if (UTexture* TextureData = Batch.Material->GetTexture(EMaterialTextureSlot::Normal))
 					{
-						if (TextureData->GetShaderResourceView())
-						{
-							NormalTextureSRV = TextureData->GetShaderResourceView();
-							PixelConst.bHasNormalTexture = true;
-						}
+						NormalTextureSRV = TextureData->GetShaderResourceView();
+						PixelConst.bHasNormalTexture = (NormalTextureSRV != nullptr);
 					}
 				}
 			}
-			else
-			{
-				// 머티리얼이 없는 경우 (예: 기본 버텍스 컬러 사용)
-				// 기본값 FMaterialParameters 생성 (모든 값이 기본값)
-				FMaterialInfo DefaultMaterialInfo;
-				PixelConst.Material = DefaultMaterialInfo;
-				PixelConst.bHasDiffuseTexture = false;
-				PixelConst.bHasNormalTexture = false;
-				// srv는 nullptr 유지
-			}
 
 			// --- RHI 상태 업데이트 ---
-			// 텍스처 바인딩 (srv가 nullptr이어도 안전하게 호출 가능)
+			// 1. 텍스처(SRV) 바인딩
 			ID3D11ShaderResourceView* Srvs[2] = { DiffuseTextureSRV, NormalTextureSRV };
 			RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
 
-			// 샘플러 바인딩 (기본 샘플러 사용)
+			// 2. 샘플러 바인딩
 			ID3D11SamplerState* Samplers[2] = { DefaultSampler, DefaultSampler };
 			RHIDevice->GetDeviceContext()->PSSetSamplers(0, 2, Samplers);
 
-			// 픽셀 상수 버퍼 업데이트
+			// 3. 재질 CBuffer 바인딩
 			RHIDevice->SetAndUpdateConstantBuffer(PixelConst);
 
-			CurrentMaterial = Batch.Material; // 현재 머티리얼 상태 캐싱
+			// --- 캐시 업데이트 ---
+			CurrentMaterial = Batch.Material;
+			CurrentInstanceSRV = Batch.InstanceShaderResourceView;
 		}
 
-		// 3. 메시 상태 변경 (Vertex Buffer, Index Buffer 바인딩)
-		if (Batch.Mesh != CurrentMesh)
+		// 3. IA (Input Assembler) 상태 변경
+		if (Batch.VertexBuffer != CurrentVertexBuffer ||
+			Batch.IndexBuffer != CurrentIndexBuffer ||
+			Batch.VertexStride != CurrentVertexStride ||
+			Batch.PrimitiveTopology != CurrentTopology)
 		{
-			UINT Stride = 0;
-			switch (Batch.Mesh->GetVertexType()) // Batch.Mesh는 위에서 null 체크 완료
-			{
-			case EVertexLayoutType::PositionColor:               Stride = sizeof(FVertexSimple); break;
-			case EVertexLayoutType::PositionColorTexturNormal:   Stride = sizeof(FVertexDynamic); break;
-			case EVertexLayoutType::PositionTextBillBoard:       Stride = sizeof(FBillboardVertexInfo_GPU); break;
-			case EVertexLayoutType::PositionBillBoard:           Stride = sizeof(FBillboardVertex); break;
-
-			default:
-				// 이 경우는 CollectMeshBatches 단계에서 걸러졌어야 함
-				UE_LOG("DrawMeshBatches: Unknown vertex type for Mesh!");
-				continue; // 이 배치는 건너뜀
-			}
-
-			ID3D11Buffer* VertexBuffer = Batch.Mesh->GetVertexBuffer();
-			ID3D11Buffer* IndexBuffer = Batch.Mesh->GetIndexBuffer();
-
-			// 버퍼 포인터 유효성 검사 (추가적인 안전장치)
-			if (!VertexBuffer || !IndexBuffer)
-			{
-				UE_LOG("DrawMeshBatches: VertexBuffer or IndexBuffer is null for Mesh!");
-				continue; // 이 배치는 건너뜀
-			}
-
+			UINT Stride = Batch.VertexStride;
 			UINT Offset = 0;
-			RHIDevice->GetDeviceContext()->IASetVertexBuffers(0, 1, &VertexBuffer, &Stride, &Offset);
-			RHIDevice->GetDeviceContext()->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
-			CurrentMesh = Batch.Mesh; // 현재 메시 상태 캐싱
+			// Vertex/Index 버퍼 바인딩
+			RHIDevice->GetDeviceContext()->IASetVertexBuffers(0, 1, &Batch.VertexBuffer, &Stride, &Offset);
+			RHIDevice->GetDeviceContext()->IASetIndexBuffer(Batch.IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+
+			// 토폴로지 설정 (이전 코드의 5번에서 이동하여 최적화)
+			RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(Batch.PrimitiveTopology);
+
+			// 현재 IA 상태 캐싱
+			CurrentVertexBuffer = Batch.VertexBuffer;
+			CurrentIndexBuffer = Batch.IndexBuffer;
+			CurrentVertexStride = Batch.VertexStride;
+			CurrentTopology = Batch.PrimitiveTopology;
 		}
 
 		// 4. 오브젝트별 상수 버퍼 설정 (매번 변경)
 		RHIDevice->SetAndUpdateConstantBuffer(ModelBufferType(Batch.WorldMatrix, Batch.WorldMatrix.InverseAffine().Transpose()));
-		RHIDevice->SetAndUpdateConstantBuffer(ColorBufferType(FLinearColor(), Batch.ObjectID));
+		RHIDevice->SetAndUpdateConstantBuffer(ColorBufferType(Batch.InstanceColor, Batch.ObjectID));
 
 		// 5. 드로우 콜 실행
-		RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(Batch.PrimitiveTopology);
-		RHIDevice->GetDeviceContext()->DrawIndexed(Batch.IndexCount, Batch.StartIndex, Batch.BaseVertexIndex); // BaseVertexIndex 사용
+		RHIDevice->GetDeviceContext()->DrawIndexed(Batch.IndexCount, Batch.StartIndex, Batch.BaseVertexIndex);
 	}
 
 	// 루프 종료 후 리스트 비우기 (옵션)
@@ -1145,8 +1135,6 @@ void FSceneRenderer::RenderDebugPass()
 	OwnerRenderer->EndLineBatch(FMatrix::Identity(), View->ViewMatrix, View->ProjectionMatrix);
 }
 
-// FSceneRenderer.cpp
-
 void FSceneRenderer::RenderOverayEditorPrimitivesPass()
 {
 	// 후처리된 최종 이미지 위에 원본 씬의 뎁스 버퍼를 사용하여 3D 오버레이를 렌더링합니다.
@@ -1191,8 +1179,6 @@ void FSceneRenderer::RenderOverayEditorPrimitivesPass()
 		RHIDevice->SetAndUpdateConstantBuffer(
 			GizmoBufferType{ GizmoComp->GetColor(), GizmoComp->IsHighlighted() ? 1u : 0u }
 		);
-		// [상태 설정] Gizmo는 자체 머티리얼 색상을 쓰므로, 글로벌 컬러 오버라이드 끄기
-		RHIDevice->SetAndUpdateConstantBuffer(ColorBufferType(FLinearColor(), 0));
 
 		// 2. [수집] 이 기즈모의 FMeshBatchElement만 수집
 		MeshBatchElements.Empty();
@@ -1202,11 +1188,23 @@ void FSceneRenderer::RenderOverayEditorPrimitivesPass()
 		DrawMeshBatches(MeshBatchElements, true);
 	}
 
-	// Render Billboards at Priority 0 (same depth buffer as DirectionGizmos)
-	// No depth clear needed - share depth buffer with Priority 0 gizmos
+	// 빌보드 렌더링에 필요한 카메라 정보 (기존 Render() 함수에서 가져옴)
 	for (UBillboardComponent* BillboardComponent : Proxies.Billboards)
 	{
-		BillboardComponent->Render(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
+		// 1. [상태 설정] 빌보드 전용 CBuffer 설정 (기존 Render()에서 가져옴)
+		RHIDevice->SetAndUpdateConstantBuffer(BillboardBufferType(
+			BillboardComponent->GetWorldLocation(),
+			View->ViewMatrix,
+			View->ProjectionMatrix,
+			View->ViewMatrix.InverseAffineFast()
+		));
+
+		// 2. [수집]
+		MeshBatchElements.Empty();
+		BillboardComponent->CollectMeshBatches(MeshBatchElements, View);
+
+		// 3. [그리기]
+		DrawMeshBatches(MeshBatchElements, true);
 	}
 	bBillboardsRendered = true;
 
@@ -1230,8 +1228,6 @@ void FSceneRenderer::RenderOverayEditorPrimitivesPass()
 		RHIDevice->SetAndUpdateConstantBuffer(
 			GizmoBufferType{ GizmoComp->GetColor(), GizmoComp->IsHighlighted() ? 1u : 0u }
 		);
-		// [상태 설정] Gizmo는 자체 머티리얼 색상을 쓰므로, 글로벌 컬러 오버라이드 끄기
-		RHIDevice->SetAndUpdateConstantBuffer(ColorBufferType(FLinearColor(), 0));
 
 		// 2. [수집] 이 기즈모의 FMeshBatchElement만 수집
 		MeshBatchElements.Empty();

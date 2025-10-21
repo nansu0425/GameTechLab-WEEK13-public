@@ -1,5 +1,5 @@
 // Generic textured billboard shader
-cbuffer CameraInfo : register(b0)
+cbuffer CameraInfo : register(b5)
 {
     float3 WorldPos;
     row_major matrix viewMatrix;

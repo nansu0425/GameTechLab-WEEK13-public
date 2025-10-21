@@ -115,32 +115,13 @@ UPrimitiveComponent* URenderer::GetPrimitiveCollided(int MouseX, int MouseY) con
 
 void URenderer::DrawIndexedPrimitiveComponent(UStaticMesh* InMesh, D3D11_PRIMITIVE_TOPOLOGY InTopology, const TArray<FMaterialSlot>& InComponentMaterialSlots)
 {
-	UINT Stride = 0;
-	switch (InMesh->GetVertexType())
-	{
-	case EVertexLayoutType::PositionColor:
-		Stride = sizeof(FVertexSimple);
-		break;
-	case EVertexLayoutType::PositionColorTexturNormal:
-		Stride = sizeof(FVertexDynamic);
-		break;
-	case EVertexLayoutType::PositionTextBillBoard:
-		Stride = sizeof(FBillboardVertexInfo_GPU);
-		break;
-	case EVertexLayoutType::PositionBillBoard:
-		Stride = sizeof(FBillboardVertex);
-		break;
-	default:
-		// Handle unknown or unsupported vertex types
-		assert(false && "Unknown vertex type!");
-		return; // or log an error
-	}
 	UINT Offset = 0;
 
 	ID3D11Buffer* VertexBuffer = InMesh->GetVertexBuffer();
 	ID3D11Buffer* IndexBuffer = InMesh->GetIndexBuffer();
 	uint32 VertexCount = InMesh->GetVertexCount();
 	uint32 IndexCount = InMesh->GetIndexCount();
+	uint32 Stride = InMesh->GetVertexStride();
 
 	RHIDevice->GetDeviceContext()->IASetVertexBuffers(
 		0, 1, &VertexBuffer, &Stride, &Offset
@@ -252,9 +233,9 @@ void URenderer::DrawIndexedPrimitiveComponent(UTextRenderComponent* Comp, D3D11_
 // 단일 Quad 용 -> Billboard에서 호출 
 void URenderer::DrawIndexedPrimitiveComponent(UBillboardComponent* Comp, D3D11_PRIMITIVE_TOPOLOGY InTopology)
 {
-	UINT Stride = sizeof(FBillboardVertex);
 	ID3D11Buffer* VertexBuff = Comp->GetStaticMesh()->GetVertexBuffer();
 	ID3D11Buffer* IndexBuff = Comp->GetStaticMesh()->GetIndexBuffer();
+	UINT Stride = Comp->GetStaticMesh()->GetVertexStride();
 
 	// Input layout comes from the shader bound to the material
 	RHIDevice->GetDeviceContext()->IASetInputLayout(Comp->GetMaterial(0)->GetShader()->GetInputLayout());

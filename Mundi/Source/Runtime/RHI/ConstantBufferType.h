@@ -224,16 +224,16 @@ MACRO(FTileCullingBufferType)
 //VS, PS 세팅은 함수 파라미터로 결정하게 하는게 훨씬 나을듯 나중에 수정 필요
 //그리고 UV Scroll 상수버퍼도 처리해줘야함
 CONSTANT_BUFFER_INFO(ModelBufferType, 0, true, false)
-CONSTANT_BUFFER_INFO(DecalBufferType, 6, true, true)
 CONSTANT_BUFFER_INFO(PostProcessBufferType, 0, false, true)
-CONSTANT_BUFFER_INFO(InvViewProjBufferType, 1, false, true)
+CONSTANT_BUFFER_INFO(InvViewProjBufferType, 0, false, true)
+CONSTANT_BUFFER_INFO(ViewProjBufferType, 1, true, false)
 CONSTANT_BUFFER_INFO(FogBufferType, 2, false, true)
 CONSTANT_BUFFER_INFO(FXAABufferType, 2, false, true)
-CONSTANT_BUFFER_INFO(FPixelConstBufferType, 4, true, true) // GOURAUD에도 사용되므로 VS도 true
-CONSTANT_BUFFER_INFO(ViewProjBufferType, 1, true, false)
 CONSTANT_BUFFER_INFO(GizmoBufferType, 2, true, false)  // b2, VS only (Gizmo.hlsl)
 CONSTANT_BUFFER_INFO(ColorBufferType, 3, false, true)
-CONSTANT_BUFFER_INFO(BillboardBufferType, 0, true, false)
+CONSTANT_BUFFER_INFO(FPixelConstBufferType, 4, true, true) // GOURAUD에도 사용되므로 VS도 true
+CONSTANT_BUFFER_INFO(BillboardBufferType, 5, true, false)
+CONSTANT_BUFFER_INFO(DecalBufferType, 6, true, true)
 CONSTANT_BUFFER_INFO(FireBallBufferType, 7, false, true)
 CONSTANT_BUFFER_INFO(CameraBufferType, 7, true, true)  // b7, VS+PS (UberLit.hlsl과 일치)
 CONSTANT_BUFFER_INFO(FLightBufferType, 8, true, true)

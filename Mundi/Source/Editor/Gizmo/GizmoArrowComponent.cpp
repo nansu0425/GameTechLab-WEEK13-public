@@ -61,9 +61,7 @@ float UGizmoArrowComponent::ComputeScreenConstantScale(const FSceneView* View, f
 	return ScaleFactor;
 }
 
-void UGizmoArrowComponent::CollectMeshBatches(
-	TArray<FMeshBatchElement>& OutMeshBatchElements,
-	const FSceneView* View)
+void UGizmoArrowComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View)
 {
 	if (!IsActive() || !StaticMesh)
 	{
@@ -118,70 +116,61 @@ void UGizmoArrowComponent::CollectMeshBatches(
 	// --- FMeshBatchElement 수집 ---
 	const TArray<FGroupInfo>& MeshGroupInfos = StaticMesh->GetMeshGroupInfo();
 
-	// GroupInfos가 비어 있는지 확인
-	if (MeshGroupInfos.IsEmpty())
-	{
-		// --- 단일 메시 처리 ---
-		// GroupInfos가 없으면 메시 전체를 단일 배치로 생성합니다.
+	// 처리할 섹션 수 결정
+	const bool bHasSections = !MeshGroupInfos.IsEmpty();
+	const uint32 NumSectionsToProcess = bHasSections ? static_cast<uint32>(MeshGroupInfos.size()) : 1;
 
-		// 메시 전체 인덱스 수가 0이면 그릴 수 없습니다.
-		if (StaticMesh->GetIndexCount() == 0)
+	// 단일 루프로 통합
+	for (uint32 SectionIndex = 0; SectionIndex < NumSectionsToProcess; ++SectionIndex)
+	{
+		uint32 IndexCount = 0;
+		uint32 StartIndex = 0;
+
+		// 1. 섹션 정보 유무에 따라 드로우 데이터 범위를 결정합니다.
+		if (bHasSections)
 		{
-			return;
+			// [서브 메시 처리]
+			const FGroupInfo& Group = MeshGroupInfos[SectionIndex];
+			IndexCount = Group.IndexCount;
+			StartIndex = Group.StartIndex;
+		}
+		else
+		{
+			// [단일 배치 처리]
+			// bHasSections가 false이면 이 루프는 SectionIndex가 0일 때 한 번만 실행됩니다.
+			IndexCount = StaticMesh->GetIndexCount();
+			StartIndex = 0;
 		}
 
+		// 2. (공통) 인덱스 수가 0이면 스킵
+		if (IndexCount == 0)
+		{
+			continue;
+		}
+
+		// 3. (공통) FMeshBatchElement 생성 및 설정
+		// 머티리얼과 셰이더는 루프 밖에서 이미 결정되었습니다.
 		FMeshBatchElement BatchElement;
 
 		// --- 정렬 키 ---
 		BatchElement.VertexShader = ShaderToUse;
 		BatchElement.PixelShader = ShaderToUse;
 		BatchElement.Material = MaterialToUse;
-		BatchElement.Mesh = StaticMesh;
+		BatchElement.VertexBuffer = StaticMesh->GetVertexBuffer();
+		BatchElement.IndexBuffer = StaticMesh->GetIndexBuffer();
+		BatchElement.VertexStride = StaticMesh->GetVertexStride();
 
-		// --- 드로우 데이터 (메시 전체 범위 사용) ---
-		BatchElement.IndexCount = StaticMesh->GetIndexCount(); // 전체 인덱스 수
-		BatchElement.StartIndex = 0;                          // 시작은 0
+		// --- 드로우 데이터 (1번에서 결정된 값 사용) ---
+		BatchElement.IndexCount = IndexCount;
+		BatchElement.StartIndex = StartIndex;
 		BatchElement.BaseVertexIndex = 0;
 
 		// --- 인스턴스 데이터 ---
 		BatchElement.WorldMatrix = GetWorldMatrix();
-		BatchElement.ObjectID = 0;
+		BatchElement.ObjectID = 0; // 기즈모는 피킹 대상이 아니므로 0
 		BatchElement.PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 
 		OutMeshBatchElements.Add(BatchElement);
-	}
-	else
-	{
-		// --- 서브 메시 처리 (기존 로직) ---
-		// GroupInfos가 있으면 각 그룹별로 배치를 생성합니다.
-		for (const FGroupInfo& Group : MeshGroupInfos)
-		{
-			// 그룹의 인덱스 수가 0이면 그릴 수 없습니다.
-			if (Group.IndexCount == 0)
-			{
-				continue;
-			}
-
-			FMeshBatchElement BatchElement;
-
-			// --- 정렬 키 ---
-			BatchElement.VertexShader = ShaderToUse;
-			BatchElement.PixelShader = ShaderToUse;
-			BatchElement.Material = MaterialToUse;
-			BatchElement.Mesh = StaticMesh;
-
-			// --- 드로우 데이터 (그룹 정보 사용) ---
-			BatchElement.IndexCount = Group.IndexCount;
-			BatchElement.StartIndex = Group.StartIndex;
-			BatchElement.BaseVertexIndex = 0;
-
-			// --- 인스턴스 데이터 ---
-			BatchElement.WorldMatrix = GetWorldMatrix();
-			BatchElement.ObjectID = 0;
-			BatchElement.PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-
-			OutMeshBatchElements.Add(BatchElement);
-		}
 	}
 }
 

@@ -1,5 +1,5 @@
 // C++에서 상수 버퍼를 통해 전달될 데이터
-cbuffer CameraInfo : register(b0)
+cbuffer CameraInfo : register(b5)
 {
     float3 textWorldPos;
     row_major matrix viewMatrix;
