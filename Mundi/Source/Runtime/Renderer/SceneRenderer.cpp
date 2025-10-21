@@ -243,6 +243,25 @@ void FSceneRenderer::PrepareView()
 	ViewConstData.ScreenSize.Z = 1.0f / RHIDevice->GetViewportWidth();
 	ViewConstData.ScreenSize.W = 1.0f / RHIDevice->GetViewportHeight();
 	RHIDevice->SetAndUpdateConstantBuffer((FViewportConstants)ViewConstData);
+
+	// 공통 상수 버퍼 설정 (View, Projection 등) - 루프 전에 한 번만
+	FVector CameraPos = View->ViewLocation;
+
+	FMatrix InvView = View->ViewMatrix.InverseAffine();
+	FMatrix InvProjection;
+	if (View->ProjectionMode == ECameraProjectionMode::Perspective)
+	{
+		InvProjection = View->ProjectionMatrix.InversePerspectiveProjection();
+	}
+	else
+	{
+		InvProjection = View->ProjectionMatrix.InverseOrthographicProjection();
+	}
+
+	ViewProjBufferType ViewProjBuffer = ViewProjBufferType(View->ViewMatrix, View->ProjectionMatrix, InvView, InvProjection);
+
+	RHIDevice->SetAndUpdateConstantBuffer(ViewProjBufferType(ViewProjBuffer));
+	RHIDevice->SetAndUpdateConstantBuffer(CameraBufferType(CameraPos, 0.0f));
 }
 
 void FSceneRenderer::GatherVisibleProxies()
@@ -594,11 +613,6 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 	// 기본 샘플러 미리 가져오기 (루프 내 반복 호출 방지)
 	ID3D11SamplerState* DefaultSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::Default);
 
-	// 공통 상수 버퍼 설정 (View, Projection 등) - 루프 전에 한 번만
-	FVector CameraPos = View->ViewLocation;
-	RHIDevice->SetAndUpdateConstantBuffer(ViewProjBufferType(View->ViewMatrix, View->ProjectionMatrix));
-	RHIDevice->SetAndUpdateConstantBuffer(CameraBufferType(CameraPos, 0.0f));
-
 	// 정렬된 리스트 순회
 	for (const FMeshBatchElement& Batch : InMeshBatches)
 	{
@@ -790,11 +804,6 @@ void FSceneRenderer::RenderDecalPass()
 	RHIDevice->GetDeviceContext()->PSSetShader(DecalShader->GetPixelShader(), nullptr, 0);
 	RHIDevice->GetDeviceContext()->IASetInputLayout(DecalShader->GetInputLayout());
 
-	// CameraBuffer 설정 (조명 계산용 - 모든 Decal에 공통)
-	FMatrix ViewInverse = View->ViewMatrix.InverseAffine();
-	FVector CameraPosition(ViewInverse.M[3][0], ViewInverse.M[3][1], ViewInverse.M[3][2]);
-	RHIDevice->SetAndUpdateConstantBuffer(CameraBufferType(CameraPosition));
-
 	for (UDecalComponent* Decal : Proxies.Decals)
 	{
 		// Decal이 그려질 Primitives
@@ -826,7 +835,7 @@ void FSceneRenderer::RenderDecalPass()
 		// 3. TargetPrimitive 순회하며 렌더링
 		for (UPrimitiveComponent* Target : TargetPrimitives)
 		{
-			Decal->RenderAffectedPrimitives(OwnerRenderer, Target, View->ViewMatrix, View->ProjectionMatrix);
+			Decal->RenderAffectedPrimitives(OwnerRenderer, Target);
 		}
 
 		// --- 데칼 렌더 시간 측정 종료 및 결과 저장 ---
@@ -879,7 +888,7 @@ void FSceneRenderer::RenderFireBallPass()
 
 		for (UPrimitiveComponent* Target : TargetPrimitives)
 		{
-			FireBall->RenderAffectedPrimitives(OwnerRenderer, Target, View->ViewMatrix, View->ProjectionMatrix);
+			FireBall->RenderAffectedPrimitives(OwnerRenderer, Target);
 		}
 	}
 
@@ -943,18 +952,6 @@ void FSceneRenderer::RenderPostProcessingPasses()
 	ECameraProjectionMode ProjectionMode = View->ProjectionMode;
 	//RHIDevice->UpdatePostProcessCB(ZNear, ZFar, ProjectionMode == ECameraProjectionMode::Orthographic);
 	RHIDevice->SetAndUpdateConstantBuffer(PostProcessBufferType(View->ZNear, View->ZFar, ProjectionMode == ECameraProjectionMode::Orthographic));
-	FMatrix InvView = View->ViewMatrix.InverseAffine();
-	FMatrix InvProjection;
-	if (ProjectionMode == ECameraProjectionMode::Perspective)
-	{
-		InvProjection = View->ProjectionMatrix.InversePerspectiveProjection();
-	}
-	else
-	{
-		InvProjection = View->ProjectionMatrix.InverseOrthographicProjection();
-	}
-	//RHIDevice->UpdateInvViewProjCB(InvView, InvProjection);
-	RHIDevice->SetAndUpdateConstantBuffer(InvViewProjBufferType(InvView, InvProjection));
 	UHeightFogComponent* F = FogComponent;
 	//RHIDevice->UpdateFogCB(F->GetFogDensity(), F->GetFogHeightFalloff(), F->GetStartDistance(), F->GetFogCutoffDistance(), F->GetFogInscatteringColor()->ToFVector4(), F->GetFogMaxOpacity(), F->GetFogHeight());
 	RHIDevice->SetAndUpdateConstantBuffer(FogBufferType(F->GetFogDensity(), F->GetFogHeightFalloff(), F->GetStartDistance(), F->GetFogCutoffDistance(), F->GetFogInscatteringColor()->ToFVector4(), F->GetFogMaxOpacity(), F->GetFogHeight()));
@@ -1118,7 +1115,7 @@ void FSceneRenderer::RenderDebugPass()
 		{
 			// 모든 컴포넌트에서 RenderDebugVolume 호출
 			// 각 컴포넌트는 필요한 경우 override하여 디버그 시각화 제공
-			Component->RenderDebugVolume(OwnerRenderer, View->ViewMatrix, View->ProjectionMatrix);
+			Component->RenderDebugVolume(OwnerRenderer);
 		}
 	}
 
@@ -1132,7 +1129,7 @@ void FSceneRenderer::RenderDebugPass()
 	}
 
 	// 수집된 라인을 출력하고 정리
-	OwnerRenderer->EndLineBatch(FMatrix::Identity(), View->ViewMatrix, View->ProjectionMatrix);
+	OwnerRenderer->EndLineBatch(FMatrix::Identity());
 }
 
 void FSceneRenderer::RenderOverayEditorPrimitivesPass()
@@ -1191,14 +1188,6 @@ void FSceneRenderer::RenderOverayEditorPrimitivesPass()
 	// 빌보드 렌더링에 필요한 카메라 정보 (기존 Render() 함수에서 가져옴)
 	for (UBillboardComponent* BillboardComponent : Proxies.Billboards)
 	{
-		// 1. [상태 설정] 빌보드 전용 CBuffer 설정 (기존 Render()에서 가져옴)
-		RHIDevice->SetAndUpdateConstantBuffer(BillboardBufferType(
-			BillboardComponent->GetWorldLocation(),
-			View->ViewMatrix,
-			View->ProjectionMatrix,
-			View->ViewMatrix.InverseAffineFast()
-		));
-
 		// 2. [수집]
 		MeshBatchElements.Empty();
 		BillboardComponent->CollectMeshBatches(MeshBatchElements, View);
