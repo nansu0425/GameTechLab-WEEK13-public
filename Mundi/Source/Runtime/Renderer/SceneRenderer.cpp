@@ -51,7 +51,8 @@ FSceneRenderer::FSceneRenderer(UWorld* InWorld, FSceneView* InView, URenderer* I
 
 	// 타일 라이트 컬러 초기화
 	TileLightCuller = std::make_unique<FTileLightCuller>();
-	TileLightCuller->Initialize(RHIDevice, 16);  // 16x16 타일 크기
+	uint32 TileSize = World->GetRenderSettings().GetTileSize();
+	TileLightCuller->Initialize(RHIDevice, TileSize);
 
 	// 라인 수집 시작
 	OwnerRenderer->BeginLineBatch();
@@ -421,44 +422,56 @@ void FSceneRenderer::PerformTileLightCulling()
 	if (!TileLightCuller)
 		return;
 
+	// ShowFlag 확인
+	URenderSettings& RenderSettings = World->GetRenderSettings();
+	bool bTileCullingEnabled = RenderSettings.IsShowFlagEnabled(EEngineShowFlags::SF_TileCulling);
+
 	// 뷰포트 크기 가져오기
 	UINT ViewportWidth = static_cast<UINT>(View->ViewRect.Width());
 	UINT ViewportHeight = static_cast<UINT>(View->ViewRect.Height());
 
-	// PointLight와 SpotLight 정보 수집
-	TArray<FPointLightInfo>& PointLights = GWorld->GetLightManager()->GetPointLightInfoList();
-	TArray<FSpotLightInfo>& SpotLights = GWorld->GetLightManager()->GetSpotLightInfoList();
+	// 타일 컬링이 활성화된 경우에만 컬링 수행
+	if (bTileCullingEnabled)
+	{
+		// PointLight와 SpotLight 정보 수집
+		TArray<FPointLightInfo>& PointLights = GWorld->GetLightManager()->GetPointLightInfoList();
+		TArray<FSpotLightInfo>& SpotLights = GWorld->GetLightManager()->GetSpotLightInfoList();
 
-	// 타일 컬링 수행
-	TileLightCuller->CullLights(
-		PointLights,
-		SpotLights,
-		View->ViewMatrix,
-		View->ProjectionMatrix,
-		View->ZNear,
-		View->ZFar,
-		ViewportWidth,
-		ViewportHeight
-	);
+		// 타일 컬링 수행
+		TileLightCuller->CullLights(
+			PointLights,
+			SpotLights,
+			View->ViewMatrix,
+			View->ProjectionMatrix,
+			View->ZNear,
+			View->ZFar,
+			ViewportWidth,
+			ViewportHeight
+		);
+
+		// 통계를 전역 매니저에 업데이트
+		FTileCullingStatManager::GetInstance().UpdateStats(TileLightCuller->GetStats());
+	}
 
 	// 타일 컬링 상수 버퍼 업데이트
+	uint32 TileSize = RenderSettings.GetTileSize();
 	FTileCullingBufferType TileCullingBuffer;
-	TileCullingBuffer.TileSize = 16;  // TileLightCuller 초기화 시 사용한 값과 일치
-	TileCullingBuffer.TileCountX = (ViewportWidth + 16 - 1) / 16;
-	TileCullingBuffer.TileCountY = (ViewportHeight + 16 - 1) / 16;
-	TileCullingBuffer.bUseTileCulling = 1;  // 타일 컬링 활성화
+	TileCullingBuffer.TileSize = TileSize;
+	TileCullingBuffer.TileCountX = (ViewportWidth + TileSize - 1) / TileSize;
+	TileCullingBuffer.TileCountY = (ViewportHeight + TileSize - 1) / TileSize;
+	TileCullingBuffer.bUseTileCulling = bTileCullingEnabled ? 1 : 0;  // ShowFlag에 따라 설정
 
 	RHIDevice->SetAndUpdateConstantBuffer(TileCullingBuffer);
 
-	// Structured Buffer SRV를 t2 슬롯에 바인딩
-	ID3D11ShaderResourceView* TileLightIndexSRV = TileLightCuller->GetLightIndexBufferSRV();
-	if (TileLightIndexSRV)
+	// Structured Buffer SRV를 t2 슬롯에 바인딩 (타일 컬링 활성화 시에만)
+	if (bTileCullingEnabled)
 	{
-		RHIDevice->GetDeviceContext()->PSSetShaderResources(2, 1, &TileLightIndexSRV);
+		ID3D11ShaderResourceView* TileLightIndexSRV = TileLightCuller->GetLightIndexBufferSRV();
+		if (TileLightIndexSRV)
+		{
+			RHIDevice->GetDeviceContext()->PSSetShaderResources(2, 1, &TileLightIndexSRV);
+		}
 	}
-
-	// 통계를 전역 매니저에 업데이트
-	FTileCullingStatManager::GetInstance().UpdateStats(TileLightCuller->GetStats());
 }
 
 void FSceneRenderer::PerformFrustumCulling()
@@ -1274,13 +1287,16 @@ void FSceneRenderer::ApplyScreenEffectsPass()
 	//	1.0f,	// 0.75 가 기본값이지만 효과 강조를 위해 1로 설정
 	//	12
 		//);
+	// FXAA 파라미터를 RenderSettings에서 가져옴
+	URenderSettings& RenderSettings = World->GetRenderSettings();
+
 	RHIDevice->SetAndUpdateConstantBuffer(FXAABufferType(
 		FVector2D(static_cast<float>(RHIDevice->GetViewportWidth()), static_cast<float>(RHIDevice->GetViewportHeight())),
 		FVector2D(1.0f / static_cast<float>(RHIDevice->GetViewportWidth()), 1.0f / static_cast<float>(RHIDevice->GetViewportHeight())),
-		0.0833f,
-		0.166f,
-		1.0f,	// 0.75 가 기본값이지만 효과 강조를 위해 1로 설정
-		12));
+		RenderSettings.GetFXAAEdgeThresholdMin(),
+		RenderSettings.GetFXAAEdgeThresholdMax(),
+		RenderSettings.GetFXAAQualitySubPix(),
+		RenderSettings.GetFXAAQualityIterations()));
 
 	RHIDevice->PrepareShader(FullScreenTriangleVS, CopyTexturePS);
 
