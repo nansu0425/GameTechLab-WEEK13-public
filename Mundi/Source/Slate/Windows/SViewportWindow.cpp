@@ -189,94 +189,6 @@ void SViewportWindow::RenderToolbar()
 		ImGui::PopStyleColor(2);
 		ImGui::PopStyleVar(2);
 
-
-		// 1단계: 메인 ViewMode 선택 (Lit, Unlit, Buffer Visualization, Wireframe)
-		const char* MainViewModes[] = { "Lit", "Unlit", "Buffer Visualization", "Wireframe" };
-
-		// 현재 ViewMode에서 메인 모드 인덱스 계산
-		int CurrentMainMode = 0; // 기본값: Lit
-		EViewModeIndex CurrentViewMode = ViewportClient->GetViewModeIndex();
-		if (CurrentViewMode == EViewModeIndex::VMI_Unlit)
-		{
-			CurrentMainMode = 1;
-		}
-		else if (CurrentViewMode == EViewModeIndex::VMI_WorldNormal || CurrentViewMode == EViewModeIndex::VMI_SceneDepth)
-		{
-			CurrentMainMode = 2; // Buffer Visualization
-			// 현재 BufferVis 서브모드도 동기화
-			if (CurrentViewMode == EViewModeIndex::VMI_SceneDepth)
-				CurrentBufferVisSubMode = 0;
-			else if (CurrentViewMode == EViewModeIndex::VMI_WorldNormal)
-				CurrentBufferVisSubMode = 1;
-		}
-		else if (CurrentViewMode == EViewModeIndex::VMI_Wireframe)
-		{
-			CurrentMainMode = 3;
-		}
-		else if (CurrentViewMode == EViewModeIndex::VMI_SceneDepth)
-		{
-			CurrentMainMode = 4;
-		}
-		else // Lit 계열 (Gouraud, Lambert, Phong)
-		{
-			CurrentMainMode = 0;
-			// 현재 Lit 서브모드도 동기화
-			if (CurrentViewMode == EViewModeIndex::VMI_Lit)
-				CurrentLitSubMode = 0;
-			else if (CurrentViewMode == EViewModeIndex::VMI_Lit_Gouraud)
-				CurrentLitSubMode = 1;
-			else if (CurrentViewMode == EViewModeIndex::VMI_Lit_Lambert)
-				CurrentLitSubMode = 2;
-			else if (CurrentViewMode == EViewModeIndex::VMI_Lit_Phong)
-				CurrentLitSubMode = 3;
-		}
-
-		ImGui::SameLine();
-		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 2));
-		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 0));
-		ImGui::SetNextItemWidth(80.0f);
-		bool MainModeChanged = ImGui::Combo("##MainViewMode", &CurrentMainMode, MainViewModes, IM_ARRAYSIZE(MainViewModes));
-
-		// 2단계: Lit 서브모드 선택 (Lit 선택 시에만 표시)
-		if (CurrentMainMode == 0) // Lit 선택됨
-		{
-			ImGui::SameLine();
-			const char* LitSubModes[] = { "Default(Phong)", "Gouraud", "Lambert", "Phong" };
-			ImGui::SetNextItemWidth(80.0f);
-			bool SubModeChanged = ImGui::Combo("##LitSubMode", &CurrentLitSubMode, LitSubModes, IM_ARRAYSIZE(LitSubModes));
-
-			if (SubModeChanged && ViewportClient)
-			{
-				switch (CurrentLitSubMode)
-				{
-				case 0: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit); break;
-				case 1: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Gouraud); break;
-				case 2: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Lambert); break;
-				case 3: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Phong); break;
-				}
-			}
-		}
-
-		// 2단계: Buffer Visualization 서브모드 선택 (Buffer Visualization 선택 시에만 표시)
-		if (CurrentMainMode == 2) // Buffer Visualization 선택됨
-		{
-			ImGui::SameLine();
-			const char* bufferVisSubModes[] = { "SceneDepth", "WorldNormal" };
-			ImGui::SetNextItemWidth(100.0f);
-			bool subModeChanged = ImGui::Combo("##BufferVisSubMode", &CurrentBufferVisSubMode, bufferVisSubModes, IM_ARRAYSIZE(bufferVisSubModes));
-
-			if (subModeChanged && ViewportClient)
-			{
-				switch (CurrentBufferVisSubMode)
-				{
-				case 0: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_SceneDepth); break;
-				case 1: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_WorldNormal); break;
-				}
-			}
-		}
-
-		ImGui::PopStyleVar(2);
-
 		// 디버그 ShowFlag 토글 버튼들 (ViewMode와 독립적)
 		if (ViewportClient && ViewportClient->GetWorld())
 		{
@@ -321,33 +233,13 @@ void SViewportWindow::RenderToolbar()
 			}
 		}
 
-		// 메인 모드 변경 시 처리
-		if (MainModeChanged && ViewportClient)
-		{
-			switch (CurrentMainMode)
-			{
-			case 0: // Lit - 현재 선택된 서브모드 적용
-				switch (CurrentLitSubMode)
-				{
-				case 0: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit); break;
-				case 1: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Gouraud); break;
-				case 2: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Lambert); break;
-				case 3: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Phong); break;
-				}
-				break;
-			case 1: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Unlit); break;
-			case 2: // Buffer Visualization - 현재 선택된 서브모드 적용
-				switch (CurrentBufferVisSubMode)
-				{
-				case 0: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_SceneDepth); break;
-				case 1: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_WorldNormal); break;
-				}
-				break;
-			case 3: ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Wireframe); break;
-			}
-		}
+		// 카메라 옵션
 		ImGui::SameLine();
 		RenderCameraOptionDropdownMenu();
+
+		// 뷰모드 드롭다운 메뉴
+		ImGui::SameLine(0, 20.0f);
+		RenderViewModeDropdownMenu();
 
 		ImGui::SameLine(0, 20.0f);
 		const ImVec2 ButtonSize(60, 30);
@@ -419,6 +311,19 @@ void SViewportWindow::LoadToolbarIcons(ID3D11Device* Device)
 
 	IconFarClip = NewObject<UTexture>();
 	IconFarClip->Load("Data/Icon/Viewport_Setting_FarClip.png", Device);
+
+	// 뷰모드 아이콘 텍스처 로드
+	IconViewMode_Lit = NewObject<UTexture>();
+	IconViewMode_Lit->Load("Data/Icon/Viewport_ViewMode_Lit.png", Device);
+
+	IconViewMode_Unlit = NewObject<UTexture>();
+	IconViewMode_Unlit->Load("Data/Icon/Viewport_ViewMode_Unlit.png", Device);
+
+	IconViewMode_Wireframe = NewObject<UTexture>();
+	IconViewMode_Wireframe->Load("Data/Icon/Viewport_Toolbar_WorldSpace.png", Device);
+
+	IconViewMode_BufferVis = NewObject<UTexture>();
+	IconViewMode_BufferVis->Load("Data/Icon/Viewport_ViewMode_BufferVis.png", Device);
 }
 
 void SViewportWindow::RenderGizmoModeButtons()
@@ -928,6 +833,237 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 			{
 				ImGui::SetTooltip("카메라에서 가장 먼 렌더링 거리 (100-10000)\n이 값보다 먼 오브젝트는 보이지 않습니다");
 			}
+		}
+
+		ImGui::PopStyleColor(3);
+		ImGui::PopStyleVar(2);
+		ImGui::EndPopup();
+	}
+}
+
+void SViewportWindow::RenderViewModeDropdownMenu()
+{
+	if (!ViewportClient) return;
+
+	ImVec2 cursorPos = ImGui::GetCursorPos();
+	ImGui::SetCursorPosY(cursorPos.y - 3.5f);
+
+	const ImVec2 IconSize(17, 17);
+
+	// 현재 뷰모드 이름 가져오기
+	EViewModeIndex CurrentViewMode = ViewportClient->GetViewModeIndex();
+	const char* CurrentViewModeName = "뷰모드";
+
+	switch (CurrentViewMode)
+	{
+	case EViewModeIndex::VMI_Lit:
+	case EViewModeIndex::VMI_Lit_Gouraud:
+	case EViewModeIndex::VMI_Lit_Lambert:
+	case EViewModeIndex::VMI_Lit_Phong:
+		CurrentViewModeName = "Lit";
+		break;
+	case EViewModeIndex::VMI_Unlit:
+		CurrentViewModeName = "Unlit";
+		break;
+	case EViewModeIndex::VMI_Wireframe:
+		CurrentViewModeName = "Wireframe";
+		break;
+	case EViewModeIndex::VMI_WorldNormal:
+	case EViewModeIndex::VMI_SceneDepth:
+		CurrentViewModeName = "BufferVis";
+		break;
+	}
+
+	// 드롭다운 버튼 텍스트 준비
+	char ButtonText[64];
+	sprintf_s(ButtonText, "%s %s", CurrentViewModeName, "▼");
+
+	// 텍스트 길이에 맞게 버튼 너비 계산
+	ImVec2 TextSize = ImGui::CalcTextSize(ButtonText);
+	const float Padding = 8.0f;
+	const float DropdownWidth = TextSize.x + Padding * 2.0f;
+
+	// 스타일 적용
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 0.6f));
+
+	// 드롭다운 버튼
+	ImVec2 ButtonSize(DropdownWidth, ImGui::GetFrameHeight());
+	if (ImGui::Button(ButtonText, ButtonSize))
+	{
+		ImGui::OpenPopup("ViewModePopup");
+	}
+
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::SetTooltip("뷰모드 선택");
+	}
+
+	ImGui::PopStyleColor(3);
+	ImGui::PopStyleVar(1);
+
+	// ===== 뷰모드 드롭다운 팝업 =====
+	if (ImGui::BeginPopup("ViewModePopup", ImGuiWindowFlags_NoMove))
+	{
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 4));
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 8));
+
+		// 선택된 항목의 파란 배경 제거
+		ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0, 0, 0, 0));
+		ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
+		ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.3f, 0.3f, 0.3f, 0.6f));
+
+		// --- 섹션: 뷰모드 ---
+		ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "뷰모드");
+		ImGui::Separator();
+
+		// ===== Lit 메뉴 (서브메뉴 포함) =====
+		bool bIsLitMode = (CurrentViewMode == EViewModeIndex::VMI_Lit ||
+			CurrentViewMode == EViewModeIndex::VMI_Lit_Gouraud ||
+			CurrentViewMode == EViewModeIndex::VMI_Lit_Lambert ||
+			CurrentViewMode == EViewModeIndex::VMI_Lit_Phong);
+
+		const char* LitRadioIcon = bIsLitMode ? "●" : "○";
+
+		// Lit 아이콘 + 텍스트 + 화살표
+		if (IconViewMode_Lit && IconViewMode_Lit->GetShaderResourceView())
+		{
+			ImGui::Image((void*)IconViewMode_Lit->GetShaderResourceView(), IconSize);
+			ImGui::SameLine(0, 4);
+		}
+
+		ImGui::Text("%s", LitRadioIcon);
+		ImGui::SameLine(0, 4);
+
+		if (ImGui::BeginMenu("Lit (릿)"))
+		{
+			ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "셰이더 모델");
+			ImGui::Separator();
+
+			// PHONG
+			bool bIsPhong = (CurrentViewMode == EViewModeIndex::VMI_Lit || CurrentViewMode == EViewModeIndex::VMI_Lit_Phong);
+			const char* PhongIcon = bIsPhong ? "●" : "○";
+			char PhongLabel[32];
+			sprintf_s(PhongLabel, "%s PHONG", PhongIcon);
+			if (ImGui::MenuItem(PhongLabel))
+			{
+				ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Phong);
+				CurrentLitSubMode = 3;
+				ImGui::CloseCurrentPopup();
+			}
+
+			// GOURAUD
+			bool bIsGouraud = (CurrentViewMode == EViewModeIndex::VMI_Lit_Gouraud);
+			const char* GouraudIcon = bIsGouraud ? "●" : "○";
+			char GouraudLabel[32];
+			sprintf_s(GouraudLabel, "%s GOURAUD", GouraudIcon);
+			if (ImGui::MenuItem(GouraudLabel))
+			{
+				ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Gouraud);
+				CurrentLitSubMode = 1;
+				ImGui::CloseCurrentPopup();
+			}
+
+			// LAMBERT
+			bool bIsLambert = (CurrentViewMode == EViewModeIndex::VMI_Lit_Lambert);
+			const char* LambertIcon = bIsLambert ? "●" : "○";
+			char LambertLabel[32];
+			sprintf_s(LambertLabel, "%s LAMBERT", LambertIcon);
+			if (ImGui::MenuItem(LambertLabel))
+			{
+				ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Lambert);
+				CurrentLitSubMode = 2;
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::EndMenu();
+		}
+
+		// ===== Unlit 메뉴 =====
+		bool bIsUnlit = (CurrentViewMode == EViewModeIndex::VMI_Unlit);
+		const char* UnlitRadioIcon = bIsUnlit ? "●" : "○";
+
+		if (IconViewMode_Unlit && IconViewMode_Unlit->GetShaderResourceView())
+		{
+			ImGui::Image((void*)IconViewMode_Unlit->GetShaderResourceView(), IconSize);
+			ImGui::SameLine(0, 4);
+		}
+
+		ImGui::Text("%s", UnlitRadioIcon);
+		ImGui::SameLine(0, 4);
+
+		if (ImGui::MenuItem("Unlit (언릿)"))
+		{
+			ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Unlit);
+			ImGui::CloseCurrentPopup();
+		}
+
+		// ===== Wireframe 메뉴 =====
+		bool bIsWireframe = (CurrentViewMode == EViewModeIndex::VMI_Wireframe);
+		const char* WireframeRadioIcon = bIsWireframe ? "●" : "○";
+
+		if (IconViewMode_Wireframe && IconViewMode_Wireframe->GetShaderResourceView())
+		{
+			ImGui::Image((void*)IconViewMode_Wireframe->GetShaderResourceView(), IconSize);
+			ImGui::SameLine(0, 4);
+		}
+
+		ImGui::Text("%s", WireframeRadioIcon);
+		ImGui::SameLine(0, 4);
+
+		if (ImGui::MenuItem("Wireframe (와이어프레임)"))
+		{
+			ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Wireframe);
+			ImGui::CloseCurrentPopup();
+		}
+
+		// ===== Buffer Visualization 메뉴 (서브메뉴 포함) =====
+		bool bIsBufferVis = (CurrentViewMode == EViewModeIndex::VMI_WorldNormal ||
+			CurrentViewMode == EViewModeIndex::VMI_SceneDepth);
+
+		const char* BufferVisRadioIcon = bIsBufferVis ? "●" : "○";
+
+		if (IconViewMode_BufferVis && IconViewMode_BufferVis->GetShaderResourceView())
+		{
+			ImGui::Image((void*)IconViewMode_BufferVis->GetShaderResourceView(), IconSize);
+			ImGui::SameLine(0, 4);
+		}
+
+		ImGui::Text("%s", BufferVisRadioIcon);
+		ImGui::SameLine(0, 4);
+
+		if (ImGui::BeginMenu("Buffer Visualization (버퍼 시각화)"))
+		{
+			ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "버퍼 시각화");
+			ImGui::Separator();
+
+			// Scene Depth
+			bool bIsSceneDepth = (CurrentViewMode == EViewModeIndex::VMI_SceneDepth);
+			const char* SceneDepthIcon = bIsSceneDepth ? "●" : "○";
+			char SceneDepthLabel[32];
+			sprintf_s(SceneDepthLabel, "%s Scene Depth", SceneDepthIcon);
+			if (ImGui::MenuItem(SceneDepthLabel))
+			{
+				ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_SceneDepth);
+				CurrentBufferVisSubMode = 0;
+				ImGui::CloseCurrentPopup();
+			}
+
+			// World Normal
+			bool bIsWorldNormal = (CurrentViewMode == EViewModeIndex::VMI_WorldNormal);
+			const char* WorldNormalIcon = bIsWorldNormal ? "●" : "○";
+			char WorldNormalLabel[32];
+			sprintf_s(WorldNormalLabel, "%s World Normal", WorldNormalIcon);
+			if (ImGui::MenuItem(WorldNormalLabel))
+			{
+				ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_WorldNormal);
+				CurrentBufferVisSubMode = 1;
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::EndMenu();
 		}
 
 		ImGui::PopStyleColor(3);
