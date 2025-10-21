@@ -94,7 +94,22 @@ void UShader::Load(const FString& InShaderPath, ID3D11Device* InDevice, const TA
 {
 	assert(InDevice);
 
+	// Store macros for hot reload
+	Macros = InMacros;
+
 	FWideString WFilePath(InShaderPath.begin(), InShaderPath.end());
+
+	// Update timestamp
+	try
+	{
+		auto FileTime = std::filesystem::last_write_time(InShaderPath);
+		SetLastModifiedTime(FileTime);
+	}
+	catch (...)
+	{
+		// If file doesn't exist yet, use current time
+		SetLastModifiedTime(std::filesystem::file_time_type::clock::now());
+	}
 
 	// --- [핵심] TArray<FShaderMacro>를 D3D_SHADER_MACRO* 형태로 변환 ---
 	TArray<D3D_SHADER_MACRO> Defines;
@@ -207,4 +222,123 @@ void UShader::ReleaseResources()
 		PixelShader->Release();
 		PixelShader = nullptr;
 	}
+}
+
+bool UShader::IsOutdated() const
+{
+	// Extract the actual file path (before any macro suffix)
+	FString ActualFilePath = GetFilePath();
+	size_t MacroSuffixPos = ActualFilePath.find("||MACROS||");
+	if (MacroSuffixPos != FString::npos)
+	{
+		ActualFilePath = ActualFilePath.substr(0, MacroSuffixPos);
+	}
+
+	try
+	{
+		if (!std::filesystem::exists(ActualFilePath))
+		{
+			return false; // File doesn't exist, not outdated
+		}
+
+		auto CurrentFileTime = std::filesystem::last_write_time(ActualFilePath);
+		return CurrentFileTime > GetLastModifiedTime();
+	}
+	catch (...)
+	{
+		return false; // Error checking file, assume not outdated
+	}
+}
+
+bool UShader::Reload(ID3D11Device* InDevice)
+{
+	if (!InDevice)
+	{
+		return false;
+	}
+
+	// Extract the actual file path
+	FString ActualFilePath = GetFilePath();
+	size_t MacroSuffixPos = ActualFilePath.find("||MACROS||");
+	if (MacroSuffixPos != FString::npos)
+	{
+		ActualFilePath = ActualFilePath.substr(0, MacroSuffixPos);
+	}
+
+	UE_LOG("Hot Reloading Shader: %s", ActualFilePath.c_str());
+
+	// Store old resources in case reload fails
+	ID3DBlob* OldVSBlob = VSBlob;
+	ID3DBlob* OldPSBlob = PSBlob;
+	ID3D11InputLayout* OldInputLayout = InputLayout;
+	ID3D11VertexShader* OldVertexShader = VertexShader;
+	ID3D11PixelShader* OldPixelShader = PixelShader;
+
+	// Clear pointers so Load can create new ones
+	VSBlob = nullptr;
+	PSBlob = nullptr;
+	InputLayout = nullptr;
+	VertexShader = nullptr;
+	PixelShader = nullptr;
+
+	// Get device context to unbind resources
+	ID3D11DeviceContext* Context = nullptr;
+	InDevice->GetImmediateContext(&Context);
+	
+	if (Context)
+	{
+		// Unbind all shader resources from the pipeline to prevent device removal
+		// This ensures the GPU is not using these resources when we release them
+		
+		// Unbind vertex shader
+		if (OldVertexShader)
+		{
+			Context->VSSetShader(nullptr, nullptr, 0);
+		}
+		
+		// Unbind pixel shader
+		if (OldPixelShader)
+		{
+			Context->PSSetShader(nullptr, nullptr, 0);
+		}
+		
+		// Unbind input layout
+		if (OldInputLayout)
+		{
+			Context->IASetInputLayout(nullptr);
+		}
+		
+		// Force GPU to finish all pending work before releasing resources
+		Context->Flush();
+		
+		// Release the context reference (GetImmediateContext adds a ref)
+		Context->Release();
+	}
+
+	// Try to reload with same macros
+	Load(ActualFilePath, InDevice, Macros);
+
+	// Check if reload was successful
+	bool bReloadSuccessful = (VertexShader != nullptr || PixelShader != nullptr);
+
+	if (bReloadSuccessful)
+	{
+		// Release old resources since new ones loaded successfully
+		if (OldVSBlob) { OldVSBlob->Release(); }
+		if (OldPSBlob) { OldPSBlob->Release(); }
+		if (OldInputLayout) { OldInputLayout->Release(); }
+		if (OldVertexShader) { OldVertexShader->Release(); }
+		if (OldPixelShader) { OldPixelShader->Release(); }
+	}
+	else
+	{
+		// Reload failed, restore old resources
+		VSBlob = OldVSBlob;
+		PSBlob = OldPSBlob;
+		InputLayout = OldInputLayout;
+		VertexShader = OldVertexShader;
+		PixelShader = OldPixelShader;
+	}
+
+	return bReloadSuccessful;
 }
