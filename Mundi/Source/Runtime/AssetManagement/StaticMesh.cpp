@@ -14,7 +14,7 @@ void UStaticMesh::Load(const FString& InFilePath, ID3D11Device* InDevice, EVerte
 {
     assert(InDevice);
 
-    VertexType = InVertexType;
+    SetVertexType(InVertexType);
 
     StaticMeshAsset = FObjManager::LoadObjStaticMeshAsset(InFilePath);
 
@@ -31,7 +31,7 @@ void UStaticMesh::Load(const FString& InFilePath, ID3D11Device* InDevice, EVerte
 
 void UStaticMesh::Load(FMeshData* InData, ID3D11Device* InDevice, EVertexLayoutType InVertexType)
 {
-    VertexType = InVertexType;
+    SetVertexType(InVertexType);
 
     if (VertexBuffer)
     {
@@ -47,9 +47,35 @@ void UStaticMesh::Load(FMeshData* InData, ID3D11Device* InDevice, EVertexLayoutT
     CreateVertexBuffer(InData, InDevice, InVertexType);
     CreateIndexBuffer(InData, InDevice);
     CreateLocalBound(InData);
-    
+
     VertexCount = static_cast<uint32>(InData->Vertices.size());
     IndexCount = static_cast<uint32>(InData->Indices.size());
+}
+
+void UStaticMesh::SetVertexType(EVertexLayoutType InVertexType)
+{
+    VertexType = InVertexType;
+
+    uint32 Stride = 0;
+    switch (InVertexType)
+    {
+    case EVertexLayoutType::PositionColor:
+        Stride = sizeof(FVertexSimple);
+        break;
+    case EVertexLayoutType::PositionColorTexturNormal:
+        Stride = sizeof(FVertexDynamic);
+        break;
+    case EVertexLayoutType::PositionTextBillBoard:
+        Stride = sizeof(FBillboardVertexInfo_GPU);
+        break;
+    case EVertexLayoutType::PositionBillBoard:
+        Stride = sizeof(FBillboardVertex);
+        break;
+    default:
+        assert(false && "Unknown vertex type!");
+    }
+
+    VertexStride = Stride;
 }
 
 bool UStaticMesh::EraseUsingComponets(UStaticMeshComponent* InStaticMeshComponent)

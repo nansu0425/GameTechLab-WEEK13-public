@@ -10,6 +10,7 @@
 #include "CameraActor.h"
 #include "JsonSerializer.h"
 #include "LightComponentBase.h"
+#include "MeshBatchElement.h"
 
 IMPLEMENT_CLASS(UBillboardComponent)
 
@@ -37,7 +38,7 @@ UBillboardComponent::UBillboardComponent()
 	SetTextureName("Data/UI/Icons/Pawn_64x.png");
 }
 
-void UBillboardComponent::SetTextureName( FString TexturePath)
+void UBillboardComponent::SetTextureName(FString TexturePath)
 {
 	TextureName = TexturePath;
 	Texture = UResourceManager::GetInstance().Load<UTexture>(TexturePath);
@@ -88,30 +89,102 @@ void UBillboardComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 // 여기서만 Cull_Back을 꺼야함. 
 void UBillboardComponent::Render(URenderer* Renderer, const FMatrix& View, const FMatrix& Proj)
 {
-	// 빌보드를 위한 업데이트
-	ACameraActor* CameraActor = GetOwner()->GetWorld()->GetCameraActor();
-	FVector CamRight = CameraActor->GetActorRight();
-	FVector CamUp = CameraActor->GetActorUp();
-	FVector cameraPosition = CameraActor->GetActorLocation();
+	//// 빌보드를 위한 업데이트
+	//ACameraActor* CameraActor = GetOwner()->GetWorld()->GetCameraActor();
+	//FVector CamRight = CameraActor->GetActorRight();
+	//FVector CamUp = CameraActor->GetActorUp();
+	//FVector cameraPosition = CameraActor->GetActorLocation();
 
-    //Renderer->GetRHIDevice()->UpdateBillboardConstantBuffers(Owner->GetActorLocation() + GetRelativeLocation() + FVector(0.f, 0.f, 1.f) * Owner->GetActorScale().Z, View, Proj, CamRight, CamUp);
-	//정작 location, view proj만 사용하고 있길래 그냥 Identity넘김
-	Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(BillboardBufferType(
-		GetWorldLocation(),
-		View,
-		Proj,
-		View.InverseAffineFast()));
-	FLinearColor Color{1,1,1,1};
+
+	//FLinearColor Color{ 1,1,1,1 };
+	//if (ULightComponentBase* LightBase = Cast<ULightComponentBase>(this->GetAttachParent()))
+	//{
+	//	Color = LightBase->GetLightColor();
+	//}
+
+	////Renderer->GetRHIDevice()->UpdateBillboardConstantBuffers(Owner->GetActorLocation() + GetRelativeLocation() + FVector(0.f, 0.f, 1.f) * Owner->GetActorScale().Z, View, Proj, CamRight, CamUp);
+	////정작 location, view proj만 사용하고 있길래 그냥 Identity넘김
+	//Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ColorBufferType(Color, this->InternalIndex));
+	//Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(BillboardBufferType(GetWorldLocation(), View, Proj, View.InverseAffineFast()));
+
+	//Renderer->GetRHIDevice()->PrepareShader(Material->GetShader());
+	//Renderer->GetRHIDevice()->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+	//Renderer->GetRHIDevice()->RSSetState(ERasterizerMode::Solid_NoCull);
+	//Renderer->DrawIndexedPrimitiveComponent(this, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+}
+
+void UBillboardComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View)
+{
+	// 1. 렌더링할 애셋이 유효한지 검사
+	// (IsActive()는 UPrimitiveComponent 또는 그 부모에 있다고 가정)
+	if (!IsActive() || !Quad || Quad->GetIndexCount() == 0 || !Texture || !Texture->GetShaderResourceView())
+	{
+		return; // 그릴 메시 데이터 없음
+	}
+
+	// 2. 사용할 머티리얼과 셰이더 결정
+	UMaterial* MaterialToUse = GetMaterial(0); // this->Material 반환
+	UShader* ShaderToUse = nullptr;
+
+	if (MaterialToUse && MaterialToUse->GetShader())
+	{
+		ShaderToUse = MaterialToUse->GetShader();
+	}
+	else
+	{
+		// [Fallback 로직]
+		UE_LOG("UBillboardComponent: Material이 없거나 셰이더가 없어서 기본 빌보드 셰이더 사용");
+
+		// 생성자에서 사용한 경로와 동일하게 Fallback
+		MaterialToUse = UResourceManager::GetInstance().Load<UMaterial>("Shaders/UI/Billboard.hlsl");
+		if (MaterialToUse)
+		{
+			ShaderToUse = MaterialToUse->GetShader();
+		}
+
+		// 기본 셰이더조차 없으면 렌더링 불가
+		if (!MaterialToUse || !ShaderToUse)
+		{
+			UE_LOG("UBillboardComponent: 기본 빌보드 머티리얼/셰이더를 찾을 수 없습니다!");
+			return;
+		}
+	}
+
+	// 3. FMeshBatchElement 생성
+	// UQuad는 GroupInfo가 없는 단일 메시로 처리합니다.
+	FMeshBatchElement BatchElement;
+
+	// --- 정렬 키 ---
+	BatchElement.VertexShader = ShaderToUse;
+	BatchElement.PixelShader = ShaderToUse;
+	BatchElement.Material = MaterialToUse;
+	BatchElement.VertexBuffer = Quad->GetVertexBuffer();
+	BatchElement.IndexBuffer = Quad->GetIndexBuffer();
+
+	// 참고: UQuad 클래스에 GetVertexStride() 함수가 필요합니다.
+	BatchElement.VertexStride = Quad->GetVertexStride();
+
+	// --- 드로우 데이터 (메시 전체 범위 사용) ---
+	BatchElement.IndexCount = Quad->GetIndexCount(); // 전체 인덱스 수
+	BatchElement.StartIndex = 0;
+	BatchElement.BaseVertexIndex = 0;
+
+	// --- 인스턴스 데이터 ---
+	// 빌보드는 셰이더에서 카메라를 바라보게 처리하므로,
+	// 여기서는 월드 위치(Translation) 정보만 행렬로 넘깁니다.
+	BatchElement.WorldMatrix = FMatrix::MakeTranslation(GetWorldLocation());
+
+	BatchElement.ObjectID = InternalIndex;
+	BatchElement.PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+
+	BatchElement.InstanceShaderResourceView = Texture->GetShaderResourceView();
+
+	FLinearColor Color{ 1,1,1,1 };
 	if (ULightComponentBase* LightBase = Cast<ULightComponentBase>(this->GetAttachParent()))
 	{
 		Color = LightBase->GetLightColor();
 	}
-	Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(ColorBufferType(Color, this->InternalIndex));
+	BatchElement.InstanceColor = Color;
 
-
-	Renderer->GetRHIDevice()->SetAndUpdateConstantBuffer(BillboardBufferType(GetWorldLocation(), View, Proj, View.InverseAffineFast()));
-    Renderer->GetRHIDevice()->PrepareShader(Material->GetShader());
-    Renderer->GetRHIDevice()->OMSetDepthStencilState(EComparisonFunc::LessEqual);
-	Renderer->GetRHIDevice()->RSSetState(ERasterizerMode::Solid_NoCull);
-    Renderer->DrawIndexedPrimitiveComponent(this, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	OutMeshBatchElements.Add(BatchElement);
 }
