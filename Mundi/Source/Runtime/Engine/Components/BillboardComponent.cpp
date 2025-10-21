@@ -48,12 +48,12 @@ void UBillboardComponent::SetTextureName(FString TexturePath)
 	}
 }
 
-UMaterial* UBillboardComponent::GetMaterial(uint32 InSectionIndex) const
+UMaterialInterface* UBillboardComponent::GetMaterial(uint32 InSectionIndex) const
 {
 	return Material;
 }
 
-void UBillboardComponent::SetMaterial(uint32 InElementIndex, UMaterial* InNewMaterial)
+void UBillboardComponent::SetMaterial(uint32 InElementIndex, UMaterialInterface* InNewMaterial)
 {
 	Material = InNewMaterial;
 }
@@ -120,7 +120,7 @@ void UBillboardComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshB
 	}
 
 	// 2. 사용할 머티리얼과 셰이더 결정
-	UMaterial* MaterialToUse = GetMaterial(0); // this->Material 반환
+	UMaterialInterface* MaterialToUse = GetMaterial(0); // this->Material 반환
 	UShader* ShaderToUse = nullptr;
 
 	if (MaterialToUse && MaterialToUse->GetShader())

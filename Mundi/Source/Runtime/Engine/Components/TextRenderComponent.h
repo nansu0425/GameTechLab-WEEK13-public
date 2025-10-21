@@ -24,8 +24,8 @@ public:
 	// Serialize
 	void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
 
-	UMaterial* GetMaterial(uint32 InSectionIndex) const override;
-	void SetMaterial(uint32 InElementIndex, UMaterial* InNewMaterial) override;
+	UMaterialInterface* GetMaterial(uint32 InSectionIndex) const override;
+	void SetMaterial(uint32 InElementIndex, UMaterialInterface* InNewMaterial) override;
 
 	// ───── 복사 관련 ────────────────────────────
 	void DuplicateSubObjects() override;
@@ -37,6 +37,6 @@ private:
 	FString Text;
 	static TMap<char, FBillboardVertexInfo> CharInfoMap; // shared per-process, built once
 	FString TextureFilePath;
-	UMaterial* Material;
+	UMaterialInterface* Material;
 	UQuad* TextQuad = nullptr;
 };

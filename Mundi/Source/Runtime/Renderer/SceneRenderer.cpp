@@ -614,7 +614,7 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 	// 현재 GPU 상태 캐싱용 변수 (UStaticMesh* 대신 실제 GPU 리소스로 변경)
 	UShader* CurrentVertexShader = nullptr;
 	UShader* CurrentPixelShader = nullptr;
-	UMaterial* CurrentMaterial = nullptr;
+	UMaterialInterface* CurrentMaterial = nullptr;
 	ID3D11ShaderResourceView* CurrentInstanceSRV = nullptr; // [추가] Instance SRV 캐시
 	ID3D11Buffer* CurrentVertexBuffer = nullptr;
 	ID3D11Buffer* CurrentIndexBuffer = nullptr;
@@ -676,26 +676,24 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 			// 2순위: 머티리얼 텍스처 (스태틱 메시)
 			else if (Batch.Material)
 			{
-				const FMaterialInfo& MaterialInfo = Batch.Material->GetMaterialInfo();
-				if (!MaterialInfo.DiffuseTextureFileName.empty())
-				{
-					if (UTexture* TextureData = Batch.Material->GetTexture(EMaterialTextureSlot::Diffuse))
-					{
-						DiffuseTextureSRV = TextureData->GetShaderResourceView();
-						PixelConst.bHasDiffuseTexture = (DiffuseTextureSRV != nullptr);
-					}
-				}
-				if (!MaterialInfo.NormalTextureFileName.empty())
-				{
-					if (UTexture* TextureData = Batch.Material->GetTexture(EMaterialTextureSlot::Normal))
-					{
-						NormalTextureSRV = TextureData->GetShaderResourceView();
-						PixelConst.bHasNormalTexture = (NormalTextureSRV != nullptr);
-					}
-				}
-			}
-
-			// --- RHI 상태 업데이트 ---
+			    const FMaterialInfo& MaterialInfo = Batch.Material->GetMaterialInfo();
+			    if (!MaterialInfo.DiffuseTextureFileName.empty())
+			    {
+			        if (UTexture* TextureData = Batch.Material->GetTexture(EMaterialTextureSlot::Diffuse))
+			        {
+			            DiffuseTextureSRV = TextureData->GetShaderResourceView();
+			            PixelConst.bHasDiffuseTexture = (DiffuseTextureSRV != nullptr);
+			        }
+			    }
+			    if (!MaterialInfo.NormalTextureFileName.empty())
+			    {
+			        if (UTexture* TextureData = Batch.Material->GetTexture(EMaterialTextureSlot::Normal))
+			        {
+			            NormalTextureSRV = TextureData->GetShaderResourceView();
+			            PixelConst.bHasNormalTexture = (NormalTextureSRV != nullptr);
+			        }
+			    }
+			}			// --- RHI 상태 업데이트 ---
 			// 1. 텍스처(SRV) 바인딩
 			ID3D11ShaderResourceView* Srvs[2] = { DiffuseTextureSRV, NormalTextureSRV };
 			RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);

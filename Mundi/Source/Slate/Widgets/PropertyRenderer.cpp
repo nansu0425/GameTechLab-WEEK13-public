@@ -488,7 +488,7 @@ bool UPropertyRenderer::RenderMaterialProperty(const FProperty& Prop, void* Inst
 	// 렌더링에 필요한 리소스가 캐시되었는지 확인하고, 없으면 로드합니다.
 	CacheMaterialResources();
 
-	UMaterial** MaterialPtr = Prop.GetValuePtr<UMaterial*>(Instance);
+	UMaterialInterface** MaterialPtr = Prop.GetValuePtr<UMaterialInterface*>(Instance);
 	if (!MaterialPtr)
 	{
 		ImGui::Text("%s: [Invalid Material Ptr]", Prop.Name);
@@ -506,7 +506,7 @@ bool UPropertyRenderer::RenderMaterialArrayProperty(const FProperty& Prop, void*
 	// 렌더링에 필요한 리소스가 캐시되었는지 확인하고, 없으면 로드합니다.
 	CacheMaterialResources();
 
-	TArray<UMaterial*>* MaterialSlots = Prop.GetValuePtr<TArray<UMaterial*>>(Instance);
+	TArray<UMaterialInterface*>* MaterialSlots = Prop.GetValuePtr<TArray<UMaterialInterface*>>(Instance);
 	if (!MaterialSlots)
 	{
 		ImGui::Text("%s: [Invalid Array Ptr]", Prop.Name);
@@ -520,7 +520,7 @@ bool UPropertyRenderer::RenderMaterialArrayProperty(const FProperty& Prop, void*
 	for (int32 MaterialIndex = 0; MaterialIndex < MaterialSlots->Num(); ++MaterialIndex)
 	{
 		FString Label = FString(Prop.Name) + " [" + std::to_string(MaterialIndex) + "]";
-		UMaterial** MaterialPtr = &(*MaterialSlots)[MaterialIndex];
+		UMaterialInterface** MaterialPtr = &(*MaterialSlots)[MaterialIndex];
 
 		if (RenderSingleMaterialSlot(Label.c_str(), MaterialPtr, OwningObject, MaterialIndex))
 		{
@@ -531,10 +531,10 @@ bool UPropertyRenderer::RenderMaterialArrayProperty(const FProperty& Prop, void*
 	return bArrayChanged;
 }
 
-bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterial** MaterialPtr, UObject* OwningObject, uint32 MaterialIndex)
+bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterialInterface** MaterialPtr, UObject* OwningObject, uint32 MaterialIndex)
 {
 	bool bElementChanged = false;
-	UMaterial* CurrentMaterial = *MaterialPtr;
+	UMaterialInterface* CurrentMaterial = *MaterialPtr;
 
 	// 캐시가 비어있으면 아무것도 렌더링하지 않음 (필수)
 	if (CachedMaterialItems.empty())
@@ -543,7 +543,7 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterial** 
 		return false;
 	}
 
-	// --- UMaterial 애셋 선택 콤보박스 ---
+	// --- UMaterialInterface 애셋 선택 콤보박스 ---
 	FString CurrentMaterialPath = (CurrentMaterial) ? CurrentMaterial->GetFilePath() : "None";
 
 	int SelectedMaterialIdx = 0; // "None"
@@ -587,7 +587,7 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterial** 
 		CurrentMaterial = *MaterialPtr;
 	}
 
-	// --- UMaterial 내부 프로퍼티 렌더링 (셰이더, 텍스처) ---
+	// --- UMaterialInterface 내부 프로퍼티 렌더링 (셰이더, 텍스처) ---
 	if (CurrentMaterial)
 	{
 		ImGui::Indent();
@@ -721,9 +721,53 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterial** 
 					FString SelectableID = FString("##Selectable_") + TexturePath + std::to_string(i);
 
 					// 1. Selectable을 먼저 호출
-					if (ImGui::Selectable(SelectableID.c_str(), is_selected, 0, ImVec2(0, ThumbnailSize - 1.0f)))	// 계속 1픽셀 씩 남아서 처리
+					if (ImGui::Selectable(SelectableID.c_str(), is_selected, 0, ImVec2(0, ThumbnailSize - 1.0f)))
 					{
-						CurrentMaterial->SetTexture(Slot, TexturePath);
+						// 1. 선택된 텍스처 리소스를 경로로부터 로드합니다.
+						UTexture* SelectedTexture = (i == 0)
+							? nullptr
+							: UResourceManager::GetInstance().Load<UTexture>(TexturePath);
+
+						// 2. 현재 머티리얼이 MID인지 확인합니다.
+						UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(CurrentMaterial);
+
+						// 3. MID가 아니라면 (즉, UMaterial 원본을 사용 중이라면)
+						if (MID == nullptr)
+						{
+							// 3-1. OwningObject를 UStaticMeshComponent로 캐스팅합니다.
+							if (UStaticMeshComponent* StaticMeshComp = Cast<UStaticMeshComponent>(OwningObject))
+							{
+								// 3-2. 컴포넌트의 헬퍼 함수를 호출하여 MID를 생성하고 슬롯에 할당합니다.
+								// 이 함수는 내부적으로 MaterialSlots[MaterialIndex]를 새 MID로 교체하고
+								// DynamicMaterialInstances 배열에도 추가하여 메모리 관리를 보장합니다.
+								MID = StaticMeshComp->CreateAndSetMaterialInstanceDynamic(MaterialIndex);
+
+								// 3-3. 이 UI가 참조하는 로컬 변수도 새 MID로 업데이트합니다.
+								CurrentMaterial = MID;
+								// (*MaterialPtr = MID; 줄은 CreateAndSet... 함수가 이미 처리했으므로 필요 없습니다)
+							}
+							else
+							{
+								// UStaticMeshComponent가 아닌 다른 컴포넌트가 이 속성을 소유한 경우
+								// (경고: 이 경우 MID의 소유권 추적이 어려워 메모리 릭이 발생할 수 있습니다.)
+								MID = UMaterialInstanceDynamic::Create(CurrentMaterial);
+								*MaterialPtr = MID; // 포인터가 가리키는 곳(배열)의 값을 직접 변경
+								CurrentMaterial = MID;
+
+								if (UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(OwningObject))
+								{
+									PrimitiveComponent->SetMaterial(MaterialIndex, MID);
+								}
+							}
+						}
+
+						// 4. 이제 CurrentMaterial은 반드시 MID이므로 (기존 MID 또는 방금 생성한 MID),
+						//    UTexture* 포인터를 사용하여 파라미터를 설정합니다.
+						if (MID) // (안전 검사)
+						{
+							MID->SetTextureParameterValue(Slot, SelectedTexture);
+						}
+
 						bElementChanged = true;
 					}
 					ImVec2 NextItemCursorPos = ImGui::GetCursorPos(); // 다음 아이템 위치 저장

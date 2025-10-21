@@ -6,6 +6,8 @@
 class UStaticMesh;
 class UShader;
 class UTexture;
+class UMaterialInterface;
+class UMaterialInstanceDynamic;
 struct FSceneCompData;
 
 class UStaticMeshComponent : public UMeshComponent
@@ -18,6 +20,7 @@ public:
 
 protected:
 	~UStaticMeshComponent() override;
+	void ClearDynamicMaterials();
 
 public:
 	void CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View) override;
@@ -28,11 +31,13 @@ public:
 
 	UStaticMesh* GetStaticMesh() const { return StaticMesh; }
 	
-	UMaterial* GetMaterial(uint32 InSectionIndex) const override;
-	void SetMaterial(uint32 InElementIndex, UMaterial* InNewMaterial) override;
+	UMaterialInterface* GetMaterial(uint32 InSectionIndex) const override;
+	void SetMaterial(uint32 InElementIndex, UMaterialInterface* InNewMaterial) override;
+
+	UMaterialInstanceDynamic* CreateAndSetMaterialInstanceDynamic(uint32 ElementIndex);
 
 	void SetMaterialByUser(const uint32 InMaterialSlotIndex, const FString& InMaterialName);
-	const TArray<UMaterial*> GetMaterialSlots() const { return MaterialSlots; }
+	const TArray<UMaterialInterface*> GetMaterialSlots() const { return MaterialSlots; }
 
 	bool IsChangedMaterialByUser() const
 	{
@@ -50,7 +55,8 @@ protected:
 
 protected:
 	UStaticMesh* StaticMesh = nullptr;
-	TArray<UMaterial*> MaterialSlots;
+	TArray<UMaterialInterface*> MaterialSlots;
+	TArray<UMaterialInstanceDynamic*> DynamicMaterialInstances;
 
 	bool bChangedMaterialByUser = false;
 };
