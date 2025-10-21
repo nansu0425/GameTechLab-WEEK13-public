@@ -94,15 +94,18 @@ void UShader::Load(const FString& InShaderPath, ID3D11Device* InDevice, const TA
 {
 	assert(InDevice);
 
+	// Store the actual file path (without macro suffix)
+	ActualFilePath = InShaderPath;
+
 	// Store macros for hot reload
 	Macros = InMacros;
 
 	FWideString WFilePath(InShaderPath.begin(), InShaderPath.end());
 
-	// Update timestamp
+	// Update timestamp using the actual file path
 	try
 	{
-		auto FileTime = std::filesystem::last_write_time(InShaderPath);
+		auto FileTime = std::filesystem::last_write_time(ActualFilePath);
 		SetLastModifiedTime(FileTime);
 	}
 	catch (...)
@@ -226,12 +229,10 @@ void UShader::ReleaseResources()
 
 bool UShader::IsOutdated() const
 {
-	// Extract the actual file path (before any macro suffix)
-	FString ActualFilePath = GetFilePath();
-	size_t MacroSuffixPos = ActualFilePath.find("||MACROS||");
-	if (MacroSuffixPos != FString::npos)
+	// Use the stored actual file path (not the unique key with macros)
+	if (ActualFilePath.empty())
 	{
-		ActualFilePath = ActualFilePath.substr(0, MacroSuffixPos);
+		return false; // No file path stored
 	}
 
 	try
@@ -257,15 +258,14 @@ bool UShader::Reload(ID3D11Device* InDevice)
 		return false;
 	}
 
-	// Extract the actual file path
-	FString ActualFilePath = GetFilePath();
-	size_t MacroSuffixPos = ActualFilePath.find("||MACROS||");
-	if (MacroSuffixPos != FString::npos)
+	// Use the stored actual file path
+	if (ActualFilePath.empty())
 	{
-		ActualFilePath = ActualFilePath.substr(0, MacroSuffixPos);
+		UE_LOG("Hot Reload Failed: No actual file path stored for shader");
+		return false;
 	}
 
-	UE_LOG("Hot Reloading Shader: %s", ActualFilePath.c_str());
+	UE_LOG("Hot Reloading Shader: %s (with %d macros)", ActualFilePath.c_str(), (int)Macros.size());
 
 	// Store old resources in case reload fails
 	ID3DBlob* OldVSBlob = VSBlob;
@@ -315,7 +315,7 @@ bool UShader::Reload(ID3D11Device* InDevice)
 		Context->Release();
 	}
 
-	// Try to reload with same macros
+	// Try to reload with same macros using the actual file path
 	Load(ActualFilePath, InDevice, Macros);
 
 	// Check if reload was successful
@@ -338,6 +338,8 @@ bool UShader::Reload(ID3D11Device* InDevice)
 		InputLayout = OldInputLayout;
 		VertexShader = OldVertexShader;
 		PixelShader = OldPixelShader;
+		
+		UE_LOG("Hot Reload Failed: Restoring old shader for %s", ActualFilePath.c_str());
 	}
 
 	return bReloadSuccessful;

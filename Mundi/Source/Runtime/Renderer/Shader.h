@@ -23,6 +23,9 @@ public:
 	bool IsOutdated() const;
 	bool Reload(ID3D11Device* InDevice);
 	const TArray<FShaderMacro>& GetMacros() const { return Macros; }
+	
+	// Get the actual shader file path (without macro suffix)
+	const FString& GetActualFilePath() const { return ActualFilePath; }
 
 protected:
 	virtual ~UShader();
@@ -37,6 +40,10 @@ private:
 
 	// Store macros for hot reload
 	TArray<FShaderMacro> Macros;
+	
+	// Store actual file path (e.g., "Shaders/Materials/UberLit.hlsl")
+	// FilePath (from base class) stores the unique key with macros
+	FString ActualFilePath;
 
 	void CreateInputLayout(ID3D11Device* Device, const FString& InShaderPath);
 	void ReleaseResources();
