@@ -24,7 +24,6 @@ void FLightManager::Initialize(D3D11RHI* RHIDevice)
 		RHIDevice->CreateStructuredBuffer(sizeof(FSpotLightInfo), NUM_SPOT_LIGHT_MAX, nullptr, &SpotLightBuffer);
 		RHIDevice->CreateStructuredBufferSRV(SpotLightBuffer, &SpotLightBufferSRV);
 	}
-
 }
 void FLightManager::Release()
 {
@@ -55,12 +54,18 @@ void FLightManager::UpdateLightBuffer(D3D11RHI* RHIDevice)
 {
 	if (bHaveToUpdate)
 	{
+		if (!PointLightBuffer)
+		{
+			Initialize(RHIDevice);
+		}
+
 		FLightBufferType LightBuffer{};
 
 		if (AmbientLightList.Num() > 0)
 		{
 			LightBuffer.AmbientLight = AmbientLightList[0]->GetLightInfo();
 		}
+
 		if (DIrectionalLightList.Num() > 0)
 		{
 			LightBuffer.DirectionalLight = DIrectionalLightList[0]->GetLightInfo();
@@ -77,6 +82,7 @@ void FLightManager::UpdateLightBuffer(D3D11RHI* RHIDevice)
 			RHIDevice->UpdateStructuredBuffer(PointLightBuffer, PointLightInfoList.data(), PointLightNum * sizeof(FPointLightInfo));
 			bPointLightDirty = false;
 		}
+
 		if (bSpotLightDirty)
 		{
 			SpotLightInfoList.clear();
@@ -84,7 +90,8 @@ void FLightManager::UpdateLightBuffer(D3D11RHI* RHIDevice)
 			{
 				SpotLightInfoList.Add(SpotLightList[Index]->GetLightInfo());
 			}
-			RHIDevice->UpdateStructuredBuffer(SpotLightBuffer, SpotLightInfoList.data(), SpotLightNum * sizeof(FPointLightInfo));
+
+			RHIDevice->UpdateStructuredBuffer(SpotLightBuffer, SpotLightInfoList.data(), SpotLightNum * sizeof(FSpotLightInfo));
 			bSpotLightDirty = false;
 		}
 
@@ -93,11 +100,9 @@ void FLightManager::UpdateLightBuffer(D3D11RHI* RHIDevice)
 
 		//슬롯 재활용 하고싶을 시 if문 밖으로 빼서 매 프레임 세팅 해줘야함.
 		RHIDevice->SetAndUpdateConstantBuffer(LightBuffer);
-		if (!PointLightBuffer)
-		{
-			Initialize(RHIDevice);
-		}
+	
 		ID3D11ShaderResourceView* SRVList[2]{ PointLightBufferSRV, SpotLightBufferSRV };
+
 		//Gouraud shader 사용 여부로 아래 세팅 분기도 가능, 일단 둘다 바인딩함
 		RHIDevice->GetDeviceContext()->PSSetShaderResources(3, 2, SRVList);
 		RHIDevice->GetDeviceContext()->VSSetShaderResources(3, 2, SRVList);
