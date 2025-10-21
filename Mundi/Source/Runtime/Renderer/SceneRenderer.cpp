@@ -554,14 +554,7 @@ void FSceneRenderer::RenderOpaquePass()
 	}
 
 	// --- 2. 정렬 (Sort) ---
-	MeshBatchElements.Sort([](const FMeshBatchElement& A, const FMeshBatchElement& B)
-		{
-			if (A.VertexShader != B.VertexShader) return A.VertexShader < B.VertexShader;
-			if (A.PixelShader != B.PixelShader) return A.PixelShader < B.PixelShader;
-			if (A.Material != B.Material) return A.Material < B.Material;
-			if (A.Mesh != B.Mesh) return A.Mesh < B.Mesh;
-			return false;
-		});
+	MeshBatchElements.Sort();
 
 	// --- 3. 그리기 (Draw) ---
 	DrawMeshBatches(MeshBatchElements, true);
@@ -575,11 +568,14 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual); // 깊이 쓰기 ON
 	RHIDevice->OMSetBlendState(false);
 
-	// 현재 GPU 상태 캐싱용 변수
+	// 현재 GPU 상태 캐싱용 변수 (UStaticMesh* 대신 실제 GPU 리소스로 변경)
 	UShader* CurrentVertexShader = nullptr;
 	UShader* CurrentPixelShader = nullptr;
 	UMaterial* CurrentMaterial = nullptr;
-	UStaticMesh* CurrentMesh = nullptr;
+	ID3D11Buffer* CurrentVertexBuffer = nullptr;
+	ID3D11Buffer* CurrentIndexBuffer = nullptr;
+	UINT CurrentVertexStride = 0;
+	D3D11_PRIMITIVE_TOPOLOGY CurrentTopology = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
 
 	// 기본 샘플러 미리 가져오기 (루프 내 반복 호출 방지)
 	ID3D11SamplerState* DefaultSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::Default);
@@ -593,9 +589,9 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 	for (const FMeshBatchElement& Batch : InMeshBatches)
 	{
 		// --- 필수 요소 유효성 검사 ---
-		if (!Batch.VertexShader || !Batch.PixelShader || !Batch.Mesh)
+		if (!Batch.VertexShader || !Batch.PixelShader || !Batch.VertexBuffer || !Batch.IndexBuffer || Batch.VertexStride == 0)
 		{
-			// 셰이더나 메시가 없으면 그릴 수 없음
+			// 셰이더나 버퍼, 스트라이드 정보가 없으면 그릴 수 없음
 			continue;
 		}
 
@@ -617,11 +613,10 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 
 			if (Batch.Material) // 머티리얼 유효성 검사
 			{
-				// 유효한 머티리얼이 있는 경우
 				const FMaterialInfo& MaterialInfo = Batch.Material->GetMaterialInfo();
 				PixelConst.Material = MaterialInfo;
 				PixelConst.bHasMaterial = true;
-				// --- 텍스처 로드 및 SRV 준비 ---
+
 				if (!MaterialInfo.DiffuseTextureFileName.empty())
 				{
 					if (UTexture* TextureData = Batch.Material->GetTexture(EMaterialTextureSlot::Diffuse))
@@ -649,61 +644,45 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 			else
 			{
 				// 머티리얼이 없는 경우 (예: 기본 버텍스 컬러 사용)
-				// 기본값 FMaterialParameters 생성 (모든 값이 기본값)
 				FMaterialInfo DefaultMaterialInfo;
 				PixelConst.Material = DefaultMaterialInfo;
 				PixelConst.bHasDiffuseTexture = false;
 				PixelConst.bHasNormalTexture = false;
-				// srv는 nullptr 유지
 			}
 
 			// --- RHI 상태 업데이트 ---
-			// 텍스처 바인딩 (srv가 nullptr이어도 안전하게 호출 가능)
 			ID3D11ShaderResourceView* Srvs[2] = { DiffuseTextureSRV, NormalTextureSRV };
 			RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
 
-			// 샘플러 바인딩 (기본 샘플러 사용)
 			ID3D11SamplerState* Samplers[2] = { DefaultSampler, DefaultSampler };
 			RHIDevice->GetDeviceContext()->PSSetSamplers(0, 2, Samplers);
 
-			// 픽셀 상수 버퍼 업데이트
 			RHIDevice->SetAndUpdateConstantBuffer(PixelConst);
 
 			CurrentMaterial = Batch.Material; // 현재 머티리얼 상태 캐싱
 		}
 
-		// 3. 메시 상태 변경 (Vertex Buffer, Index Buffer 바인딩)
-		if (Batch.Mesh != CurrentMesh)
+		// 3. IA (Input Assembler) 상태 변경
+		if (Batch.VertexBuffer != CurrentVertexBuffer ||
+			Batch.IndexBuffer != CurrentIndexBuffer ||
+			Batch.VertexStride != CurrentVertexStride ||
+			Batch.PrimitiveTopology != CurrentTopology)
 		{
-			UINT Stride = 0;
-			switch (Batch.Mesh->GetVertexType()) // Batch.Mesh는 위에서 null 체크 완료
-			{
-			case EVertexLayoutType::PositionColor:               Stride = sizeof(FVertexSimple); break;
-			case EVertexLayoutType::PositionColorTexturNormal:   Stride = sizeof(FVertexDynamic); break;
-			case EVertexLayoutType::PositionTextBillBoard:       Stride = sizeof(FBillboardVertexInfo_GPU); break;
-			case EVertexLayoutType::PositionBillBoard:           Stride = sizeof(FBillboardVertex); break;
-
-			default:
-				// 이 경우는 CollectMeshBatches 단계에서 걸러졌어야 함
-				UE_LOG("DrawMeshBatches: Unknown vertex type for Mesh!");
-				continue; // 이 배치는 건너뜀
-			}
-
-			ID3D11Buffer* VertexBuffer = Batch.Mesh->GetVertexBuffer();
-			ID3D11Buffer* IndexBuffer = Batch.Mesh->GetIndexBuffer();
-
-			// 버퍼 포인터 유효성 검사 (추가적인 안전장치)
-			if (!VertexBuffer || !IndexBuffer)
-			{
-				UE_LOG("DrawMeshBatches: VertexBuffer or IndexBuffer is null for Mesh!");
-				continue; // 이 배치는 건너뜀
-			}
-
+			UINT Stride = Batch.VertexStride; // Batch에서 직접 Stride 가져오기
 			UINT Offset = 0;
-			RHIDevice->GetDeviceContext()->IASetVertexBuffers(0, 1, &VertexBuffer, &Stride, &Offset);
-			RHIDevice->GetDeviceContext()->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
-			CurrentMesh = Batch.Mesh; // 현재 메시 상태 캐싱
+			// Vertex/Index 버퍼 바인딩
+			RHIDevice->GetDeviceContext()->IASetVertexBuffers(0, 1, &Batch.VertexBuffer, &Stride, &Offset);
+			RHIDevice->GetDeviceContext()->IASetIndexBuffer(Batch.IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+
+			// 토폴로지 설정 (이전 코드의 5번에서 이동하여 최적화)
+			RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(Batch.PrimitiveTopology);
+
+			// 현재 IA 상태 캐싱
+			CurrentVertexBuffer = Batch.VertexBuffer;
+			CurrentIndexBuffer = Batch.IndexBuffer;
+			CurrentVertexStride = Batch.VertexStride;
+			CurrentTopology = Batch.PrimitiveTopology;
 		}
 
 		// 4. 오브젝트별 상수 버퍼 설정 (매번 변경)
@@ -711,8 +690,7 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 		RHIDevice->SetAndUpdateConstantBuffer(ColorBufferType(FLinearColor(), Batch.ObjectID));
 
 		// 5. 드로우 콜 실행
-		RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(Batch.PrimitiveTopology);
-		RHIDevice->GetDeviceContext()->DrawIndexed(Batch.IndexCount, Batch.StartIndex, Batch.BaseVertexIndex); // BaseVertexIndex 사용
+		RHIDevice->GetDeviceContext()->DrawIndexed(Batch.IndexCount, Batch.StartIndex, Batch.BaseVertexIndex);
 	}
 
 	// 루프 종료 후 리스트 비우기 (옵션)

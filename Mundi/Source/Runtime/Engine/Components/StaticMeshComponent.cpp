@@ -129,7 +129,9 @@ void UStaticMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMesh
 		BatchElement.VertexShader = ShaderToUse;
 		BatchElement.PixelShader = ShaderToUse;
 		BatchElement.Material = MaterialToUse;
-		BatchElement.Mesh = StaticMesh;
+		BatchElement.VertexBuffer = StaticMesh->GetVertexBuffer();
+		BatchElement.IndexBuffer = StaticMesh->GetIndexBuffer();
+		BatchElement.VertexStride = StaticMesh->GetVertexStride();
 
 		// --- 드로우 데이터 (메시 전체 범위 사용) ---
 		BatchElement.IndexCount = StaticMesh->GetIndexCount(); // 전체 인덱스 수
@@ -170,7 +172,9 @@ void UStaticMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMesh
 			BatchElement.VertexShader = ShaderToUse;
 			BatchElement.PixelShader = ShaderToUse;
 			BatchElement.Material = MaterialToUse;
-			BatchElement.Mesh = StaticMesh;
+			BatchElement.VertexBuffer = StaticMesh->GetVertexBuffer();
+			BatchElement.IndexBuffer = StaticMesh->GetIndexBuffer();
+			BatchElement.VertexStride = StaticMesh->GetVertexStride();
 
 			// --- 드로우 데이터 (그룹 정보 사용) ---
 			BatchElement.IndexCount = Group.IndexCount;
