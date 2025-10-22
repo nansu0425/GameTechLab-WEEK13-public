@@ -76,17 +76,21 @@ FQuat USceneComponent::GetRelativeRotation() const { return RelativeRotation; }
 
 void USceneComponent::SetRelativeRotationEuler(const FVector& EulerDegrees)
 {
-    // Quaternion으로 변환 후 정규화 (Serialize와 일관성 유지)
+    // Euler 각도를 직접 저장 (UI 입력 값 보존)
+    RelativeRotationEuler = EulerDegrees;
+
+    // Quaternion으로 변환하여 회전 행렬 계산용으로 사용
     RelativeRotation = FQuat::MakeFromEulerZYX(EulerDegrees).GetNormalized();
-    // 정규화된 quaternion에서 Euler 재계산 (정밀도 유지)
-    RelativeRotationEuler = RelativeRotation.ToEulerZYXDeg();
+
+    // Euler 재계산 하지 않음 - UI에서 입력한 값을 그대로 유지
     UpdateRelativeTransform();
     OnTransformUpdated();
 }
 
 FVector USceneComponent::GetRelativeRotationEuler() const
 {
-    return RelativeRotation.ToEulerZYXDeg(); // 항상 실시간 계산
+    // 저장된 Euler 각도 반환 (UI 입력 값 보존)
+    return RelativeRotationEuler;
 }
 
 void USceneComponent::SetRelativeScale(const FVector& NewScale)

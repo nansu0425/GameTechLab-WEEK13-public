@@ -302,8 +302,19 @@ bool UPropertyRenderer::RenderFloatProperty(const FProperty& Prop, void* Instanc
 
 bool UPropertyRenderer::RenderVectorProperty(const FProperty& Prop, void* Instance)
 {
-	FVector* Value = Prop.GetValuePtr<FVector>(Instance);
+	// Transform 프로퍼티 (Location, Rotation, Scale) 감지
+	bool bIsTransformProperty =
+		strcmp(Prop.Name, "RelativeLocation") == 0 ||
+		strcmp(Prop.Name, "RelativeRotationEuler") == 0 ||
+		strcmp(Prop.Name, "RelativeScale") == 0;
 
+	if (bIsTransformProperty)
+	{
+		return RenderTransformProperty(Prop, Instance);
+	}
+
+	// 일반 Vector 프로퍼티는 기본 렌더링
+	FVector* Value = Prop.GetValuePtr<FVector>(Instance);
 	return ImGui::DragFloat3(Prop.Name, &Value->X, 0.1f);
 }
 
@@ -980,4 +991,129 @@ bool UPropertyRenderer::RenderTextureSelectionCombo(const char* Label, UTexture*
 	}
 
 	return bChanged;
+}
+
+bool UPropertyRenderer::RenderTransformProperty(const FProperty& Prop, void* Instance)
+{
+	FVector* Value = Prop.GetValuePtr<FVector>(Instance);
+	bool bAnyChanged = false;
+
+	// 축 색상 정의
+	ImVec4 ColorX(0.85f, 0.2f, 0.2f, 1.0f);   // 부드러운 빨간색
+	ImVec4 ColorY(0.3f, 0.8f, 0.3f, 1.0f);    // 부드러운 초록색
+	ImVec4 ColorZ(0.2f, 0.5f, 1.0f, 1.0f);    // 밝은 파란색
+
+	float Speed = 0.1f;
+
+	// 라벨 너비 설정 (Location, Rotation, Scale 모두 동일한 너비로 정렬)
+	const float LabelWidth = 150.0f;
+	const float InputWidth = 70.0f;
+	const float ResetButtonWidth = 50.0f;
+	const float FrameHeight = ImGui::GetFrameHeight(); // 입력 필드 높이
+	const float ColorBoxWidth = FrameHeight * 0.25f;
+	const float ColorBoxHeight = FrameHeight;
+
+	// 프로퍼티별 고유 ID 스코프 시작
+	ImGui::PushID(Prop.Name);
+
+	// 라벨 출력
+	ImGui::Text("%s", Prop.Name);
+	ImGui::SameLine(LabelWidth);
+
+	ImDrawList* DrawList = ImGui::GetWindowDrawList();
+
+	// X축 (Red) - 색상 박스 + 입력 필드
+	ImGui::PushID("X");
+
+	// 색상 박스
+	ImVec2 CursorPos = ImGui::GetCursorScreenPos();
+	DrawList->AddRectFilled(
+		CursorPos,
+		ImVec2(CursorPos.x + ColorBoxWidth, CursorPos.y + ColorBoxHeight),
+		ImGui::ColorConvertFloat4ToU32(ColorX)
+	);
+	ImGui::Dummy(ImVec2(ColorBoxWidth, ColorBoxHeight));
+	ImGui::SameLine(0.0f, 0.0f); // 간격 없이 붙임
+
+	// 입력 필드
+	ImGui::PushItemWidth(InputWidth);
+	if (ImGui::DragFloat("##X", &Value->X, Speed))
+	{
+		bAnyChanged = true;
+	}
+	ImGui::PopItemWidth();
+	ImGui::PopID();
+	ImGui::SameLine();
+
+	// Y축 (Green) - 색상 박스 + 입력 필드
+	ImGui::PushID("Y");
+
+	// 색상 박스
+	CursorPos = ImGui::GetCursorScreenPos();
+	DrawList->AddRectFilled(
+		CursorPos,
+		ImVec2(CursorPos.x + ColorBoxWidth, CursorPos.y + ColorBoxHeight),
+		ImGui::ColorConvertFloat4ToU32(ColorY)
+	);
+	ImGui::Dummy(ImVec2(ColorBoxWidth, ColorBoxHeight));
+	ImGui::SameLine(0.0f, 0.0f); // 간격 없이 붙임
+
+	// 입력 필드
+	ImGui::PushItemWidth(InputWidth);
+	if (ImGui::DragFloat("##Y", &Value->Y, Speed))
+	{
+		bAnyChanged = true;
+	}
+	ImGui::PopItemWidth();
+	ImGui::PopID();
+	ImGui::SameLine();
+
+	// Z축 (Blue) - 색상 박스 + 입력 필드
+	ImGui::PushID("Z");
+
+	// 색상 박스
+	CursorPos = ImGui::GetCursorScreenPos();
+	DrawList->AddRectFilled(
+		CursorPos,
+		ImVec2(CursorPos.x + ColorBoxWidth, CursorPos.y + ColorBoxHeight),
+		ImGui::ColorConvertFloat4ToU32(ColorZ)
+	);
+	ImGui::Dummy(ImVec2(ColorBoxWidth, ColorBoxHeight));
+	ImGui::SameLine(0.0f, 0.0f); // 간격 없이 붙임
+
+	// 입력 필드
+	ImGui::PushItemWidth(InputWidth);
+	if (ImGui::DragFloat("##Z", &Value->Z, Speed))
+	{
+		bAnyChanged = true;
+	}
+	ImGui::PopItemWidth();
+	ImGui::PopID();
+	ImGui::SameLine();
+
+	// Reset 버튼
+	ImGui::PushID("Reset");
+	if (ImGui::Button("Reset", ImVec2(ResetButtonWidth, 0)))
+	{
+		// 프로퍼티에 따라 기본값 설정
+		if (strcmp(Prop.Name, "RelativeLocation") == 0)
+		{
+			*Value = FVector(0.0f, 0.0f, 0.0f);
+		}
+		else if (strcmp(Prop.Name, "RelativeRotationEuler") == 0)
+		{
+			*Value = FVector(0.0f, 0.0f, 0.0f);
+		}
+		else if (strcmp(Prop.Name, "RelativeScale") == 0)
+		{
+			*Value = FVector(1.0f, 1.0f, 1.0f);
+		}
+		bAnyChanged = true;
+	}
+	ImGui::PopID();
+
+	// 프로퍼티별 고유 ID 스코프 종료
+	ImGui::PopID();
+
+	return bAnyChanged;
 }
