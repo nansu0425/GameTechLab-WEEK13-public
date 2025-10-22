@@ -76,12 +76,12 @@ void UShader::Load(const FString& InShaderPath, ID3D11Device* InDevice, const TA
 	assert(InDevice);
 
 	// 1. 최초 로드 시에만 파일 경로 및 타임스탬프 처리
-	if (ActualFilePath.empty())
+	if (FilePath.empty())
 	{
-		ActualFilePath = InShaderPath;
+		FilePath = InShaderPath;
 		try
 		{
-			auto FileTime = std::filesystem::last_write_time(ActualFilePath);
+			auto FileTime = std::filesystem::last_write_time(FilePath);
 			SetLastModifiedTime(FileTime);
 		}
 		catch (...)
@@ -89,7 +89,7 @@ void UShader::Load(const FString& InShaderPath, ID3D11Device* InDevice, const TA
 			SetLastModifiedTime(std::filesystem::file_time_type::clock::now());
 		}
 		// Include 파일 파싱 (최초 1회)
-		ParseIncludeFiles(ActualFilePath);
+		ParseIncludeFiles(FilePath);
 	}
 
 	// 2. 실제 컴파일/가져오기 로직은 GetOrCompileShaderVariant에 위임
@@ -112,7 +112,7 @@ FShaderVariant* UShader::GetOrCompileShaderVariant(ID3D11Device* InDevice, const
 	assert(InDevice);
 
 	// 이 UShader 객체가 어떤 파일인지 알아야 컴파일 가능
-	if (ActualFilePath.empty())
+	if (FilePath.empty())
 	{
 		UE_LOG("GetOrCompileShaderVariant Error: ActualFilePath is empty. Load() must be called at least once.");
 		return nullptr;
@@ -129,7 +129,7 @@ FShaderVariant* UShader::GetOrCompileShaderVariant(ID3D11Device* InDevice, const
 
 	// 3. 맵에 없음 -> 새로 컴파일
 	FShaderVariant NewShaderVariant;
-	bool bSuccess = CompileVariantInternal(InDevice, ActualFilePath, InMacros, NewShaderVariant);
+	bool bSuccess = CompileVariantInternal(InDevice, FilePath, InMacros, NewShaderVariant);
 
 	if (bSuccess)
 	{
@@ -306,20 +306,20 @@ void UShader::ReleaseResources()
 bool UShader::IsOutdated() const
 {
 	// Use the stored actual file path (not the unique key with macros)
-	if (ActualFilePath.empty())
+	if (FilePath.empty())
 	{
 		return false; // No file path stored
 	}
 
 	try
 	{
-		if (!std::filesystem::exists(ActualFilePath))
+		if (!std::filesystem::exists(FilePath))
 		{
 			return false; // File doesn't exist, not outdated
 		}
 
 		// 메인 shader 파일 timestamp 체크
-		auto CurrentFileTime = std::filesystem::last_write_time(ActualFilePath);
+		auto CurrentFileTime = std::filesystem::last_write_time(FilePath);
 		if (CurrentFileTime > GetLastModifiedTime())
 		{
 			return true;
@@ -362,7 +362,7 @@ bool UShader::Reload(ID3D11Device* InDevice)
 		return false;
 	}
 
-	if (ActualFilePath.empty())
+	if (FilePath.empty())
 	{
 		UE_LOG("Hot Reload Failed: No actual file path stored for shader.");
 		return false;
@@ -374,7 +374,7 @@ bool UShader::Reload(ID3D11Device* InDevice)
 		return false; // 변경 사항 없음
 	}
 
-	UE_LOG("Hot Reloading Shader File: %s (%d variants)", ActualFilePath.c_str(), ShaderVariantMap.Num());
+	UE_LOG("Hot Reloading Shader File: %s (%d variants)", FilePath.c_str(), ShaderVariantMap.Num());
 
 	// 2. [백업] 현재 맵을 Old 맵으로 이동시킵니다.
 	// (ShaderVariantMap은 이제 비어있습니다)
@@ -390,7 +390,7 @@ bool UShader::Reload(ID3D11Device* InDevice)
 
 		// Load() 함수는 (이제 비어있는) ShaderVariantMap에
 		// Variant가 없으므로 새로 컴파일을 시도합니다.
-		Load(ActualFilePath, InDevice, MacrosToReload);
+		Load(FilePath, InDevice, MacrosToReload);
 
 		// 4. [검증] 새로 컴파일된 Variant가 유효한지 확인
 		FShaderVariant* NewVariant = ShaderVariantMap.Find(Key); // 새로 로드된 맵에서 찾기
@@ -421,7 +421,7 @@ bool UShader::Reload(ID3D11Device* InDevice)
 	// 6. [최종 처리] 성공/실패에 따라 맵 처리
 	if (bAllReloadsSuccessful)
 	{
-		UE_LOG("Hot Reload Succeeded for %s", ActualFilePath.c_str());
+		UE_LOG("Hot Reload Succeeded for %s", FilePath.c_str());
 
 		// 성공: Old 맵의 모든 리소스를 해제합니다.
 		for (auto& Pair : OldShaderVariantMap)
@@ -433,7 +433,7 @@ bool UShader::Reload(ID3D11Device* InDevice)
 		// 갱신된 타임스탬프를 설정합니다.
 		try
 		{
-			SetLastModifiedTime(std::filesystem::last_write_time(ActualFilePath));
+			SetLastModifiedTime(std::filesystem::last_write_time(FilePath));
 			UpdateIncludeTimestamps(); // Include 파일 타임스탬프도 갱신
 		}
 		catch (...) { /* 무시 */ }
@@ -442,7 +442,7 @@ bool UShader::Reload(ID3D11Device* InDevice)
 	}
 	else
 	{
-		UE_LOG("Hot Reload Failed: Restoring old variants for %s", ActualFilePath.c_str());
+		UE_LOG("Hot Reload Failed: Restoring old variants for %s", FilePath.c_str());
 
 		// 실패: 새로 컴파일한 맵(ShaderVariantMap)의 리소스를 모두 해제합니다.
 		for (auto& Pair : ShaderVariantMap)

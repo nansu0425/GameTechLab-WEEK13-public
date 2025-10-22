@@ -58,18 +58,11 @@ public:
 	bool Reload(ID3D11Device* InDevice);
 	//const TArray<FShaderMacro>& GetMacros() const { return Macros; }
 	
-	// Get the actual shader file path (without macro suffix)
-	const FString& GetActualFilePath() const { return ActualFilePath; }
-
 protected:
 	virtual ~UShader();
 
 private:
 	TMap<FString, FShaderVariant> ShaderVariantMap;
-
-	// Store actual file path (e.g., "Shaders/Materials/UberLit.hlsl")
-	// FilePath (from base class) stores the unique key with macros
-	FString ActualFilePath;
 
 	// Store included files (e.g., "Shaders/Common/LightingCommon.hlsl")
 	// Used for hot reload - if any included file changes, reload this shader
