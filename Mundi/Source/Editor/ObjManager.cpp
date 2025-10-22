@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "ObjManager.h"
+#include "PathUtils.h"
 
 #include "ObjectIterator.h"
 #include "StaticMesh.h"
@@ -47,8 +48,7 @@ namespace
 
 		// 파일명은 항상 마지막 토큰으로 가정
 		FString TextureRel = all_tokens.back().c_str();
-		std::replace(TextureRel.begin(), TextureRel.end(), '\\', '/');
-		OutFilePath = TextureRel;
+		OutFilePath = NormalizePath(TextureRel);
 
 		// 파일명을 제외한 나머지 토큰들을 OutOptions에 복사
 		if (all_tokens.size() > 1)
@@ -156,7 +156,7 @@ bool GetMtlDependencies(const FString& ObjPath, TArray<FString>& OutMtlFilePaths
 				fs::path FullPath = fs::weakly_canonical(BaseDir / MtlFileName);
 				FString PathStr = FullPath.string();
 				std::replace(PathStr.begin(), PathStr.end(), '\\', '/');
-				OutMtlFilePaths.AddUnique(PathStr);
+				OutMtlFilePaths.AddUnique(NormalizePath(PathStr));
 			}
 		}
 	}
@@ -240,8 +240,7 @@ void FObjManager::Preload()
 
 		if (Extension == ".obj")
 		{
-			FString PathStr = Path.string();
-			std::replace(PathStr.begin(), PathStr.end(), '\\', '/');
+			FString PathStr = NormalizePath(Path.string());
 
 			// 이미 처리된 파일인지 확인
 			if (ProcessedFiles.find(PathStr) == ProcessedFiles.end())
@@ -276,8 +275,7 @@ void FObjManager::Clear()
 // PathFileName의 bin을 로드 (없으면 생성) 해서 메모리에 캐싱 후 반환
 FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 {
-	FString NormalizedPathStr = PathFileName;
-	std::replace(NormalizedPathStr.begin(), NormalizedPathStr.end(), '\\', '/');
+	FString NormalizedPathStr = NormalizePath(PathFileName);
 
 	// 1. 메모리 캐시 확인: 이미 로드된 에셋이 있으면 즉시 반환합니다.
 	if (FStaticMesh** It = ObjStaticMeshMap.Find(NormalizedPathStr))
@@ -460,7 +458,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 					     (GenericTexPath[4] == '/' || GenericTexPath[4] == '\\')))
 					{
 						// 이미 올바른 프로젝트 루트 기준 경로이므로 슬래시만 정규화
-						std::replace(TexturePath.begin(), TexturePath.end(), '\\', '/');
+						TexturePath = NormalizePath(TexturePath);
 						return;
 					}
 
@@ -478,17 +476,8 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 						fs::path FinalPath = (ec || RelativePath.empty()) ? AbsolutePath : RelativePath;
 
 						// UTF-16 → UTF-8 변환하여 다시 저장
-						FWideString WFinalPath = FinalPath.wstring();
-						int needed = ::WideCharToMultiByte(CP_UTF8, 0, WFinalPath.c_str(), -1, nullptr, 0, nullptr, nullptr);
-						if (needed > 0)
-						{
-							std::string TempPath;
-							TempPath.resize(needed - 1);
-							::WideCharToMultiByte(CP_UTF8, 0, WFinalPath.c_str(), -1, TempPath.data(), needed, nullptr, nullptr);
-							TexturePath = TempPath;
-						}
-
-						std::replace(TexturePath.begin(), TexturePath.end(), '\\', '/');
+						TexturePath = WideToUTF8(FinalPath.wstring());
+						TexturePath = NormalizePath(TexturePath);
 					}
 				}
 				catch (const std::exception& e)
@@ -545,8 +534,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 UStaticMesh* FObjManager::LoadObjStaticMesh(const FString& PathFileName)
 {
 	// 0) 경로
-	FString NormalizedPathStr = PathFileName;
-	std::replace(NormalizedPathStr.begin(), NormalizedPathStr.end(), '\\', '/');
+	FString NormalizedPathStr = NormalizePath(PathFileName);
 
 	// 1) 이미 로드된 UStaticMesh가 있는지 전체 검색 (정규화된 경로로 비교)
 	for (TObjectIterator<UStaticMesh> It; It; ++It)

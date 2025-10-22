@@ -187,7 +187,7 @@ FString FTextureConverter::GetDDSCachePath(const FString& SourcePath)
 
 	// 이미 DDS 캐시 경로인지 확인 (TextureCache 포함 여부)
 	FString GenericSourcePath = SourceFile.generic_string();
-	if (GenericSourcePath.find("TextureCache") != FString::npos &&
+	if (GenericSourcePath.find("DerivedDataCache") != FString::npos &&
 	    GenericSourcePath.find(".dds") != FString::npos)
 	{
 		// 이미 DDS 캐시 경로면 그대로 반환
