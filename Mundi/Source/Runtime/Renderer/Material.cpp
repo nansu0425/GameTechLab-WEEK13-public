@@ -52,67 +52,6 @@ UShader* UMaterial::GetShader()
 	return Shader;
 }
 
-void UMaterial::SetTexture(EMaterialTextureSlot Slot, const FString& TexturePath)
-{
-	// 1. 슬롯 인덱스 계산
-	int32 Index = static_cast<int32>(Slot); // TArray 사용 시
-	// size_t Index = static_cast<size_t>(Slot); // std::vector 사용 시
-
-	// 2. 인덱스 유효성 검사 및 배열 크기 확인/조정
-	if (Index >= ResolvedTextures.size())
-	{
-		if (Index >= ResolvedTextures.Num())
-		{
-			ResolvedTextures.resize(Index + 1, nullptr);
-		}
-		else
-		{
-			UE_LOG("SetTexture: Invalid texture slot index: %d", Index);
-			return;
-		}
-	}
-
-	// 3. [핵심] ResourceManager를 통해 텍스처 로드
-	// Diffuse: sRGB = true (감마 보정), Normal: sRGB = false (Linear 데이터)
-	UTexture* LoadedTexture = nullptr;
-	if (!TexturePath.empty()) // 경로가 비어있지 않으면 로드 시도
-	{
-		bool bUseSRGB = (Slot == EMaterialTextureSlot::Diffuse); // Diffuse만 sRGB
-		LoadedTexture = UResourceManager::GetInstance().LoadTexture(TexturePath, bUseSRGB);
-		if (!LoadedTexture)
-		{
-			UE_LOG("SetTexture: Failed to load texture from path: %s", TexturePath.c_str());
-			// 로드 실패 시 null 또는 기본 텍스처로 설정할 수 있음
-			// LoadedTexture = UResourceManager::GetInstance().GetDefaultTexture();
-		}
-	}
-	// 경로가 비어 있으면 LoadedTexture는 nullptr 유지 (텍스처 제거 의미)
-
-	// 4. 배열에 로드된 포인터 저장
-	ResolvedTextures[Index] = LoadedTexture;
-
-	// 5. MaterialInfo의 파일 이름도 동기화 (로드 성공 여부와 관계없이 경로 저장)
-	switch (Slot)
-	{
-	case EMaterialTextureSlot::Diffuse:
-		MaterialInfo.DiffuseTextureFileName = TexturePath;
-		break;
-	case EMaterialTextureSlot::Normal:
-		MaterialInfo.NormalTextureFileName = TexturePath;
-		break;
-		//case EMaterialTextureSlot::Specular:
-		//    MaterialInfo.SpecularTextureFileName = TexturePath;
-		//    break;
-		//case EMaterialTextureSlot::Emissive:
-		//    MaterialInfo.EmissiveTextureFileName = TexturePath;
-		//    break;
-			// ... 다른 슬롯 ...
-	default:
-		UE_LOG("SetTexture: Unknown texture slot: %d", Index);
-		break;
-	}
-}
-
 void UMaterial::SetShaderMacros(TArray<FShaderMacro>& InShaderMacro)
 {
 	if (Shader)
@@ -170,7 +109,7 @@ void UMaterial::ResolveTextures()
 		ResolvedTextures[static_cast<int32>(EMaterialTextureSlot::Diffuse)] = nullptr; // 또는 기본 텍스처
 
 	if (!MaterialInfo.NormalTextureFileName.empty())
-		ResolvedTextures[static_cast<int32>(EMaterialTextureSlot::Normal)] = RM.Load<UTexture>(MaterialInfo.NormalTextureFileName);
+		ResolvedTextures[static_cast<int32>(EMaterialTextureSlot::Normal)] = RM.LoadTexture(MaterialInfo.NormalTextureFileName, false);
 	else
 		ResolvedTextures[static_cast<int32>(EMaterialTextureSlot::Normal)] = nullptr; // 또는 기본 노멀 텍스처
 }

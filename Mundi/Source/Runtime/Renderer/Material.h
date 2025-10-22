@@ -53,7 +53,6 @@ public:
 
 	void SetMaterialInfo(const FMaterialInfo& InMaterialInfo);
 
-	void SetTexture(EMaterialTextureSlot Slot, const FString& TexturePath);
 	void SetMaterialName(FString& InMaterialName) { MaterialInfo.MaterialName = InMaterialName; }
 
 	const TArray<FShaderMacro>& GetShaderMacros() const override { return ShaderMacro; };

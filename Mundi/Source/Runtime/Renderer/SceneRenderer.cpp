@@ -484,12 +484,13 @@ void FSceneRenderer::RenderOpaquePass(EViewModeIndex InRenderViewMode)
 	}
 
 	// ViewMode에 맞는 셰이더 로드 (셰이더 오버라이드가 필요한 경우에만)
+	FShaderVariant* ShaderVariant = nullptr;
 	UShader* ViewModeShader = nullptr;
 	if (bNeedsShaderOverride)
 	{
 		ViewModeShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath);
-		ViewModeShader->GetOrCompileShaderVariant(RHIDevice->GetDevice(), ShaderMacros);
-		if (!ViewModeShader)
+		ShaderVariant = ViewModeShader->GetOrCompileShaderVariant(RHIDevice->GetDevice(), ShaderMacros);
+		if (!ShaderVariant)
 		{
 			// 필요시 기본 셰이더로 대체하거나 렌더링 중단
 			UE_LOG("RenderOpaquePass: Failed to load ViewMode shader: %s", ShaderPath.c_str());
@@ -505,14 +506,14 @@ void FSceneRenderer::RenderOpaquePass(EViewModeIndex InRenderViewMode)
 	}
 
 	// --- UMeshComponent 셰이더 오버라이드 ---
-	if (bNeedsShaderOverride && ViewModeShader)
+	if (bNeedsShaderOverride && ShaderVariant)
 	{
 		// 수집된 UMeshComponent 배치 요소의 셰이더를 ViewModeShader로 강제 변경
 		for (FMeshBatchElement& BatchElement : MeshBatchElements)
 		{
-			BatchElement.VertexShader = ViewModeShader->GetVertexShader(ShaderMacros);
-			BatchElement.PixelShader = ViewModeShader->GetPixelShader(ShaderMacros);
-			BatchElement.InputLayout = ViewModeShader->GetInputLayout(ShaderMacros);
+			BatchElement.VertexShader = ShaderVariant->VertexShader;
+			BatchElement.PixelShader = ShaderVariant->PixelShader;
+			BatchElement.InputLayout = ShaderVariant->InputLayout;
 		}
 	}
 
@@ -583,6 +584,7 @@ void FSceneRenderer::RenderDecalPass()
 
 	// ViewMode에 따른 Decal 셰이더 로드
 	UShader* DecalShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath, ShaderMacros);
+	FShaderVariant* ShaderVariant = DecalShader->GetOrCompileShaderVariant(RHIDevice->GetDevice(), ShaderMacros);
 	if (!DecalShader)
 	{
 		UE_LOG("RenderDecalPass: Failed to load Decal shader with ViewMode macros!");
@@ -641,9 +643,9 @@ void FSceneRenderer::RenderDecalPass()
 		for (FMeshBatchElement& BatchElement : MeshBatchElements)
 		{
 			BatchElement.InstanceShaderResourceView = Decal->GetDecalTexture()->GetShaderResourceView();
-			BatchElement.InputLayout = DecalShader->GetInputLayout(ShaderMacros);
-			BatchElement.VertexShader = DecalShader->GetVertexShader(ShaderMacros);
-			BatchElement.PixelShader = DecalShader->GetPixelShader(ShaderMacros);
+			BatchElement.InputLayout = ShaderVariant->InputLayout;
+			BatchElement.VertexShader = ShaderVariant->VertexShader;
+			BatchElement.PixelShader = ShaderVariant->PixelShader;
 			BatchElement.VertexStride = sizeof(FVertexDynamic);
 		}
 		DrawMeshBatches(MeshBatchElements, true);

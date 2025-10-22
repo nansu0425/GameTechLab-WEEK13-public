@@ -19,7 +19,7 @@ UTexture::~UTexture()
 	ReleaseResources();
 }
 
-FString UTexture::Load(const FString& InFilePath, ID3D11Device* InDevice, bool bSRGB)
+void UTexture::Load(const FString& InFilePath, ID3D11Device* InDevice, bool bSRGB)
 {
 	assert(InDevice);
 
@@ -145,11 +145,6 @@ FString UTexture::Load(const FString& InFilePath, ID3D11Device* InDevice, bool b
 	{
 		UE_LOG("[UTexture] Failed to load texture: %s (HRESULT: 0x%08X)", ActualLoadPath.c_str(), hr);
 	}
-
-	FString NormalizedSourcePath = NormalizePath(InFilePath);
-
-	// 원본 경로 반환 (ResourceManager가 올바른 키로 등록하도록, 정규화됨)
-	return NormalizedSourcePath;
 }
 
 void UTexture::ReleaseResources()

@@ -214,11 +214,11 @@ inline UTexture* UResourceManager::Load(const FString& InFilePath)
 
 	// 없으면 새로 로드 (기본값: bSRGB = true)
 	UTexture* Resource = NewObject<UTexture>();
-	FString ActualLoadPath = Resource->Load(NormalizedPath, Device, true); // 기본값: sRGB = true
+	Resource->Load(NormalizedPath, Device, true); // 기본값: sRGB = true
 
 	// 실제 로드된 경로로 등록 (DDS 캐시 사용 시 DDS 경로, 이미 정규화되어 있음)
-	Resource->SetFilePath(ActualLoadPath);
-	Resources[typeIndex][ActualLoadPath] = Resource;
+	Resource->SetFilePath(NormalizedPath);
+	Resources[typeIndex][NormalizedPath] = Resource;
 
 	return Resource;
 }
@@ -240,11 +240,11 @@ inline UTexture* UResourceManager::LoadTexture(const FString& InFilePath, bool b
 
 	// 없으면 새로 로드 (bSRGB 파라미터 전달)
 	UTexture* Resource = NewObject<UTexture>();
-	FString ActualLoadPath = Resource->Load(NormalizedPath, Device, bSRGB);
+	Resource->Load(NormalizedPath, Device, bSRGB);
 
 	// 실제 로드된 경로로 등록
-	Resource->SetFilePath(ActualLoadPath);
-	Resources[typeIndex][ActualLoadPath] = Resource;
+	Resource->SetFilePath(NormalizedPath);
+	Resources[typeIndex][NormalizedPath] = Resource;
 
 	return Resource;
 }

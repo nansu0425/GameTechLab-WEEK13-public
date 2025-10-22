@@ -111,10 +111,12 @@ void UBillboardComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshB
 	// UQuad는 GroupInfo가 없는 단일 메시로 처리합니다.
 	FMeshBatchElement BatchElement;
 
+	FShaderVariant* ShaderVariant = ShaderToUse->GetShaderVariant(MaterialToUse->GetShaderMacros());
+
 	// --- 정렬 키 ---
-	BatchElement.VertexShader = ShaderToUse->GetVertexShader(MaterialToUse->GetShaderMacros());
-	BatchElement.PixelShader = ShaderToUse->GetPixelShader(MaterialToUse->GetShaderMacros());
-	BatchElement.InputLayout = ShaderToUse->GetInputLayout(MaterialToUse->GetShaderMacros());
+	BatchElement.VertexShader = ShaderVariant->VertexShader;
+	BatchElement.PixelShader = ShaderVariant->PixelShader;
+	BatchElement.InputLayout = ShaderVariant->InputLayout;
 	BatchElement.Material = MaterialToUse;
 	BatchElement.VertexBuffer = Quad->GetVertexBuffer();
 	BatchElement.IndexBuffer = Quad->GetIndexBuffer();
