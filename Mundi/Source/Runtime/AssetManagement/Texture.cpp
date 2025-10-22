@@ -19,7 +19,7 @@ UTexture::~UTexture()
 	ReleaseResources();
 }
 
-FString UTexture::Load(const FString& InFilePath, ID3D11Device* InDevice)
+FString UTexture::Load(const FString& InFilePath, ID3D11Device* InDevice, bool bSRGB)
 {
 	assert(InDevice);
 
@@ -44,15 +44,15 @@ FString UTexture::Load(const FString& InFilePath, ID3D11Device* InDevice)
 			{
 				UE_LOG("[UTexture] Converting texture to DDS: %s", InFilePath.c_str());
 
-				// DDS 변환 시도
-				if (FTextureConverter::ConvertToDDS(InFilePath, DDSCachePath))
+					// DDS 변환 시도 (bSRGB 파라미터 전달)
+				DXGI_FORMAT TargetFormat = FTextureConverter::GetRecommendedFormat(true, bSRGB); // 알파는 일단 true로 가정
+				if (FTextureConverter::ConvertToDDS(InFilePath, DDSCachePath, TargetFormat))
 				{
 					ActualLoadPath = DDSCachePath; // DDS 캐시 사용
 				}
 				else
 				{
-					UE_LOG("[UTexture] DDS conversion failed, loading original format: %s",
-					       InFilePath.c_str());
+					UE_LOG("[UTexture] DDS conversion failed, loading original format: %s", InFilePath.c_str());
 					// 변환 실패 시 원본 포맷으로 로드 (fallback)
 				}
 			}
@@ -62,6 +62,10 @@ FString UTexture::Load(const FString& InFilePath, ID3D11Device* InDevice)
 				ActualLoadPath = DDSCachePath;
 				UE_LOG("[UTexture] Using cached DDS: %s", DDSCachePath.c_str());
 			}
+
+			// 경로 정규화: 모든 백슬래시를 슬래시로 변환하여 일관성 유지
+			FString NormalizedCachePath = NormalizePath(DDSCachePath);
+			CacheFilePath = NormalizedCachePath;   // 실제 로드된 경로 저장 (DDS 캐시 사용 시 DDS 경로, 정규화됨)
 		}
 	}
 #else
@@ -95,18 +99,32 @@ FString UTexture::Load(const FString& InFilePath, ID3D11Device* InDevice)
 	HRESULT hr = E_FAIL;
 	if (ext == L".dds")
 	{
-		hr = DirectX::CreateDDSTextureFromFile(
+		// DDS 로딩: Ex 버전 사용하여 sRGB 지정
+		hr = DirectX::CreateDDSTextureFromFileEx(
 			InDevice,
 			WFilePath.c_str(),
+			0, // maxsize (0 = no limit)
+			D3D11_USAGE_DEFAULT,
+			D3D11_BIND_SHADER_RESOURCE,
+			0, // cpuAccessFlags
+			0, // miscFlags
+			bSRGB ? DirectX::DDS_LOADER_FORCE_SRGB : DirectX::DDS_LOADER_DEFAULT,
 			reinterpret_cast<ID3D11Resource**>(&Texture2D),
 			&ShaderResourceView
 		);
 	}
 	else
 	{
-		hr = DirectX::CreateWICTextureFromFile(
+		// WIC 로딩: Ex 버전 사용하여 sRGB 지정
+		hr = DirectX::CreateWICTextureFromFileEx(
 			InDevice,
 			WFilePath.c_str(),
+			0, // maxsize (0 = no limit)
+			D3D11_USAGE_DEFAULT,
+			D3D11_BIND_SHADER_RESOURCE,
+			0, // cpuAccessFlags
+			0, // miscFlags
+			bSRGB ? DirectX::WIC_LOADER_FORCE_SRGB : DirectX::WIC_LOADER_DEFAULT,
 			reinterpret_cast<ID3D11Resource**>(&Texture2D),
 			&ShaderResourceView
 		);
@@ -125,19 +143,13 @@ FString UTexture::Load(const FString& InFilePath, ID3D11Device* InDevice)
 	}
 	else
 	{
-		UE_LOG("[UTexture] Failed to load texture: %s (HRESULT: 0x%08X)",
-		       ActualLoadPath.c_str(), hr);
+		UE_LOG("[UTexture] Failed to load texture: %s (HRESULT: 0x%08X)", ActualLoadPath.c_str(), hr);
 	}
 
-	// 경로 정규화: 모든 백슬래시를 슬래시로 변환하여 일관성 유지
-	FString NormalizedActualPath = NormalizePath(ActualLoadPath);
 	FString NormalizedSourcePath = NormalizePath(InFilePath);
 
-	TextureName = NormalizedActualPath;   // 실제 로드된 경로 저장 (DDS 캐시 사용 시 DDS 경로, 정규화됨)
-	SourceFilePath = NormalizedSourcePath; // 원본 소스 경로 저장 (DDS 캐시가 아닌 원본 경로, 정규화됨)
-
-	// 실제 로드된 경로 반환 (ResourceManager가 올바른 키로 등록하도록, 정규화됨)
-	return NormalizedActualPath;
+	// 원본 경로 반환 (ResourceManager가 올바른 키로 등록하도록, 정규화됨)
+	return NormalizedSourcePath;
 }
 
 void UTexture::ReleaseResources()

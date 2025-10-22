@@ -135,14 +135,8 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 	return bChanged;
 }
 
-void UPropertyRenderer::RenderAllProperties(UObject* Object)
+void UPropertyRenderer::RenderProperties(const TArray<FProperty>& Properties, UObject* Object)
 {
-	if (!Object)
-		return;
-
-	UClass* Class = Object->GetClass();
-	const TArray<FProperty>& Properties = Class->GetProperties();
-
 	if (Properties.IsEmpty())
 		return;
 
@@ -178,6 +172,17 @@ void UPropertyRenderer::RenderAllProperties(UObject* Object)
 	}
 }
 
+void UPropertyRenderer::RenderAllProperties(UObject* Object)
+{
+	if (!Object)
+		return;
+
+	UClass* Class = Object->GetClass();
+	const TArray<FProperty>& Properties = Class->GetProperties();
+
+	RenderProperties(Properties, Object);
+}
+
 void UPropertyRenderer::RenderAllPropertiesWithInheritance(UObject* Object)
 {
 	if (!Object)
@@ -186,45 +191,16 @@ void UPropertyRenderer::RenderAllPropertiesWithInheritance(UObject* Object)
 	UClass* Class = Object->GetClass();
 	const TArray<FProperty>& AllProperties = Class->GetAllProperties();
 
-	if (AllProperties.IsEmpty())
-		return;
-
-	// 카테고리별로 그룹화
-	TMap<FString, TArray<const FProperty*>> CategorizedProps;
-
-	for (const FProperty& Prop : AllProperties)
-	{
-		if (Prop.bIsEditAnywhere)
-		{
-			FString CategoryName = Prop.Category ? Prop.Category : "Default";
-			if (!CategorizedProps.Contains(CategoryName))
-			{
-				CategorizedProps.Add(CategoryName, TArray<const FProperty*>());
-			}
-			CategorizedProps[CategoryName].Add(&Prop);
-		}
-	}
-
-	// 카테고리별로 렌더링
-	for (auto& Pair : CategorizedProps)
-	{
-		const FString& Category = Pair.first;
-		const TArray<const FProperty*>& Props = Pair.second;
-
-		ImGui::Separator();
-		ImGui::Text("%s", Category.c_str());
-
-		for (const FProperty* Prop : Props)
-		{
-			RenderProperty(*Prop, Object);
-		}
-	}
+	RenderProperties(AllProperties, Object);
 }
 
 // ===== 리소스 캐싱 =====
 
 void UPropertyRenderer::CacheMaterialResources()
 {
+	// 매번 캐싱을 새로 하도록 변경, NOTE: 추후에 변경된 것만 추가하도록 변경 필요
+	ClearMaterialResourcesCache();
+
 	UResourceManager& ResMgr = UResourceManager::GetInstance();
 
 	// 1. 머티리얼
@@ -399,7 +375,7 @@ bool UPropertyRenderer::RenderTextureProperty(const FProperty& Prop, void* Insta
 		*TexturePtr = NewTexture;
 
 		// 새 텍스처 경로 (None일 경우 빈 문자열)
-		FString NewPath = (NewTexture) ? NewTexture->GetTextureName() : "";
+		FString NewPath = (NewTexture) ? NewTexture->GetFilePath() : "";
 
 		// 컴포넌트별 Setter 호출
 		UObject* Obj = static_cast<UObject*>(Instance);
@@ -818,7 +794,7 @@ bool UPropertyRenderer::RenderTextureSelectionCombo(const char* Label, UTexture*
 	}
 
 	bool bChanged = false;
-	FString CurrentTexturePath = (CurrentTexture) ? CurrentTexture->GetTextureName() : "None";
+	FString CurrentTexturePath = (CurrentTexture) ? CurrentTexture->GetFilePath() : "None";
 
 	// 1. 현재 선택된 텍스처의 인덱스 찾기
 	int SelectedTextureIdx = 0; // "None"
@@ -843,7 +819,7 @@ bool UPropertyRenderer::RenderTextureSelectionCombo(const char* Label, UTexture*
 		if (ImGui::IsItemHovered())
 		{
 			ImGui::BeginTooltip();
-			ImGui::TextUnformatted(CurrentTexture->GetTextureName().c_str());
+			ImGui::TextUnformatted(CurrentTexture->GetFilePath().c_str());
 			ImGui::Text("Size: %u x %u", CurrentTexture->GetWidth(), CurrentTexture->GetHeight());
 
 			// 썸네일 크기 계산 (가로/세로 비율 유지, 최대 128x128)
@@ -925,7 +901,7 @@ bool UPropertyRenderer::RenderTextureSelectionCombo(const char* Label, UTexture*
 				ImGui::BeginTooltip();
 				if (previewTexture && previewTexture->GetTexture2D() && previewTexture->GetShaderResourceView())
 				{
-					ImGui::TextUnformatted(previewTexture->GetTextureName().c_str());
+					ImGui::TextUnformatted(previewTexture->GetFilePath().c_str());
 					ImGui::Text("Size: %u x %u", previewTexture->GetWidth(), previewTexture->GetHeight());
 					float width = (float)previewTexture->GetWidth();
 					float height = (float)previewTexture->GetHeight();
@@ -985,8 +961,21 @@ bool UPropertyRenderer::RenderTextureSelectionCombo(const char* Label, UTexture*
 	if (ImGui::IsItemHovered())
 	{
 		ImGui::BeginTooltip();
-		// CurrentTexturePath는 CurrentTexture가 null일 때 "None"을 표시합니다.
+
+		// 1. 원본 경로 표시 (CurrentTexturePath는 null일 때 "None"을 가짐)
 		ImGui::TextUnformatted(CurrentTexturePath.c_str());
+
+		// 2. CurrentTexture가 유효하고 캐시 파일 경로가 있다면 추가로 표시
+		if (CurrentTexture)
+		{
+			const FString& CachedPath = CurrentTexture->GetCacheFilePath();
+			if (!CachedPath.empty())
+			{
+				ImGui::Separator(); // 원본 경로와 구분하기 위해 선 추가
+				ImGui::Text("Cache: %s", CachedPath.c_str());
+			}
+		}
+
 		ImGui::EndTooltip();
 	}
 

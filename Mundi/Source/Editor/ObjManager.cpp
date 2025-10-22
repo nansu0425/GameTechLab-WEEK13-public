@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "ObjManager.h"
+#include "PathUtils.h"
 
 #include "ObjectIterator.h"
 #include "StaticMesh.h"
@@ -47,8 +48,7 @@ namespace
 
 		// 파일명은 항상 마지막 토큰으로 가정
 		FString TextureRel = all_tokens.back().c_str();
-		std::replace(TextureRel.begin(), TextureRel.end(), '\\', '/');
-		OutFilePath = TextureRel;
+		OutFilePath = NormalizePath(TextureRel);
 
 		// 파일명을 제외한 나머지 토큰들을 OutOptions에 복사
 		if (all_tokens.size() > 1)
@@ -99,7 +99,7 @@ namespace
 static FString FindMtlFilePath(const FString& InObjPath)
 {
 	// 한글 경로 지원: UTF-8 → UTF-16 변환 후 파일 열기
-	std::wstring WPath = UTF8ToWide(InObjPath);
+	FWideString WPath = UTF8ToWide(InObjPath);
 	std::ifstream FileIn(WPath);
 	if (!FileIn)
 	{
@@ -130,7 +130,7 @@ static FString FindMtlFilePath(const FString& InObjPath)
 bool GetMtlDependencies(const FString& ObjPath, TArray<FString>& OutMtlFilePaths)
 {
 	// 한글 경로 지원: UTF-8 → UTF-16 변환 후 파일 열기
-	std::wstring WPath = UTF8ToWide(ObjPath);
+	FWideString WPath = UTF8ToWide(ObjPath);
 	std::ifstream InFile(WPath);
 	if (!InFile.is_open())
 	{
@@ -156,7 +156,7 @@ bool GetMtlDependencies(const FString& ObjPath, TArray<FString>& OutMtlFilePaths
 				fs::path FullPath = fs::weakly_canonical(BaseDir / MtlFileName);
 				FString PathStr = FullPath.string();
 				std::replace(PathStr.begin(), PathStr.end(), '\\', '/');
-				OutMtlFilePaths.AddUnique(PathStr);
+				OutMtlFilePaths.AddUnique(NormalizePath(PathStr));
 			}
 		}
 	}
@@ -240,8 +240,7 @@ void FObjManager::Preload()
 
 		if (Extension == ".obj")
 		{
-			FString PathStr = Path.string();
-			std::replace(PathStr.begin(), PathStr.end(), '\\', '/');
+			FString PathStr = NormalizePath(Path.string());
 
 			// 이미 처리된 파일인지 확인
 			if (ProcessedFiles.find(PathStr) == ProcessedFiles.end())
@@ -276,8 +275,7 @@ void FObjManager::Clear()
 // PathFileName의 bin을 로드 (없으면 생성) 해서 메모리에 캐싱 후 반환
 FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 {
-	FString NormalizedPathStr = PathFileName;
-	std::replace(NormalizedPathStr.begin(), NormalizedPathStr.end(), '\\', '/');
+	FString NormalizedPathStr = NormalizePath(PathFileName);
 
 	// 1. 메모리 캐시 확인: 이미 로드된 에셋이 있으면 즉시 반환합니다.
 	if (FStaticMesh** It = ObjStaticMeshMap.Find(NormalizedPathStr))
@@ -434,7 +432,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 
 	// 4. 머티리얼 및 텍스처 경로 처리 (공통 로직)
 	// 한글 경로 지원: UTF-8 → UTF-16 변환 후 경로 처리
-	std::wstring WNormalizedPath = UTF8ToWide(NormalizedPathStr);
+	FWideString WNormalizedPath = UTF8ToWide(NormalizedPathStr);
 	fs::path BaseDir = fs::path(WNormalizedPath).parent_path();
 
 	for (auto& MaterialInfo : MaterialInfos)
@@ -446,7 +444,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 				try
 				{
 					// UTF-8 → UTF-16 변환
-					std::wstring WTexPath = UTF8ToWide(TexturePath);
+					FWideString WTexPath = UTF8ToWide(TexturePath);
 					fs::path TexPath(WTexPath);
 
 					// "Data/"로 시작하는 경로는 이미 프로젝트 루트 기준 상대 경로이므로 변환하지 않음
@@ -460,7 +458,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 					     (GenericTexPath[4] == '/' || GenericTexPath[4] == '\\')))
 					{
 						// 이미 올바른 프로젝트 루트 기준 경로이므로 슬래시만 정규화
-						std::replace(TexturePath.begin(), TexturePath.end(), '\\', '/');
+						TexturePath = NormalizePath(TexturePath);
 						return;
 					}
 
@@ -478,17 +476,8 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 						fs::path FinalPath = (ec || RelativePath.empty()) ? AbsolutePath : RelativePath;
 
 						// UTF-16 → UTF-8 변환하여 다시 저장
-						std::wstring WFinalPath = FinalPath.wstring();
-						int needed = ::WideCharToMultiByte(CP_UTF8, 0, WFinalPath.c_str(), -1, nullptr, 0, nullptr, nullptr);
-						if (needed > 0)
-						{
-							std::string TempPath;
-							TempPath.resize(needed - 1);
-							::WideCharToMultiByte(CP_UTF8, 0, WFinalPath.c_str(), -1, TempPath.data(), needed, nullptr, nullptr);
-							TexturePath = TempPath;
-						}
-
-						std::replace(TexturePath.begin(), TexturePath.end(), '\\', '/');
+						TexturePath = WideToUTF8(FinalPath.wstring());
+						TexturePath = NormalizePath(TexturePath);
 					}
 				}
 				catch (const std::exception& e)
@@ -545,8 +534,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 UStaticMesh* FObjManager::LoadObjStaticMesh(const FString& PathFileName)
 {
 	// 0) 경로
-	FString NormalizedPathStr = PathFileName;
-	std::replace(NormalizedPathStr.begin(), NormalizedPathStr.end(), '\\', '/');
+	FString NormalizedPathStr = NormalizePath(PathFileName);
 
 	// 1) 이미 로드된 UStaticMesh가 있는지 전체 검색 (정규화된 경로로 비교)
 	for (TObjectIterator<UStaticMesh> It; It; ++It)
@@ -586,7 +574,7 @@ bool FObjImporter::LoadObjModel(const FString& InFileName, FObjInfo* const OutOb
 	// [안정성] .obj 파일이 존재하지 않으면 로드 실패를 반환합니다.
 	// 이는 필수 데이터이므로 더 이상 진행할 수 없습니다.
 	// 한글 경로 지원: UTF-8 → UTF-16 변환 후 파일 열기
-	std::wstring WPath = UTF8ToWide(InFileName);
+	FWideString WPath = UTF8ToWide(InFileName);
 	std::ifstream FileIn(WPath);
 	if (!FileIn)
 	{
@@ -761,7 +749,7 @@ bool FObjImporter::LoadObjModel(const FString& InFileName, FObjInfo* const OutOb
 	}
 
 	// 한글 경로 지원: UTF-8 → UTF-16 변환 후 파일 열기
-	std::wstring WMtlPath = UTF8ToWide(MtlFileName);
+	FWideString WMtlPath = UTF8ToWide(MtlFileName);
 	FileIn.open(WMtlPath);
 
 	// .mtl 파일이 존재하지 않더라도 로딩을 중단하지 않습니다.
