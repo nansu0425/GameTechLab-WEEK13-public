@@ -500,6 +500,10 @@ void AGizmoActor::OnDrag(USceneComponent* Target, uint32 GizmoAxis, float MouseD
 
 void AGizmoActor::ProcessGizmoInteraction(ACameraActor* Camera, FViewport* Viewport, float MousePositionX, float MousePositionY)
 {
+	if (!SelectionManager)
+	{
+		return;
+	}
 	USceneComponent* SelectedComponent = SelectionManager->GetSelectedComponent();
 	if (!SelectedComponent || !Camera) return;
 

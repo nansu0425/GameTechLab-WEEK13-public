@@ -84,7 +84,7 @@ void UWorld::InitializeGizmo()
 	EditorActors.push_back(GizmoActor);
 }
 
-void UWorld::Tick(float DeltaSeconds, EWorldType InWorldType)
+void UWorld::Tick(float DeltaSeconds)
 {
 	Partition->Update(DeltaSeconds, /*budget*/256);
 
@@ -93,7 +93,7 @@ void UWorld::Tick(float DeltaSeconds, EWorldType InWorldType)
 	{
 		for (AActor* Actor : Level->GetActors())
 		{
-			if (Actor && (Actor->CanTickInEditor() || InWorldType == EWorldType::Game))
+			if (Actor && (Actor->CanTickInEditor() || bPie))
 			{
 				Actor->Tick(DeltaSeconds);
 			}
@@ -101,7 +101,7 @@ void UWorld::Tick(float DeltaSeconds, EWorldType InWorldType)
 	}
 	for (AActor* EditorActor : EditorActors)
 	{
-		if (EditorActor && InWorldType == EWorldType::Editor) EditorActor->Tick(DeltaSeconds);
+		if (EditorActor && !bPie) EditorActor->Tick(DeltaSeconds);
 	}
 }
 

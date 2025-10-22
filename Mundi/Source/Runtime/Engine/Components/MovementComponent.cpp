@@ -13,6 +13,7 @@ UMovementComponent::UMovementComponent()
 {
     // Movement component는 기본적으로 Tick 가능
     bCanEverTick = true;
+    Owner = GetOwner();
 }
 
 UMovementComponent::~UMovementComponent()
@@ -22,7 +23,8 @@ UMovementComponent::~UMovementComponent()
 void UMovementComponent::InitializeComponent()
 {
     Super_t::InitializeComponent();
-
+    bTickEnabled = true;
+    
     // 자신을 소유한 액터의 루트 컴포넌트를 UpdatedComponent로 설정
     if (!UpdatedComponent && Owner)
     {

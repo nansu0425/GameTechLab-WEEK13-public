@@ -213,7 +213,7 @@ void UEditorEngine::Tick(float DeltaSeconds)
 
     for (auto& WorldContext : WorldContexts)
     {
-        WorldContext.World->Tick(DeltaSeconds, WorldContext.WorldType);
+        WorldContext.World->Tick(DeltaSeconds);
         //// 테스트용으로 분기해놨음
         //if (WorldContext.World && bPIEActive && WorldContext.WorldType == EWorldType::Game)
         //{
@@ -371,6 +371,10 @@ void UEditorEngine::StartPIE()
     ////스폰을 위한 월드셋
     //UI.SetWorld(PIEWorld);
 
+    for (AActor* Actor : GWorld->GetLevel()->GetActors())
+    {
+        Actor->BeginPlay();
+    }
     UE_LOG("START PIE CLICKED");
 }
 

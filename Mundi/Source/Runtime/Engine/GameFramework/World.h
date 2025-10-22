@@ -83,7 +83,7 @@ public:
     FString GenerateUniqueActorName(const FString& ActorType);
 
     /** === 타임 / 틱 === */
-    virtual void Tick(float DeltaSeconds, EWorldType InWorldType);
+    virtual void Tick(float DeltaSeconds);
 
     /** === 필요한 엑터 게터 === */
     const TArray<AActor*>& GetActors() { static TArray<AActor*> Empty; return Level ? Level->GetActors() : Empty; }

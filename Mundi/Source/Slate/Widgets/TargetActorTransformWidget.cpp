@@ -154,9 +154,9 @@ namespace
 			}
 
 			ImGuiTreeNodeFlags NodeFlags =
-				ImGuiTreeNodeFlags_OpenOnArrow |
 				ImGuiTreeNodeFlags_SpanAvailWidth |
-				ImGuiTreeNodeFlags_DefaultOpen;
+				ImGuiTreeNodeFlags_Leaf | 
+				ImGuiTreeNodeFlags_NoTreePushOnOpen;
 
 			// 선택 하이라이트: 현재 선택된 컴포넌트와 같으면 Selected 플래그
 			if (Component == SelectedComponent && !GWorld->GetSelectionManager()->IsActorMode())
@@ -183,7 +183,7 @@ namespace
 				}
 				ImGui::EndPopup();
 			}
-			ImGui::TreePop();
+			
 			ImGui::PopID();
 		}
 	}
