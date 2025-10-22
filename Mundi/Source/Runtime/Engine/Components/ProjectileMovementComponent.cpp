@@ -8,7 +8,8 @@ IMPLEMENT_CLASS(UProjectileMovementComponent)
 
 BEGIN_PROPERTIES(UProjectileMovementComponent)
     MARK_AS_COMPONENT("ProjectileComponent", "발사체 컴포넌트를 추가합니다")
-    ADD_PROPERTY(FVector, Gravity, "발사체", true, "발사체 중력 가속도입니다")
+    ADD_PROPERTY(float, Gravity, "발사체", true, "발사체 중력 가속도입니다")
+    ADD_PROPERTY(FVector, Velocity, "속도", true, "초기 속도입니다")
     ADD_PROPERTY(float, InitialSpeed, "발사체", true, "발사체 초기 속도입니다")
     ADD_PROPERTY(float, MaxSpeed, "발사체", true, "발사체 최대 속도입니다")
     ADD_PROPERTY(bool, bAutoDestroyWhenLifespanExceeded, "발사체", true, "생명 시간 초과시 발사체를 파괴합니다")
@@ -19,7 +20,7 @@ BEGIN_PROPERTIES(UProjectileMovementComponent)
 END_PROPERTIES()
 
 UProjectileMovementComponent::UProjectileMovementComponent()
-    : Gravity(0.0f, 0.0f, -9.80f)  // Z-Up 좌표계에서 중력은 Z방향으로 -980 cm/s^2
+    : Gravity(-9.80f)  // Z-Up 좌표계에서 중력은 Z방향으로 -980 cm/s^2
     , InitialSpeed(30.0f)
     , MaxSpeed(0.0f)  // 0 = 제한 없음
     , HomingTargetActor(nullptr)
@@ -47,10 +48,7 @@ void UProjectileMovementComponent::TickComponent(float DeltaSeconds)
 
     Super_t::TickComponent(DeltaSeconds);
 
-    if (!bIsActive || !bCanEverTick)
-        return;
-
-    if (!UpdatedComponent)
+    if (!bIsActive || !bCanEverTick || !UpdatedComponent)
         return;
 
     // 1. 생명주기 체크

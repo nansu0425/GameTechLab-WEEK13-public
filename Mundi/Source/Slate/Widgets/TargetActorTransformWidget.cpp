@@ -73,10 +73,6 @@ namespace
 	{
 		if (!ComponentClass || !ComponentClass->IsChildOf(UActorComponent::StaticClass()))
 			return false;
-		if (!SelectedComponent->IsA(USceneComponent::StaticClass()))
-		{
-			return false;
-		}
 		USceneComponent* SelectedSceneComponent = static_cast<USceneComponent*>(SelectedComponent);
 
 		UObject* RawObject = ObjectFactory::NewObject(ComponentClass);
@@ -454,6 +450,7 @@ void UTargetActorTransformWidget::RenderComponentHierarchy(AActor* SelectedActor
 		TSet<USceneComponent*> VisitedComponents;
 		RenderSceneComponentTree(RootComponent, *SelectedActor, SelectedComponent, ComponentPendingRemoval, VisitedComponents);
 		// ... (루트에 붙지 않은 씬 컴포넌트 렌더링 로직은 생략 가능성 있음, 엔진 설계에 따라)
+		ImGui::Separator();
 		RenderActorComponent(SelectedActor, SelectedComponent, ComponentPendingRemoval);
 	}
 
@@ -468,17 +465,8 @@ void UTargetActorTransformWidget::RenderComponentHierarchy(AActor* SelectedActor
 	// 컴포넌트 삭제 실행
 	if (ComponentPendingRemoval)
 	{
-		// 삭제 전에 선택 해제 (dangling pointer 방지)
-		USceneComponent* NewSelection = nullptr;
-		/*if (ComponentPendingRemoval->GetAttachParent())
-		{
-			NewSelection = ComponentPendingRemoval->GetAttachParent();
-		}
-		else
-		{
-			NewSelection = ComponentPendingRemoval->GetOwner()->RootComponent;
-		}*/
 
+		USceneComponent* NewSelection = SelectedActor->GetRootComponent();
 		// SelectionManager를 통해 선택 해제
 		GWorld->GetSelectionManager()->ClearSelection();
 

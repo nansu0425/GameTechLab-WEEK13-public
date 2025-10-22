@@ -30,8 +30,8 @@ public:
     void SetVelocityInLocalSpace(const FVector& NewVelocity);
 
     // 물리 속성 Getter/Setter
-    void SetGravity(const FVector& NewGravity) { Gravity = NewGravity; }
-    FVector GetGravity() const { return Gravity; }
+    void SetGravity(float NewGravity) { Gravity = NewGravity; }
+    float GetGravity() const { return Gravity; }
 
     void SetInitialSpeed(float NewInitialSpeed) { InitialSpeed = NewInitialSpeed; }
     float GetInitialSpeed() const { return InitialSpeed; }
@@ -80,7 +80,7 @@ protected:
 
     // === 물리 속성 ===
     // 중력 가속도 (cm/s^2), Z-Up 좌표계에서 Z가 음수면 아래로 떨어짐
-    FVector Gravity;
+    float Gravity;
 
     // 발사 시 초기 속도 (cm/s)
     float InitialSpeed;

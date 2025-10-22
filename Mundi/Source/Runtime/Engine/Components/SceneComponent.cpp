@@ -386,6 +386,10 @@ void USceneComponent::OnSerialized()
 
 void USceneComponent::OnTransformUpdated()
 {
+    for (USceneComponent* Child : GetAttachChildren())
+    {
+        Child->OnTransformUpdated();
+    }
 }
 
 UWorld* USceneComponent::GetWorld()

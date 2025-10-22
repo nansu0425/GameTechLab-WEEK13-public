@@ -17,6 +17,7 @@ class UActorComponent : public UObject
 {
 public:
     DECLARE_CLASS(UActorComponent, UObject)
+    GENERATED_REFLECTION_BODY()
     UActorComponent();
 
 protected:

@@ -130,7 +130,7 @@ void AActor::RemoveOwnedComponent(UActorComponent* Component)
 		return;
 	}
 
-	if (!OwnedComponents.count(Component))
+	if (!OwnedComponents.count(Component) || RootComponent == Component)
 	{
 		return;
 	}
