@@ -211,6 +211,8 @@ void USlateManager::Render()
         // 둥근 모서리 스타일 적용
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 12.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 10.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 2.0f);
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.4f, 0.4f, 0.4f, 0.8f));
 
         // 윈도우 위치 및 크기 설정
         ImGui::SetNextWindowPos(ImVec2(ConsoleXPos, CurrentYPos));
@@ -259,8 +261,9 @@ void USlateManager::Render()
         }
         ImGui::End();
 
-        // 스타일 변수 복원
-        ImGui::PopStyleVar(2);
+        // 스타일 변수 및 색상 복원
+        ImGui::PopStyleColor(1);
+        ImGui::PopStyleVar(3);
     }
 }
 
