@@ -344,8 +344,20 @@ void UMaterialInstanceDynamic::SetScalarParameterValue(const FString& ParameterN
 	bIsCachedMaterialInfoDirty = true;
 }
 
-void UMaterialInstanceDynamic::SetOverriddenTextures(const TMap<EMaterialTextureSlot, UTexture*>& InTextures)
+void UMaterialInstanceDynamic::SetOverriddenTextureParameters(const TMap<EMaterialTextureSlot, UTexture*>& InTextures)
 {
 	OverriddenTextures = InTextures;
 	bIsCachedMaterialInfoDirty = true;
+}
+
+void UMaterialInstanceDynamic::SetOverriddenScalarParameters(const TMap<FString, float>& InScalars)
+{
+	OverriddenScalarParameters = InScalars;
+	bIsCachedMaterialInfoDirty = true; // 스칼라 값이 변경되었으므로 캐시를 갱신해야 함
+}
+
+void UMaterialInstanceDynamic::SetOverriddenVectorParameters(const TMap<FString, FLinearColor>& InVectors)
+{
+	OverriddenVectorParameters = InVectors;
+	bIsCachedMaterialInfoDirty = true; // 벡터 값이 변경되었으므로 캐시를 갱신해야 함
 }
