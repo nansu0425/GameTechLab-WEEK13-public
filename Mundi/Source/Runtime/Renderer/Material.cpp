@@ -280,12 +280,24 @@ const FMaterialInfo& UMaterialInstanceDynamic::GetMaterialInfo() const
 			{
 				CachedMaterialInfo.Transparency = Pair.second;
 			}
+			else if (Pair.first == "BumpMultiplier")
+			{
+				CachedMaterialInfo.BumpMultiplier = Pair.second;
+			}
+			else if (Pair.first == "IlluminationModel")
+			{
+				// IlluminationModel은 int32 이므로 float에서 캐스팅
+				CachedMaterialInfo.IlluminationModel = static_cast<int32>(Pair.second);
+			}
 		}
 
 		// 3. 이 인스턴스에 덮어쓴 벡터 파라미터로 캐시를 수정합니다.
 		for (const auto& Pair : OverriddenVectorParameters)
 		{
+			// OverriddenVectorParameters는 FLinearColor (RGBA)로 저장되므로
+			// FMaterialInfo의 FVector (RGB)로 변환
 			const FVector ColorVec = FVector(Pair.second.R, Pair.second.G, Pair.second.B);
+
 			if (Pair.first == "DiffuseColor")
 			{
 				CachedMaterialInfo.DiffuseColor = ColorVec;
@@ -301,6 +313,10 @@ const FMaterialInfo& UMaterialInstanceDynamic::GetMaterialInfo() const
 			else if (Pair.first == "EmissiveColor")
 			{
 				CachedMaterialInfo.EmissiveColor = ColorVec;
+			}
+			else if (Pair.first == "TransmissionFilter") // [추가]
+			{
+				CachedMaterialInfo.TransmissionFilter = ColorVec;
 			}
 		}
 

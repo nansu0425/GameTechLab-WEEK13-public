@@ -507,6 +507,14 @@ bool UPropertyRenderer::RenderMaterialArrayProperty(const FProperty& Prop, void*
 		{
 			bArrayChanged = true;
 		}
+
+		// 마지막 머티리얼은 제외하고 영역 분리
+		if (MaterialIndex < MaterialSlots->Num() - 1)
+		{
+			ImGui::NewLine();
+			ImGui::Separator();
+			ImGui::NewLine();
+		}
 	}
 
 	return bArrayChanged;
@@ -524,19 +532,12 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterialInt
 		return false;
 	}
 
-	// --- ImGui::BeginCombo / EndCombo 사용 ---
-
-	// 1. 콤보박스에 현재 표시될 "미리보기 값"을 설정합니다.
-	// CurrentMaterial이 유효하면 그 경로를, 아니면 "None"을 사용합니다.
+	// --- 1. 머티리얼 에셋 선택 콤보박스 ---
 	FString CurrentMaterialPath = (CurrentMaterial) ? CurrentMaterial->GetFilePath() : "None";
 
 	ImGui::SetNextItemWidth(240);
-	// 2. BeginCombo를 호출합니다. PreviewValue가 캐시 목록에 없어도 그대로 표시됩니다.
 	if (ImGui::BeginCombo(Label, CurrentMaterialPath.c_str()))
 	{
-		// 3. 드롭다운 목록을 수동으로 렌더링합니다.
-		// 기존 로직과 동일하게 CachedMaterialItems[0]은 "None"이라고 가정합니다.
-
 		// "None" 옵션
 		bool bIsNoneSelected = (CurrentMaterial == nullptr);
 		if (ImGui::Selectable(CachedMaterialItems[0], bIsNoneSelected))
@@ -551,20 +552,13 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterialInt
 				*MaterialPtr = nullptr;
 			}
 		}
+		if (bIsNoneSelected) ImGui::SetItemDefaultFocus();
 
-		// "None"을 선택했을 때 포커스를 줍니다.
-		if (bIsNoneSelected)
-		{
-			ImGui::SetItemDefaultFocus();
-		}
-
-		// 캐시된 머티리얼 목록 (CachedMaterialPaths[j]가 CachedMaterialItems[j+1]에 해당)
+		// 캐시된 머티리얼 목록
 		for (int j = 0; j < (int)CachedMaterialPaths.size(); ++j)
 		{
 			const FString& Path = CachedMaterialPaths[j];
-			// CachedMaterialItems[0]은 "None"이므로 j+1 인덱스를 사용합니다.
 			const char* DisplayName = CachedMaterialItems[j + 1];
-
 			bool bIsSelected = (CurrentMaterialPath == Path);
 
 			if (ImGui::Selectable(DisplayName, bIsSelected))
@@ -576,109 +570,223 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterialInt
 				}
 				else
 				{
-					// UPrimitiveComponent가 아닌 경우 리소스를 로드하여 직접 할당
 					*MaterialPtr = UResourceManager::GetInstance().Load<UMaterial>(Path);
 				}
 			}
-
-			// 현재 선택된 항목이 뷰에 보이도록 스크롤합니다.
-			if (bIsSelected)
-			{
-				ImGui::SetItemDefaultFocus();
-			}
+			if (bIsSelected) ImGui::SetItemDefaultFocus();
 		}
 
-		// 4. EndCombo를 호출하여 콤보박스를 닫습니다.
 		ImGui::EndCombo();
-
-		CurrentMaterial = *MaterialPtr; // 머티리얼이 변경되었을 수 있으므로 포인터 업데이트
+		CurrentMaterial = *MaterialPtr; // 콤보박스에서 변경되었을 수 있으므로 업데이트
 	}
 
-	// --- UMaterialInterface 내부 프로퍼티 렌더링 (셰이더, 텍스처) ---
+	// --- 2. UMaterialInterface 내부 프로퍼티 렌더링 ---
 	if (CurrentMaterial)
 	{
 		ImGui::Indent();
 
-		// --- 셰이더 렌더링 (읽기 전용, 비활성화된 InputText 사용) ---
+		// --- 2-1. 셰이더 (읽기 전용) ---
 		UShader* CurrentShader = CurrentMaterial->GetShader();
 		FString CurrentShaderPath = (CurrentShader) ? CurrentShader->GetFilePath() : "None";
-
-		// ImGui::InputText에 사용하기 위해 경로를 복사할 버퍼
-		char ShaderPathBuffer[512]; // 경로 길이에 맞춰 버퍼 크기 조정
+		char ShaderPathBuffer[512];
 		strncpy_s(ShaderPathBuffer, sizeof(ShaderPathBuffer), CurrentShaderPath.c_str(), _TRUNCATE);
-
 		FString ShaderLabel = "Shader##" + FString(Label);
 		ImGui::SetNextItemWidth(400);
-
-		// ImGui::BeginDisabled(true)로 감싸 위젯을 시각적으로 비활성화합니다.
 		ImGui::BeginDisabled(true);
-
-		// InputText는 계속 사용하되, 비활성화된 상태로 둡니다.
 		ImGui::InputText(ShaderLabel.c_str(), ShaderPathBuffer, sizeof(ShaderPathBuffer), ImGuiInputTextFlags_ReadOnly);
-
-		// 비활성화 상태를 해제합니다.
 		ImGui::EndDisabled();
 
-		// --- 텍스처 슬롯 렌더링 ---
-		for (uint8 TexSlotIndex = 0; TexSlotIndex < (uint8)EMaterialTextureSlot::Max; ++TexSlotIndex)
-		{
-			EMaterialTextureSlot Slot = static_cast<EMaterialTextureSlot>(TexSlotIndex);
-			UTexture* CurrentTexture = CurrentMaterial->GetTexture(Slot);
+		// --- 2-2. 텍스처 슬롯 ---
 
-			// 1. 슬롯 이름 (Label) 설정
-			const char* SlotName = "Unknown Slot";
-			switch (Slot)
+		// 이 슬롯의 머티리얼이 MID가 되도록 보장하는 람다 함수
+		// ImGui 위젯 값이 변경될 때만 호출됩니다.
+		auto EnsureMID = [&]() -> UMaterialInstanceDynamic*
 			{
-			case EMaterialTextureSlot::Diffuse:
-				SlotName = "Diffuse Texture";
-				break;
-			case EMaterialTextureSlot::Normal:
-				SlotName = "Normal Texture";
-				break;
-				// ... (다른 텍스처 슬롯이 EMaterialTextureSlot에 추가되면 여기에도 case 추가) ...
-			}
-			FString TextureLabel = FString(SlotName) + "##" + Label;
-
-			// 2. 텍스처 콤보 헬퍼 함수 호출
-			UTexture* NewTexture = nullptr;
-			if (RenderTextureSelectionCombo(TextureLabel.c_str(), CurrentTexture, NewTexture))
-			{
-				// 3. 변경 시 MID 로직 처리
-
-				// 3-1. 현재 머티리얼이 MID인지 확인합니다.
 				UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(CurrentMaterial);
-
-				// 3-2. MID가 아니라면 (즉, UMaterial 원본을 사용 중이라면)
 				if (MID == nullptr)
 				{
-					// 3-2-1. OwningObject를 UStaticMeshComponent로 캐스팅합니다.
 					if (UStaticMeshComponent* StaticMeshComp = Cast<UStaticMeshComponent>(OwningObject))
 					{
-						// 3-2-2. 컴포넌트의 헬퍼 함수를 호출하여 MID를 생성하고 슬롯에 할당합니다.
+						// StaticMeshComponent의 헬퍼가 MaterialSlots[MaterialIndex]와 *MaterialPtr을
+						// 모두 업데이트한다고 가정합니다.
 						MID = StaticMeshComp->CreateAndSetMaterialInstanceDynamic(MaterialIndex);
-						CurrentMaterial = MID; // 이 UI가 참조하는 로컬 변수도 새 MID로 업데이트
+						CurrentMaterial = MID; // 로컬 변수 업데이트
 					}
 					else
 					{
-						// UStaticMeshComponent가 아닌 다른 컴포넌트가 이 속성을 소유한 경우
+						// StaticMeshComponent가 아닌 경우 (예: DecalComponent 등)
 						MID = UMaterialInstanceDynamic::Create(CurrentMaterial);
-						*MaterialPtr = MID; // 포인터가 가리키는 곳(배열)의 값을 직접 변경
-						CurrentMaterial = MID;
+						*MaterialPtr = MID; // 원본 포인터(*MaterialPtr)가 가리키는 곳의 값을 새 MID로 변경
+						CurrentMaterial = MID; // 로컬 변수 업데이트
 
+						// UPrimitiveComponent 파생 클래스라면 SetMaterial도 호출
 						if (UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(OwningObject))
 						{
 							PrimitiveComponent->SetMaterial(MaterialIndex, MID);
 						}
 					}
 				}
+				return MID;
+			};
 
-				// 4. 이제 CurrentMaterial은 반드시 MID이므로, 파라미터를 설정합니다.
-				if (MID)
+		for (uint8 TexSlotIndex = 0; TexSlotIndex < (uint8)EMaterialTextureSlot::Max; ++TexSlotIndex)
+		{
+			EMaterialTextureSlot Slot = static_cast<EMaterialTextureSlot>(TexSlotIndex);
+			UTexture* CurrentTexture = CurrentMaterial->GetTexture(Slot);
+
+			const char* SlotName = "Unknown Slot";
+			switch (Slot)
+			{
+			case EMaterialTextureSlot::Diffuse: SlotName = "Diffuse Texture"; break;
+			case EMaterialTextureSlot::Normal: SlotName = "Normal Texture"; break;
+			}
+			FString TextureLabel = FString(SlotName) + "##" + Label;
+
+			UTexture* NewTexture = nullptr;
+			if (RenderTextureSelectionCombo(TextureLabel.c_str(), CurrentTexture, NewTexture))
+			{
+				// 텍스처 변경 시, MID를 확보하고 파라미터 설정
+				if (UMaterialInstanceDynamic* MID = EnsureMID())
 				{
-					MID->SetTextureParameterValue(Slot, NewTexture); // NewTexture (선택된 텍스처) 사용
+					MID->SetTextureParameterValue(Slot, NewTexture);
+					bElementChanged = true;
 				}
+			}
+		}
 
-				bElementChanged = true; // 슬롯의 내용(텍스처)이 변경되었음을 알림
+		// --- 2-3. FMaterialInfo 파라미터 (스칼라 및 벡터) ---
+
+		// ImGui에 표시하기 위해 현재 머티리얼의 최종 Info 값을 가져옵니다.
+		// (MID인 경우 덮어쓰기가 적용된 복사본, UMaterial인 경우 원본)
+		const FMaterialInfo& Info = CurrentMaterial->GetMaterialInfo();
+
+		ImGui::Separator();
+
+		// --- Colors (FVector -> ImGui::ColorEdit3) ---
+		FLinearColor TempColor; // ImGui 위젯에 바인딩할 임시 변수
+
+		// DiffuseColor
+		TempColor = FLinearColor(Info.DiffuseColor); // FVector에서 FLinearColor로 변환 (생성자 가정)
+		FString DiffuseLabel = "Diffuse Color##" + FString(Label);
+		if (ImGui::ColorEdit3(DiffuseLabel.c_str(), &TempColor.R))
+		{
+			if (UMaterialInstanceDynamic* MID = EnsureMID())
+			{
+				// MID의 Setter는 FLinearColor를 받는다고 가정
+				MID->SetVectorParameterValue("DiffuseColor", TempColor);
+				bElementChanged = true;
+			}
+		}
+
+		// AmbientColor
+		TempColor = FLinearColor(Info.AmbientColor);
+		FString AmbientLabel = "Ambient Color##" + FString(Label);
+		if (ImGui::ColorEdit3(AmbientLabel.c_str(), &TempColor.R))
+		{
+			if (UMaterialInstanceDynamic* MID = EnsureMID())
+			{
+				MID->SetVectorParameterValue("AmbientColor", TempColor);
+				bElementChanged = true;
+			}
+		}
+
+		// SpecularColor
+		TempColor = FLinearColor(Info.SpecularColor);
+		FString SpecularLabel = "Specular Color##" + FString(Label);
+		if (ImGui::ColorEdit3(SpecularLabel.c_str(), &TempColor.R))
+		{
+			if (UMaterialInstanceDynamic* MID = EnsureMID())
+			{
+				MID->SetVectorParameterValue("SpecularColor", TempColor);
+				bElementChanged = true;
+			}
+		}
+
+		// EmissiveColor
+		TempColor = FLinearColor(Info.EmissiveColor);
+		FString EmissiveLabel = "Emissive Color##" + FString(Label);
+		if (ImGui::ColorEdit3(EmissiveLabel.c_str(), &TempColor.R))
+		{
+			if (UMaterialInstanceDynamic* MID = EnsureMID())
+			{
+				MID->SetVectorParameterValue("EmissiveColor", TempColor);
+				bElementChanged = true;
+			}
+		}
+
+		// TransmissionFilter
+		TempColor = FLinearColor(Info.TransmissionFilter);
+		FString TransmissionLabel = "Transmission Filter##" + FString(Label);
+		if (ImGui::ColorEdit3(TransmissionLabel.c_str(), &TempColor.R))
+		{
+			if (UMaterialInstanceDynamic* MID = EnsureMID())
+			{
+				MID->SetVectorParameterValue("TransmissionFilter", TempColor);
+				bElementChanged = true;
+			}
+		}
+
+		// --- Floats (float -> ImGui::DragFloat) ---
+		float TempFloat; // ImGui 위젯에 바인딩할 임시 변수
+
+		// SpecularExponent (Shininess)
+		TempFloat = Info.SpecularExponent;
+		FString SpecExpLabel = "Specular Exponent##" + FString(Label);
+		if (ImGui::DragFloat(SpecExpLabel.c_str(), &TempFloat, 1.0f, 0.0f, 1024.0f))
+		{
+			if (UMaterialInstanceDynamic* MID = EnsureMID())
+			{
+				MID->SetScalarParameterValue("SpecularExponent", TempFloat);
+				bElementChanged = true;
+			}
+		}
+
+		// Transparency (d or Tr)
+		TempFloat = Info.Transparency;
+		FString TransparencyLabel = "Transparency##" + FString(Label);
+		if (ImGui::DragFloat(TransparencyLabel.c_str(), &TempFloat, 0.01f, 0.0f, 1.0f))
+		{
+			if (UMaterialInstanceDynamic* MID = EnsureMID())
+			{
+				MID->SetScalarParameterValue("Transparency", TempFloat);
+				bElementChanged = true;
+			}
+		}
+
+		// OpticalDensity (Ni)
+		TempFloat = Info.OpticalDensity;
+		FString OpticalDensityLabel = "Optical Density##" + FString(Label);
+		if (ImGui::DragFloat(OpticalDensityLabel.c_str(), &TempFloat, 0.01f, 0.0f, 10.0f)) // 범위는 임의로 지정
+		{
+			if (UMaterialInstanceDynamic* MID = EnsureMID())
+			{
+				MID->SetScalarParameterValue("OpticalDensity", TempFloat);
+				bElementChanged = true;
+			}
+		}
+
+		// BumpMultiplier (bm)
+		TempFloat = Info.BumpMultiplier;
+		FString BumpMultiplierLabel = "Bump Multiplier##" + FString(Label);
+		if (ImGui::DragFloat(BumpMultiplierLabel.c_str(), &TempFloat, 0.01f, 0.0f, 5.0f)) // 범위는 임의로 지정
+		{
+			if (UMaterialInstanceDynamic* MID = EnsureMID())
+			{
+				MID->SetScalarParameterValue("BumpMultiplier", TempFloat);
+				bElementChanged = true;
+			}
+		}
+
+		// --- Ints (IlluminationModel) ---
+		int TempInt = Info.IlluminationModel;
+		FString IllumModelLabel = "Illum Model##" + FString(Label);
+		if (ImGui::DragInt(IllumModelLabel.c_str(), &TempInt, 1, 0, 10)) // 0-10은 OBJ 표준 범위
+		{
+			if (UMaterialInstanceDynamic* MID = EnsureMID())
+			{
+				// SetScalarParameterValue를 사용하여 int를 float로 캐스팅하여 저장
+				MID->SetScalarParameterValue("IlluminationModel", (float)TempInt);
+				bElementChanged = true;
 			}
 		}
 
@@ -687,7 +795,6 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterialInt
 
 	return bElementChanged;
 }
-
 
 // ===== 텍스처 선택 헬퍼 함수 =====
 bool UPropertyRenderer::RenderTextureSelectionCombo(const char* Label, UTexture* CurrentTexture, UTexture*& OutNewTexture)
