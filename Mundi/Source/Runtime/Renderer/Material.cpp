@@ -277,6 +277,31 @@ const FMaterialInfo& UMaterialInstanceDynamic::GetMaterialInfo() const
 			}
 		}
 
+		// 4. 이 인스턴스에 덮어쓴 텍스처 파라미터로 캐시를 수정합니다.
+		for (const auto& Pair : OverriddenTextures)
+		{
+			// Pair.first는 EMaterialTextureSlot, Pair.second는 UTexture*
+			UTexture* OverriddenTexture = Pair.second;
+
+			// UTexture*가 유효하면 그 경로를, 아니면 빈 문자열을 사용합니다.
+			// UTexture가 UResourceBase를 상속하며, GetFilePath() 함수가 있다고 가정합니다.
+			// 만약 GetFilePath()가 없다면 UResourceBase에 정의된 적절한 경로 반환 함수로 대체해야 합니다.
+			const FString TexturePath = OverriddenTexture ? OverriddenTexture->GetFilePath() : FString();
+
+			switch (Pair.first)
+			{
+			case EMaterialTextureSlot::Diffuse:
+				CachedMaterialInfo.DiffuseTextureFileName = TexturePath;
+				break;
+			case EMaterialTextureSlot::Normal:
+				CachedMaterialInfo.NormalTextureFileName = TexturePath;
+				break;
+				// 참고: FMaterialInfo에 정의된 다른 텍스처(Ambient, Specular 등)를
+				// 런타임에 오버라이드하려면, EMaterialTextureSlot enum에도 
+				// 해당 항목들을 추가하고 여기에 case문을 추가해야 합니다.
+			}
+		}
+
 		bIsCachedMaterialInfoDirty = false;
 	}
 	return CachedMaterialInfo;
@@ -296,8 +321,7 @@ void UMaterialInstanceDynamic::SetShaderMacros(const TArray<FShaderMacro>& InMac
 void UMaterialInstanceDynamic::SetTextureParameterValue(EMaterialTextureSlot Slot, UTexture* Value)
 {
 	OverriddenTextures.Add(Slot, Value);
-	// 텍스처는 FMaterialInfo에 직접적인 영향을 주지 않으므로 dirty 플래그를 설정하지 않습니다.
-	// GetTexture() 함수가 OverriddenTextures 맵을 직접 확인하기 때문입니다.
+	bIsCachedMaterialInfoDirty = true;
 }
 
 void UMaterialInstanceDynamic::SetVectorParameterValue(const FString& ParameterName, const FLinearColor& Value)
