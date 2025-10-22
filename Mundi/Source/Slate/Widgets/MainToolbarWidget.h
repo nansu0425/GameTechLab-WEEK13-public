@@ -39,6 +39,22 @@ private:
     std::filesystem::path OpenLoadFileDialog();
 
 private:
+    // 명령 타입 정의
+    enum class EToolbarCommand
+    {
+        None,
+        NewScene,
+        SaveScene,
+        LoadScene,
+        SpawnActor,
+        StartPIE,
+        EndPIE
+    };
+
+    // 명령 큐 처리
+    void ProcessPendingCommands();
+
+private:
     // 아이콘 텍스처
     UTexture* IconNew = nullptr;
     UTexture* IconSave = nullptr;
@@ -46,4 +62,8 @@ private:
     UTexture* IconPlay = nullptr;
     UTexture* IconStop = nullptr;
     UTexture* IconAddActor = nullptr;
+
+    // 명령 큐
+    EToolbarCommand PendingCommand = EToolbarCommand::None;
+    UClass* PendingActorClass = nullptr;
 };

@@ -1,7 +1,6 @@
 ﻿#include "pch.h"
 #include "ControlPanelWindow.h"
 #include "Widgets/ActorTerminationWidget.h"
-#include "Widgets/SceneIOWidget.h"
 
 //// UE_LOG 대체 매크로
 //#define UE_LOG(fmt, ...)
@@ -31,10 +30,6 @@ UControlPanelWindow::UControlPanelWindow()
 	UActorTerminationWidget* ActorTerminationWidget = NewObject<UActorTerminationWidget>();
 	ActorTerminationWidget->Initialize();
 	AddWidget(ActorTerminationWidget);
-
-	USceneIOWidget* SceneIOWidget = NewObject<USceneIOWidget>();
-	SceneIOWidget->Initialize();
-	AddWidget(SceneIOWidget);
 }
 
 /**

@@ -333,7 +333,6 @@
     <ClCompile Include="Source\Slate\Widgets\ConsoleWidget.cpp" />
     <ClCompile Include="Source\Slate\Widgets\InputInformationWidget.cpp" />
     <ClCompile Include="Source\Slate\Widgets\MainToolbarWidget.cpp" />
-    <ClCompile Include="Source\Slate\Widgets\SceneIOWidget.cpp" />
     <ClCompile Include="Source\Slate\Widgets\SceneManagerWidget.cpp" />
     <ClCompile Include="Source\Slate\Widgets\TargetActorTransformWidget.cpp" />
     <ClCompile Include="Source\Slate\Widgets\Widget.cpp" />
@@ -566,7 +565,6 @@
     <ClInclude Include="Source\Slate\Widgets\ConsoleWidget.h" />
     <ClInclude Include="Source\Slate\Widgets\InputInformationWidget.h" />
     <ClInclude Include="Source\Slate\Widgets\MainToolbarWidget.h" />
-    <ClInclude Include="Source\Slate\Widgets\SceneIOWidget.h" />
     <ClInclude Include="Source\Slate\Widgets\SceneManagerWidget.h" />
     <ClInclude Include="Source\Slate\Widgets\TargetActorTransformWidget.h" />
     <ClInclude Include="Source\Slate\Widgets\Widget.h" />

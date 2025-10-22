@@ -30,6 +30,9 @@ void UMainToolbarWidget::Update()
 {
     // 키보드 단축키 처리
     HandleKeyboardShortcuts();
+
+    // 대기 중인 명령 처리
+    ProcessPendingCommands();
 }
 
 void UMainToolbarWidget::RenderWidget()
@@ -109,7 +112,7 @@ void UMainToolbarWidget::RenderSceneButtons()
     {
         if (ImGui::ImageButton("##NewBtn", (void*)IconNew->GetShaderResourceView(), IconSize))
         {
-            OnNewScene();
+            PendingCommand = EToolbarCommand::NewScene;
         }
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("새 씬을 생성합니다 [Ctrl+N]");
@@ -122,7 +125,7 @@ void UMainToolbarWidget::RenderSceneButtons()
     {
         if (ImGui::ImageButton("##SaveBtn", (void*)IconSave->GetShaderResourceView(), IconSize))
         {
-            OnSaveScene();
+            PendingCommand = EToolbarCommand::SaveScene;
         }
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("현재 씬을 저장합니다 [Ctrl+S]");
@@ -135,7 +138,7 @@ void UMainToolbarWidget::RenderSceneButtons()
     {
         if (ImGui::ImageButton("##LoadBtn", (void*)IconLoad->GetShaderResourceView(), IconSize))
         {
-            OnLoadScene();
+            PendingCommand = EToolbarCommand::LoadScene;
         }
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("씬을 불러옵니다 [Ctrl+O]");
@@ -195,15 +198,9 @@ void UMainToolbarWidget::RenderActorSpawnButton()
                 ImGui::PushID(ActorClass->DisplayName);
                 if (ImGui::Selectable(ActorClass->DisplayName))
                 {
-                    // Actor 생성
-                    if (GWorld)
-                    {
-                        AActor* NewActor = GWorld->SpawnActor(ActorClass);
-                        if (NewActor)
-                        {
-                            UE_LOG("MainToolbar: Spawned actor %s", ActorClass->DisplayName);
-                        }
-                    }
+                    // Actor 생성 명령 큐에 추가
+                    PendingCommand = EToolbarCommand::SpawnActor;
+                    PendingActorClass = ActorClass;
                     ImGui::CloseCurrentPopup();
                 }
                 if (ActorClass->Description && ImGui::IsItemHovered())
@@ -244,7 +241,7 @@ void UMainToolbarWidget::RenderPIEButtons()
         if (ImGui::ImageButton("##PlayBtn", (void*)IconPlay->GetShaderResourceView(),
                                 IconSize, ImVec2(0,0), ImVec2(1,1), ImVec4(0,0,0,0), tint))
         {
-            GEngine.StartPIE();
+            PendingCommand = EToolbarCommand::StartPIE;
         }
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Play In Editor를 시작합니다 [F5]");
@@ -261,7 +258,7 @@ void UMainToolbarWidget::RenderPIEButtons()
         if (ImGui::ImageButton("##StopBtn", (void*)IconStop->GetShaderResourceView(),
                                 IconSize, ImVec2(0,0), ImVec2(1,1), ImVec4(0,0,0,0), tint))
         {
-            GEngine.EndPIE();
+            PendingCommand = EToolbarCommand::EndPIE;
         }
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Play In Editor를 종료합니다 [Shift+F5]");
@@ -476,6 +473,63 @@ std::filesystem::path UMainToolbarWidget::OpenLoadFileDialog()
     return L"";
 }
 
+void UMainToolbarWidget::ProcessPendingCommands()
+{
+    if (PendingCommand == EToolbarCommand::None)
+        return;
+
+    switch (PendingCommand)
+    {
+    case EToolbarCommand::NewScene:
+        OnNewScene();
+        break;
+
+    case EToolbarCommand::SaveScene:
+        OnSaveScene();
+        break;
+
+    case EToolbarCommand::LoadScene:
+        OnLoadScene();
+        break;
+
+    case EToolbarCommand::SpawnActor:
+        if (PendingActorClass && GWorld)
+        {
+            AActor* NewActor = GWorld->SpawnActor(PendingActorClass);
+            if (NewActor)
+            {
+                UE_LOG("MainToolbar: Spawned actor %s", PendingActorClass->DisplayName);
+            }
+        }
+        PendingActorClass = nullptr;
+        break;
+
+    case EToolbarCommand::StartPIE:
+#ifdef _EDITOR
+        {
+            extern UEditorEngine GEngine;
+            GEngine.StartPIE();
+        }
+#endif
+        break;
+
+    case EToolbarCommand::EndPIE:
+#ifdef _EDITOR
+        {
+            extern UEditorEngine GEngine;
+            GEngine.EndPIE();
+        }
+#endif
+        break;
+
+    default:
+        break;
+    }
+
+    // 명령 처리 완료 후 초기화
+    PendingCommand = EToolbarCommand::None;
+}
+
 void UMainToolbarWidget::HandleKeyboardShortcuts()
 {
     ImGuiIO& io = ImGui::GetIO();
@@ -483,19 +537,19 @@ void UMainToolbarWidget::HandleKeyboardShortcuts()
     // Ctrl+N: New Scene
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_N, false))
     {
-        OnNewScene();
+        PendingCommand = EToolbarCommand::NewScene;
     }
 
     // Ctrl+S: Save Scene
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false))
     {
-        OnSaveScene();
+        PendingCommand = EToolbarCommand::SaveScene;
     }
 
     // Ctrl+O: Open/Load Scene
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O, false))
     {
-        OnLoadScene();
+        PendingCommand = EToolbarCommand::LoadScene;
     }
 
 #ifdef _EDITOR
@@ -504,13 +558,13 @@ void UMainToolbarWidget::HandleKeyboardShortcuts()
     // F5: Start PIE
     if (ImGui::IsKeyPressed(ImGuiKey_F5, false) && !GEngine.IsPIEActive())
     {
-        GEngine.StartPIE();
+        PendingCommand = EToolbarCommand::StartPIE;
     }
 
     // Shift+F5: Stop PIE
     if (io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_F5, false) && GEngine.IsPIEActive())
     {
-        GEngine.EndPIE();
+        PendingCommand = EToolbarCommand::EndPIE;
     }
 #endif
 }
