@@ -181,14 +181,14 @@ FString FTextureConverter::GetDDSCachePath(const FString& SourcePath)
 	namespace fs = std::filesystem;
 
 	// 원본 경로를 와이드 문자열로 변환 (한글 경로 지원)
-	std::wstring WSourcePath = UTF8ToWide(SourcePath);
+	FWideString WSourcePath = UTF8ToWide(SourcePath);
 	fs::path SourceFile(WSourcePath);
 	fs::path RelativePath;
 
 	// 이미 DDS 캐시 경로인지 확인 (TextureCache 포함 여부)
-	std::string GenericSourcePath = SourceFile.generic_string();
-	if (GenericSourcePath.find("TextureCache") != std::string::npos &&
-	    GenericSourcePath.find(".dds") != std::string::npos)
+	FString GenericSourcePath = SourceFile.generic_string();
+	if (GenericSourcePath.find("TextureCache") != FString::npos &&
+	    GenericSourcePath.find(".dds") != FString::npos)
 	{
 		// 이미 DDS 캐시 경로면 그대로 반환
 		return SourcePath;
@@ -219,12 +219,12 @@ FString FTextureConverter::GetDDSCachePath(const FString& SourcePath)
 
 		// "Data/" 또는 "Data\\" 로 시작하면 제거
 		// fs::path는 내부적으로 경로 구분자를 정규화하므로 generic_string() 사용
-		std::string GenericPath = RelativePath.generic_string();
+		FString GenericPath = RelativePath.generic_string();
 
 		if (GenericPath.find("Data/") == 0)
 		{
 			// "Data/" 제거 (5글자) - UTF-8 인코딩 보존
-			std::string SubPath = GenericPath.substr(5);
+			FString SubPath = GenericPath.substr(5);
 			RelativePath = fs::path(UTF8ToWide(SubPath));
 		}
 		else if (GenericPath.size() >= 5 &&
@@ -235,14 +235,14 @@ FString FTextureConverter::GetDDSCachePath(const FString& SourcePath)
 		         (GenericPath[4] == '/' || GenericPath[4] == '\\'))
 		{
 			// 대소문자 구분 없이 "Data/" 제거 - UTF-8 인코딩 보존
-			std::string SubPath = GenericPath.substr(5);
+			FString SubPath = GenericPath.substr(5);
 			RelativePath = fs::path(UTF8ToWide(SubPath));
 		}
 	}
 
 	// 캐시 경로 생성: Data/TextureCache/<relative_path>/<filename>.dds (상대 경로)
-	fs::path CachePath = DataDir / "TextureCache" / RelativePath;
-	CachePath.replace_extension(".dds");
+	fs::path CachePath = "DerivedDataCache" / RelativePath;
+	CachePath = fs::path(CachePath.wstring() + L".dds");
 
 	// 와이드 문자열을 UTF-8로 변환 (한글 경로 지원)
 	FString Result = WideToUTF8(CachePath.wstring());
@@ -255,10 +255,10 @@ FString FTextureConverter::GetDDSCachePath(const FString& SourcePath)
 
 bool FTextureConverter::IsSupportedFormat(const FString& Extension)
 {
-	std::string ext = Extension;
+	FString ext = Extension;
 	std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
-	static const std::unordered_set<std::string> SupportedFormats = {
+	static const std::unordered_set<FString> SupportedFormats = {
 		".png", ".jpg", ".jpeg", ".bmp", ".tga", ".hdr", ".dds", ".tif", ".tiff"
 	};
 

@@ -22,7 +22,7 @@ public:
     void SetTextureName( FString TexturePath);
 
     UQuad* GetStaticMesh() const { return Quad; }
-    FString& GetTextureName() { return TextureName; }
+    FString& GetFilePath() { return TextureName; }
 
     UMaterialInterface* GetMaterial(uint32 InSectionIndex) const override;
     void SetMaterial(uint32 InElementIndex, UMaterialInterface* InNewMaterial) override;

@@ -19,6 +19,6 @@ public:
 	void SetLastModifiedTime(std::filesystem::file_time_type InTime) { LastModifiedTime = InTime; }
 
 protected:
-	FString FilePath;
+	FString FilePath;	// 원본 파일의 경로이자, UResourceManager에 등록된 Key 
 	std::filesystem::file_time_type LastModifiedTime;
 };

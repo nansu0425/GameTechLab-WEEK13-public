@@ -99,7 +99,7 @@ namespace
 static FString FindMtlFilePath(const FString& InObjPath)
 {
 	// 한글 경로 지원: UTF-8 → UTF-16 변환 후 파일 열기
-	std::wstring WPath = UTF8ToWide(InObjPath);
+	FWideString WPath = UTF8ToWide(InObjPath);
 	std::ifstream FileIn(WPath);
 	if (!FileIn)
 	{
@@ -130,7 +130,7 @@ static FString FindMtlFilePath(const FString& InObjPath)
 bool GetMtlDependencies(const FString& ObjPath, TArray<FString>& OutMtlFilePaths)
 {
 	// 한글 경로 지원: UTF-8 → UTF-16 변환 후 파일 열기
-	std::wstring WPath = UTF8ToWide(ObjPath);
+	FWideString WPath = UTF8ToWide(ObjPath);
 	std::ifstream InFile(WPath);
 	if (!InFile.is_open())
 	{
@@ -434,7 +434,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 
 	// 4. 머티리얼 및 텍스처 경로 처리 (공통 로직)
 	// 한글 경로 지원: UTF-8 → UTF-16 변환 후 경로 처리
-	std::wstring WNormalizedPath = UTF8ToWide(NormalizedPathStr);
+	FWideString WNormalizedPath = UTF8ToWide(NormalizedPathStr);
 	fs::path BaseDir = fs::path(WNormalizedPath).parent_path();
 
 	for (auto& MaterialInfo : MaterialInfos)
@@ -446,7 +446,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 				try
 				{
 					// UTF-8 → UTF-16 변환
-					std::wstring WTexPath = UTF8ToWide(TexturePath);
+					FWideString WTexPath = UTF8ToWide(TexturePath);
 					fs::path TexPath(WTexPath);
 
 					// "Data/"로 시작하는 경로는 이미 프로젝트 루트 기준 상대 경로이므로 변환하지 않음
@@ -478,7 +478,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 						fs::path FinalPath = (ec || RelativePath.empty()) ? AbsolutePath : RelativePath;
 
 						// UTF-16 → UTF-8 변환하여 다시 저장
-						std::wstring WFinalPath = FinalPath.wstring();
+						FWideString WFinalPath = FinalPath.wstring();
 						int needed = ::WideCharToMultiByte(CP_UTF8, 0, WFinalPath.c_str(), -1, nullptr, 0, nullptr, nullptr);
 						if (needed > 0)
 						{
@@ -586,7 +586,7 @@ bool FObjImporter::LoadObjModel(const FString& InFileName, FObjInfo* const OutOb
 	// [안정성] .obj 파일이 존재하지 않으면 로드 실패를 반환합니다.
 	// 이는 필수 데이터이므로 더 이상 진행할 수 없습니다.
 	// 한글 경로 지원: UTF-8 → UTF-16 변환 후 파일 열기
-	std::wstring WPath = UTF8ToWide(InFileName);
+	FWideString WPath = UTF8ToWide(InFileName);
 	std::ifstream FileIn(WPath);
 	if (!FileIn)
 	{
@@ -761,7 +761,7 @@ bool FObjImporter::LoadObjModel(const FString& InFileName, FObjInfo* const OutOb
 	}
 
 	// 한글 경로 지원: UTF-8 → UTF-16 변환 후 파일 열기
-	std::wstring WMtlPath = UTF8ToWide(MtlFileName);
+	FWideString WMtlPath = UTF8ToWide(MtlFileName);
 	FileIn.open(WMtlPath);
 
 	// .mtl 파일이 존재하지 않더라도 로딩을 중단하지 않습니다.

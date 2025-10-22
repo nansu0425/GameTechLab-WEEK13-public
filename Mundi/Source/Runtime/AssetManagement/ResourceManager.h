@@ -215,20 +215,6 @@ inline UTexture* UResourceManager::Load(const FString& InFilePath)
 		return static_cast<UTexture*>((*iter).second);
 	}
 
-#ifdef USE_DDS_CACHE
-	// DDS 캐시 사용 시: DDS 캐시 경로로도 검색 시도
-	FString PotentialDDSPath = FTextureConverter::GetDDSCachePath(NormalizedPath);
-	if (PotentialDDSPath != NormalizedPath) // 경로가 변환되었으면
-	{
-		auto ddsIter = Resources[typeIndex].find(PotentialDDSPath);
-		if (ddsIter != Resources[typeIndex].end())
-		{
-			// 이미 DDS 캐시로 로드된 텍스처가 있으면 반환
-			return static_cast<UTexture*>((*ddsIter).second);
-		}
-	}
-#endif
-
 	// 없으면 새로 로드 (기본값: bSRGB = true)
 	UTexture* Resource = NewObject<UTexture>();
 	FString ActualLoadPath = Resource->Load(NormalizedPath, Device, true); // 기본값: sRGB = true
@@ -254,20 +240,6 @@ inline UTexture* UResourceManager::LoadTexture(const FString& InFilePath, bool b
 	{
 		return static_cast<UTexture*>((*iter).second);
 	}
-
-#ifdef USE_DDS_CACHE
-	// DDS 캐시 사용 시: DDS 캐시 경로로도 검색 시도
-	FString PotentialDDSPath = FTextureConverter::GetDDSCachePath(NormalizedPath);
-	if (PotentialDDSPath != NormalizedPath) // 경로가 변환되었으면
-	{
-		auto ddsIter = Resources[typeIndex].find(PotentialDDSPath);
-		if (ddsIter != Resources[typeIndex].end())
-		{
-			// 이미 DDS 캐시로 로드된 텍스처가 있으면 반환
-			return static_cast<UTexture*>((*ddsIter).second);
-		}
-	}
-#endif
 
 	// 없으면 새로 로드 (bSRGB 파라미터 전달)
 	UTexture* Resource = NewObject<UTexture>();

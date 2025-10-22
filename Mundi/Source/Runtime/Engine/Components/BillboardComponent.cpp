@@ -42,10 +42,6 @@ void UBillboardComponent::SetTextureName(FString TexturePath)
 {
 	TextureName = TexturePath;
 	Texture = UResourceManager::GetInstance().Load<UTexture>(TexturePath);
-	if (Texture)
-	{
-		Texture->SetTextureName(TexturePath);
-	}
 }
 
 UMaterialInterface* UBillboardComponent::GetMaterial(uint32 InSectionIndex) const
@@ -62,7 +58,7 @@ void UBillboardComponent::OnSerialized()
 {
 	Super::OnSerialized();
 
-	TextureName = Texture->GetTextureName();
+	TextureName = Texture->GetFilePath();
 
 }
 

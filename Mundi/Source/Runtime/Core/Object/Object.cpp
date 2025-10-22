@@ -134,7 +134,7 @@ void UObject::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 			{
 				if (*Value)
 				{
-					InOutHandle[Prop.Name] = (*Value)->GetTextureName().c_str();
+					InOutHandle[Prop.Name] = (*Value)->GetFilePath().c_str();
 				}
 				else
 				{
