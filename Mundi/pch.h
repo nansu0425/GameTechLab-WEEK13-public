@@ -49,6 +49,7 @@
 #include "UEContainer.h"
 #include "Vector.h"
 #include "Name.h"
+#include "PathUtils.h"
 #include "Object.h"
 #include "ObjectFactory.h"
 #include "ObjectMacros.h"

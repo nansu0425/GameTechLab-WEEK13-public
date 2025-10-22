@@ -8,36 +8,6 @@
 #include <DirectXTex.h>
 #include <algorithm>
 
-// 헬퍼 함수: UTF-8 문자열을 와이드 문자열로 변환
-static std::wstring UTF8ToWide(const std::string& str)
-{
-	if (str.empty()) return std::wstring();
-
-	int size_needed = MultiByteToWideChar(CP_UTF8, 0, str.c_str(),
-	                                       static_cast<int>(str.size()), NULL, 0);
-	if (size_needed <= 0) return std::wstring();
-
-	std::wstring result(size_needed, 0);
-	MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.size()),
-	                    &result[0], size_needed);
-	return result;
-}
-
-// 헬퍼 함수: 와이드 문자열을 UTF-8 문자열로 변환
-static std::string WideToUTF8(const std::wstring& wstr)
-{
-	if (wstr.empty()) return std::string();
-
-	int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(),
-	                                       static_cast<int>(wstr.size()), NULL, 0, NULL, NULL);
-	if (size_needed <= 0) return std::string();
-
-	std::string result(size_needed, 0);
-	WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), static_cast<int>(wstr.size()),
-	                    &result[0], size_needed, NULL, NULL);
-	return result;
-}
-
 bool FTextureConverter::ConvertToDDS(
 	const FString& SourcePath,
 	const FString& OutputPath,

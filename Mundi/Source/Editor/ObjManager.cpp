@@ -17,32 +17,6 @@ TMap<FString, FStaticMesh*> FObjManager::ObjStaticMeshMap;
 namespace
 {
 	/**
-	 * UTF-8 문자열을 UTF-16 와이드 문자열로 변환 (한글 경로 지원)
-	 * @param utf8str - UTF-8 인코딩된 입력 문자열
-	 * @return UTF-16 인코딩된 와이드 문자열
-	 */
-	std::wstring UTF8ToWide(const FString& utf8str)
-	{
-		if (utf8str.empty()) return std::wstring();
-
-		int needed = ::MultiByteToWideChar(CP_UTF8, 0, utf8str.c_str(), -1, nullptr, 0);
-		if (needed <= 0)
-		{
-			// UTF-8 변환 실패 시 ANSI 시도
-			needed = ::MultiByteToWideChar(CP_ACP, 0, utf8str.c_str(), -1, nullptr, 0);
-			if (needed <= 0) return std::wstring();
-
-			std::wstring result(needed - 1, L'\0');
-			::MultiByteToWideChar(CP_ACP, 0, utf8str.c_str(), -1, result.data(), needed);
-			return result;
-		}
-
-		std::wstring result(needed - 1, L'\0');
-		::MultiByteToWideChar(CP_UTF8, 0, utf8str.c_str(), -1, result.data(), needed);
-		return result;
-	}
-
-	/**
 	 * .mtl 텍스처 맵 라인에서 모든 옵션 토큰과 마지막 파일 경로를 분리하여 추출합니다.
 	 * 예: "-bm 1.0 path/to/file.png" -> OutOptions = ["-bm", "1.0"], OutFilePath = "path/to/file.png"
 	 * * @param line - 파싱할 전체 라인 문자열

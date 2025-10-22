@@ -535,6 +535,9 @@
     <ClInclude Include="Source\Runtime\Core\Misc\Name.h">
       <Filter>Source\Runtime\Core\Misc</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\PathUtils.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Runtime\Core\Misc\ObjectIterator.h">
       <Filter>Source\Runtime\Core\Misc</Filter>
     </ClInclude>
