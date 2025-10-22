@@ -487,7 +487,8 @@ void FSceneRenderer::RenderOpaquePass(EViewModeIndex InRenderViewMode)
 	UShader* ViewModeShader = nullptr;
 	if (bNeedsShaderOverride)
 	{
-		ViewModeShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath, ShaderMacros);
+		ViewModeShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath);
+		ViewModeShader->GetOrCompileShaderVariant(RHIDevice->GetDevice(), ShaderMacros);
 		if (!ViewModeShader)
 		{
 			// 필요시 기본 셰이더로 대체하거나 렌더링 중단
@@ -509,8 +510,9 @@ void FSceneRenderer::RenderOpaquePass(EViewModeIndex InRenderViewMode)
 		// 수집된 UMeshComponent 배치 요소의 셰이더를 ViewModeShader로 강제 변경
 		for (FMeshBatchElement& BatchElement : MeshBatchElements)
 		{
-			BatchElement.VertexShader = ViewModeShader;
-			BatchElement.PixelShader = ViewModeShader;
+			BatchElement.VertexShader = ViewModeShader->GetVertexShader(ShaderMacros);
+			BatchElement.PixelShader = ViewModeShader->GetPixelShader(ShaderMacros);
+			BatchElement.InputLayout = ViewModeShader->GetInputLayout(ShaderMacros);
 		}
 	}
 
@@ -639,8 +641,9 @@ void FSceneRenderer::RenderDecalPass()
 		for (FMeshBatchElement& BatchElement : MeshBatchElements)
 		{
 			BatchElement.InstanceShaderResourceView = Decal->GetDecalTexture()->GetShaderResourceView();
-			BatchElement.VertexShader = DecalShader;
-			BatchElement.PixelShader = DecalShader;
+			BatchElement.InputLayout = DecalShader->GetInputLayout(ShaderMacros);
+			BatchElement.VertexShader = DecalShader->GetVertexShader(ShaderMacros);
+			BatchElement.PixelShader = DecalShader->GetPixelShader(ShaderMacros);
 			BatchElement.VertexStride = sizeof(FVertexDynamic);
 		}
 		DrawMeshBatches(MeshBatchElements, true);
@@ -910,8 +913,8 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual); // 깊이 쓰기 ON
 
 	// 현재 GPU 상태 캐싱용 변수 (UStaticMesh* 대신 실제 GPU 리소스로 변경)
-	UShader* CurrentVertexShader = nullptr;
-	UShader* CurrentPixelShader = nullptr;
+	ID3D11VertexShader* CurrentVertexShader = nullptr;
+	ID3D11PixelShader* CurrentPixelShader = nullptr;
 	UMaterialInterface* CurrentMaterial = nullptr;
 	ID3D11ShaderResourceView* CurrentInstanceSRV = nullptr; // [추가] Instance SRV 캐시
 	ID3D11Buffer* CurrentVertexBuffer = nullptr;
@@ -929,13 +932,18 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 		if (!Batch.VertexShader || !Batch.PixelShader || !Batch.VertexBuffer || !Batch.IndexBuffer || Batch.VertexStride == 0)
 		{
 			// 셰이더나 버퍼, 스트라이드 정보가 없으면 그릴 수 없음
+			UE_LOG("셰이더가 없는 컴포넌트가 있습니다!");
 			continue;
 		}
 
 		// 1. 셰이더 상태 변경
 		if (Batch.VertexShader != CurrentVertexShader || Batch.PixelShader != CurrentPixelShader)
 		{
-			RHIDevice->PrepareShader(Batch.VertexShader, Batch.PixelShader);
+			RHIDevice->GetDeviceContext()->IASetInputLayout(Batch.InputLayout);
+			RHIDevice->GetDeviceContext()->VSSetShader(Batch.VertexShader, nullptr, 0);
+
+			RHIDevice->GetDeviceContext()->PSSetShader(Batch.PixelShader, nullptr, 0);
+
 			CurrentVertexShader = Batch.VertexShader;
 			CurrentPixelShader = Batch.PixelShader;
 		}

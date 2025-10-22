@@ -120,8 +120,9 @@ void UStaticMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMesh
 		}
 
 		FMeshBatchElement BatchElement;
-		BatchElement.VertexShader = ShaderToUse;
-		BatchElement.PixelShader = ShaderToUse;
+		BatchElement.VertexShader = ShaderToUse->GetVertexShader(MaterialToUse->GetShaderMacros());
+		BatchElement.PixelShader = ShaderToUse->GetPixelShader(MaterialToUse->GetShaderMacros());
+		BatchElement.InputLayout = ShaderToUse->GetInputLayout(MaterialToUse->GetShaderMacros());
 
 		// UMaterialInterface를 UMaterial로 캐스팅해야 할 수 있음. 렌더러가 UMaterial을 기대한다면.
 		// 지금은 Material.h 구조상 UMaterialInterface에 필요한 정보가 다 있음.
@@ -200,6 +201,12 @@ void UStaticMeshComponent::SetMaterial(uint32 InElementIndex, UMaterialInterface
 	{
 		UE_LOG("out of range InMaterialSlotIndex: %d", InElementIndex);
 		return;
+	}
+
+	if (UMaterial* OriginMaterial = Cast<UMaterial>(InNewMaterial))
+	{
+		TArray<FShaderMacro> Macros = { FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" } };
+		OriginMaterial->SetShaderMacros(Macros);
 	}
 
 	// 1. 현재 슬롯에 할당된 머티리얼을 가져옵니다.

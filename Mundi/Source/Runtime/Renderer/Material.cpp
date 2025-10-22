@@ -113,6 +113,16 @@ void UMaterial::SetTexture(EMaterialTextureSlot Slot, const FString& TexturePath
 	}
 }
 
+void UMaterial::SetShaderMacros(TArray<FShaderMacro>& InShaderMacro)
+{
+	if (Shader)
+	{
+		UResourceManager::GetInstance().Load<UShader>(Shader->GetFilePath(), InShaderMacro);
+	}
+
+	ShaderMacro = InShaderMacro;
+}
+
 UTexture* UMaterial::GetTexture(EMaterialTextureSlot Slot) const
 {
 	size_t Index = static_cast<size_t>(Slot);
@@ -163,6 +173,12 @@ void UMaterial::ResolveTextures()
 		ResolvedTextures[static_cast<int32>(EMaterialTextureSlot::Normal)] = RM.Load<UTexture>(MaterialInfo.NormalTextureFileName);
 	else
 		ResolvedTextures[static_cast<int32>(EMaterialTextureSlot::Normal)] = nullptr; // 또는 기본 노멀 텍스처
+}
+
+void UMaterial::SetMaterialInfo(const FMaterialInfo& InMaterialInfo)
+{
+	MaterialInfo = InMaterialInfo;
+	ResolveTextures();
 }
 
 
@@ -325,6 +341,17 @@ const FMaterialInfo& UMaterialInstanceDynamic::GetMaterialInfo() const
 		bIsCachedMaterialInfoDirty = false;
 	}
 	return CachedMaterialInfo;
+}
+
+const TArray<FShaderMacro>& UMaterialInstanceDynamic::GetShaderMacros() const
+{
+	return ParentMaterial->GetShaderMacros();
+}
+
+void UMaterialInstanceDynamic::SetShaderMacros(const TArray<FShaderMacro>& InMacros)
+{
+	OverriddenShaderMacros.Append(InMacros);
+	bIsCachedMaterialInfoDirty = true;
 }
 
 void UMaterialInstanceDynamic::SetTextureParameterValue(EMaterialTextureSlot Slot, UTexture* Value)

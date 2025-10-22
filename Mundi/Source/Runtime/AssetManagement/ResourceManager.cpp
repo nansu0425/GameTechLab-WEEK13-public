@@ -20,23 +20,6 @@ UResourceManager::~UResourceManager()
     Clear();
 }
 
-FString UResourceManager::GenerateShaderKey(const FString& InFilePath, const TArray<FShaderMacro>& InMacros)
-{
-    // 매크로 순서가 달라도 동일한 키를 생성하기 위해 정렬합니다.
-    TArray<FShaderMacro> SortedMacros = InMacros;
-    SortedMacros.Sort([](const FShaderMacro& A, const FShaderMacro& B)
-        {
-            return A.Name < B.Name;
-        });
-
-    FString Key = InFilePath;
-    for (const FShaderMacro& Macro : SortedMacros)
-    {
-        Key += "_" + Macro.Name + "=" + Macro.Definition;
-    }
-    return Key;
-}
-
 UResourceManager& UResourceManager::GetInstance()
 {
     static UResourceManager* Instance = nullptr;
@@ -452,9 +435,10 @@ void UResourceManager::CreateDefaultMaterial()
     TArray<FShaderMacro> DefaultMacros;
     DefaultMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" });
     UShader* DefaultShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath, DefaultMacros);
-    FString NewName = GenerateShaderKey(ShaderPath, DefaultMacros);
+    FString NewName = ShaderPath + UShader::GenerateShaderKey(DefaultMacros);
     DefaultMaterialInstance->SetMaterialName(NewName);
     DefaultMaterialInstance->SetShader(DefaultShader);
+    DefaultMaterialInstance->SetShaderMacros(DefaultMacros);
 
     // (참고: UMaterial에 SetMaterialName 같은 함수가 없다면 MaterialInfo.MaterialName을 직접 설정)
     // DefaultMaterialInstance->GetMaterialInfo().MaterialName = DefaultMaterialName;

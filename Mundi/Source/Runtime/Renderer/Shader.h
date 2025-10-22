@@ -6,6 +6,35 @@ struct FShaderMacro
 {
 	FString Name;
 	FString Definition;
+
+	// TMap의 키로 사용하기 위해 비교 연산자 정의
+	bool operator==(const FShaderMacro& Other) const
+	{
+		return Name == Other.Name && Definition == Other.Definition;
+	}
+};
+
+// 단일 셰이더 파일의 여러 변형 중 하나
+struct FShaderVariant
+{
+	ID3DBlob* VSBlob = nullptr;
+	ID3DBlob* PSBlob = nullptr;
+	ID3D11InputLayout* InputLayout = nullptr; // InputLayout은 VS Blob에 종속적이므로 함께 관리해야 합니다.
+	ID3D11VertexShader* VertexShader = nullptr;
+	ID3D11PixelShader* PixelShader = nullptr;
+
+	// Store macros for hot reload
+	TArray<FShaderMacro> SourceMacros;
+
+	// 이 Variant에 속한 모든 리소스를 해제하는 헬퍼 함수
+	void Release()
+	{
+		if (VSBlob) { VSBlob->Release(); VSBlob = nullptr; }
+		if (PSBlob) { PSBlob->Release(); PSBlob = nullptr; }
+		if (InputLayout) { InputLayout->Release(); InputLayout = nullptr; }
+		if (VertexShader) { VertexShader->Release(); VertexShader = nullptr; }
+		if (PixelShader) { PixelShader->Release(); PixelShader = nullptr; }
+	}
 };
 
 class UShader : public UResourceBase
@@ -13,16 +42,21 @@ class UShader : public UResourceBase
 public:
 	DECLARE_CLASS(UShader, UResourceBase)
 
+	static FString GenerateShaderKey(const TArray<FShaderMacro>& InMacros);
+
 	void Load(const FString& ShaderPath, ID3D11Device* InDevice, const TArray<FShaderMacro>& InMacros = TArray<FShaderMacro>());
 
-	ID3D11InputLayout* GetInputLayout() const { return InputLayout; }
-	ID3D11VertexShader* GetVertexShader() const { return VertexShader; }
-	ID3D11PixelShader* GetPixelShader() const { return PixelShader; }
+	FShaderVariant* GetOrCompileShaderVariant(ID3D11Device* InDevice, const TArray<FShaderMacro>& InMacros);
+	bool CompileVariantInternal(ID3D11Device* InDevice, const FString& InShaderPath, const TArray<FShaderMacro>& InMacros, FShaderVariant& OutVariant);
+	FShaderVariant* GetShaderVariant(const TArray<FShaderMacro>& InMacros = TArray<FShaderMacro>());
+	ID3D11InputLayout* GetInputLayout(const TArray<FShaderMacro>& InMacros = TArray<FShaderMacro>());
+	ID3D11VertexShader* GetVertexShader(const TArray<FShaderMacro>& InMacros = TArray<FShaderMacro>());
+	ID3D11PixelShader* GetPixelShader(const TArray<FShaderMacro>& InMacros = TArray<FShaderMacro>());
 
 	// Hot Reload Support
 	bool IsOutdated() const;
 	bool Reload(ID3D11Device* InDevice);
-	const TArray<FShaderMacro>& GetMacros() const { return Macros; }
+	//const TArray<FShaderMacro>& GetMacros() const { return Macros; }
 	
 	// Get the actual shader file path (without macro suffix)
 	const FString& GetActualFilePath() const { return ActualFilePath; }
@@ -31,15 +65,7 @@ protected:
 	virtual ~UShader();
 
 private:
-	ID3DBlob* VSBlob = nullptr;
-	ID3DBlob* PSBlob = nullptr;
-
-	ID3D11InputLayout* InputLayout = nullptr;
-	ID3D11VertexShader* VertexShader = nullptr;
-	ID3D11PixelShader* PixelShader = nullptr;
-
-	// Store macros for hot reload
-	TArray<FShaderMacro> Macros;
+	TMap<FString, FShaderVariant> ShaderVariantMap;
 
 	// Store actual file path (e.g., "Shaders/Materials/UberLit.hlsl")
 	// FilePath (from base class) stores the unique key with macros
@@ -50,7 +76,7 @@ private:
 	TArray<FString> IncludedFiles;
 	TMap<FString, std::filesystem::file_time_type> IncludedFileTimestamps;
 
-	void CreateInputLayout(ID3D11Device* Device, const FString& InShaderPath);
+	void CreateInputLayout(ID3D11Device* Device, const FString& InShaderPath, FShaderVariant& InOutVariant);
 	void ReleaseResources();
 
 	// Include 파일 파싱 및 추적

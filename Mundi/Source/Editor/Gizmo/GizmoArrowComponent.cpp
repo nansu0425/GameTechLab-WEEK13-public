@@ -153,8 +153,9 @@ void UGizmoArrowComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMesh
 		FMeshBatchElement BatchElement;
 
 		// --- 정렬 키 ---
-		BatchElement.VertexShader = ShaderToUse;
-		BatchElement.PixelShader = ShaderToUse;
+		BatchElement.VertexShader = ShaderToUse->GetVertexShader(MaterialToUse->GetShaderMacros());
+		BatchElement.PixelShader = ShaderToUse->GetPixelShader(MaterialToUse->GetShaderMacros());
+		BatchElement.InputLayout = ShaderToUse->GetInputLayout(MaterialToUse->GetShaderMacros());
 		BatchElement.Material = MaterialToUse;
 		BatchElement.VertexBuffer = StaticMesh->GetVertexBuffer();
 		BatchElement.IndexBuffer = StaticMesh->GetIndexBuffer();

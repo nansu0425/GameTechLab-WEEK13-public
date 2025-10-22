@@ -13,12 +13,9 @@ struct FMeshBatchElement
 {
 	// --- 1. 정렬 키 (Sorting Keys) ---
 	// 렌더러가 상태 변경을 최소화하기 위해 정렬하는 기준입니다.
-
-	// 렌더링에 사용될 Vertex Shader입니다.
-	UShader* VertexShader = nullptr;
-
-	// 렌더링에 사용될 Pixel Shader입니다.
-	UShader* PixelShader = nullptr;
+	ID3D11VertexShader* VertexShader = nullptr;
+	ID3D11PixelShader* PixelShader = nullptr;
+	ID3D11InputLayout* InputLayout = nullptr;
 
 	// 셰이더 파라미터(텍스처, 상수 버퍼)를 제공합니다.
 	UMaterialInterface* Material = nullptr;

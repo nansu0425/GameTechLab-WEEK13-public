@@ -25,6 +25,7 @@ public:
 	virtual UTexture* GetTexture(EMaterialTextureSlot Slot) const = 0;
 	virtual bool HasTexture(EMaterialTextureSlot Slot) const = 0;
 	virtual const FMaterialInfo& GetMaterialInfo() const = 0;
+	virtual const TArray<FShaderMacro>& GetShaderMacros() const = 0;
 };
 
 
@@ -50,14 +51,13 @@ public:
 	// MaterialInfo의 텍스처 경로들을 기반으로 ResolvedTextures 배열을 채웁니다.
 	void ResolveTextures();
 
-	void SetMaterialInfo(const FMaterialInfo& InMaterialInfo)
-	{
-		MaterialInfo = InMaterialInfo;
-		ResolveTextures();
-	}
+	void SetMaterialInfo(const FMaterialInfo& InMaterialInfo);
 
 	void SetTexture(EMaterialTextureSlot Slot, const FString& TexturePath);
 	void SetMaterialName(FString& InMaterialName) { MaterialInfo.MaterialName = InMaterialName; }
+
+	const TArray<FShaderMacro>& GetShaderMacros() const override { return ShaderMacro; };
+	void SetShaderMacros(TArray<FShaderMacro>& InShaderMacro);
 
 protected:
 	// 이 머티리얼이 사용할 셰이더 프로그램 (예: UberLit.hlsl)
@@ -68,7 +68,6 @@ protected:
 	// MaterialInfo 이름 기반으로 찾은 (Textures[0] = Diffuse, Textures[1] = Normal)
 	TArray<UTexture*> ResolvedTextures;
 };
-
 
 // 동적 머티리얼 인스턴스
 class UMaterialInstanceDynamic : public UMaterialInterface
@@ -88,6 +87,9 @@ public:
 	bool HasTexture(EMaterialTextureSlot Slot) const override;
 	const FMaterialInfo& GetMaterialInfo() const override;
 	UMaterialInterface* GetParentMaterial() const { return ParentMaterial; }
+	
+	const TArray<FShaderMacro>& GetShaderMacros() const override;	// 이 인스턴스에 덮어쓴 매크로가 없다면 부모의 매크로를, 있다면 덮어쓴 매크로를 반환합니다.
+	void SetShaderMacros(const TArray<FShaderMacro>& InMacros);	// 인스턴스가 사용할 셰이더 매크로(Variant)를 런타임에 설정합니다.
 
 	const TMap<EMaterialTextureSlot, UTexture*>& GetOverriddenTextures() const { return OverriddenTextures; }	// 덮어쓴 텍스처 맵 반환 (저장 시 사용)
 	void SetTextureParameterValue(EMaterialTextureSlot Slot, UTexture* Value);	// 텍스처 파라미터 값을 런타임에 변경하는 함수 (실시간 수정 시 사용)
@@ -109,6 +111,7 @@ private:
 	UMaterialInterface* ParentMaterial;
 
 	// 이 인스턴스에서 덮어쓴 값들만 저장합니다.
+	TArray<FShaderMacro> OverriddenShaderMacros;
 	TMap<EMaterialTextureSlot, UTexture*> OverriddenTextures;
 	TMap<FString, float> OverriddenScalarParameters;
 	TMap<FString, FLinearColor> OverriddenVectorParameters;

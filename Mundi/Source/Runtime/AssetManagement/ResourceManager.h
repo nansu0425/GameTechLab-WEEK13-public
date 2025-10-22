@@ -125,9 +125,6 @@ protected:
 	TMap<FWideString, FShader*> ShaderList;
 
 private:
-	// --- 비공개 정적 헬퍼 함수 ---
-	static FString GenerateShaderKey(const FString& InFilePath, const TArray<FShaderMacro>& InMacros);
-
 	// --- 비공개 멤버 변수 ---
 	TMap<FString, UMaterial*> MaterialMap;
 
@@ -258,15 +255,16 @@ inline UShader* UResourceManager::Load(const FString& InFilePath, TArray<FShader
 	// 경로 정규화: 모든 백슬래시를 슬래시로 변환하여 일관성 유지
 	FString NormalizedPath = NormalizePath(InFilePath);
 
-	// 1. 파일 경로와 매크로를 조합하여 고유 키 생성
-	FString UniqueKey = GenerateShaderKey(NormalizedPath, InMacros);
-
-	// 2. 고유 키로 리소스 맵 검색
+	// 2. 경로 리소스 맵 검색
 	uint8 typeIndex = static_cast<uint8>(ResourceType::Shader);
-	auto iter = Resources[typeIndex].find(UniqueKey);
+	auto iter = Resources[typeIndex].find(NormalizedPath);
 	if (iter != Resources[typeIndex].end())
 	{
-		return static_cast<UShader*>((*iter).second);
+		UShader* Shader = static_cast<UShader*>((*iter).second);
+
+		Shader->GetOrCompileShaderVariant(Device, InMacros);
+
+		return Shader;
 	}
 	else
 	{
@@ -274,10 +272,9 @@ inline UShader* UResourceManager::Load(const FString& InFilePath, TArray<FShader
 		UShader* Resource = NewObject<UShader>();
 		// UShader::Load는 이제 매크로 인자를 받도록 수정되어야 함
 		Resource->Load(NormalizedPath, Device, InMacros);
-		Resource->SetFilePath(UniqueKey); // 이름 저장
+		Resource->SetFilePath(NormalizedPath); // 이름 저장
 
-		// 4. 고유 키로 리소스 맵에 저장
-		Resources[typeIndex][UniqueKey] = Resource;
+		Resources[typeIndex][NormalizedPath] = Resource;
 		return Resource;
 	}
 }

@@ -112,8 +112,9 @@ void UBillboardComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshB
 	FMeshBatchElement BatchElement;
 
 	// --- 정렬 키 ---
-	BatchElement.VertexShader = ShaderToUse;
-	BatchElement.PixelShader = ShaderToUse;
+	BatchElement.VertexShader = ShaderToUse->GetVertexShader(MaterialToUse->GetShaderMacros());
+	BatchElement.PixelShader = ShaderToUse->GetPixelShader(MaterialToUse->GetShaderMacros());
+	BatchElement.InputLayout = ShaderToUse->GetInputLayout(MaterialToUse->GetShaderMacros());
 	BatchElement.Material = MaterialToUse;
 	BatchElement.VertexBuffer = Quad->GetVertexBuffer();
 	BatchElement.IndexBuffer = Quad->GetIndexBuffer();

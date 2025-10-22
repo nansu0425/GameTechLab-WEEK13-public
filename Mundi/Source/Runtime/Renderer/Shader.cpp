@@ -51,32 +51,118 @@ UShader::~UShader()
 	ReleaseResources();
 }
 
-// 두 개의 셰이더 파일을 받는 주요 Load 함수
+FString UShader::GenerateShaderKey(const TArray<FShaderMacro>& InMacros)
+{
+	// 매크로 순서가 달라도 동일한 키를 생성하기 위해 정렬합니다.
+	TArray<FShaderMacro> SortedMacros = InMacros;
+	SortedMacros.Sort([](const FShaderMacro& A, const FShaderMacro& B)
+		{
+			return A.Name < B.Name;
+		});
+
+	FString Key;
+	for (const FShaderMacro& Macro : SortedMacros)
+	{
+		Key += "_" + Macro.Name + "=" + Macro.Definition;
+	}
+	return Key;
+}
+
+/**
+ * @brief UResourceManager가 셰이더 리소스를 로드/가져오기 위해 호출하는 메인 함수.
+ */
 void UShader::Load(const FString& InShaderPath, ID3D11Device* InDevice, const TArray<FShaderMacro>& InMacros)
 {
 	assert(InDevice);
 
-	// Store the actual file path (without macro suffix)
-	ActualFilePath = InShaderPath;
-
-	// Store macros for hot reload
-	Macros = InMacros;
-
-	FWideString WFilePath(InShaderPath.begin(), InShaderPath.end());
-
-	// Update timestamp using the actual file path
-	try
+	// 1. 최초 로드 시에만 파일 경로 및 타임스탬프 처리
+	if (ActualFilePath.empty())
 	{
-		auto FileTime = std::filesystem::last_write_time(ActualFilePath);
-		SetLastModifiedTime(FileTime);
-	}
-	catch (...)
-	{
-		// If file doesn't exist yet, use current time
-		SetLastModifiedTime(std::filesystem::file_time_type::clock::now());
+		ActualFilePath = InShaderPath;
+		try
+		{
+			auto FileTime = std::filesystem::last_write_time(ActualFilePath);
+			SetLastModifiedTime(FileTime);
+		}
+		catch (...)
+		{
+			SetLastModifiedTime(std::filesystem::file_time_type::clock::now());
+		}
+		// Include 파일 파싱 (최초 1회)
+		ParseIncludeFiles(ActualFilePath);
 	}
 
-	// --- [핵심] TArray<FShaderMacro>를 D3D_SHADER_MACRO* 형태로 변환 ---
+	// 2. 실제 컴파일/가져오기 로직은 GetOrCompileShaderVariant에 위임
+	// (이 함수는 InMacros에 대한 Variant가 맵에 없으면 컴파일하고 추가함)
+	GetOrCompileShaderVariant(InDevice, InMacros);
+}
+
+/**
+ * @brief 외부(예: UMaterial)에서 특정 매크로 조합의 Variant를 요청할 때 사용합니다.
+ * 1. 이 셰이더 객체(ActualFilePath)에 대해 해당 매크로 Variant가 이미 컴파일되었는지 확인합니다.
+ * 2. 컴파일되지 않았다면, 즉시 컴파일하고 맵에 추가합니다.
+ * 3. FShaderVariant*를 반환합니다. (컴파일 실패 시 nullptr)
+ *
+ * @param InDevice D3D 디바이스
+ * @param InMacros 컴파일(또는 검색)할 매크로 배열
+ * @return FShaderVariant 포인터 (성공 시) 또는 nullptr (실패 시)
+ */
+FShaderVariant* UShader::GetOrCompileShaderVariant(ID3D11Device* InDevice, const TArray<FShaderMacro>& InMacros)
+{
+	assert(InDevice);
+
+	// 이 UShader 객체가 어떤 파일인지 알아야 컴파일 가능
+	if (ActualFilePath.empty())
+	{
+		UE_LOG("GetOrCompileShaderVariant Error: ActualFilePath is empty. Load() must be called at least once.");
+		return nullptr;
+	}
+
+	// 1. 매크로 배열을 기반으로 고유 키 생성
+	FString Key = GenerateShaderKey(InMacros);
+
+	// 2. 맵에 이미 컴파일된 Variant가 있는지 확인
+	if (FShaderVariant* Found = ShaderVariantMap.Find(Key))
+	{
+		return Found; // 찾았으면 즉시 반환
+	}
+
+	// 3. 맵에 없음 -> 새로 컴파일
+	FShaderVariant NewShaderVariant;
+	bool bSuccess = CompileVariantInternal(InDevice, ActualFilePath, InMacros, NewShaderVariant);
+
+	if (bSuccess)
+	{
+		// 4. 맵에 추가하고, 새로 추가된 항목의 포인터(주소)를 반환
+		// TMap::Add()는 추가된 FShaderVariant의 레퍼런스를 포함하는 TPair를 반환합니다.
+		// .Value의 주소를 가져옵니다.
+		ShaderVariantMap.Add(Key, NewShaderVariant);
+		return &ShaderVariantMap[Key];
+	}
+
+	// 5. 컴파일 실패
+	UE_LOG("GetOrCompileShaderVariant: Failed to compile variant for key '%s'", Key.c_str());
+
+	// 컴파일에 실패했더라도, 향후 동일한 요청이 왔을 때
+	// 다시 컴파일을 시도하지 않도록 '비어있는' Variant를 맵에 추가할 수 있습니다.
+	// ShaderVariantMap.Add(Key, NewShaderVariant); // (선택적)
+
+	return nullptr;
+}
+
+/**
+ * @brief [신규] 실제 컴파일 로직을 수행하는 private 헬퍼 함수입니다.
+ * @param InDevice D3D 디바이스
+ * @param InShaderPath 컴파일할 .hlsl 파일 경로 (ActualFilePath)
+ * @param InMacros 컴파일에 사용할 매크로
+ * @param OutVariant [출력] 컴파일된 리소스(Blob, Shader, Layout)가 채워질 구조체
+ * @return 컴파일 성공 시 true, 실패 시 false
+ */
+bool UShader::CompileVariantInternal(ID3D11Device* InDevice, const FString& InShaderPath, const TArray<FShaderMacro>& InMacros, FShaderVariant& OutVariant)
+{
+	FWideString WFilePath = UTF8ToWide(InShaderPath);
+
+	// --- 1. D3D_SHADER_MACRO* 형태로 변환 ---
 	TArray<D3D_SHADER_MACRO> Defines;
 	TArray<TPair<FString, FString>> MacroStrings; // 포인터 유효성 유지를 위한 저장소
 	MacroStrings.reserve(InMacros.Num());
@@ -89,8 +175,8 @@ void UShader::Load(const FString& InShaderPath, ID3D11Device* InDevice, const TA
 		Defines.push_back({ MacroStrings.back().first.c_str(), MacroStrings.back().second.c_str() });
 	}
 	Defines.push_back({ NULL, NULL }); // 배열의 끝을 알리는 NULL 터미네이터
-	// --- ----------------------------------------------------------------- ---
 
+	// --- 2. 컴파일 플래그 설정 ---
 	UINT CompileFlags = 0;
 #if defined(DEBUG) || defined(_DEBUG)
 	CompileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
@@ -100,51 +186,95 @@ void UShader::Load(const FString& InShaderPath, ID3D11Device* InDevice, const TA
 		{
 			if (str.size() < suffix.size()) return false;
 			return std::equal(suffix.rbegin(), suffix.rend(), str.rbegin(),
-				[](char a, char b) { return ::tolower(a) == ::tolower(b); });
+				[](char a, char b) { return static_cast<char>(::tolower(a)) == static_cast<char>(::tolower(b)); });
 		};
 
 	HRESULT Hr;
+	bool bVsCompiled = false;
+	bool bPsCompiled = false;
 
+	// --- 3. 컴파일 결과를 OutVariant에 저장 ---
 	if (EndsWith(InShaderPath, "_VS.hlsl"))
 	{
-		if (CompileShaderInternal(WFilePath, "mainVS", "vs_5_0", CompileFlags, Defines.data(), &VSBlob))
+		bVsCompiled = CompileShaderInternal(WFilePath, "mainVS", "vs_5_0", CompileFlags, Defines.data(), &OutVariant.VSBlob);
+		if (bVsCompiled)
 		{
-			Hr = InDevice->CreateVertexShader(VSBlob->GetBufferPointer(), VSBlob->GetBufferSize(), nullptr, &VertexShader);
+			Hr = InDevice->CreateVertexShader(OutVariant.VSBlob->GetBufferPointer(), OutVariant.VSBlob->GetBufferSize(), nullptr, &OutVariant.VertexShader);
 			assert(SUCCEEDED(Hr));
-			CreateInputLayout(InDevice, InShaderPath);
+			CreateInputLayout(InDevice, InShaderPath, OutVariant); // OutVariant 전달
 		}
 	}
 	else if (EndsWith(InShaderPath, "_PS.hlsl"))
 	{
-		if (CompileShaderInternal(WFilePath, "mainPS", "ps_5_0", CompileFlags, Defines.data(), &PSBlob))
+		bPsCompiled = CompileShaderInternal(WFilePath, "mainPS", "ps_5_0", CompileFlags, Defines.data(), &OutVariant.PSBlob);
+		if (bPsCompiled)
 		{
-			Hr = InDevice->CreatePixelShader(PSBlob->GetBufferPointer(), PSBlob->GetBufferSize(), nullptr, &PixelShader);
+			Hr = InDevice->CreatePixelShader(OutVariant.PSBlob->GetBufferPointer(), OutVariant.PSBlob->GetBufferSize(), nullptr, &OutVariant.PixelShader);
 			assert(SUCCEEDED(Hr));
 		}
 	}
-	else // Uber Shader (VS + PS)
+	else // (VS + PS)
 	{
-		bool bVsCompiled = CompileShaderInternal(WFilePath, "mainVS", "vs_5_0", CompileFlags, Defines.data(), &VSBlob);
-		bool bPsCompiled = CompileShaderInternal(WFilePath, "mainPS", "ps_5_0", CompileFlags, Defines.data(), &PSBlob);
+		bVsCompiled = CompileShaderInternal(WFilePath, "mainVS", "vs_5_0", CompileFlags, Defines.data(), &OutVariant.VSBlob);
+		bPsCompiled = CompileShaderInternal(WFilePath, "mainPS", "ps_5_0", CompileFlags, Defines.data(), &OutVariant.PSBlob);
 
 		if (bVsCompiled)
 		{
-			Hr = InDevice->CreateVertexShader(VSBlob->GetBufferPointer(), VSBlob->GetBufferSize(), nullptr, &VertexShader);
+			Hr = InDevice->CreateVertexShader(OutVariant.VSBlob->GetBufferPointer(), OutVariant.VSBlob->GetBufferSize(), nullptr, &OutVariant.VertexShader);
 			assert(SUCCEEDED(Hr));
-			CreateInputLayout(InDevice, InShaderPath);
+			CreateInputLayout(InDevice, InShaderPath, OutVariant);
 		}
 		if (bPsCompiled)
 		{
-			Hr = InDevice->CreatePixelShader(PSBlob->GetBufferPointer(), PSBlob->GetBufferSize(), nullptr, &PixelShader);
+			Hr = InDevice->CreatePixelShader(OutVariant.PSBlob->GetBufferPointer(), OutVariant.PSBlob->GetBufferSize(), nullptr, &OutVariant.PixelShader);
 			assert(SUCCEEDED(Hr));
 		}
 	}
 
-	// Include 파일 파싱 및 timestamp 추적
-	ParseIncludeFiles(ActualFilePath);
+	// 4. 핫 리로드용 매크로 저장
+	OutVariant.SourceMacros = InMacros;
+
+	// 5. 컴파일 성공 여부 반환 (VS 또는 PS 둘 중 하나라도 성공 시)
+	return bVsCompiled || bPsCompiled;
 }
 
-void UShader::CreateInputLayout(ID3D11Device* Device, const FString& InShaderPath)
+FShaderVariant* UShader::GetShaderVariant(const TArray<FShaderMacro>& InMacros)
+{
+	FString Key = GenerateShaderKey(InMacros);
+	return ShaderVariantMap.Find(Key);
+}
+
+ID3D11InputLayout* UShader::GetInputLayout(const TArray<FShaderMacro>& InMacros)
+{
+	FShaderVariant* Variant = GetShaderVariant(InMacros);
+	if (Variant)
+	{
+		return Variant->InputLayout;
+	}
+	return nullptr;
+}
+
+ID3D11VertexShader* UShader::GetVertexShader(const TArray<FShaderMacro>& InMacros)
+{
+	FShaderVariant* Variant = GetShaderVariant(InMacros);
+	if (Variant)
+	{
+		return Variant->VertexShader;
+	}
+	return nullptr;
+}
+
+ID3D11PixelShader* UShader::GetPixelShader(const TArray<FShaderMacro>& InMacros)
+{
+	FShaderVariant* Variant = GetShaderVariant(InMacros);
+	if (Variant)
+	{
+		return Variant->PixelShader;
+	}
+	return nullptr;
+}
+
+void UShader::CreateInputLayout(ID3D11Device* Device, const FString& InShaderPath, FShaderVariant& InOutVariant)
 {
 	TArray<D3D11_INPUT_ELEMENT_DESC> descArray = UResourceManager::GetInstance().GetProperInputLayout(InShaderPath);
 	const D3D11_INPUT_ELEMENT_DESC* layout = descArray.data();
@@ -156,40 +286,21 @@ void UShader::CreateInputLayout(ID3D11Device* Device, const FString& InShaderPat
 		HRESULT hr = Device->CreateInputLayout(
 			layout,
 			layoutCount,
-			VSBlob->GetBufferPointer(),
-			VSBlob->GetBufferSize(),
-			&InputLayout);
+			InOutVariant.VSBlob->GetBufferPointer(),
+			InOutVariant.VSBlob->GetBufferSize(),
+			&InOutVariant.InputLayout);
 		assert(SUCCEEDED(hr));
 	}
 }
 
 void UShader::ReleaseResources()
 {
-	if (VSBlob)
+	// 맵의 모든 Variant를 순회하며 각각의 리소스를 해제합니다.
+	for (auto& Pair : ShaderVariantMap)
 	{
-		VSBlob->Release();
-		VSBlob = nullptr;
+		Pair.second.Release(); // FShaderVariant::Release() 호출
 	}
-	if (PSBlob)
-	{
-		PSBlob->Release();
-		PSBlob = nullptr;
-	}
-	if (InputLayout)
-	{
-		InputLayout->Release();
-		InputLayout = nullptr;
-	}
-	if (VertexShader)
-	{
-		VertexShader->Release();
-		VertexShader = nullptr;
-	}
-	if (PixelShader)
-	{
-		PixelShader->Release();
-		PixelShader = nullptr;
-	}
+	ShaderVariantMap.Empty();
 }
 
 bool UShader::IsOutdated() const
@@ -242,98 +353,108 @@ bool UShader::IsOutdated() const
 	}
 }
 
+ // 셰이더 파일(.hlsl) 또는 그 #include 파일이 변경되었을 때, 이 셰이더가 관리하는 모든 Variant를 다시 컴파일합니다.
 bool UShader::Reload(ID3D11Device* InDevice)
 {
+	// 1. 유효성 검사 및 핫 리로드 필요 여부 확인
 	if (!InDevice)
 	{
 		return false;
 	}
 
-	// Use the stored actual file path
 	if (ActualFilePath.empty())
 	{
-		UE_LOG("Hot Reload Failed: No actual file path stored for shader");
+		UE_LOG("Hot Reload Failed: No actual file path stored for shader.");
 		return false;
 	}
 
-	UE_LOG("Hot Reloading Shader: %s (with %d macros)", ActualFilePath.c_str(), (int)Macros.size());
+	// IsOutdated()는 메인 파일과 Include 파일들을 모두 검사합니다.
+	if (!IsOutdated())
+	{
+		return false; // 변경 사항 없음
+	}
 
-	// Store old resources in case reload fails
-	ID3DBlob* OldVSBlob = VSBlob;
-	ID3DBlob* OldPSBlob = PSBlob;
-	ID3D11InputLayout* OldInputLayout = InputLayout;
-	ID3D11VertexShader* OldVertexShader = VertexShader;
-	ID3D11PixelShader* OldPixelShader = PixelShader;
+	UE_LOG("Hot Reloading Shader File: %s (%d variants)", ActualFilePath.c_str(), ShaderVariantMap.Num());
 
-	// Clear pointers so Load can create new ones
-	VSBlob = nullptr;
-	PSBlob = nullptr;
-	InputLayout = nullptr;
-	VertexShader = nullptr;
-	PixelShader = nullptr;
+	// 2. [백업] 현재 맵을 Old 맵으로 이동시킵니다.
+	// (ShaderVariantMap은 이제 비어있습니다)
+	TMap<FString, FShaderVariant> OldShaderVariantMap = std::move(ShaderVariantMap);
 
-	// Get device context to unbind resources
+	bool bAllReloadsSuccessful = true;
+
+	// 3. [재시도] Old 맵에 있던 모든 Variant에 대해 Load를 다시 호출합니다.
+	for (auto& Pair : OldShaderVariantMap)
+	{
+		const FString& Key = Pair.first;
+		const TArray<FShaderMacro>& MacrosToReload = Pair.second.SourceMacros;
+
+		// Load() 함수는 (이제 비어있는) ShaderVariantMap에
+		// Variant가 없으므로 새로 컴파일을 시도합니다.
+		Load(ActualFilePath, InDevice, MacrosToReload);
+
+		// 4. [검증] 새로 컴파일된 Variant가 유효한지 확인
+		FShaderVariant* NewVariant = ShaderVariantMap.Find(Key); // 새로 로드된 맵에서 찾기
+
+		if (!NewVariant || (!NewVariant->VertexShader && !NewVariant->PixelShader))
+		{
+			// 하나라도 컴파일에 실패하면 전체 핫 리로드는 실패로 간주
+			bAllReloadsSuccessful = false;
+			UE_LOG("Hot Reload Failed for variant: %s", Key.c_str());
+		}
+	}
+
+	// 5. [처리] GPU 파이프라인에서 리소스 언바인딩 (필수)
+	// 릴리즈하기 전에 GPU가 리소스를 잡고 있지 않도록 합니다.
 	ID3D11DeviceContext* Context = nullptr;
 	InDevice->GetImmediateContext(&Context);
-	
 	if (Context)
 	{
-		// Unbind all shader resources from the pipeline to prevent device removal
-		// This ensures the GPU is not using these resources when we release them
-		
-		// Unbind vertex shader
-		if (OldVertexShader)
-		{
-			Context->VSSetShader(nullptr, nullptr, 0);
-		}
-		
-		// Unbind pixel shader
-		if (OldPixelShader)
-		{
-			Context->PSSetShader(nullptr, nullptr, 0);
-		}
-		
-		// Unbind input layout
-		if (OldInputLayout)
-		{
-			Context->IASetInputLayout(nullptr);
-		}
-		
-		// Force GPU to finish all pending work before releasing resources
-		Context->Flush();
-		
-		// Release the context reference (GetImmediateContext adds a ref)
+		// 파이프라인에서 현재 바인딩된 셰이더를 모두 해제합니다.
+		// (Old 맵의 어떤 셰이더가 바인딩되었을지 모르므로, 그냥 null로 설정)
+		Context->VSSetShader(nullptr, nullptr, 0);
+		Context->PSSetShader(nullptr, nullptr, 0);
+		Context->IASetInputLayout(nullptr);
+		Context->Flush(); // GPU 작업 완료 대기
 		Context->Release();
 	}
 
-	// Try to reload with same macros using the actual file path
-	Load(ActualFilePath, InDevice, Macros);
-
-	// Check if reload was successful
-	bool bReloadSuccessful = (VertexShader != nullptr || PixelShader != nullptr);
-
-	if (bReloadSuccessful)
+	// 6. [최종 처리] 성공/실패에 따라 맵 처리
+	if (bAllReloadsSuccessful)
 	{
-		// Release old resources since new ones loaded successfully
-		if (OldVSBlob) { OldVSBlob->Release(); }
-		if (OldPSBlob) { OldPSBlob->Release(); }
-		if (OldInputLayout) { OldInputLayout->Release(); }
-		if (OldVertexShader) { OldVertexShader->Release(); }
-		if (OldPixelShader) { OldPixelShader->Release(); }
+		UE_LOG("Hot Reload Succeeded for %s", ActualFilePath.c_str());
+
+		// 성공: Old 맵의 모든 리소스를 해제합니다.
+		for (auto& Pair : OldShaderVariantMap)
+		{
+			Pair.second.Release();
+		}
+		OldShaderVariantMap.Empty();
+
+		// 갱신된 타임스탬프를 설정합니다.
+		try
+		{
+			SetLastModifiedTime(std::filesystem::last_write_time(ActualFilePath));
+			UpdateIncludeTimestamps(); // Include 파일 타임스탬프도 갱신
+		}
+		catch (...) { /* 무시 */ }
+
+		return true;
 	}
 	else
 	{
-		// Reload failed, restore old resources
-		VSBlob = OldVSBlob;
-		PSBlob = OldPSBlob;
-		InputLayout = OldInputLayout;
-		VertexShader = OldVertexShader;
-		PixelShader = OldPixelShader;
-		
-		UE_LOG("Hot Reload Failed: Restoring old shader for %s", ActualFilePath.c_str());
-	}
+		UE_LOG("Hot Reload Failed: Restoring old variants for %s", ActualFilePath.c_str());
 
-	return bReloadSuccessful;
+		// 실패: 새로 컴파일한 맵(ShaderVariantMap)의 리소스를 모두 해제합니다.
+		for (auto& Pair : ShaderVariantMap)
+		{
+			Pair.second.Release();
+		}
+
+		// Old 맵(정상 작동하던)을 현재 맵으로 복원합니다.
+		ShaderVariantMap = std::move(OldShaderVariantMap);
+
+		return false;
+	}
 }
 
 // Include 파일 파싱 (재귀적으로 처리)
