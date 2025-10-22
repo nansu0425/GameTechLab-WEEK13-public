@@ -32,23 +32,23 @@ inline FString NormalizePath(const FString& InPath)
  * @param InUtf8Str UTF-8 인코딩된 입력 문자열
  * @return UTF-16 인코딩된 와이드 문자열 (변환 실패 시 빈 문자열)
  */
-inline std::wstring UTF8ToWide(const std::string& InUtf8Str)
+inline FWideString UTF8ToWide(const FString& InUtf8Str)
 {
-	if (InUtf8Str.empty()) return std::wstring();
+	if (InUtf8Str.empty()) return FWideString();
 
 	int needed = ::MultiByteToWideChar(CP_UTF8, 0, InUtf8Str.c_str(), -1, nullptr, 0);
 	if (needed <= 0)
 	{
 		// UTF-8 변환 실패 시 ANSI 시도
 		needed = ::MultiByteToWideChar(CP_ACP, 0, InUtf8Str.c_str(), -1, nullptr, 0);
-		if (needed <= 0) return std::wstring();
+		if (needed <= 0) return FWideString();
 
-		std::wstring result(needed - 1, L'\0');
+		FWideString result(needed - 1, L'\0');
 		::MultiByteToWideChar(CP_ACP, 0, InUtf8Str.c_str(), -1, result.data(), needed);
 		return result;
 	}
 
-	std::wstring result(needed - 1, L'\0');
+	FWideString result(needed - 1, L'\0');
 	::MultiByteToWideChar(CP_UTF8, 0, InUtf8Str.c_str(), -1, result.data(), needed);
 	return result;
 }
@@ -59,9 +59,9 @@ inline std::wstring UTF8ToWide(const std::string& InUtf8Str)
  * @param InWideStr UTF-16 인코딩된 입력 와이드 문자열
  * @return UTF-8 인코딩된 문자열 (변환 실패 시 빈 문자열)
  */
-inline std::string WideToUTF8(const std::wstring& InWideStr)
+inline FString WideToUTF8(const FWideString& InWideStr)
 {
-	if (InWideStr.empty()) return std::string();
+	if (InWideStr.empty()) return FString();
 
 	int size_needed = ::WideCharToMultiByte(
 		CP_UTF8,                            // UTF-8 코드 페이지
@@ -76,11 +76,11 @@ inline std::string WideToUTF8(const std::wstring& InWideStr)
 
 	if (size_needed <= 0)
 	{
-		return std::string(); // 변환 실패
+		return FString(); // 변환 실패
 	}
 
 	// 실제 변환 수행
-	std::string result(size_needed, 0);
+	FString result(size_needed, 0);
 	::WideCharToMultiByte(
 		CP_UTF8,
 		0,
