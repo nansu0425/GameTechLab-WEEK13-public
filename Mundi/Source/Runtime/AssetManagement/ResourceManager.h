@@ -42,13 +42,6 @@ public:
 	template<typename T, typename... Args>
 	T* Load(const FString& InFilePath, Args&&... InArgs);
 
-	// 매크로가 있는 UShader를 위한 특수화 Load 함수
-	template<>
-	UShader* Load<UShader>(const FString& InFilePath, TArray<FShaderMacro>& InMacros);
-
-	// UTexture용 sRGB 파라미터 지원 로드 함수
-	UTexture* LoadTexture(const FString& InFilePath, bool bSRGB);
-
 	template<typename T>
 	bool Add(const FString& InFilePath, UObject* InObject);
 
@@ -184,69 +177,23 @@ inline T* UResourceManager::Load(const FString& InFilePath, Args && ...InArgs)
 	auto iter = Resources[typeIndex].find(NormalizedPath);
 	if (iter != Resources[typeIndex].end())
 	{
+		if constexpr (std::is_same_v<T, UShader>)
+		{
+			UShader* Shader = static_cast<UShader*>((*iter).second);
+			Shader->GetOrCompileShaderVariant(Device, std::forward<Args>(InArgs)...);	// 매크로에 해당하는 셰이더를 별도로 컴파일 하기 위해
+			return Shader;
+		}
+
 		return static_cast<T*>((*iter).second);
 	}
 	else//없으면 해당 리소스의 Load실행
 	{
 		T* Resource = NewObject<T>();
-		Resource->Load(NormalizedPath, Device);
+		Resource->Load(NormalizedPath, Device, std::forward<Args>(InArgs)...);
 		Resource->SetFilePath(NormalizedPath);
 		Resources[typeIndex][NormalizedPath] = Resource;
 		return Resource;
 	}
-}
-
-// UTexture 특수화: DDS 캐시 사용 시 실제 로드된 경로를 키로 사용
-template<>
-inline UTexture* UResourceManager::Load(const FString& InFilePath)
-{
-	// 경로 정규화: 모든 백슬래시를 슬래시로 변환하여 일관성 유지
-	FString NormalizedPath = NormalizePath(InFilePath);
-
-	uint8 typeIndex = static_cast<uint8>(ResourceType::Texture);
-
-	// 먼저 원본 경로로 검색
-	auto iter = Resources[typeIndex].find(NormalizedPath);
-	if (iter != Resources[typeIndex].end())
-	{
-		return static_cast<UTexture*>((*iter).second);
-	}
-
-	// 없으면 새로 로드 (기본값: bSRGB = true)
-	UTexture* Resource = NewObject<UTexture>();
-	Resource->Load(NormalizedPath, Device, true); // 기본값: sRGB = true
-
-	// 실제 로드된 경로로 등록 (DDS 캐시 사용 시 DDS 경로, 이미 정규화되어 있음)
-	Resource->SetFilePath(NormalizedPath);
-	Resources[typeIndex][NormalizedPath] = Resource;
-
-	return Resource;
-}
-
-// UTexture 로드 함수: bSRGB 파라미터 지원 (Diffuse=true, Normal=false)
-inline UTexture* UResourceManager::LoadTexture(const FString& InFilePath, bool bSRGB)
-{
-	// 경로 정규화: 모든 백슬래시를 슬래시로 변환하여 일관성 유지
-	FString NormalizedPath = NormalizePath(InFilePath);
-
-	uint8 typeIndex = static_cast<uint8>(ResourceType::Texture);
-
-	// 먼저 원본 경로로 검색
-	auto iter = Resources[typeIndex].find(NormalizedPath);
-	if (iter != Resources[typeIndex].end())
-	{
-		return static_cast<UTexture*>((*iter).second);
-	}
-
-	// 없으면 새로 로드 (bSRGB 파라미터 전달)
-	UTexture* Resource = NewObject<UTexture>();
-	Resource->Load(NormalizedPath, Device, bSRGB);
-
-	// 실제 로드된 경로로 등록
-	Resource->SetFilePath(NormalizedPath);
-	Resources[typeIndex][NormalizedPath] = Resource;
-
-	return Resource;
 }
 
 template<>

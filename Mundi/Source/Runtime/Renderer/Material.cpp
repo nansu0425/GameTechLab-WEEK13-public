@@ -104,12 +104,12 @@ void UMaterial::ResolveTextures()
 
 	// 각 슬롯에 해당하는 텍스처 경로로 UTexture* 찾아서 배열에 저장
 	if (!MaterialInfo.DiffuseTextureFileName.empty())
-		ResolvedTextures[static_cast<int32>(EMaterialTextureSlot::Diffuse)] = RM.Load<UTexture>(MaterialInfo.DiffuseTextureFileName);
+		ResolvedTextures[static_cast<int32>(EMaterialTextureSlot::Diffuse)] = RM.Load<UTexture>(MaterialInfo.DiffuseTextureFileName, true);
 	else
 		ResolvedTextures[static_cast<int32>(EMaterialTextureSlot::Diffuse)] = nullptr; // 또는 기본 텍스처
 
 	if (!MaterialInfo.NormalTextureFileName.empty())
-		ResolvedTextures[static_cast<int32>(EMaterialTextureSlot::Normal)] = RM.LoadTexture(MaterialInfo.NormalTextureFileName, false);
+		ResolvedTextures[static_cast<int32>(EMaterialTextureSlot::Normal)] = RM.Load<UTexture>(MaterialInfo.NormalTextureFileName, false);
 	else
 		ResolvedTextures[static_cast<int32>(EMaterialTextureSlot::Normal)] = nullptr; // 또는 기본 노멀 텍스처
 }
