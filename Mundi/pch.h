@@ -1,5 +1,9 @@
 ﻿#pragma once
 
+// Feature Flags
+// Uncomment to enable DDS texture caching (faster loading, uses Data/TextureCache/)
+#define USE_DDS_CACHE
+
 // Linker
 #pragma comment(lib, "user32")
 #pragma comment(lib, "d3d11")
@@ -45,6 +49,7 @@
 #include "UEContainer.h"
 #include "Vector.h"
 #include "Name.h"
+#include "PathUtils.h"
 #include "Object.h"
 #include "ObjectFactory.h"
 #include "ObjectMacros.h"

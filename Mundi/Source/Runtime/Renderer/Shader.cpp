@@ -3,44 +3,6 @@
 
 IMPLEMENT_CLASS(UShader)
 
-// wstring을 UTF-8 string으로 안전하게 변환하는 헬퍼 함수 (한글 지원)
-static std::string WideStringToUTF8(const std::wstring& wstr)
-{
-    if (wstr.empty()) return std::string();
-    
-    // 1단계: 필요한 버퍼 크기 계산
-    int size_needed = WideCharToMultiByte(
-        CP_UTF8,                    // UTF-8 코드 페이지
-        0,                          // 플래그
-        wstr.c_str(),               // 입력 wstring
-        static_cast<int>(wstr.size()), // 입력 문자 수
-        NULL,                       // 출력 버퍼 (NULL이면 크기만 계산)
-        0,                          // 출력 버퍼 크기
-        NULL,                       // 기본 문자
-        NULL                        // 기본 문자 사용 여부
-    );
-    
-    if (size_needed <= 0)
-    {
-        return std::string(); // 변환 실패
-    }
-    
-    // 2단계: 실제 변환 수행
-    std::string result(size_needed, 0);
-    WideCharToMultiByte(
-        CP_UTF8,
-        0,
-        wstr.c_str(),
-        static_cast<int>(wstr.size()),
-        &result[0],                 // 출력 버퍼
-        size_needed,
-        NULL,
-        NULL
-    );
-    
-    return result;
-}
-
 // 컴파일 로직을 처리하는 비공개 헬퍼 함수
 static bool CompileShaderInternal(
 	const FWideString& InFilePath,
@@ -69,10 +31,10 @@ static bool CompileShaderInternal(
 		if (ErrorBlob)
 		{
 			char* Msg = (char*)ErrorBlob->GetBufferPointer();
-			
+
 			// wstring을 UTF-8로 안전하게 변환 (한글 경로 지원)
-			std::string NarrowPath = WideStringToUTF8(InFilePath);
-			
+			std::string NarrowPath = WideToUTF8(InFilePath);
+
 			UE_LOG("Shader '%s' compile error: %s", NarrowPath.c_str(), Msg);
 			ErrorBlob->Release();
 		}

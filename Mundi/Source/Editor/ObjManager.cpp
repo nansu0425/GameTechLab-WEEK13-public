@@ -17,32 +17,6 @@ TMap<FString, FStaticMesh*> FObjManager::ObjStaticMeshMap;
 namespace
 {
 	/**
-	 * UTF-8 문자열을 UTF-16 와이드 문자열로 변환 (한글 경로 지원)
-	 * @param utf8str - UTF-8 인코딩된 입력 문자열
-	 * @return UTF-16 인코딩된 와이드 문자열
-	 */
-	std::wstring UTF8ToWide(const FString& utf8str)
-	{
-		if (utf8str.empty()) return std::wstring();
-
-		int needed = ::MultiByteToWideChar(CP_UTF8, 0, utf8str.c_str(), -1, nullptr, 0);
-		if (needed <= 0)
-		{
-			// UTF-8 변환 실패 시 ANSI 시도
-			needed = ::MultiByteToWideChar(CP_ACP, 0, utf8str.c_str(), -1, nullptr, 0);
-			if (needed <= 0) return std::wstring();
-
-			std::wstring result(needed - 1, L'\0');
-			::MultiByteToWideChar(CP_ACP, 0, utf8str.c_str(), -1, result.data(), needed);
-			return result;
-		}
-
-		std::wstring result(needed - 1, L'\0');
-		::MultiByteToWideChar(CP_UTF8, 0, utf8str.c_str(), -1, result.data(), needed);
-		return result;
-	}
-
-	/**
 	 * .mtl 텍스처 맵 라인에서 모든 옵션 토큰과 마지막 파일 경로를 분리하여 추출합니다.
 	 * 예: "-bm 1.0 path/to/file.png" -> OutOptions = ["-bm", "1.0"], OutFilePath = "path/to/file.png"
 	 * * @param line - 파싱할 전체 라인 문자열
@@ -475,19 +449,42 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 					std::wstring WTexPath = UTF8ToWide(TexturePath);
 					fs::path TexPath(WTexPath);
 
+					// "Data/"로 시작하는 경로는 이미 프로젝트 루트 기준 상대 경로이므로 변환하지 않음
+					std::string GenericTexPath = TexPath.generic_string();
+					if (GenericTexPath.find("Data/") == 0 ||
+					    (GenericTexPath.size() >= 5 &&
+					     (GenericTexPath[0] == 'D' || GenericTexPath[0] == 'd') &&
+					     (GenericTexPath[1] == 'a' || GenericTexPath[1] == 'A') &&
+					     (GenericTexPath[2] == 't' || GenericTexPath[2] == 'T') &&
+					     (GenericTexPath[3] == 'a' || GenericTexPath[3] == 'A') &&
+					     (GenericTexPath[4] == '/' || GenericTexPath[4] == '\\')))
+					{
+						// 이미 올바른 프로젝트 루트 기준 경로이므로 슬래시만 정규화
+						std::replace(TexturePath.begin(), TexturePath.end(), '\\', '/');
+						return;
+					}
+
 					if (!TexPath.is_absolute())
 					{
-						// weakly_canonical 대신 lexically_normal 사용 (파일 존재 여부 체크 안함)
+						// 절대 경로로 변환
 						fs::path AbsolutePath = (BaseDir / TexPath).lexically_normal();
 
+						// 현재 작업 디렉토리 기준 상대 경로로 변환
+						fs::path CurrentDir = fs::current_path();
+						std::error_code ec;
+						fs::path RelativePath = fs::relative(AbsolutePath, CurrentDir, ec);
+
+						// 상대 경로 변환 성공 시 사용, 실패 시 절대 경로 유지
+						fs::path FinalPath = (ec || RelativePath.empty()) ? AbsolutePath : RelativePath;
+
 						// UTF-16 → UTF-8 변환하여 다시 저장
-						std::wstring WAbsPath = AbsolutePath.wstring();
-						int needed = ::WideCharToMultiByte(CP_UTF8, 0, WAbsPath.c_str(), -1, nullptr, 0, nullptr, nullptr);
+						std::wstring WFinalPath = FinalPath.wstring();
+						int needed = ::WideCharToMultiByte(CP_UTF8, 0, WFinalPath.c_str(), -1, nullptr, 0, nullptr, nullptr);
 						if (needed > 0)
 						{
 							std::string TempPath;
 							TempPath.resize(needed - 1);
-							::WideCharToMultiByte(CP_UTF8, 0, WAbsPath.c_str(), -1, TempPath.data(), needed, nullptr, nullptr);
+							::WideCharToMultiByte(CP_UTF8, 0, WFinalPath.c_str(), -1, TempPath.data(), needed, nullptr, nullptr);
 							TexturePath = TempPath;
 						}
 

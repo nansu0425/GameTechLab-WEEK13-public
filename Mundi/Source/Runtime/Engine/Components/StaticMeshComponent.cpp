@@ -526,7 +526,8 @@ void UStaticMeshComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 				const TMap<EMaterialTextureSlot, UTexture*>& OverriddenTextures = MID->GetOverriddenTextures();
 				for (const auto& Pair : OverriddenTextures)
 				{
-					TexturesJson[std::to_string(static_cast<uint8>(Pair.first))] = Pair.second ? Pair.second->GetFilePath() : "None";
+					// DDS 캐시 경로가 아닌 원본 소스 경로 저장
+					TexturesJson[std::to_string(static_cast<uint8>(Pair.first))] = Pair.second ? Pair.second->GetSourceFilePath() : "None";
 				}
 				OverridesJson["Textures"] = TexturesJson;
 
