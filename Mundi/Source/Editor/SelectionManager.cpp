@@ -18,11 +18,13 @@ void USelectionManager::SelectActor(AActor* Actor)
     bIsActorMode = true;
 }
 
-void USelectionManager::SelectComponent(USceneComponent* Component)
+void USelectionManager::SelectComponent(UActorComponent* Component)
 {
 
     if (!Component)
     {
+        SelectedComponent = nullptr;
+        bIsActorMode = false;
         return;
     }
     AActor* SelectedActor = Component->GetOwner();
@@ -32,9 +34,12 @@ void USelectionManager::SelectComponent(USceneComponent* Component)
         //에딧이 안되는 컴포넌트의 경우, 부모가 있으면 부모, 없으면 루트컴포넌트 피킹
         if (!Component->IsEditable())
         {
-            if (!(SelectedComponent = Component->GetAttachParent()))
+            if (USceneComponent* SelectedSceneComponent = Cast<USceneComponent>(SelectedComponent))
             {
-                SelectedComponent = SelectedActor->GetRootComponent();
+                if (!(SelectedComponent = SelectedSceneComponent->GetAttachParent()))
+                {
+                    SelectedComponent = SelectedActor->GetRootComponent();
+                }
             }
         }
         else

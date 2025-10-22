@@ -310,13 +310,7 @@
     <ClCompile Include="Source\Slate\Widgets\ActorTerminationWidget.cpp">
       <Filter>Source\Slate\Widgets</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Slate\Widgets\CameraControlWIdget.cpp">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Slate\Widgets\ConsoleWidget.cpp">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Slate\Widgets\FPSWidget.cpp">
       <Filter>Source\Slate\Widgets</Filter>
     </ClCompile>
     <ClCompile Include="Source\Slate\Widgets\InputInformationWidget.cpp">
@@ -325,19 +319,10 @@
     <ClCompile Include="Source\Slate\Widgets\MainToolbarWidget.cpp">
       <Filter>Source\Slate\Widgets</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Slate\Widgets\PrimitiveSpawnWidget.cpp">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Slate\Widgets\RenderViewportSwitcherWidget.cpp">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Slate\Widgets\SceneIOWidget.cpp">
       <Filter>Source\Slate\Widgets</Filter>
     </ClCompile>
     <ClCompile Include="Source\Slate\Widgets\SceneManagerWidget.cpp">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Slate\Widgets\ShowFlagWidget.cpp">
       <Filter>Source\Slate\Widgets</Filter>
     </ClCompile>
     <ClCompile Include="Source\Slate\Widgets\TargetActorTransformWidget.cpp">
@@ -356,9 +341,6 @@
       <Filter>Source\Slate\Windows</Filter>
     </ClCompile>
     <ClCompile Include="Source\Slate\Windows\PropertyWindow.cpp">
-      <Filter>Source\Slate\Windows</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Slate\Windows\SceneIOWindow.cpp">
       <Filter>Source\Slate\Windows</Filter>
     </ClCompile>
     <ClCompile Include="Source\Slate\Windows\SceneWindow.cpp">
@@ -430,6 +412,12 @@
     <ClCompile Include="Source\Runtime\Renderer\LightManager.cpp">
       <Filter>Source\Runtime\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\GameFramework\Info.cpp">
+      <Filter>Source\Runtime\Engine\GameFramework</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Components\MovementComponent.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Components\ProjectileMovementComponent.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Components\RotatingMovementComponent.cpp" />
   </ItemGroup>
   <!-- ThirdParty/ImGui Files -->
   <!-- Source Files -->
@@ -775,13 +763,7 @@
     <ClInclude Include="Source\Slate\Widgets\ActorTerminationWidget.h">
       <Filter>Source\Slate\Widgets</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Slate\Widgets\CameraControlWidget.h">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClInclude>
     <ClInclude Include="Source\Slate\Widgets\ConsoleWidget.h">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Slate\Widgets\FPSWidget.h">
       <Filter>Source\Slate\Widgets</Filter>
     </ClInclude>
     <ClInclude Include="Source\Slate\Widgets\InputInformationWidget.h">
@@ -790,19 +772,10 @@
     <ClInclude Include="Source\Slate\Widgets\MainToolbarWidget.h">
       <Filter>Source\Slate\Widgets</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Slate\Widgets\PrimitiveSpawnWidget.h">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Slate\Widgets\RenderViewportSwitcherWidget.h">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClInclude>
     <ClInclude Include="Source\Slate\Widgets\SceneIOWidget.h">
       <Filter>Source\Slate\Widgets</Filter>
     </ClInclude>
     <ClInclude Include="Source\Slate\Widgets\SceneManagerWidget.h">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Slate\Widgets\ShowFlagWidget.h">
       <Filter>Source\Slate\Widgets</Filter>
     </ClInclude>
     <ClInclude Include="Source\Slate\Widgets\TargetActorTransformWidget.h">
@@ -821,9 +794,6 @@
       <Filter>Source\Slate\Windows</Filter>
     </ClInclude>
     <ClInclude Include="Source\Slate\Windows\PropertyWindow.h">
-      <Filter>Source\Slate\Windows</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Slate\Windows\SceneIOWindow.h">
       <Filter>Source\Slate\Windows</Filter>
     </ClInclude>
     <ClInclude Include="Source\Slate\Windows\SceneWindow.h">
@@ -898,6 +868,12 @@
     <ClInclude Include="Source\Slate\Widgets\PropertyRenderer.h">
       <Filter>Source\Slate\Widgets</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\GameFramework\Info.h">
+      <Filter>Source\Runtime\Engine\GameFramework</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Components\MovementComponent.h" />
+    <ClInclude Include="Source\Runtime\Engine\Components\ProjectileMovementComponent.h" />
+    <ClInclude Include="Source\Runtime\Engine\Components\RotatingMovementComponent.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source">

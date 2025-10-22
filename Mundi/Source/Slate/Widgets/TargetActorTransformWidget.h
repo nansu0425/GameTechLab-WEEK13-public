@@ -41,14 +41,16 @@ public:
 	// 선택된 액터가 외부에서 삭제되었을 때 호출되어 내부 상태를 정리
 	void OnSelectedActorCleared();
 
-	void RenderHeader(AActor* SelectedActor, USceneComponent* SelectedComponent);
-	void RenderComponentHierarchy(AActor* SelectedActor, USceneComponent* SelectedComponent);
+	void RenderHeader(AActor* SelectedActor, UActorComponent* SelectedComponent);
+	void RenderComponentHierarchy(AActor* SelectedActor, UActorComponent* SelectedComponent);
 	void RenderSelectedActorDetails(AActor* SelectedActor);
-	void RenderSelectedComponentDetails(USceneComponent* SelectedComponent);
+	void RenderSelectedComponentDetails(UActorComponent* SelectedComponent);
 
 private:
 	UUIManager* UIManager = nullptr;
 	FString CachedActorName; // 액터 이름 캐시 (안전한 출력을 위해)
+	//ScneComponent가 아닌 ActorComponent 선택
+	UActorComponent* SelectedActorComponent = nullptr; 
 
 	// Transform UI 상태
 	FVector EditLocation = { 0.0f, 0.0f, 0.0f };

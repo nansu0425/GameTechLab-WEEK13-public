@@ -607,7 +607,7 @@ void AGizmoActor::ProcessGizmoModeSwitch()
 void AGizmoActor::UpdateComponentVisibility()
 {
 	// 선택된 액터가 없으면 모든 기즈모 컴포넌트를 비활성화
-	bool bHasSelection = SelectionManager && SelectionManager->HasSelection();
+	bool bHasSelection = SelectionManager && SelectionManager->GetSelectedComponent();
 
 	// Arrow Components (Translate 모드)
 	bool bShowArrows = bHasSelection && (CurrentMode == EGizmoMode::Translate);

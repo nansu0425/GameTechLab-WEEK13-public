@@ -527,16 +527,18 @@ void AActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 	
 				UClass* NewClass = UClass::FindClass(TypeString);
 	
-				USceneComponent* NewComponent = Cast<USceneComponent>(ObjectFactory::NewObject(NewClass));
+				UActorComponent* NewComponent = Cast<UActorComponent>(ObjectFactory::NewObject(NewClass));
 	
 				NewComponent->Serialize(bInIsLoading, ComponentJson);
 	
 				// RootComponent 설정
-				if (RootUUID == NewComponent->GetSceneId())
+				if (USceneComponent* NewSceneComponent = Cast<USceneComponent>(NewComponent))
 				{
-					USceneComponent* RootComponentTemp = Cast<USceneComponent>(NewComponent);
-					assert(RootComponentTemp);
-					SetRootComponent(RootComponentTemp);
+					if (RootUUID == NewSceneComponent->GetSceneId())
+					{
+						assert(NewSceneComponent);
+						SetRootComponent(NewSceneComponent);
+					}
 				}
 	
 				// OwnedComponents와 SceneComponents에 Component 추가
@@ -547,6 +549,10 @@ void AActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 			for (auto& Component : OwnedComponents)
 			{
 				USceneComponent* SceneComp = Cast<USceneComponent>(Component);
+				if (!SceneComp)
+				{
+					continue;
+				}
 				uint32 ParentId = SceneComp->GetParentId();
 				if (ParentId != 0) // RootComponent가 아니면 부모 설정
 				{

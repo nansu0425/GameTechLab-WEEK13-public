@@ -63,7 +63,8 @@ void FLightManager::UpdateLightBuffer(D3D11RHI* RHIDevice)
 
 		if (AmbientLightList.Num() > 0)
 		{
-			if (AmbientLightList[0]->IsVisible())
+			if (AmbientLightList[0]->IsVisible()&&
+				AmbientLightList[0]->GetOwner()->IsActorVisible())
 			{
 				LightBuffer.AmbientLight = AmbientLightList[0]->GetLightInfo();
 			}
@@ -71,7 +72,8 @@ void FLightManager::UpdateLightBuffer(D3D11RHI* RHIDevice)
 
 		if (DIrectionalLightList.Num() > 0)
 		{
-			if (DIrectionalLightList[0]->IsVisible())
+			if (DIrectionalLightList[0]->IsVisible() &&
+				DIrectionalLightList[0]->GetOwner()->IsActorVisible())
 			{
 				LightBuffer.DirectionalLight = DIrectionalLightList[0]->GetLightInfo();
 			}
@@ -83,7 +85,8 @@ void FLightManager::UpdateLightBuffer(D3D11RHI* RHIDevice)
 			PointLightInfoList.clear();
 			for (int Index = 0; Index < PointLightList.Num(); Index++)
 			{
-				if (PointLightList[Index]->IsVisible())
+				if (PointLightList[Index]->IsVisible()&&
+					PointLightList[Index]->GetOwner()->IsActorVisible())
 				{
 					PointLightInfoList.Add(PointLightList[Index]->GetLightInfo());
 				}
@@ -97,7 +100,8 @@ void FLightManager::UpdateLightBuffer(D3D11RHI* RHIDevice)
 			SpotLightInfoList.clear();
 			for (int Index = 0; Index < SpotLightList.Num(); Index++)
 			{
-				if (SpotLightList[Index]->IsVisible())
+				if (SpotLightList[Index]->IsVisible()&&
+					SpotLightList[Index]->GetOwner()->IsActorVisible())
 				{
 					SpotLightInfoList.Add(SpotLightList[Index]->GetLightInfo());
 				}

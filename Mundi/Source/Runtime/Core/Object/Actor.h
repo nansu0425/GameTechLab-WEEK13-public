@@ -39,6 +39,7 @@ public:
     // 루트/컴포넌트
     void SetRootComponent(USceneComponent* InRoot);
     USceneComponent* GetRootComponent() const { return RootComponent; }
+   
 
     // 소유 컴포넌트(모든 타입)
     void AddOwnedComponent(UActorComponent* Component);
@@ -46,6 +47,7 @@ public:
 
     // 씬 컴포넌트(트리/렌더용)
     const TArray<USceneComponent*>& GetSceneComponents() const { return SceneComponents; }
+    const TSet<UActorComponent*>& GetOwnedComponents() const { return OwnedComponents; }
     
     // 컴포넌트 생성 (템플릿)
     template<typename T>

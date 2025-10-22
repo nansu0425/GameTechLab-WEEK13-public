@@ -2,10 +2,10 @@
 #include "Object.h"
 #include "UEContainer.h"
 #include "Vector.h"
+#include "SceneComponent.h"
 
 // Forward Declarations
 class AActor;
-class USceneComponent;
 
 /**
  * SelectionManager
@@ -19,7 +19,7 @@ public:
 
     /** === 선택 관리 === */
     void SelectActor(AActor* Actor);
-    void SelectComponent(USceneComponent* Component);
+    void SelectComponent(UActorComponent* Component);
     void DeselectActor(AActor* Actor);
     void ClearSelection();
     
@@ -31,7 +31,10 @@ public:
     const TArray<AActor*>& GetSelectedActors() const { return SelectedActors; }
     
     int32 GetSelectionCount() const { return SelectedActors.Num(); }
-    USceneComponent* GetSelectedComponent() const { return SelectedComponent; }
+    //기즈모용
+    USceneComponent* GetSelectedComponent() const { return Cast<USceneComponent>(SelectedComponent); }
+    //UI용
+    UActorComponent* GetSelectedActorComponent() const { return SelectedComponent; }
     bool HasSelection() const { return SelectedActors.Num() > 0; }
     
     /** === 삭제된 액터 정리 === */
@@ -48,7 +51,7 @@ protected:
     
     /** === 선택된 액터들 === */
     TArray<AActor*> SelectedActors;
-    USceneComponent* SelectedComponent = nullptr;
+    UActorComponent* SelectedComponent = nullptr;
 
     //엑터만 선택된(루트 컴포넌트 선택이지만 UI에는 엑터 정보만 띄우는) 모드
     bool bIsActorMode = false;

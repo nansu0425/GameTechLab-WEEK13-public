@@ -69,10 +69,15 @@ namespace
 		return Options;
 	}
 
-	bool TryAttachComponentToActor(AActor& Actor, UClass* ComponentClass, USceneComponent*& SelectedComponent)
+	bool TryAttachComponentToActor(AActor& Actor, UClass* ComponentClass, UActorComponent*& SelectedComponent)
 	{
 		if (!ComponentClass || !ComponentClass->IsChildOf(UActorComponent::StaticClass()))
 			return false;
+		if (!SelectedComponent->IsA(USceneComponent::StaticClass()))
+		{
+			return false;
+		}
+		USceneComponent* SelectedSceneComponent = static_cast<USceneComponent*>(SelectedComponent);
 
 		UObject* RawObject = ObjectFactory::NewObject(ComponentClass);
 		if (!RawObject)
@@ -92,9 +97,9 @@ namespace
 		// 씬 컴포넌트라면 SelectedComponent에 붙임
 		if (USceneComponent* SceneComp = Cast<USceneComponent>(NewComp))
 		{
-			if (SelectedComponent)
+			if (SelectedSceneComponent)
 			{
-				SceneComp->SetupAttachment(SelectedComponent, EAttachmentRule::KeepRelative);
+				SceneComp->SetupAttachment(SelectedSceneComponent, EAttachmentRule::KeepRelative);
 			}
 			// SelectedComponent가 없으면 루트에 붙이
 			else if (USceneComponent* Root = Actor.GetRootComponent())
@@ -104,6 +109,7 @@ namespace
 
 			Actor.RegisterComponentTree(SceneComp, GWorld);
 			SelectedComponent = SceneComp;
+			GWorld->GetSelectionManager()->SelectComponent(SelectedComponent);
 		}
 
 		// AddOwnedComponent 경유 (Register/Initialize 포함)
@@ -134,11 +140,58 @@ namespace
 		}
 	}
 
+	void RenderActorComponent(
+		AActor* SelectedActor,
+		UActorComponent* SelectedComponent,
+		UActorComponent* ComponentPendingRemoval
+	)
+	{
+		for (UActorComponent* Component : SelectedActor->GetOwnedComponents())
+		{
+			if (Cast<USceneComponent>(Component))
+			{
+				continue;
+			}
+
+			ImGuiTreeNodeFlags NodeFlags =
+				ImGuiTreeNodeFlags_OpenOnArrow |
+				ImGuiTreeNodeFlags_SpanAvailWidth |
+				ImGuiTreeNodeFlags_DefaultOpen;
+
+			// 선택 하이라이트: 현재 선택된 컴포넌트와 같으면 Selected 플래그
+			if (Component == SelectedComponent && !GWorld->GetSelectionManager()->IsActorMode())
+			{
+				NodeFlags |= ImGuiTreeNodeFlags_Selected;
+			}
+
+			FString Label = Component->GetClass() ? Component->GetName() : "Unknown Component";
+
+			ImGui::PushID(Component);
+			const bool bNodeOpen = ImGui::TreeNodeEx(Component, NodeFlags, "%s", Label.c_str());
+			// 좌클릭 시 컴포넌트 선택으로 전환(액터 Row 선택 해제)
+			if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+			{
+				GWorld->GetSelectionManager()->SelectComponent(Component);
+			}
+
+			if (ImGui::BeginPopupContextItem("ComponentContext"))
+			{
+				const bool bCanRemove = !Component->IsNative();
+				if (ImGui::MenuItem("삭제", "Delete", false, bCanRemove))
+				{
+					ComponentPendingRemoval = Component;
+				}
+				ImGui::EndPopup();
+			}
+			ImGui::TreePop();
+			ImGui::PopID();
+		}
+	}
 	void RenderSceneComponentTree(
 		USceneComponent* Component,
 		AActor& Actor,
-		USceneComponent*& SelectedComponent,
-		USceneComponent*& ComponentPendingRemoval,
+		UActorComponent*& SelectedComponent,
+		UActorComponent*& ComponentPendingRemoval,
 		TSet<USceneComponent*>& Visited)
 	{
 		if (!Component)
@@ -287,7 +340,7 @@ void UTargetActorTransformWidget::Update()
 void UTargetActorTransformWidget::RenderWidget()
 {
 	AActor* SelectedActor = GWorld->GetSelectionManager()->GetSelectedActor();
-	USceneComponent* SelectedComponent = GWorld->GetSelectionManager()->GetSelectedComponent();
+	UActorComponent* SelectedComponent = GWorld->GetSelectionManager()->GetSelectedActorComponent();
 	if (!SelectedActor)
 	{
 		return;
@@ -309,11 +362,11 @@ void UTargetActorTransformWidget::RenderWidget()
 	}
 	else
 	{
-		RenderSelectedComponentDetails(GWorld->GetSelectionManager()->GetSelectedComponent());
+		RenderSelectedComponentDetails(GWorld->GetSelectionManager()->GetSelectedActorComponent());
 	}
 }
 
-void UTargetActorTransformWidget::RenderHeader(AActor* SelectedActor, USceneComponent* SelectedComponent)
+void UTargetActorTransformWidget::RenderHeader(AActor* SelectedActor, UActorComponent* SelectedComponent)
 {
 	ImGui::Text(SelectedActor->GetName().ToString().c_str());
 	ImGui::SameLine();
@@ -355,10 +408,10 @@ void UTargetActorTransformWidget::RenderHeader(AActor* SelectedActor, USceneComp
 	ImGui::Spacing();
 }
 
-void UTargetActorTransformWidget::RenderComponentHierarchy(AActor* SelectedActor, USceneComponent* SelectedComponent)
+void UTargetActorTransformWidget::RenderComponentHierarchy(AActor* SelectedActor, UActorComponent* SelectedComponent)
 {
 	AActor* ActorPendingRemoval = nullptr;
-	USceneComponent* ComponentPendingRemoval = nullptr;
+	UActorComponent* ComponentPendingRemoval = nullptr;
 
 	// 컴포넌트 트리 박스 크기 관련
 	static float PaneHeight = 120.0f;
@@ -401,6 +454,7 @@ void UTargetActorTransformWidget::RenderComponentHierarchy(AActor* SelectedActor
 		TSet<USceneComponent*> VisitedComponents;
 		RenderSceneComponentTree(RootComponent, *SelectedActor, SelectedComponent, ComponentPendingRemoval, VisitedComponents);
 		// ... (루트에 붙지 않은 씬 컴포넌트 렌더링 로직은 생략 가능성 있음, 엔진 설계에 따라)
+		RenderActorComponent(SelectedActor, SelectedComponent, ComponentPendingRemoval);
 	}
 
 	// 삭제 입력 처리
@@ -416,14 +470,14 @@ void UTargetActorTransformWidget::RenderComponentHierarchy(AActor* SelectedActor
 	{
 		// 삭제 전에 선택 해제 (dangling pointer 방지)
 		USceneComponent* NewSelection = nullptr;
-		if (ComponentPendingRemoval->GetAttachParent())
+		/*if (ComponentPendingRemoval->GetAttachParent())
 		{
 			NewSelection = ComponentPendingRemoval->GetAttachParent();
 		}
 		else
 		{
 			NewSelection = ComponentPendingRemoval->GetOwner()->RootComponent;
-		}
+		}*/
 
 		// SelectionManager를 통해 선택 해제
 		GWorld->GetSelectionManager()->ClearSelection();
@@ -482,21 +536,20 @@ void UTargetActorTransformWidget::RenderSelectedActorDetails(AActor* SelectedAct
 	}
 }
 
-void UTargetActorTransformWidget::RenderSelectedComponentDetails(USceneComponent* SelectedComponent)
+void UTargetActorTransformWidget::RenderSelectedComponentDetails(UActorComponent* SelectedComponent)
 {
 
 	ImGui::Spacing();
 	ImGui::Separator();
 
-	USceneComponent* TargetComponentForDetails = SelectedComponent;
-	if (!TargetComponentForDetails) return;
+	if (!SelectedComponent) return;
 
 	// 리플렉션이 적용된 컴포넌트는 자동으로 UI 생성
-	if (TargetComponentForDetails)
+	if (SelectedComponent)
 	{
 		ImGui::Separator();
 		ImGui::Text("[Reflected Properties]");
-		UPropertyRenderer::RenderAllPropertiesWithInheritance(TargetComponentForDetails);
+		UPropertyRenderer::RenderAllPropertiesWithInheritance(SelectedComponent);
 	}
 }
 
