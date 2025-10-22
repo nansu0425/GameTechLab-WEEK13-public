@@ -538,151 +538,6 @@ void FSceneRenderer::RenderOpaquePass(EViewModeIndex InRenderViewMode)
 	DrawMeshBatches(MeshBatchElements, true);
 }
 
-void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, bool bClearListAfterDraw)
-{
-	if (InMeshBatches.IsEmpty()) return;
-
-	// RHI 상태 초기 설정 (Opaque Pass 기본값)
-	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual); // 깊이 쓰기 ON
-	RHIDevice->OMSetBlendState(false);
-
-	// 현재 GPU 상태 캐싱용 변수 (UStaticMesh* 대신 실제 GPU 리소스로 변경)
-	UShader* CurrentVertexShader = nullptr;
-	UShader* CurrentPixelShader = nullptr;
-	UMaterialInterface* CurrentMaterial = nullptr;
-	ID3D11ShaderResourceView* CurrentInstanceSRV = nullptr; // [추가] Instance SRV 캐시
-	ID3D11Buffer* CurrentVertexBuffer = nullptr;
-	ID3D11Buffer* CurrentIndexBuffer = nullptr;
-	UINT CurrentVertexStride = 0;
-	D3D11_PRIMITIVE_TOPOLOGY CurrentTopology = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
-
-	// 기본 샘플러 미리 가져오기 (루프 내 반복 호출 방지)
-	ID3D11SamplerState* DefaultSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::Default);
-
-	// 정렬된 리스트 순회
-	for (const FMeshBatchElement& Batch : InMeshBatches)
-	{
-		// --- 필수 요소 유효성 검사 ---
-		if (!Batch.VertexShader || !Batch.PixelShader || !Batch.VertexBuffer || !Batch.IndexBuffer || Batch.VertexStride == 0)
-		{
-			// 셰이더나 버퍼, 스트라이드 정보가 없으면 그릴 수 없음
-			continue;
-		}
-
-		// 1. 셰이더 상태 변경
-		if (Batch.VertexShader != CurrentVertexShader || Batch.PixelShader != CurrentPixelShader)
-		{
-			RHIDevice->PrepareShader(Batch.VertexShader, Batch.PixelShader);
-			CurrentVertexShader = Batch.VertexShader;
-			CurrentPixelShader = Batch.PixelShader;
-		}
-
-		// --- 2. 픽셀 상태 (텍스처, 샘플러, 재질CBuffer) 변경 (캐싱됨) ---
-		//
-		// 'Material' 또는 'Instance SRV' 둘 중 하나라도 바뀌면
-		// 모든 픽셀 리소스를 다시 바인딩해야 합니다.
-		if (Batch.Material != CurrentMaterial || Batch.InstanceShaderResourceView != CurrentInstanceSRV)
-		{
-			ID3D11ShaderResourceView* DiffuseTextureSRV = nullptr; // t0
-			ID3D11ShaderResourceView* NormalTextureSRV = nullptr;  // t1
-			FPixelConstBufferType PixelConst{};
-
-			if (Batch.Material)
-			{
-				PixelConst.Material = Batch.Material->GetMaterialInfo();
-				PixelConst.bHasMaterial = true;
-			}
-			else
-			{
-				FMaterialInfo DefaultMaterialInfo;
-				PixelConst.Material = DefaultMaterialInfo;
-				PixelConst.bHasMaterial = false;
-				PixelConst.bHasDiffuseTexture = false;
-				PixelConst.bHasNormalTexture = false;
-			}
-
-			// 1순위: 인스턴스 텍스처 (빌보드)
-			if (Batch.InstanceShaderResourceView)
-			{
-				DiffuseTextureSRV = Batch.InstanceShaderResourceView;
-				PixelConst.bHasDiffuseTexture = true;
-				PixelConst.bHasNormalTexture = false;
-			}
-			// 2순위: 머티리얼 텍스처 (스태틱 메시)
-			else if (Batch.Material)
-			{
-				const FMaterialInfo& MaterialInfo = Batch.Material->GetMaterialInfo();
-				if (!MaterialInfo.DiffuseTextureFileName.empty())
-				{
-					if (UTexture* TextureData = Batch.Material->GetTexture(EMaterialTextureSlot::Diffuse))
-					{
-						DiffuseTextureSRV = TextureData->GetShaderResourceView();
-						PixelConst.bHasDiffuseTexture = (DiffuseTextureSRV != nullptr);
-					}
-				}
-				if (!MaterialInfo.NormalTextureFileName.empty())
-				{
-					if (UTexture* TextureData = Batch.Material->GetTexture(EMaterialTextureSlot::Normal))
-					{
-						NormalTextureSRV = TextureData->GetShaderResourceView();
-						PixelConst.bHasNormalTexture = (NormalTextureSRV != nullptr);
-					}
-				}
-			}			// --- RHI 상태 업데이트 ---
-			// 1. 텍스처(SRV) 바인딩
-			ID3D11ShaderResourceView* Srvs[2] = { DiffuseTextureSRV, NormalTextureSRV };
-			RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
-
-			// 2. 샘플러 바인딩
-			ID3D11SamplerState* Samplers[2] = { DefaultSampler, DefaultSampler };
-			RHIDevice->GetDeviceContext()->PSSetSamplers(0, 2, Samplers);
-
-			// 3. 재질 CBuffer 바인딩
-			RHIDevice->SetAndUpdateConstantBuffer(PixelConst);
-
-			// --- 캐시 업데이트 ---
-			CurrentMaterial = Batch.Material;
-			CurrentInstanceSRV = Batch.InstanceShaderResourceView;
-		}
-
-		// 3. IA (Input Assembler) 상태 변경
-		if (Batch.VertexBuffer != CurrentVertexBuffer ||
-			Batch.IndexBuffer != CurrentIndexBuffer ||
-			Batch.VertexStride != CurrentVertexStride ||
-			Batch.PrimitiveTopology != CurrentTopology)
-		{
-			UINT Stride = Batch.VertexStride;
-			UINT Offset = 0;
-
-			// Vertex/Index 버퍼 바인딩
-			RHIDevice->GetDeviceContext()->IASetVertexBuffers(0, 1, &Batch.VertexBuffer, &Stride, &Offset);
-			RHIDevice->GetDeviceContext()->IASetIndexBuffer(Batch.IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
-
-			// 토폴로지 설정 (이전 코드의 5번에서 이동하여 최적화)
-			RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(Batch.PrimitiveTopology);
-
-			// 현재 IA 상태 캐싱
-			CurrentVertexBuffer = Batch.VertexBuffer;
-			CurrentIndexBuffer = Batch.IndexBuffer;
-			CurrentVertexStride = Batch.VertexStride;
-			CurrentTopology = Batch.PrimitiveTopology;
-		}
-
-		// 4. 오브젝트별 상수 버퍼 설정 (매번 변경)
-		RHIDevice->SetAndUpdateConstantBuffer(ModelBufferType(Batch.WorldMatrix, Batch.WorldMatrix.InverseAffine().Transpose()));
-		RHIDevice->SetAndUpdateConstantBuffer(ColorBufferType(Batch.InstanceColor, Batch.ObjectID));
-
-		// 5. 드로우 콜 실행
-		RHIDevice->GetDeviceContext()->DrawIndexed(Batch.IndexCount, Batch.StartIndex, Batch.BaseVertexIndex);
-	}
-
-	// 루프 종료 후 리스트 비우기 (옵션)
-	if (bClearListAfterDraw)
-	{
-		InMeshBatches.Empty();
-	}
-}
-
 void FSceneRenderer::RenderDecalPass()
 {
 	if (Proxies.Decals.empty())
@@ -743,13 +598,13 @@ void FSceneRenderer::RenderDecalPass()
 	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqualReadOnly); // 깊이 쓰기 OFF
 	RHIDevice->OMSetBlendState(true);
 
-	// Decal 셰이더 설정 (모든 Decal에 공통 적용)
-	RHIDevice->GetDeviceContext()->VSSetShader(DecalShader->GetVertexShader(), nullptr, 0);
-	RHIDevice->GetDeviceContext()->PSSetShader(DecalShader->GetPixelShader(), nullptr, 0);
-	RHIDevice->GetDeviceContext()->IASetInputLayout(DecalShader->GetInputLayout());
-
 	for (UDecalComponent* Decal : Proxies.Decals)
 	{
+		if (!Decal || !Decal->GetDecalTexture())
+		{
+			continue;
+		}
+
 		// Decal이 그려질 Primitives
 		TArray<UPrimitiveComponent*> TargetPrimitives;
 
@@ -776,11 +631,24 @@ void FSceneRenderer::RenderDecalPass()
 		// --- 데칼 렌더 시간 측정 시작 ---
 		auto CpuTimeStart = std::chrono::high_resolution_clock::now();
 
-		// 3. TargetPrimitive 순회하며 렌더링
+		// 데칼 전용 상수 버퍼 설정
+		const FMatrix DecalMatrix = Decal->GetDecalProjectionMatrix();
+		RHIDevice->SetAndUpdateConstantBuffer(DecalBufferType(DecalMatrix, Decal->GetOpacity()));
+
+		// 3. TargetPrimitive 순회하며 수집 후 렌더링
+		MeshBatchElements.Empty();
 		for (UPrimitiveComponent* Target : TargetPrimitives)
 		{
-			Decal->RenderAffectedPrimitives(OwnerRenderer, Target);
+			Target->CollectMeshBatches(MeshBatchElements, View);
 		}
+		for (FMeshBatchElement& BatchElement : MeshBatchElements)
+		{
+			BatchElement.InstanceShaderResourceView = Decal->GetDecalTexture()->GetShaderResourceView();
+			BatchElement.VertexShader = DecalShader;
+			BatchElement.PixelShader = DecalShader;
+			BatchElement.VertexStride = sizeof(FVertexDynamic);
+		}
+		DrawMeshBatches(MeshBatchElements, true);
 
 		// --- 데칼 렌더 시간 측정 종료 및 결과 저장 ---
 		auto CpuTimeEnd = std::chrono::high_resolution_clock::now();
@@ -788,8 +656,10 @@ void FSceneRenderer::RenderDecalPass()
 		FDecalStatManager::GetInstance().GetDecalPassTimeSlot() += CpuTimeMs.count(); // CPU 소요 시간 저장
 	}
 
+	// 상태 복구
 	RHIDevice->RSSetState(ERasterizerMode::Solid);
-	RHIDevice->OMSetBlendState(false); // 상태 복구
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+	RHIDevice->OMSetBlendState(false);
 }
 
 void FSceneRenderer::RenderFireBallPass()
@@ -1079,6 +949,151 @@ void FSceneRenderer::RenderOverayEditorPrimitivesPass()
 
 	// 수집된 배치를 그립니다.
 	DrawMeshBatches(MeshBatchElements, true);
+}
+
+// 수집한 Batch 그리기
+void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, bool bClearListAfterDraw)
+{
+	if (InMeshBatches.IsEmpty()) return;
+
+	// RHI 상태 초기 설정 (Opaque Pass 기본값)
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual); // 깊이 쓰기 ON
+
+	// 현재 GPU 상태 캐싱용 변수 (UStaticMesh* 대신 실제 GPU 리소스로 변경)
+	UShader* CurrentVertexShader = nullptr;
+	UShader* CurrentPixelShader = nullptr;
+	UMaterialInterface* CurrentMaterial = nullptr;
+	ID3D11ShaderResourceView* CurrentInstanceSRV = nullptr; // [추가] Instance SRV 캐시
+	ID3D11Buffer* CurrentVertexBuffer = nullptr;
+	ID3D11Buffer* CurrentIndexBuffer = nullptr;
+	UINT CurrentVertexStride = 0;
+	D3D11_PRIMITIVE_TOPOLOGY CurrentTopology = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
+
+	// 기본 샘플러 미리 가져오기 (루프 내 반복 호출 방지)
+	ID3D11SamplerState* DefaultSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::Default);
+
+	// 정렬된 리스트 순회
+	for (const FMeshBatchElement& Batch : InMeshBatches)
+	{
+		// --- 필수 요소 유효성 검사 ---
+		if (!Batch.VertexShader || !Batch.PixelShader || !Batch.VertexBuffer || !Batch.IndexBuffer || Batch.VertexStride == 0)
+		{
+			// 셰이더나 버퍼, 스트라이드 정보가 없으면 그릴 수 없음
+			continue;
+		}
+
+		// 1. 셰이더 상태 변경
+		if (Batch.VertexShader != CurrentVertexShader || Batch.PixelShader != CurrentPixelShader)
+		{
+			RHIDevice->PrepareShader(Batch.VertexShader, Batch.PixelShader);
+			CurrentVertexShader = Batch.VertexShader;
+			CurrentPixelShader = Batch.PixelShader;
+		}
+
+		// --- 2. 픽셀 상태 (텍스처, 샘플러, 재질CBuffer) 변경 (캐싱됨) ---
+		//
+		// 'Material' 또는 'Instance SRV' 둘 중 하나라도 바뀌면
+		// 모든 픽셀 리소스를 다시 바인딩해야 합니다.
+		if (Batch.Material != CurrentMaterial || Batch.InstanceShaderResourceView != CurrentInstanceSRV)
+		{
+			ID3D11ShaderResourceView* DiffuseTextureSRV = nullptr; // t0
+			ID3D11ShaderResourceView* NormalTextureSRV = nullptr;  // t1
+			FPixelConstBufferType PixelConst{};
+
+			if (Batch.Material)
+			{
+				PixelConst.Material = Batch.Material->GetMaterialInfo();
+				PixelConst.bHasMaterial = true;
+			}
+			else
+			{
+				FMaterialInfo DefaultMaterialInfo;
+				PixelConst.Material = DefaultMaterialInfo;
+				PixelConst.bHasMaterial = false;
+				PixelConst.bHasDiffuseTexture = false;
+				PixelConst.bHasNormalTexture = false;
+			}
+
+			// 1순위: 인스턴스 텍스처 (빌보드)
+			if (Batch.InstanceShaderResourceView)
+			{
+				DiffuseTextureSRV = Batch.InstanceShaderResourceView;
+				PixelConst.bHasDiffuseTexture = true;
+				PixelConst.bHasNormalTexture = false;
+			}
+			// 2순위: 머티리얼 텍스처 (스태틱 메시)
+			else if (Batch.Material)
+			{
+				const FMaterialInfo& MaterialInfo = Batch.Material->GetMaterialInfo();
+				if (!MaterialInfo.DiffuseTextureFileName.empty())
+				{
+					if (UTexture* TextureData = Batch.Material->GetTexture(EMaterialTextureSlot::Diffuse))
+					{
+						DiffuseTextureSRV = TextureData->GetShaderResourceView();
+						PixelConst.bHasDiffuseTexture = (DiffuseTextureSRV != nullptr);
+					}
+				}
+				if (!MaterialInfo.NormalTextureFileName.empty())
+				{
+					if (UTexture* TextureData = Batch.Material->GetTexture(EMaterialTextureSlot::Normal))
+					{
+						NormalTextureSRV = TextureData->GetShaderResourceView();
+						PixelConst.bHasNormalTexture = (NormalTextureSRV != nullptr);
+					}
+				}
+			}			// --- RHI 상태 업데이트 ---
+			// 1. 텍스처(SRV) 바인딩
+			ID3D11ShaderResourceView* Srvs[2] = { DiffuseTextureSRV, NormalTextureSRV };
+			RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
+
+			// 2. 샘플러 바인딩
+			ID3D11SamplerState* Samplers[2] = { DefaultSampler, DefaultSampler };
+			RHIDevice->GetDeviceContext()->PSSetSamplers(0, 2, Samplers);
+
+			// 3. 재질 CBuffer 바인딩
+			RHIDevice->SetAndUpdateConstantBuffer(PixelConst);
+
+			// --- 캐시 업데이트 ---
+			CurrentMaterial = Batch.Material;
+			CurrentInstanceSRV = Batch.InstanceShaderResourceView;
+		}
+
+		// 3. IA (Input Assembler) 상태 변경
+		if (Batch.VertexBuffer != CurrentVertexBuffer ||
+			Batch.IndexBuffer != CurrentIndexBuffer ||
+			Batch.VertexStride != CurrentVertexStride ||
+			Batch.PrimitiveTopology != CurrentTopology)
+		{
+			UINT Stride = Batch.VertexStride;
+			UINT Offset = 0;
+
+			// Vertex/Index 버퍼 바인딩
+			RHIDevice->GetDeviceContext()->IASetVertexBuffers(0, 1, &Batch.VertexBuffer, &Stride, &Offset);
+			RHIDevice->GetDeviceContext()->IASetIndexBuffer(Batch.IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+
+			// 토폴로지 설정 (이전 코드의 5번에서 이동하여 최적화)
+			RHIDevice->GetDeviceContext()->IASetPrimitiveTopology(Batch.PrimitiveTopology);
+
+			// 현재 IA 상태 캐싱
+			CurrentVertexBuffer = Batch.VertexBuffer;
+			CurrentIndexBuffer = Batch.IndexBuffer;
+			CurrentVertexStride = Batch.VertexStride;
+			CurrentTopology = Batch.PrimitiveTopology;
+		}
+
+		// 4. 오브젝트별 상수 버퍼 설정 (매번 변경)
+		RHIDevice->SetAndUpdateConstantBuffer(ModelBufferType(Batch.WorldMatrix, Batch.WorldMatrix.InverseAffine().Transpose()));
+		RHIDevice->SetAndUpdateConstantBuffer(ColorBufferType(Batch.InstanceColor, Batch.ObjectID));
+
+		// 5. 드로우 콜 실행
+		RHIDevice->GetDeviceContext()->DrawIndexed(Batch.IndexCount, Batch.StartIndex, Batch.BaseVertexIndex);
+	}
+
+	// 루프 종료 후 리스트 비우기 (옵션)
+	if (bClearListAfterDraw)
+	{
+		InMeshBatches.Empty();
+	}
 }
 
 void FSceneRenderer::ApplyScreenEffectsPass()
