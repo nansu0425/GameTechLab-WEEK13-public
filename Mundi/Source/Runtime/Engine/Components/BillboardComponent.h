@@ -22,7 +22,7 @@ public:
     void SetTextureName( FString TexturePath);
 
     UQuad* GetStaticMesh() const { return Quad; }
-    FString& GetFilePath() { return TextureName; }
+    FString& GetFilePath() { return TexturePath; }
 
     UMaterialInterface* GetMaterial(uint32 InSectionIndex) const override;
     void SetMaterial(uint32 InElementIndex, UMaterialInterface* InNewMaterial) override;
@@ -35,7 +35,7 @@ public:
     DECLARE_DUPLICATE(UBillboardComponent)
 
 private:
-    FString TextureName;
+    FString TexturePath;
     UTexture* Texture = nullptr;  // 리플렉션 시스템용 Texture 포인터
     UMaterialInterface* Material = nullptr;
     UQuad* Quad = nullptr;

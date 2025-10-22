@@ -643,6 +643,7 @@ void FSceneRenderer::RenderDecalPass()
 		for (FMeshBatchElement& BatchElement : MeshBatchElements)
 		{
 			BatchElement.InstanceShaderResourceView = Decal->GetDecalTexture()->GetShaderResourceView();
+			BatchElement.Material = Decal->GetMaterial(0);
 			BatchElement.InputLayout = ShaderVariant->InputLayout;
 			BatchElement.VertexShader = ShaderVariant->VertexShader;
 			BatchElement.PixelShader = ShaderVariant->PixelShader;
@@ -913,6 +914,14 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 
 	// RHI 상태 초기 설정 (Opaque Pass 기본값)
 	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual); // 깊이 쓰기 ON
+
+	// PS 리소스 초기화
+	ID3D11ShaderResourceView* nullSRVs[2] = { nullptr, nullptr };
+	RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, nullSRVs);
+	ID3D11SamplerState* nullSamplers[2] = { nullptr, nullptr };
+	RHIDevice->GetDeviceContext()->PSSetSamplers(0, 2, nullSamplers);
+	FPixelConstBufferType DefaultPixelConst{};
+	RHIDevice->SetAndUpdateConstantBuffer(DefaultPixelConst);
 
 	// 현재 GPU 상태 캐싱용 변수 (UStaticMesh* 대신 실제 GPU 리소스로 변경)
 	ID3D11VertexShader* CurrentVertexShader = nullptr;

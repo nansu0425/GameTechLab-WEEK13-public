@@ -40,7 +40,7 @@ UBillboardComponent::UBillboardComponent()
 
 void UBillboardComponent::SetTextureName(FString TexturePath)
 {
-	TextureName = TexturePath;
+	TexturePath = TexturePath;
 	Texture = UResourceManager::GetInstance().Load<UTexture>(TexturePath);
 }
 
@@ -58,7 +58,7 @@ void UBillboardComponent::OnSerialized()
 {
 	Super::OnSerialized();
 
-	TextureName = Texture->GetFilePath();
+	TexturePath = Texture->GetFilePath();
 
 }
 
