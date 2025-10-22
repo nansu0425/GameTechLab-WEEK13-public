@@ -7,7 +7,7 @@
 
 class SSceneIOWindow; // 새로 추가할 UI
 class SDetailsWindow;
-class UMenuBarWidget;
+class UMainToolbarWidget;
 class UConsoleWindow; // 오버레이 콘솔 윈도우
 
 // 중앙 레이아웃/입력 라우팅/뷰포트 관리 매니저 (위젯 아님)
@@ -94,8 +94,8 @@ private:
     // 현재 모드
     EViewportLayoutMode CurrentMode = EViewportLayoutMode::FourSplit;
 
-    // 메뉴바 관련
-    UMenuBarWidget* MenuBar;
+    // 메인 툴바 관련
+    UMainToolbarWidget* MainToolbar;
 
     // 콘솔 오버레이
     UConsoleWindow* ConsoleWindow = nullptr;

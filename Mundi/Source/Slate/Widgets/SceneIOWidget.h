@@ -23,19 +23,19 @@ public:
 	USceneIOWidget();
 	~USceneIOWidget() override;
 
+	// Core Functionality (Public for MainToolbarWidget)
+	void SaveLevel(const FString& InFilePath);
+	void LoadLevel(const FString& InFilePath);
+	void CreateNewLevel();
+
+	// File Dialog Helpers (Public for MainToolbarWidget)
+	static path OpenSaveFileDialog();
+	static path OpenLoadFileDialog();
+
 private:
 	// UI Rendering Methods
 	void RenderSaveLoadSection();
 	void RenderStatusMessage();
-	
-	// Core Functionality
-	void SaveLevel(const FString& InFilePath);
-	void LoadLevel(const FString& InFilePath);
-	void CreateNewLevel();
-	
-	// File Dialog Helpers
-	static path OpenSaveFileDialog();
-	static path OpenLoadFileDialog();
 	
 	// Status and UI State
 	void SetStatusMessage(const FString& Message, bool bIsError = false);

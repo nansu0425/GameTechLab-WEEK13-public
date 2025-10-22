@@ -319,7 +319,7 @@
     <ClCompile Include="Source\Slate\Widgets\InputInformationWidget.cpp">
       <Filter>Source\Slate\Widgets</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Slate\Widgets\MenuBarWidget.cpp">
+    <ClCompile Include="Source\Slate\Widgets\MainToolbarWidget.cpp">
       <Filter>Source\Slate\Widgets</Filter>
     </ClCompile>
     <ClCompile Include="Source\Slate\Widgets\PrimitiveSpawnWidget.cpp">
@@ -781,7 +781,7 @@
     <ClInclude Include="Source\Slate\Widgets\InputInformationWidget.h">
       <Filter>Source\Slate\Widgets</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Slate\Widgets\MenuBarWidget.h">
+    <ClInclude Include="Source\Slate\Widgets\MainToolbarWidget.h">
       <Filter>Source\Slate\Widgets</Filter>
     </ClInclude>
     <ClInclude Include="Source\Slate\Widgets\PrimitiveSpawnWidget.h">

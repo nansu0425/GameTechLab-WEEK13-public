@@ -23,10 +23,14 @@ public:
     void Initialize() override;
     void Update() override;
     void RenderWidget() override;
-    
+
     // Special Member Functions
     USceneManagerWidget();
     ~USceneManagerWidget() override;
+
+    // Public API for external refresh requests
+    void RequestImmediateRefresh() { RefreshActorTree(); }
+    void RequestDelayedRefreshPublic() { bNeedRefreshNextFrame = true; }
 
 private:
     UUIManager* UIManager = nullptr;

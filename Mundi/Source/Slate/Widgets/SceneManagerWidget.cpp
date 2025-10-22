@@ -245,6 +245,13 @@ void USceneManagerWidget::RenderActorNode(FActorTreeNode* Node, int32 Depth)
 
 	AActor* Actor = Node->Actor;
 
+	// 중요: 액터가 이미 삭제되었는지 확인 (IsPendingDestroy 체크)
+	if (Actor->IsPendingDestroy())
+	{
+		RequestDelayedRefresh(); // 다음 프레임에 트리 새로고침 요청
+		return;
+	}
+
 	// Skip if doesn't pass filters
 	if (!ShouldShowActor(Actor))
 		return;

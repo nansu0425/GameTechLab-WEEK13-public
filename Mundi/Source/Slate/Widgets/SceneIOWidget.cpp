@@ -355,34 +355,39 @@ path USceneIOWidget::OpenSaveFileDialog()
 {
      OPENFILENAMEW ofn;
      wchar_t szFile[260] = {};
-   
+     wchar_t szInitialDir[260] = {};
+
+     // Scene 폴더를 기본 경로로 설정
+     std::filesystem::path sceneDir = std::filesystem::current_path() / "Scene";
+     wcscpy_s(szInitialDir, sceneDir.wstring().c_str());
+
      // 기본 파일명 설정
      wcscpy_s(szFile, L"");
-   
+
      // Initialize OPENFILENAME
      ZeroMemory(&ofn, sizeof(ofn));
      ofn.lStructSize = sizeof(ofn);
      ofn.hwndOwner = GetActiveWindow();  // 현재 활성 윈도우를 부모로 설정
      ofn.lpstrFile = szFile;
      ofn.nMaxFile = sizeof(szFile) / sizeof(wchar_t);
-     ofn.lpstrFilter = L"JSON Files\0*.scene\0All Files\0*.*\0";
+     ofn.lpstrFilter = L"Scene Files\0*.scene\0All Files\0*.*\0";
      ofn.nFilterIndex = 1;
      ofn.lpstrFileTitle = nullptr;
      ofn.nMaxFileTitle = 0;
-     ofn.lpstrInitialDir = nullptr;
-     ofn.lpstrTitle = L"Save Level File";
+     ofn.lpstrInitialDir = szInitialDir;  // Scene 폴더로 시작
+     ofn.lpstrTitle = L"Save Scene File";
 	 ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_EXPLORER | OFN_HIDEREADONLY | OFN_NOCHANGEDIR;
-     ofn.lpstrDefExt = L"json";
-   
+     ofn.lpstrDefExt = L"scene";
+
      // Modal 다이얼로그 표시 - 이 함수가 리턴될 때까지 다른 입력 차단
      UE_LOG("SceneIO: Opening Save Dialog (Modal)...");
-   
+
      if (GetSaveFileNameW(&ofn) == TRUE)
      {
          UE_LOG("SceneIO: Save Dialog Closed");
          return path(szFile);
      }
-   
+
     UE_LOG("SceneIO: Save Dialog Closed");
    return L"";
 }
@@ -395,6 +400,11 @@ path USceneIOWidget::OpenLoadFileDialog()
 {
     OPENFILENAMEW ofn;
     wchar_t szFile[260] = {};
+    wchar_t szInitialDir[260] = {};
+
+    // Scene 폴더를 기본 경로로 설정
+    std::filesystem::path sceneDir = std::filesystem::current_path() / "Scene";
+    wcscpy_s(szInitialDir, sceneDir.wstring().c_str());
 
     // Initialize OPENFILENAME
     ZeroMemory(&ofn, sizeof(ofn));
@@ -402,12 +412,12 @@ path USceneIOWidget::OpenLoadFileDialog()
     ofn.hwndOwner = GetActiveWindow();  // 현재 활성 윈도우를 부모로 설정
     ofn.lpstrFile = szFile;
     ofn.nMaxFile = sizeof(szFile) / sizeof(wchar_t);
-    ofn.lpstrFilter = L"JSON Files\0*.scene\0All Files\0*.*\0";
+    ofn.lpstrFilter = L"Scene Files\0*.scene\0All Files\0*.*\0";
     ofn.nFilterIndex = 1;
     ofn.lpstrFileTitle = nullptr;
     ofn.nMaxFileTitle = 0;
-    ofn.lpstrInitialDir = nullptr;
-    ofn.lpstrTitle = L"Load Level File";
+    ofn.lpstrInitialDir = szInitialDir;  // Scene 폴더로 시작
+    ofn.lpstrTitle = L"Load Scene File";
 	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_EXPLORER | OFN_HIDEREADONLY | OFN_NOCHANGEDIR;
 
     UE_LOG("SceneIO: Opening Load Dialog (Modal)...");

@@ -4,9 +4,10 @@
 #include "Windows/SSplitterV.h"
 #include "Windows/SDetailsWindow.h"
 #include "Windows/SControlPanel.h"
+#include "Windows/ControlPanelWindow.h"
 #include "Windows/SViewportWindow.h"
 #include "Windows/ConsoleWindow.h"
-#include "Widgets/MenuBarWidget.h"
+#include "Widgets/MainToolbarWidget.h"
 #include "FViewportClient.h"
 #include "UIManager.h"
 #include "GlobalConsole.h"
@@ -69,9 +70,9 @@ USlateManager::~USlateManager()
 
 void USlateManager::Initialize(ID3D11Device* InDevice, UWorld* InWorld, const FRect& InRect)
 {
-    MenuBar = NewObject<UMenuBarWidget>();
-    MenuBar->SetOwner(this);   // 레이아웃 스위칭 등 제어를 위해 주입
-    MenuBar->Initialize();
+    // MainToolbar 생성
+    MainToolbar = NewObject<UMainToolbarWidget>();
+    MainToolbar->Initialize();
 
     Device = InDevice;
     World = InWorld;
@@ -182,8 +183,8 @@ void USlateManager::SwitchPanel(SWindow* SwitchPanel)
 
 void USlateManager::Render()
 {
-    // 메뉴바 렌더링 (항상 최상단에)
-    MenuBar->RenderWidget();
+    // 메인 툴바 렌더링 (항상 최상단에)
+    MainToolbar->RenderWidget();
     if (TopPanel)
     {
         TopPanel->OnRender();
@@ -270,11 +271,14 @@ void USlateManager::Render()
 void USlateManager::Update(float DeltaSeconds)
 {
     ProcessInput();
+    // MainToolbar 업데이트
+    MainToolbar->Update();
+
     if (TopPanel)
     {
-        // 메뉴바 높이만큼 아래로 이동
-        float menuBarHeight = ImGui::GetFrameHeight();
-        TopPanel->Rect = FRect(0, menuBarHeight, CLIENTWIDTH, CLIENTHEIGHT);
+        // 툴바 높이만큼 아래로 이동 (50px)
+        const float toolbarHeight = 50.0f;
+        TopPanel->Rect = FRect(0, toolbarHeight, CLIENTWIDTH, CLIENTHEIGHT);
         TopPanel->OnUpdate(DeltaSeconds);
     }
 

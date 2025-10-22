@@ -1,0 +1,516 @@
+﻿#include "pch.h"
+#include "MainToolbarWidget.h"
+#include "ImGui/imgui.h"
+#include "Texture.h"
+#include "ResourceManager.h"
+#include "Object.h"
+#include "UIManager.h"
+#include "World.h"
+#include "Level.h"
+#include "JsonSerializer.h"
+#include "SelectionManager.h"
+#include <EditorEngine.h>
+#include <filesystem>
+#include <windows.h>
+#include <commdlg.h>
+
+IMPLEMENT_CLASS(UMainToolbarWidget)
+
+UMainToolbarWidget::UMainToolbarWidget()
+    : UWidget("Main Toolbar")
+{
+}
+
+void UMainToolbarWidget::Initialize()
+{
+    LoadToolbarIcons();
+}
+
+void UMainToolbarWidget::Update()
+{
+    // 키보드 단축키 처리
+    HandleKeyboardShortcuts();
+}
+
+void UMainToolbarWidget::RenderWidget()
+{
+    RenderToolbar();
+}
+
+void UMainToolbarWidget::LoadToolbarIcons()
+{
+    // 아이콘 로딩 (사용자가 파일을 제공할 예정)
+    IconNew = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_New.png");
+    IconSave = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_Save.png");
+    IconLoad = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_Load.png");
+    IconPlay = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_Play.png");
+    IconStop = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_Stop.png");
+    IconAddActor = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_AddActor.png");
+}
+
+void UMainToolbarWidget::RenderToolbar()
+{
+    // 툴바 윈도우 설정
+    const float ToolbarHeight = 50.0f;
+    ImVec2 ToolbarPos(0, 0);
+    ImVec2 ToolbarSize(ImGui::GetIO().DisplaySize.x, ToolbarHeight);
+
+    ImGui::SetNextWindowPos(ToolbarPos);
+    ImGui::SetNextWindowSize(ToolbarSize);
+
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
+                             ImGuiWindowFlags_NoMove |
+                             ImGuiWindowFlags_NoSavedSettings |
+                             ImGuiWindowFlags_NoBringToFrontOnFocus;
+
+    if (ImGui::Begin("##MainToolbar", nullptr, flags))
+    {
+        // 수직 중앙 정렬 (34px 아이콘을 50px 높이에 중앙 배치)
+        float cursorY = (ToolbarHeight - 34.0f) / 2.0f;
+        ImGui::SetCursorPosY(cursorY);
+        ImGui::SetCursorPosX(8.0f); // 왼쪽 여백
+
+        // Scene 관리 버튼들
+        RenderSceneButtons();
+
+        // 구분선
+        ImGui::SameLine(0, 12.0f);
+        ImGui::TextColored(ImVec4(0.4f, 0.4f, 0.4f, 1.0f), "|");
+
+        // Actor Spawn 버튼
+        ImGui::SameLine(0, 12.0f);
+        RenderActorSpawnButton();
+
+        // 구분선
+        ImGui::SameLine(0, 12.0f);
+        ImGui::TextColored(ImVec4(0.4f, 0.4f, 0.4f, 1.0f), "|");
+
+        // PIE 제어 버튼들
+        ImGui::SameLine(0, 12.0f);
+        RenderPIEButtons();
+    }
+    ImGui::End();
+}
+
+void UMainToolbarWidget::RenderSceneButtons()
+{
+    const ImVec2 IconSize(34, 34);
+
+    // 버튼 스타일 설정 (SViewportWindow 스타일)
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 4));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 0));
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 0.7f));
+
+    // New 버튼
+    if (IconNew && IconNew->GetShaderResourceView())
+    {
+        if (ImGui::ImageButton("##NewBtn", (void*)IconNew->GetShaderResourceView(), IconSize))
+        {
+            OnNewScene();
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("새 씬을 생성합니다 [Ctrl+N]");
+    }
+
+    ImGui::SameLine();
+
+    // Save 버튼
+    if (IconSave && IconSave->GetShaderResourceView())
+    {
+        if (ImGui::ImageButton("##SaveBtn", (void*)IconSave->GetShaderResourceView(), IconSize))
+        {
+            OnSaveScene();
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("현재 씬을 저장합니다 [Ctrl+S]");
+    }
+
+    ImGui::SameLine();
+
+    // Load 버튼
+    if (IconLoad && IconLoad->GetShaderResourceView())
+    {
+        if (ImGui::ImageButton("##LoadBtn", (void*)IconLoad->GetShaderResourceView(), IconSize))
+        {
+            OnLoadScene();
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("씬을 불러옵니다 [Ctrl+O]");
+    }
+
+    ImGui::PopStyleColor(3);
+    ImGui::PopStyleVar(3);
+}
+
+void UMainToolbarWidget::RenderActorSpawnButton()
+{
+    const ImVec2 IconSize(34, 34);
+
+    // 드롭다운 버튼 스타일
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8, 4));
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.14f, 0.16f, 0.16f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.22f, 0.21f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.22f, 0.28f, 0.26f, 1.00f));
+
+    // 아이콘만 표시하는 버튼
+    bool bButtonClicked = false;
+    if (IconAddActor && IconAddActor->GetShaderResourceView())
+    {
+        // 아이콘 버튼
+        if (ImGui::ImageButton("##AddActorBtn", (void*)IconAddActor->GetShaderResourceView(), IconSize))
+        {
+            bButtonClicked = true;
+        }
+
+        // 드롭다운 화살표 (아이콘 오른쪽에)
+        ImGui::SameLine(0, 2);
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 8); // 화살표를 약간 아래로
+        ImGui::Text("∨");
+
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("액터를 월드에 추가합니다");
+    }
+
+    // 팝업 열기
+    if (bButtonClicked)
+    {
+        ImGui::OpenPopup("ActorSpawnPopup");
+    }
+
+    // Actor Spawn 팝업 렌더링
+    if (ImGui::BeginPopup("ActorSpawnPopup"))
+    {
+        ImGui::TextUnformatted("Add Actor");
+        ImGui::Separator();
+
+        TArray<UClass*> SpawnableActors = UClass::GetAllSpawnableActors();
+        for (UClass* ActorClass : SpawnableActors)
+        {
+            if (ActorClass && ActorClass->bIsSpawnable && ActorClass->DisplayName)
+            {
+                ImGui::PushID(ActorClass->DisplayName);
+                if (ImGui::Selectable(ActorClass->DisplayName))
+                {
+                    // Actor 생성
+                    if (GWorld)
+                    {
+                        AActor* NewActor = GWorld->SpawnActor(ActorClass);
+                        if (NewActor)
+                        {
+                            UE_LOG("MainToolbar: Spawned actor %s", ActorClass->DisplayName);
+                        }
+                    }
+                    ImGui::CloseCurrentPopup();
+                }
+                if (ActorClass->Description && ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("%s", ActorClass->Description);
+                }
+                ImGui::PopID();
+            }
+        }
+        ImGui::EndPopup();
+    }
+
+    ImGui::PopStyleColor(3);
+    ImGui::PopStyleVar(2);
+}
+
+void UMainToolbarWidget::RenderPIEButtons()
+{
+    const ImVec2 IconSize(34, 34);
+
+    // 버튼 스타일
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 4));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 0));
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 0.7f));
+
+#ifdef _EDITOR
+    extern UEditorEngine GEngine;
+    bool isPIE = GEngine.IsPIEActive();
+
+    // Play 버튼
+    ImGui::BeginDisabled(isPIE);
+    if (IconPlay && IconPlay->GetShaderResourceView())
+    {
+        ImVec4 tint = isPIE ? ImVec4(0.5f, 0.5f, 0.5f, 0.5f) : ImVec4(1, 1, 1, 1);
+        if (ImGui::ImageButton("##PlayBtn", (void*)IconPlay->GetShaderResourceView(),
+                                IconSize, ImVec2(0,0), ImVec2(1,1), ImVec4(0,0,0,0), tint))
+        {
+            GEngine.StartPIE();
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Play In Editor를 시작합니다 [F5]");
+    }
+    ImGui::EndDisabled();
+
+    ImGui::SameLine();
+
+    // Stop 버튼
+    ImGui::BeginDisabled(!isPIE);
+    if (IconStop && IconStop->GetShaderResourceView())
+    {
+        ImVec4 tint = !isPIE ? ImVec4(0.5f, 0.5f, 0.5f, 0.5f) : ImVec4(1, 1, 1, 1);
+        if (ImGui::ImageButton("##StopBtn", (void*)IconStop->GetShaderResourceView(),
+                                IconSize, ImVec2(0,0), ImVec2(1,1), ImVec4(0,0,0,0), tint))
+        {
+            GEngine.EndPIE();
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Play In Editor를 종료합니다 [Shift+F5]");
+    }
+    ImGui::EndDisabled();
+#endif
+
+    ImGui::PopStyleColor(3);
+    ImGui::PopStyleVar(3);
+}
+
+void UMainToolbarWidget::OnNewScene()
+{
+    try
+    {
+        UWorld* CurrentWorld = UUIManager::GetInstance().GetWorld();
+        if (!CurrentWorld)
+        {
+            UE_LOG("MainToolbar: Cannot find World!");
+            return;
+        }
+
+        // 로드 직전: Transform 위젯/선택 초기화
+        UUIManager::GetInstance().ClearTransformWidgetSelection();
+        GWorld->GetSelectionManager()->ClearSelection();
+
+        // 새 레벨 생성 후 월드에 적용
+        CurrentWorld->GetLightManager()->ClearAllLightList();
+        CurrentWorld->SetLevel(ULevelService::CreateNewLevel());
+
+        UE_LOG("MainToolbar: New scene created");
+    }
+    catch (const std::exception& Exception)
+    {
+        UE_LOG("MainToolbar: Create Error: %s", Exception.what());
+    }
+}
+
+void UMainToolbarWidget::OnSaveScene()
+{
+    // Windows 파일 다이얼로그 열기
+    std::filesystem::path selectedPath = OpenSaveFileDialog();
+    if (selectedPath.empty())
+        return;
+
+    try
+    {
+        UWorld* CurrentWorld = UUIManager::GetInstance().GetWorld();
+        if (!CurrentWorld)
+        {
+            UE_LOG("MainToolbar: Cannot find World!");
+            return;
+        }
+
+        // 파일 경로에서 씬 이름 추출
+        FString SceneName = selectedPath.stem().string(); // 확장자 제외한 파일명
+
+        // Scene 디렉토리가 없으면 생성
+        namespace fs = std::filesystem;
+        fs::path SceneDir = "Scene";
+        if (!fs::exists(SceneDir))
+        {
+            fs::create_directories(SceneDir);
+            UE_LOG("MainToolbar: Created Scene directory");
+        }
+
+        FString FilePath = "Scene/" + SceneName + ".Scene";
+
+        JSON LevelJson;
+        CurrentWorld->GetLevel()->Serialize(false, LevelJson);
+        bool bSuccess = FJsonSerializer::SaveJsonToFile(LevelJson, FilePath);
+
+        UE_LOG("MainToolbar: Scene saved: %s", SceneName.c_str());
+    }
+    catch (const std::exception& Exception)
+    {
+        UE_LOG("MainToolbar: Save Error: %s", Exception.what());
+    }
+}
+
+void UMainToolbarWidget::OnLoadScene()
+{
+    // Windows 파일 다이얼로그 열기
+    std::filesystem::path selectedPath = OpenLoadFileDialog();
+    if (selectedPath.empty())
+        return;
+
+    try
+    {
+        FString InFilePath = selectedPath.string();
+
+        // 파일명에서 씬 이름 추출
+        FString SceneName = InFilePath;
+        size_t LastSlash = SceneName.find_last_of("\\/");
+        if (LastSlash != std::string::npos)
+        {
+            SceneName = SceneName.substr(LastSlash + 1);
+        }
+        size_t LastDot = SceneName.find_last_of(".");
+        if (LastDot != std::string::npos)
+        {
+            SceneName = SceneName.substr(0, LastDot);
+        }
+
+        // World 가져오기
+        UWorld* CurrentWorld = UUIManager::GetInstance().GetWorld();
+        if (!CurrentWorld)
+        {
+            UE_LOG("MainToolbar: Cannot find World!");
+            return;
+        }
+
+        // 로드 직전: Transform 위젯/선택 초기화
+        UUIManager::GetInstance().ClearTransformWidgetSelection();
+        GWorld->GetSelectionManager()->ClearSelection();
+
+        std::unique_ptr<ULevel> NewLevel = ULevelService::CreateDefaultLevel();
+        JSON LevelJsonData;
+        if (FJsonSerializer::LoadJsonFromFile(LevelJsonData, InFilePath))
+        {
+            NewLevel->Serialize(true, LevelJsonData);
+        }
+        else
+        {
+            UE_LOG("MainToolbar: Failed To Load Level From: %s", InFilePath.c_str());
+            return;
+        }
+        CurrentWorld->SetLevel(std::move(NewLevel));
+
+        UE_LOG("MainToolbar: Scene loaded successfully: %s", InFilePath.c_str());
+    }
+    catch (const std::exception& Exception)
+    {
+        UE_LOG("MainToolbar: Load Error: %s", Exception.what());
+    }
+}
+
+std::filesystem::path UMainToolbarWidget::OpenSaveFileDialog()
+{
+    using std::filesystem::path;
+
+    OPENFILENAMEW ofn;
+    wchar_t szFile[260] = {};
+    wchar_t szInitialDir[260] = {};
+
+    // Scene 폴더를 기본 경로로 설정
+    std::filesystem::path sceneDir = std::filesystem::current_path() / "Scene";
+    wcscpy_s(szInitialDir, sceneDir.wstring().c_str());
+
+    // Initialize OPENFILENAME
+    ZeroMemory(&ofn, sizeof(ofn));
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = GetActiveWindow();
+    ofn.lpstrFile = szFile;
+    ofn.nMaxFile = sizeof(szFile) / sizeof(wchar_t);
+    ofn.lpstrFilter = L"Scene Files\0*.scene\0All Files\0*.*\0";
+    ofn.nFilterIndex = 1;
+    ofn.lpstrFileTitle = nullptr;
+    ofn.nMaxFileTitle = 0;
+    ofn.lpstrInitialDir = szInitialDir;
+    ofn.lpstrTitle = L"Save Scene File";
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_EXPLORER | OFN_HIDEREADONLY | OFN_NOCHANGEDIR;
+    ofn.lpstrDefExt = L"scene";
+
+    UE_LOG("MainToolbar: Opening Save Dialog (Modal)...");
+
+    if (GetSaveFileNameW(&ofn) == TRUE)
+    {
+        UE_LOG("MainToolbar: Save Dialog Closed");
+        return path(szFile);
+    }
+
+    UE_LOG("MainToolbar: Save Dialog Cancelled");
+    return L"";
+}
+
+std::filesystem::path UMainToolbarWidget::OpenLoadFileDialog()
+{
+    using std::filesystem::path;
+
+    OPENFILENAMEW ofn;
+    wchar_t szFile[260] = {};
+    wchar_t szInitialDir[260] = {};
+
+    // Scene 폴더를 기본 경로로 설정
+    std::filesystem::path sceneDir = std::filesystem::current_path() / "Scene";
+    wcscpy_s(szInitialDir, sceneDir.wstring().c_str());
+
+    // Initialize OPENFILENAME
+    ZeroMemory(&ofn, sizeof(ofn));
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = GetActiveWindow();
+    ofn.lpstrFile = szFile;
+    ofn.nMaxFile = sizeof(szFile) / sizeof(wchar_t);
+    ofn.lpstrFilter = L"Scene Files\0*.scene\0All Files\0*.*\0";
+    ofn.nFilterIndex = 1;
+    ofn.lpstrFileTitle = nullptr;
+    ofn.nMaxFileTitle = 0;
+    ofn.lpstrInitialDir = szInitialDir;
+    ofn.lpstrTitle = L"Load Scene File";
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_EXPLORER | OFN_HIDEREADONLY | OFN_NOCHANGEDIR;
+
+    UE_LOG("MainToolbar: Opening Load Dialog (Modal)...");
+
+    if (GetOpenFileNameW(&ofn) == TRUE)
+    {
+        UE_LOG("MainToolbar: Load Dialog Closed");
+        return path(szFile);
+    }
+
+    UE_LOG("MainToolbar: Load Dialog Cancelled");
+    return L"";
+}
+
+void UMainToolbarWidget::HandleKeyboardShortcuts()
+{
+    ImGuiIO& io = ImGui::GetIO();
+
+    // Ctrl+N: New Scene
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_N, false))
+    {
+        OnNewScene();
+    }
+
+    // Ctrl+S: Save Scene
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false))
+    {
+        OnSaveScene();
+    }
+
+    // Ctrl+O: Open/Load Scene
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O, false))
+    {
+        OnLoadScene();
+    }
+
+#ifdef _EDITOR
+    extern UEditorEngine GEngine;
+
+    // F5: Start PIE
+    if (ImGui::IsKeyPressed(ImGuiKey_F5, false) && !GEngine.IsPIEActive())
+    {
+        GEngine.StartPIE();
+    }
+
+    // Shift+F5: Stop PIE
+    if (io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_F5, false) && GEngine.IsPIEActive())
+    {
+        GEngine.EndPIE();
+    }
+#endif
+}
