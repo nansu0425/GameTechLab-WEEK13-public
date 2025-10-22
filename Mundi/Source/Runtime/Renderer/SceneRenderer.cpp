@@ -853,7 +853,10 @@ void FSceneRenderer::RenderDebugPass()
 	// 그리드 라인 수집
 	for (ULineComponent* LineComponent : Proxies.EditorLines)
 	{
-		LineComponent->CollectLineBatches(OwnerRenderer);
+		if (GWorld->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Grid))
+		{
+			LineComponent->CollectLineBatches(OwnerRenderer);
+		}
 	}
 
 	// 선택된 액터의 디버그 볼륨 렌더링
