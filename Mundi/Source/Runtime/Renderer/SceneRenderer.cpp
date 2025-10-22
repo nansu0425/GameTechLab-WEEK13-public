@@ -25,7 +25,6 @@
 #include "TextRenderComponent.h"
 #include "OBB.h"
 #include "BoundingSphere.h"
-#include "FireBallComponent.h"
 #include "HeightFogComponent.h"
 #include "Gizmo/GizmoArrowComponent.h"
 #include "Gizmo/GizmoRotateComponent.h"
@@ -129,7 +128,6 @@ void FSceneRenderer::RenderLitPath()
 	// Base Pass
 	RenderOpaquePass(View->ViewMode);
 	RenderDecalPass();
-	RenderFireBallPass();
 }
 
 void FSceneRenderer::RenderWireframePath()
@@ -332,10 +330,6 @@ void FSceneRenderer::GatherVisibleProxies()
 					else if (UDecalComponent* DecalComponent = Cast<UDecalComponent>(PrimitiveComponent); DecalComponent && bDrawDecals)
 					{
 						Proxies.Decals.Add(DecalComponent);
-					}
-					else if (UFireBallComponent* FireBallComponent = Cast<UFireBallComponent>(PrimitiveComponent))
-					{
-						Proxies.FireBalls.Add(FireBallComponent);
 					}
 				}
 				else
@@ -659,54 +653,6 @@ void FSceneRenderer::RenderDecalPass()
 	// 상태 복구
 	RHIDevice->RSSetState(ERasterizerMode::Solid);
 	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
-	RHIDevice->OMSetBlendState(false);
-}
-
-void FSceneRenderer::RenderFireBallPass()
-{
-	if (Proxies.FireBalls.empty())
-		return;
-
-	UWorldPartitionManager* Partition = World->GetPartitionManager();
-	if (!Partition)
-		return;
-
-	const FBVHierarchy* BVH = Partition->GetBVH();
-	if (!BVH)
-		return;
-
-	// 데칼과 같은 설정 사용
-	RHIDevice->RSSetState(ERasterizerMode::Decal); // z-fighting 방지용 DepthBias 포함
-	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqualReadOnly); // 깊이 쓰기 OFF
-	RHIDevice->OMSetBlendState(true); // 블렌딩 ON
-
-	for (UFireBallComponent* FireBall : Proxies.FireBalls)
-	{
-		// FireBall 렌더링
-		TArray<UPrimitiveComponent*> TargetPrimitives;
-
-		FBoundingSphere FireBallSphere = FireBall->GetBoundingSphere();
-		TArray<UStaticMeshComponent*> IntersectedStaticMeshComponents = BVH->QueryIntersectedComponents(FireBallSphere);
-
-		for (UStaticMeshComponent* SMC : IntersectedStaticMeshComponents)
-		{
-			if (!SMC)
-				continue;
-
-			AActor* Owner = SMC->GetOwner();
-			if (!Owner || !Owner->IsActorVisible())
-				continue;
-
-			TargetPrimitives.push_back(SMC);
-		}
-
-		for (UPrimitiveComponent* Target : TargetPrimitives)
-		{
-			FireBall->RenderAffectedPrimitives(OwnerRenderer, Target);
-		}
-	}
-
-	RHIDevice->RSSetState(ERasterizerMode::Solid);
 	RHIDevice->OMSetBlendState(false);
 }
 
