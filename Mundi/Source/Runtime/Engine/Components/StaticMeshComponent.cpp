@@ -119,8 +119,11 @@ void UStaticMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMesh
 			continue;
 		}
 
+		// NOTE: 매크로 저장 불러오기가 미구현으로 일단 강제로 추가
+		TArray<FShaderMacro> DefaultMacros;
+		DefaultMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" });
 		FMeshBatchElement BatchElement;
-		FShaderVariant* ShaderVariant = ShaderToUse->GetShaderVariant(MaterialToUse->GetShaderMacros());
+		FShaderVariant* ShaderVariant = ShaderToUse->GetShaderVariant(DefaultMacros);
 
 		if (ShaderVariant)
 		{
