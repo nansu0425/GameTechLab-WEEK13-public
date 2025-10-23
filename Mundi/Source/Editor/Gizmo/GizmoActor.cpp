@@ -153,7 +153,7 @@ void AGizmoActor::Tick(float DeltaSeconds)
 	if (!UIManager) UIManager = &UUIManager::GetInstance();
 
 	// 컴포넌트 활성화 상태 업데이트    
-	if (SelectionManager->HasSelection() && CameraActor)
+	if (SelectionManager && SelectionManager->HasSelection() && CameraActor)
 	{
 		USceneComponent* SelectedComponent = SelectionManager->GetSelectedComponent();
 
@@ -181,6 +181,7 @@ void AGizmoActor::SetMode(EGizmoMode NewMode)
 {
 	CurrentMode = NewMode;
 }
+
 EGizmoMode AGizmoActor::GetMode()
 {
 	return CurrentMode;
