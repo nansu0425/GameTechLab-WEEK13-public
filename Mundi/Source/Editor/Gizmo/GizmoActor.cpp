@@ -22,9 +22,6 @@ AGizmoActor::AGizmoActor()
 	const float GizmoTotalSize = 1.5f;
 
 	//======= Arrow Component 생성 =======
-	/*ArrowX = NewObject<UGizmoArrowComponent>();
-	ArrowY = NewObject<UGizmoArrowComponent>();
-	ArrowZ = NewObject<UGizmoArrowComponent>();*/
 	RootComponent = CreateDefaultSubobject<USceneComponent>("DefaultSceneComponent");
 
 	ArrowX = CreateDefaultSubobject<UGizmoArrowComponent>("GizmoArrowComponent");
@@ -47,7 +44,6 @@ AGizmoActor::AGizmoActor()
 	ArrowY->SetDefaultScale({ GizmoTotalSize, GizmoTotalSize, GizmoTotalSize });
 	ArrowZ->SetDefaultScale({ GizmoTotalSize, GizmoTotalSize, GizmoTotalSize });
 
-	// Set high render priority so selection gizmo renders on top of DirectionGizmos
 	ArrowX->SetRenderPriority(100);
 	ArrowY->SetRenderPriority(100);
 	ArrowZ->SetRenderPriority(100);
@@ -84,7 +80,6 @@ AGizmoActor::AGizmoActor()
 	RotateY->SetDefaultScale({ GizmoTotalSize, GizmoTotalSize, GizmoTotalSize });
 	RotateZ->SetDefaultScale({ GizmoTotalSize, GizmoTotalSize, GizmoTotalSize });
 
-	// Set high render priority so selection gizmo renders on top of DirectionGizmos
 	RotateX->SetRenderPriority(100);
 	RotateY->SetRenderPriority(100);
 	RotateZ->SetRenderPriority(100);
@@ -121,7 +116,6 @@ AGizmoActor::AGizmoActor()
 	ScaleY->SetDefaultScale({ GizmoTotalSize, GizmoTotalSize, GizmoTotalSize });
 	ScaleZ->SetDefaultScale({ GizmoTotalSize, GizmoTotalSize, GizmoTotalSize });
 
-	// Set high render priority so selection gizmo renders on top of DirectionGizmos
 	ScaleX->SetRenderPriority(100);
 	ScaleY->SetRenderPriority(100);
 	ScaleZ->SetRenderPriority(100);
@@ -138,6 +132,13 @@ AGizmoActor::AGizmoActor()
 	GizmoScaleComponents.Add(ScaleZ);
 
 	CurrentMode = EGizmoMode::Translate;
+
+	// --- 드래그 상태 변수 초기화 ---
+	DraggingAxis = 0;
+	DragCamera = nullptr;
+	HoverImpactPoint = FVector::Zero();
+	DragImpactPoint = FVector::Zero();
+	DragScreenVector = FVector2D::Zero();
 
 	// 매니저 참조 초기화 (월드 소유)
 	SelectionManager = GetWorld() ? GetWorld()->GetSelectionManager() : nullptr;
@@ -159,6 +160,8 @@ void AGizmoActor::Tick(float DeltaSeconds)
 		// 기즈모 위치를 선택된 액터 위치로 업데이트
 		if (SelectedComponent)
 		{
+			// OnDrag 함수가 컴포넌트의 위치를 변경하면,
+			// Tick 함수는 그 변경된 위치를 읽어 기즈모 액터 자신을 이동시킵니다.
 			SetSpaceWorldMatrix(CurrentSpace, SelectedComponent);
 			SetActorLocation(SelectedComponent->GetWorldLocation());
 		}
@@ -178,7 +181,7 @@ void AGizmoActor::SetMode(EGizmoMode NewMode)
 {
 	CurrentMode = NewMode;
 }
-EGizmoMode  AGizmoActor::GetMode()
+EGizmoMode AGizmoActor::GetMode()
 {
 	return CurrentMode;
 }
@@ -192,13 +195,13 @@ void AGizmoActor::SetSpaceWorldMatrix(EGizmoSpace NewSpace, USceneComponent* Sel
 
 	if (NewSpace == EGizmoSpace::Local || CurrentMode == EGizmoMode::Scale)
 	{
-		// [수정] 기즈모 액터 자체를 타겟의 회전으로 설정합니다.
+		// 기즈모 액터 자체를 타겟의 회전으로 설정합니다.
 		FQuat TargetRot = SelectedComponent->GetWorldRotation();
 		SetActorRotation(TargetRot);
 	}
 	else if (NewSpace == EGizmoSpace::World)
 	{
-		// [수정] 기즈모 액터를 월드 축에 정렬 (단위 회전으로 설정)
+		// 기즈모 액터를 월드 축에 정렬 (단위 회전으로 설정)
 		SetActorRotation(FQuat::Identity());
 	}
 }
@@ -234,32 +237,10 @@ static FVector2D GetStableAxisDirection(const FVector& WorldAxis, const ACameraA
 	const FVector CameraUp = Camera->GetUp();
 	const FVector CameraForward = Camera->GetForward();
 
-	// 축과 카메라 forward의 각도 확인 (수직도 측정)
-	float ForwardDot = FVector::Dot(WorldAxis.GetNormalized(), CameraForward.GetNormalized());
-	float PerpendicularThreshold = 0.95f; // cos(약 18도)
+	// 카메라와 축이 정렬될 때 불안정하게 튀는
+	// "예외 처리" if 블록을 완전히 제거합니다.
 
-	// 거의 수직인 경우 (축이 스크린과 거의 평행)
-	if (std::fabs(ForwardDot) > PerpendicularThreshold)
-	{
-		// 가장 큰 성분을 가진 카메라 축 성분 사용
-		float RightComponent = std::fabs(FVector::Dot(WorldAxis, CameraRight));
-		float UpComponent = std::fabs(FVector::Dot(WorldAxis, CameraUp));
-
-		if (RightComponent > UpComponent)
-		{
-			// Right 성분이 더 클 때: X축 우선 (원래 부호 유지)
-			float Sign = FVector::Dot(WorldAxis, CameraRight) > 0 ? 1.0f : -1.0f;
-			return FVector2D(Sign, 0.0f);
-		}
-		else
-		{
-			// Up 성분이 더 클 때: Y축 우선 (DirectX는 Y가 아래쪽이므로 반전)
-			float Sign = FVector::Dot(WorldAxis, CameraUp) > 0 ? -1.0f : 1.0f;
-			return FVector2D(0.0f, Sign);
-		}
-	}
-
-	// 일반적인 경우: 스크린 투영 사용
+	// "일반적인 경우"의 스크린 투영 로직만 사용합니다.
 	float RightDot = FVector::Dot(WorldAxis, CameraRight);
 	float UpDot = FVector::Dot(WorldAxis, CameraUp);
 
@@ -273,80 +254,49 @@ static FVector2D GetStableAxisDirection(const FVector& WorldAxis, const ACameraA
 		return ScreenDirection * (1.0f / Length);
 	}
 
-	// 예외 상황: 기본 X축 방향
+	// 투영된 길이가 0에 가까우면 (즉, 축이 카메라를 쳐다보면)
+	// 이 코드가 실행되어 안정적인 기본 X축 방향을 반환합니다.
 	return FVector2D(1.0f, 0.0f);
 }
 
 void AGizmoActor::OnDrag(USceneComponent* Target, uint32 GizmoAxis, float MouseDeltaX, float MouseDeltaY, const ACameraActor* Camera, FViewport* Viewport)
 {
-	if (!Target || !Camera)
+	// DraggingAxis == 0 이면 드래그 중이 아니므로 반환
+	if (!Target || !Camera || DraggingAxis == 0)
 		return;
 
-	FVector2D MouseDelta = FVector2D(MouseDeltaX, MouseDeltaY);
+	// MouseDeltaX/Y는 이제 드래그 시작점으로부터의 '총 변위(Total Offset)'입니다.
+	FVector2D MouseOffset(MouseDeltaX, MouseDeltaY);
 
-	FVector Axis{};
-	FVector GizmoPosition = GetActorLocation();
-
-	// ────────────── World / Local 축 선택 ──────────────
-	if (CurrentSpace == EGizmoSpace::Local || CurrentMode == EGizmoMode::Scale)	// Scale 은 항상 로컬 축 기준
-	{
-		switch (GizmoAxis)
-		{
-		case 1: Axis = Target->GetWorldRotation().RotateVector(FVector(1, 0, 0));   break; // Local X
-		case 2: Axis = Target->GetWorldRotation().RotateVector(FVector(0, 1, 0)); break; // Local Y
-		case 3: Axis = Target->GetWorldRotation().RotateVector(FVector(0, 0, 1));      break; // Local Z
-		}
-	}
-	else if (CurrentSpace == EGizmoSpace::World)
-	{
-		switch (GizmoAxis)
-		{
-		case 1: Axis = FVector(1, 0, 0); break;
-		case 2: Axis = FVector(0, 1, 0); break;
-		case 3: Axis = FVector(0, 0, 1); break;
-		}
-	}
-
-
-	// ────────────── 모드별 처리 ──────────────
+	// ────────────── 모드별 처리 (Stateful 방식) ──────────────
 	switch (CurrentMode)
 	{
 	case EGizmoMode::Translate:
-	{
-		FVector2D ScreenAxis = GetStableAxisDirection(Axis, Camera);
-		float px = (MouseDelta.X * ScreenAxis.X + MouseDelta.Y * ScreenAxis.Y);
-		float h = Viewport ? static_cast<float>(Viewport->GetSizeY()) : UInputManager::GetInstance().GetScreenSize().Y;
-		if (h <= 0.0f) h = 1.0f;
-		float w = Viewport ? static_cast<float>(Viewport->GetSizeX()) : UInputManager::GetInstance().GetScreenSize().X;
-		float aspect = w / h;
-		FMatrix Proj = Camera->GetProjectionMatrix(aspect, Viewport);
-		bool bOrtho = std::fabs(Proj.M[3][3] - 1.0f) < KINDA_SMALL_NUMBER;
-		float worldPerPixel = 0.0f;
-		if (bOrtho)
-		{
-			float halfH = 1.0f / Proj.M[1][1];
-			worldPerPixel = (2.0f * halfH) / h;
-		}
-		else
-		{
-			float yScale = Proj.M[1][1];
-			FVector camPos = Camera->GetActorLocation();
-			FVector gizPos = GetActorLocation();
-			FVector camF = Camera->GetForward();
-			float z = FVector::Dot(gizPos - camPos, camF);
-			if (z < 1.0f) z = 1.0f;
-			worldPerPixel = (2.0f * z) / (h * yScale);
-		}
-		float Movement = px * worldPerPixel;
-		FVector CurrentLocation = Target->GetWorldLocation();
-		Target->SetWorldLocation(CurrentLocation + Axis * Movement);
-
-		break;
-	}
 	case EGizmoMode::Scale:
 	{
+		// --- 드래그 시작 시점의 축 계산 ---
+		FVector Axis{};
+		if (CurrentSpace == EGizmoSpace::Local || CurrentMode == EGizmoMode::Scale)
+		{
+			switch (DraggingAxis)
+			{
+			case 1: Axis = DragStartRotation.RotateVector(FVector(1, 0, 0)); break;
+			case 2: Axis = DragStartRotation.RotateVector(FVector(0, 1, 0)); break;
+			case 3: Axis = DragStartRotation.RotateVector(FVector(0, 0, 1)); break;
+			}
+		}
+		else if (CurrentSpace == EGizmoSpace::World)
+		{
+			switch (DraggingAxis)
+			{
+			case 1: Axis = FVector(1, 0, 0); break;
+			case 2: Axis = FVector(0, 1, 0); break;
+			case 3: Axis = FVector(0, 0, 1); break;
+			}
+		}
+
+		// ────────────── 픽셀 당 월드 이동량 계산 (Translate/Scale용) ──────────────
 		FVector2D ScreenAxis = GetStableAxisDirection(Axis, Camera);
-		float px = (MouseDelta.X * ScreenAxis.X + MouseDelta.Y * ScreenAxis.Y);
 		float h = Viewport ? static_cast<float>(Viewport->GetSizeY()) : UInputManager::GetInstance().GetScreenSize().Y;
 		if (h <= 0.0f) h = 1.0f;
 		float w = Viewport ? static_cast<float>(Viewport->GetSizeX()) : UInputManager::GetInstance().GetScreenSize().X;
@@ -369,134 +319,75 @@ void AGizmoActor::OnDrag(USceneComponent* Target, uint32 GizmoAxis, float MouseD
 			if (z < 1.0f) z = 1.0f;
 			worldPerPixel = (2.0f * z) / (h * yScale);
 		}
-		float Movement = px * worldPerPixel;
-		FVector NewScale = Target->GetWorldScale();
 
-		// Apply movement to the correct local axis based on which gizmo was dragged
-		switch (GizmoAxis)
+		float ProjectedPx = (MouseOffset.X * ScreenAxis.X + MouseOffset.Y * ScreenAxis.Y);
+		float TotalMovement = ProjectedPx * worldPerPixel;
+
+		if (CurrentMode == EGizmoMode::Translate)
 		{
-		case 1: // X Axis
-			NewScale.X += Movement;
-			break;
-		case 2: // Y Axis
-			NewScale.Y += Movement;
-			break;
-		case 3: // Z Axis
-			NewScale.Z += Movement;
-			break;
+			Target->SetWorldLocation(DragStartLocation + Axis * TotalMovement);
 		}
-
-		Target->SetWorldScale(NewScale);
-
+		else // Scale
+		{
+			FVector NewScale = DragStartScale;
+			switch (DraggingAxis)
+			{
+			case 1: NewScale.X += TotalMovement; break;
+			case 2: NewScale.Y += TotalMovement; break;
+			case 3: NewScale.Z += TotalMovement; break;
+			}
+			Target->SetWorldScale(NewScale);
+		}
 		break;
 	}
 	case EGizmoMode::Rotate:
 	{
+		// ==============================================================
+		// UGizmoManager의 정밀 회전 로직 (Stateful, Total Offset 기반)
+		// ==============================================================
+
 		float RotationSpeed = 0.005f;
-		float DeltaAngleX = MouseDeltaX * RotationSpeed;
-		float DeltaAngleY = MouseDeltaY * RotationSpeed;
 
-		float Angle = DeltaAngleX + DeltaAngleY;
+		// ProcessGizmoDragging에서 미리 계산해둔 2D 스크린 드래그 벡터(DragScreenVector) 사용
+		float ProjectedAmount = (MouseOffset.X * DragScreenVector.X + MouseOffset.Y * DragScreenVector.Y);
 
-		// 로컬 모드일 경우 축을 Target 로컬 축으로
-		FVector RotationAxis = Axis.GetSafeNormal();
+		// 총 회전 각도 계산
+		float TotalAngle = ProjectedAmount * RotationSpeed;
 
-		// = FQuat::FromAxisAngle(RotationAxis.X, Angle);
-		FQuat DeltaQuat{};
-		FQuat CurrentRot = Target->GetWorldRotation();
+		// 회전의 기준이 될 로컬 축 벡터
+		FVector LocalAxisVector;
+		switch (DraggingAxis)
+		{
+		case 1: LocalAxisVector = FVector(1, 0, 0); break;
+		case 2: LocalAxisVector = FVector(0, 1, 0); break;
+		case 3: LocalAxisVector = FVector(0, 0, 1); break;
+		default: LocalAxisVector = FVector(1, 0, 0);
+		}
+
+		FQuat NewRot;
 		if (CurrentSpace == EGizmoSpace::World)
 		{
-
-			switch (GizmoAxis)
-			{
-			case 1: // X축 회전
-			{
-				// 마우스 X → 카메라 Up 축 기반
-				FQuat RotByX = FQuat::FromAxisAngle(FVector(-1, 0, 0), DeltaAngleX);
-				// 마우스 Y → 카메라 Right 축 기반
-				FQuat RotByY = FQuat::FromAxisAngle(FVector(-1, 0, 0), DeltaAngleY);
-				DeltaQuat = RotByX * RotByY;
-				break;
-			}
-			case 2: // Y축 회전
-			{
-				FQuat RotByX = FQuat::FromAxisAngle(FVector(0, -1, 0), DeltaAngleX);
-				FQuat RotByY = FQuat::FromAxisAngle(FVector(0, -1, 0), DeltaAngleY);
-				DeltaQuat = RotByX * RotByY;
-				break;
-			}
-			case 3: // Z축 회전
-			{
-				FQuat RotByX = FQuat::FromAxisAngle(FVector(0, 0, -1), DeltaAngleX);
-				FQuat RotByY = FQuat::FromAxisAngle(FVector(0, 0, -1), DeltaAngleY);
-				DeltaQuat = RotByX * RotByY;
-				break;
-			}
-			}
-			FQuat NewRot = DeltaQuat * CurrentRot; // 월드 기준 회전
-			Target->SetWorldRotation(NewRot);
+			// 월드 축(LocalAxisVector)을 기준으로 총 각도(TotalAngle)만큼 회전하는 델타 계산
+			FQuat DeltaQuat = FQuat::FromAxisAngle(LocalAxisVector, TotalAngle);
+			// '시작 회전 * 델타'로 최종 회전 계산
+			NewRot = DeltaQuat * DragStartRotation;
 		}
-		else
+		else // Local
 		{
-			float RotationSpeed = 0.005f;
-			float DeltaAngleX = MouseDeltaX * RotationSpeed;
-			float DeltaAngleY = MouseDeltaY * RotationSpeed;
+			// 로컬 축을 드래그 시작 시점의 월드 축으로 변환
+			FVector WorldSpaceRotationAxis = DragStartRotation.RotateVector(LocalAxisVector);
 
-			float Angle = DeltaAngleX + DeltaAngleY;
-
-			// 로컬 모드일 경우 축을 Target 로컬 축으로
-			FVector RotationAxis = -Axis.GetSafeNormal();
-
-			//FQuat DeltaQuat = FQuat::FromAxisAngle(RotationAxis, Angle);
-
-			FQuat CurrentRot = Target->GetWorldRotation();
-
-			switch (GizmoAxis)
-			{
-			case 1: // X축 회전
-			{
-				// 마우스 X → 카메라 Up 축 기반
-				FQuat RotByX = FQuat::FromAxisAngle(RotationAxis, DeltaAngleX);
-				// 마우스 Y → 카메라 Right 축 기반
-				FQuat RotByY = FQuat::FromAxisAngle(RotationAxis, DeltaAngleY);
-				DeltaQuat = RotByX * RotByY;
-				break;
-			}
-			case 2: // Y축 회전
-			{
-				FQuat RotByX = FQuat::FromAxisAngle(RotationAxis, DeltaAngleX);
-				FQuat RotByY = FQuat::FromAxisAngle(RotationAxis, DeltaAngleY);
-				DeltaQuat = RotByX * RotByY;
-				break;
-			}
-			case 3: // Z축 회전
-			{
-				FQuat RotByX = FQuat::FromAxisAngle(RotationAxis, DeltaAngleX);
-				FQuat RotByY = FQuat::FromAxisAngle(RotationAxis, DeltaAngleY);
-				DeltaQuat = RotByX * RotByY;
-				break;
-			}
-			}
-
-			FQuat NewRot = DeltaQuat * CurrentRot; // 월드 기준 회전
-
-			Target->SetWorldRotation(NewRot);
-
-
-			break;
+			// 월드 공간에서 변환된 축을 기준으로 총 각도만큼 회전하는 델타 계산
+			FQuat DeltaQuat = FQuat::FromAxisAngle(WorldSpaceRotationAxis, TotalAngle);
+			// '시작 회전 * 델타'로 최종 회전 계산
+			NewRot = DeltaQuat * DragStartRotation;
 		}
+
+		Target->SetWorldRotation(NewRot);
+		break;
 	}
 	}
 }
-
-
-
-//void AGizmoActor::UpdateGizmoPosition()
-//{
-//	if (!TargetActor) return;
-//
-//	SetActorLocation(TargetActor->GetActorLocation());
-//}
 
 void AGizmoActor::ProcessGizmoInteraction(ACameraActor* Camera, FViewport* Viewport, float MousePositionX, float MousePositionY)
 {
@@ -510,8 +401,11 @@ void AGizmoActor::ProcessGizmoInteraction(ACameraActor* Camera, FViewport* Viewp
 	// 기즈모 드래그
 	ProcessGizmoDragging(Camera, Viewport, MousePositionX, MousePositionY);
 
-	ProcessGizmoHovering(Camera, Viewport, MousePositionX, MousePositionY);
-
+	// 호버링 (드래그 중이 아닐 때만)
+	if (!bIsDragging)
+	{
+		ProcessGizmoHovering(Camera, Viewport, MousePositionX, MousePositionY);
+	}
 }
 
 void AGizmoActor::ProcessGizmoHovering(ACameraActor* Camera, FViewport* Viewport, float MousePositionX, float MousePositionY)
@@ -522,10 +416,21 @@ void AGizmoActor::ProcessGizmoHovering(ACameraActor* Camera, FViewport* Viewport
 	FVector2D ViewportOffset(static_cast<float>(Viewport->GetStartX()), static_cast<float>(Viewport->GetStartY()));
 	FVector2D ViewportMousePos(static_cast<float>(MousePositionX) + ViewportOffset.X,
 		static_cast<float>(MousePositionY) + ViewportOffset.Y);
-	if (!bIsDragging)
-		GizmoAxis = CPickingSystem::IsHoveringGizmoForViewport(this, Camera, ViewportMousePos, ViewportSize, ViewportOffset, Viewport);
 
-	if (GizmoAxis > 0)//기즈모 축이 0이상이라면 선택 된것 
+	if (!bIsDragging)
+	{
+		GizmoAxis = CPickingSystem::IsHoveringGizmoForViewport(
+			this,
+			Camera,
+			ViewportMousePos,
+			ViewportSize,
+			ViewportOffset,
+			Viewport,
+			HoverImpactPoint
+		);
+	}
+
+	if (GizmoAxis > 0)	//기즈모 축이 0이상이라면 선택 된것 
 	{
 		bIsHovering = true;
 	}
@@ -533,7 +438,6 @@ void AGizmoActor::ProcessGizmoHovering(ACameraActor* Camera, FViewport* Viewport
 	{
 		bIsHovering = false;
 	}
-
 }
 
 void AGizmoActor::ProcessGizmoDragging(ACameraActor* Camera, FViewport* Viewport, float MousePositionX, float MousePositionY)
@@ -541,27 +445,92 @@ void AGizmoActor::ProcessGizmoDragging(ACameraActor* Camera, FViewport* Viewport
 	USceneComponent* SelectedComponent = SelectionManager->GetSelectedComponent();
 	if (!SelectedComponent || !Camera) return;
 
-	if (InputManager->IsMouseButtonDown(LeftButton))
+	FVector2D CurrentMousePosition(MousePositionX, MousePositionY);
+
+	// --- 1. Begin Drag (드래그 시작) ---
+	if (InputManager->IsMouseButtonDown(LeftButton) && !bIsDragging && GizmoAxis > 0)
 	{
-		FVector2D MouseDelta = InputManager->GetMouseDelta();
-		if ((MouseDelta.X * MouseDelta.X + MouseDelta.Y * MouseDelta.Y) > 0.0f)
+		bIsDragging = true;
+		DraggingAxis = GizmoAxis;
+		DragCamera = Camera;
+
+		// 드래그 시작 상태 저장
+		DragStartLocation = SelectedComponent->GetWorldLocation();
+		DragStartRotation = SelectedComponent->GetWorldRotation();
+		DragStartScale = SelectedComponent->GetWorldScale();
+		DragStartPosition = CurrentMousePosition;
+
+		// 호버링 시점의 3D 충돌 지점을 드래그 시작 지점으로 래치
+		DragImpactPoint = HoverImpactPoint;
+
+		// (회전용) 드래그 시작 시점의 2D 드래그 벡터 계산
+		if (CurrentMode == EGizmoMode::Rotate)
 		{
-			OnDrag(SelectedComponent, GizmoAxis, MouseDelta.X, MouseDelta.Y, Camera, Viewport);
-			bIsDragging = true;
+			// ==============================================================
+			// UGizmoManager의 정밀한 접선 계산 로직
+			// ==============================================================
+			FVector WorldAxis(0.f);
+			FVector LocalAxisVector(0.f);
+			switch (DraggingAxis)
+			{
+			case 1: LocalAxisVector = FVector(1, 0, 0); break;
+			case 2: LocalAxisVector = FVector(0, 1, 0); break;
+			case 3: LocalAxisVector = FVector(0, 0, 1); break;
+			}
+
+			if (CurrentSpace == EGizmoSpace::World)
+			{
+				WorldAxis = LocalAxisVector;
+			}
+			else // Local
+			{
+				WorldAxis = DragStartRotation.RotateVector(LocalAxisVector);
+			}
+
+			// 1. 3D 충돌 지점(DragImpactPoint)과 기즈모 중심(DragStartLocation) 사이의 3D 벡터
+			FVector ClickVector = DragImpactPoint - DragStartLocation;
+
+			// 2. 3D 회전 축과 3D 클릭 벡터를 외적하여 3D 접선(Tangent)을 구함
+			FVector Tangent3D = FVector::Cross(WorldAxis, ClickVector);
+
+			// 3. 3D 접선을 2D 스크린에 투영 (GetStableAxisDirection의 로직 재활용)
+			float RightDot = FVector::Dot(Tangent3D, DragCamera->GetRight());
+			float UpDot = FVector::Dot(Tangent3D, DragCamera->GetUp());
+
+			// DirectX 스크린 좌표계 (Y축 반전)를 고려하고 정규화
+			DragScreenVector = FVector2D(RightDot, -UpDot);
+			DragScreenVector = DragScreenVector.GetNormalized(); // 방향 벡터이므로 정규화
 		}
 	}
+
+	// --- 2. Continue Drag (드래그 지속) ---
+	if (InputManager->IsMouseButtonDown(LeftButton) && bIsDragging)
+	{
+		// 드래그 시작점으로부터의 '총 변위(Total Offset)' 계산
+		FVector2D MouseOffset = CurrentMousePosition - DragStartPosition;
+
+		// OnDrag 함수에 고정된 축(DraggingAxis)과 총 변위(MouseOffset)를 전달
+		OnDrag(SelectedComponent, DraggingAxis, MouseOffset.X, MouseOffset.Y, Camera, Viewport);
+	}
+
+	// --- 3. End Drag (드래그 종료) ---
 	if (InputManager->IsMouseButtonReleased(LeftButton))
 	{
-		bIsDragging = false;
-		GizmoAxis = 0;
-		SetSpaceWorldMatrix(CurrentSpace, SelectedComponent);
+		if (bIsDragging)
+		{
+			bIsDragging = false;
+			DraggingAxis = 0; // 고정된 축 해제
+			DragCamera = nullptr;
+			GizmoAxis = 0; // 하이라이트 해제
+			SetSpaceWorldMatrix(CurrentSpace, SelectedComponent);
+		}
 	}
 }
 
 void AGizmoActor::ProcessGizmoModeSwitch()
 {
 	// 우클릭 드래그 중에는 기즈모 모드/스페이스 변경 불가
-	if (InputManager->IsMouseButtonDown(RightButton))
+	if (InputManager->IsMouseButtonDown(RightButton) || bIsDragging) // 드래그 중 변경 불가
 	{
 		return;
 	}
@@ -590,7 +559,7 @@ void AGizmoActor::ProcessGizmoModeSwitch()
 	else if (InputManager->IsKeyPressed(VK_SPACE))
 	{
 		int GizmoModeIndex = static_cast<int>(GetMode());
-		GizmoModeIndex = (GizmoModeIndex + 1) % static_cast<uint32>(EGizmoMode::Select);  // 3 = enum 개수
+		GizmoModeIndex = (GizmoModeIndex + 1) % static_cast<uint32>(EGizmoMode::Select);	// 3 = enum 개수
 		EGizmoMode NewGizmoMode = static_cast<EGizmoMode>(GizmoModeIndex);
 		NextMode(NewGizmoMode);
 	}
@@ -613,23 +582,26 @@ void AGizmoActor::UpdateComponentVisibility()
 	// 선택된 액터가 없으면 모든 기즈모 컴포넌트를 비활성화
 	bool bHasSelection = SelectionManager && SelectionManager->GetSelectedComponent();
 
+	// 드래그 중일 때는 고정된 축(DraggingAxis)을, 아닐 때는 호버 축(GizmoAxis)을 사용
+	uint32 HighlightAxis = bIsDragging ? DraggingAxis : GizmoAxis;
+
 	// Arrow Components (Translate 모드)
 	bool bShowArrows = bHasSelection && (CurrentMode == EGizmoMode::Translate);
-	if (ArrowX) { ArrowX->SetActive(bShowArrows); ArrowX->SetHighlighted(GizmoAxis == 1, 1); }
-	if (ArrowY) { ArrowY->SetActive(bShowArrows); ArrowY->SetHighlighted(GizmoAxis == 2, 2); }
-	if (ArrowZ) { ArrowZ->SetActive(bShowArrows); ArrowZ->SetHighlighted(GizmoAxis == 3, 3); }
+	if (ArrowX) { ArrowX->SetActive(bShowArrows); ArrowX->SetHighlighted(HighlightAxis == 1, 1); }
+	if (ArrowY) { ArrowY->SetActive(bShowArrows); ArrowY->SetHighlighted(HighlightAxis == 2, 2); }
+	if (ArrowZ) { ArrowZ->SetActive(bShowArrows); ArrowZ->SetHighlighted(HighlightAxis == 3, 3); }
 
 	// Rotate Components (Rotate 모드)
 	bool bShowRotates = bHasSelection && (CurrentMode == EGizmoMode::Rotate);
-	if (RotateX) { RotateX->SetActive(bShowRotates); RotateX->SetHighlighted(GizmoAxis == 1, 1); }
-	if (RotateY) { RotateY->SetActive(bShowRotates); RotateY->SetHighlighted(GizmoAxis == 2, 2); }
-	if (RotateZ) { RotateZ->SetActive(bShowRotates); RotateZ->SetHighlighted(GizmoAxis == 3, 3); }
+	if (RotateX) { RotateX->SetActive(bShowRotates); RotateX->SetHighlighted(HighlightAxis == 1, 1); }
+	if (RotateY) { RotateY->SetActive(bShowRotates); RotateY->SetHighlighted(HighlightAxis == 2, 2); }
+	if (RotateZ) { RotateZ->SetActive(bShowRotates); RotateZ->SetHighlighted(HighlightAxis == 3, 3); }
 
 	// Scale Components (Scale 모드)
 	bool bShowScales = bHasSelection && (CurrentMode == EGizmoMode::Scale);
-	if (ScaleX) { ScaleX->SetActive(bShowScales); ScaleX->SetHighlighted(GizmoAxis == 1, 1); }
-	if (ScaleY) { ScaleY->SetActive(bShowScales); ScaleY->SetHighlighted(GizmoAxis == 2, 2); }
-	if (ScaleZ) { ScaleZ->SetActive(bShowScales); ScaleZ->SetHighlighted(GizmoAxis == 3, 3); }
+	if (ScaleX) { ScaleX->SetActive(bShowScales); ScaleX->SetHighlighted(HighlightAxis == 1, 1); }
+	if (ScaleY) { ScaleY->SetActive(bShowScales); ScaleY->SetHighlighted(HighlightAxis == 2, 2); }
+	if (ScaleZ) { ScaleZ->SetActive(bShowScales); ScaleZ->SetHighlighted(HighlightAxis == 3, 3); }
 }
 
 void AGizmoActor::OnDrag(USceneComponent* SelectedComponent, uint32 GizmoAxis, float MouseDeltaX, float MouseDeltaY, const ACameraActor* Camera)

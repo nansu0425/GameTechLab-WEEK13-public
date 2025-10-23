@@ -109,6 +109,11 @@ struct FVector2D
 	{
 	}
 
+	static FVector2D Zero()
+	{
+		return FVector2D(0.0f, 0.0f);
+	}
+
 	bool operator==(const FVector2D& V) const
 	{
 		return std::fabs(X - V.X) < KINDA_SMALL_NUMBER &&

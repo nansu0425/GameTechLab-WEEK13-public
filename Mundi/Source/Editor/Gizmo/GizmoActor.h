@@ -66,7 +66,6 @@ public:
     
 
     void ProcessGizmoInteraction(ACameraActor* Camera, FViewport* Viewport, float MousePositionX, float MousePositionY);
-    void UpdateConstantScreenScale(ACameraActor* Camera, FViewport* Viewport);
     void ProcessGizmoModeSwitch();
 
     // 어차피 gizmo가 게임모드에서 안나오니까 할 필요 없을지도?
@@ -111,12 +110,25 @@ protected:
    
     void ProcessGizmoHovering(ACameraActor* Camera, FViewport* Viewport, float MousePositionX, float MousePositionY);
     void ProcessGizmoDragging(ACameraActor* Camera, FViewport* Viewport, float MousePositionX, float MousePositionY);
-    void UpdateGizmoPosition();
     void UpdateComponentVisibility();
 
+private:
+    // 드래그 시작 시점의 타겟 트랜스폼
+    FQuat DragStartRotation;
+    FVector DragStartLocation;
+    FVector DragStartScale;
 
+    // 드래그 시작 시점의 마우스 및 카메라 정보
+    FVector2D DragStartPosition;
+    ACameraActor* DragCamera = nullptr;
+
+    // 드래그가 시작될 때 고정된 축 (0 = 드래그 중 아님)
+    uint32 DraggingAxis = 0;
+
+    // 호버 시 3D 충돌 지점 (PickingSystem이 채워줌)
+    FVector HoverImpactPoint;
+    // 드래그 시작 시 3D 충돌 지점
+    FVector DragImpactPoint;
+    // (회전용) 계산된 2D 스크린 드래그 벡터
+    FVector2D DragScreenVector;
 };
-
-
-
-

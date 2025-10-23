@@ -88,7 +88,8 @@ public:
     static uint32 IsHoveringGizmoForViewport(AGizmoActor* GizmoActor, const ACameraActor* Camera,
                                              const FVector2D& ViewportMousePos,
                                              const FVector2D& ViewportSize,
-                                             const FVector2D& ViewportOffset,FViewport*Viewport);
+                                             const FVector2D& ViewportOffset,FViewport*Viewport,
+                                             FVector& OutImpactPoint);
     
     // 기즈모 드래그로 액터를 이동시키는 함수
    // static void DragActorWithGizmo(AActor* Actor, AGizmoActor* GizmoActor, uint32 GizmoAxis, const FVector2D& MouseDelta, const ACameraActor* Camera, EGizmoMode InGizmoMode);
@@ -102,7 +103,7 @@ public:
     static uint64 GetTotalPickTime() { return TotalPickTime; }
 private:
     /** === 내부 헬퍼 함수들 === */
-    static bool CheckGizmoComponentPicking(const UStaticMeshComponent* Component, const FRay& Ray, float& OutDistance);
+    static bool CheckGizmoComponentPicking(const UStaticMeshComponent* Component, const FRay& Ray, float& OutDistance, FVector& OutImpactPoint);
 
     static uint32 TotalPickCount;
     static uint64 LastPickTime;

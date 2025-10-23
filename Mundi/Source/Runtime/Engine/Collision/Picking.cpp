@@ -202,7 +202,7 @@ bool IntersectRayTriangleMT(const FRay& InRay, const FVector& InA, const FVector
 
 	// 거의 0이면 평행 상태에 있다고 판단 
 	if (Determinant > -Epsilon && Determinant < Epsilon)
-		return false; 
+		return false;
 
 	const float InvDeterminant = 1.0f / Determinant;
 	const FVector OriginToA = InRay.Origin - InA;
@@ -400,6 +400,9 @@ uint32 CPickingSystem::IsHoveringGizmo(AGizmoActor* GizmoTransActor, const ACame
 	if (!GizmoTransActor || !Camera)
 		return 0;
 
+	// 임시 충돌 지점 변수 (사용하지 않지만 매개변수로 필요해서 선언)
+	FVector TempImpactPoint;
+
 	// 현재 활성 뷰포트 정보 가져오기 (UI 시스템에서)
 	FVector2D ViewportMousePos = UInputManager::GetInstance().GetMousePosition();
 	FVector2D ViewportSize = UInputManager::GetInstance().GetScreenSize();
@@ -430,7 +433,7 @@ uint32 CPickingSystem::IsHoveringGizmo(AGizmoActor* GizmoTransActor, const ACame
 	case EGizmoMode::Translate:
 		if (UStaticMeshComponent* ArrowX = Cast<UStaticMeshComponent>(GizmoTransActor->GetArrowX()))
 		{
-			if (CheckGizmoComponentPicking(ArrowX, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(ArrowX, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
@@ -443,7 +446,7 @@ uint32 CPickingSystem::IsHoveringGizmo(AGizmoActor* GizmoTransActor, const ACame
 		// Y축 화살표 검사
 		if (UStaticMeshComponent* ArrowY = Cast<UStaticMeshComponent>(GizmoTransActor->GetArrowY()))
 		{
-			if (CheckGizmoComponentPicking(ArrowY, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(ArrowY, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
@@ -456,7 +459,7 @@ uint32 CPickingSystem::IsHoveringGizmo(AGizmoActor* GizmoTransActor, const ACame
 		// Z축 화살표 검사
 		if (UStaticMeshComponent* ArrowZ = Cast<UStaticMeshComponent>(GizmoTransActor->GetArrowZ()))
 		{
-			if (CheckGizmoComponentPicking(ArrowZ, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(ArrowZ, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
@@ -469,7 +472,7 @@ uint32 CPickingSystem::IsHoveringGizmo(AGizmoActor* GizmoTransActor, const ACame
 	case EGizmoMode::Scale:
 		if (UStaticMeshComponent* ScaleX = Cast<UStaticMeshComponent>(GizmoTransActor->GetScaleX()))
 		{
-			if (CheckGizmoComponentPicking(ScaleX, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(ScaleX, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
@@ -482,7 +485,7 @@ uint32 CPickingSystem::IsHoveringGizmo(AGizmoActor* GizmoTransActor, const ACame
 		// Y축 화살표 검사
 		if (UStaticMeshComponent* ScaleY = Cast<UStaticMeshComponent>(GizmoTransActor->GetScaleY()))
 		{
-			if (CheckGizmoComponentPicking(ScaleY, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(ScaleY, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
@@ -495,7 +498,7 @@ uint32 CPickingSystem::IsHoveringGizmo(AGizmoActor* GizmoTransActor, const ACame
 		// Z축 화살표 검사
 		if (UStaticMeshComponent* ScaleZ = Cast<UStaticMeshComponent>(GizmoTransActor->GetScaleZ()))
 		{
-			if (CheckGizmoComponentPicking(ScaleZ, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(ScaleZ, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
@@ -508,7 +511,7 @@ uint32 CPickingSystem::IsHoveringGizmo(AGizmoActor* GizmoTransActor, const ACame
 	case EGizmoMode::Rotate:
 		if (UStaticMeshComponent* RotateX = Cast<UStaticMeshComponent>(GizmoTransActor->GetRotateX()))
 		{
-			if (CheckGizmoComponentPicking(RotateX, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(RotateX, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
@@ -521,7 +524,7 @@ uint32 CPickingSystem::IsHoveringGizmo(AGizmoActor* GizmoTransActor, const ACame
 		// Y축 화살표 검사
 		if (UStaticMeshComponent* RotateY = Cast<UStaticMeshComponent>(GizmoTransActor->GetRotateY()))
 		{
-			if (CheckGizmoComponentPicking(RotateY, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(RotateY, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
@@ -534,7 +537,7 @@ uint32 CPickingSystem::IsHoveringGizmo(AGizmoActor* GizmoTransActor, const ACame
 		// Z축 화살표 검사
 		if (UStaticMeshComponent* RotateZ = Cast<UStaticMeshComponent>(GizmoTransActor->GetRotateZ()))
 		{
-			if (CheckGizmoComponentPicking(RotateZ, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(RotateZ, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
@@ -556,7 +559,8 @@ uint32 CPickingSystem::IsHoveringGizmo(AGizmoActor* GizmoTransActor, const ACame
 uint32 CPickingSystem::IsHoveringGizmoForViewport(AGizmoActor* GizmoTransActor, const ACameraActor* Camera,
 	const FVector2D& ViewportMousePos,
 	const FVector2D& ViewportSize,
-	const FVector2D& ViewportOffset, FViewport* Viewport)
+	const FVector2D& ViewportOffset, FViewport* Viewport,
+	FVector& OutImpactPoint)
 {
 	if (!GizmoTransActor || !Camera)
 		return 0;
@@ -571,38 +575,26 @@ uint32 CPickingSystem::IsHoveringGizmoForViewport(AGizmoActor* GizmoTransActor, 
 	const FVector CameraForward = Camera->GetForward();
 	FRay Ray = MakeRayFromViewport(View, Proj, CameraWorldPos, CameraRight, CameraUp, CameraForward,
 		ViewportMousePos, ViewportSize, ViewportOffset);
-	// char debugBuf[512];
-	//sprintf_s(
-	//    debugBuf,
-	//    "Mouse Local: (%.1f, %.1f) | Global: (%.1f, %.1f)\n"
-	//    "Viewport Size: (%.1f, %.1f) | Offset: (%.1f, %.1f)\n"
-	//    "Ray Origin: (%.2f, %.2f, %.2f) | Ray Dir: (%.2f, %.2f, %.2f)\n",
-	//    static_cast<float>(ViewportMousePos.X), static_cast<float>(ViewportMousePos.Y),        // 로컬 마우스 좌표
-	//    ViewportMousePos.X, ViewportMousePos.Y,              // 글로벌 마우스 좌표
-	//    ViewportSize.X, ViewportSize.Y,                      // 뷰포트 크기
-	//    ViewportOffset.X, ViewportOffset.Y,                  // 뷰포트 오프셋
-	//    Ray.Origin.X, Ray.Origin.Y, Ray.Origin.Z,            // 레이 시작점
-	//    Ray.Direction.X, Ray.Direction.Y, Ray.Direction.Z    // 레이 방향
-	//);
-	//UE_LOG(debugBuf);
+
+	// 가장 가까운 충돌 지점을 찾기 위한 임시 변수
+	FVector TempImpactPoint;
+
 	uint32 ClosestAxis = 0;
 	float ClosestDistance = 1e9f;
 	float HitDistance;
-
-	// X축 화살표 검사
-	//Cast<UStaticMeshComponent>(GizmoTransActor->GetArrowX());
 
 	switch (GizmoTransActor->GetMode())
 	{
 	case EGizmoMode::Translate:
 		if (UStaticMeshComponent* ArrowX = Cast<UStaticMeshComponent>(GizmoTransActor->GetArrowX()))
 		{
-			if (CheckGizmoComponentPicking(ArrowX, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(ArrowX, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
 					ClosestDistance = HitDistance;
 					ClosestAxis = 1;
+					OutImpactPoint = TempImpactPoint;
 				}
 			}
 		}
@@ -610,12 +602,13 @@ uint32 CPickingSystem::IsHoveringGizmoForViewport(AGizmoActor* GizmoTransActor, 
 		// Y축 화살표 검사
 		if (UStaticMeshComponent* ArrowY = Cast<UStaticMeshComponent>(GizmoTransActor->GetArrowY()))
 		{
-			if (CheckGizmoComponentPicking(ArrowY, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(ArrowY, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
 					ClosestDistance = HitDistance;
 					ClosestAxis = 2;
+					OutImpactPoint = TempImpactPoint;
 				}
 			}
 		}
@@ -623,12 +616,13 @@ uint32 CPickingSystem::IsHoveringGizmoForViewport(AGizmoActor* GizmoTransActor, 
 		// Z축 화살표 검사
 		if (UStaticMeshComponent* ArrowZ = Cast<UStaticMeshComponent>(GizmoTransActor->GetArrowZ()))
 		{
-			if (CheckGizmoComponentPicking(ArrowZ, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(ArrowZ, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
 					ClosestDistance = HitDistance;
 					ClosestAxis = 3;
+					OutImpactPoint = TempImpactPoint;
 				}
 			}
 		}
@@ -636,12 +630,13 @@ uint32 CPickingSystem::IsHoveringGizmoForViewport(AGizmoActor* GizmoTransActor, 
 	case EGizmoMode::Scale:
 		if (UStaticMeshComponent* ScaleX = Cast<UStaticMeshComponent>(GizmoTransActor->GetScaleX()))
 		{
-			if (CheckGizmoComponentPicking(ScaleX, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(ScaleX, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
 					ClosestDistance = HitDistance;
 					ClosestAxis = 1;
+					OutImpactPoint = TempImpactPoint;
 				}
 			}
 		}
@@ -649,12 +644,13 @@ uint32 CPickingSystem::IsHoveringGizmoForViewport(AGizmoActor* GizmoTransActor, 
 		// Y축 화살표 검사
 		if (UStaticMeshComponent* ScaleY = Cast<UStaticMeshComponent>(GizmoTransActor->GetScaleY()))
 		{
-			if (CheckGizmoComponentPicking(ScaleY, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(ScaleY, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
 					ClosestDistance = HitDistance;
 					ClosestAxis = 2;
+					OutImpactPoint = TempImpactPoint;
 				}
 			}
 		}
@@ -662,12 +658,13 @@ uint32 CPickingSystem::IsHoveringGizmoForViewport(AGizmoActor* GizmoTransActor, 
 		// Z축 화살표 검사
 		if (UStaticMeshComponent* ScaleZ = Cast<UStaticMeshComponent>(GizmoTransActor->GetScaleZ()))
 		{
-			if (CheckGizmoComponentPicking(ScaleZ, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(ScaleZ, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
 					ClosestDistance = HitDistance;
 					ClosestAxis = 3;
+					OutImpactPoint = TempImpactPoint;
 				}
 			}
 		}
@@ -675,12 +672,13 @@ uint32 CPickingSystem::IsHoveringGizmoForViewport(AGizmoActor* GizmoTransActor, 
 	case EGizmoMode::Rotate:
 		if (UStaticMeshComponent* RotateX = Cast<UStaticMeshComponent>(GizmoTransActor->GetRotateX()))
 		{
-			if (CheckGizmoComponentPicking(RotateX, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(RotateX, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
 					ClosestDistance = HitDistance;
 					ClosestAxis = 1;
+					OutImpactPoint = TempImpactPoint;
 				}
 			}
 		}
@@ -688,12 +686,13 @@ uint32 CPickingSystem::IsHoveringGizmoForViewport(AGizmoActor* GizmoTransActor, 
 		// Y축 화살표 검사
 		if (UStaticMeshComponent* RotateY = Cast<UStaticMeshComponent>(GizmoTransActor->GetRotateY()))
 		{
-			if (CheckGizmoComponentPicking(RotateY, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(RotateY, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
 					ClosestDistance = HitDistance;
 					ClosestAxis = 2;
+					OutImpactPoint = TempImpactPoint;
 				}
 			}
 		}
@@ -701,12 +700,13 @@ uint32 CPickingSystem::IsHoveringGizmoForViewport(AGizmoActor* GizmoTransActor, 
 		// Z축 화살표 검사
 		if (UStaticMeshComponent* RotateZ = Cast<UStaticMeshComponent>(GizmoTransActor->GetRotateZ()))
 		{
-			if (CheckGizmoComponentPicking(RotateZ, Ray, HitDistance))
+			if (CheckGizmoComponentPicking(RotateZ, Ray, HitDistance, TempImpactPoint))
 			{
 				if (HitDistance < ClosestDistance)
 				{
 					ClosestDistance = HitDistance;
 					ClosestAxis = 3;
+					OutImpactPoint = TempImpactPoint;
 				}
 			}
 		}
@@ -729,7 +729,7 @@ uint32 CPickingSystem::IsHoveringGizmoForViewport(AGizmoActor* GizmoTransActor, 
 //}
 
 
-bool CPickingSystem::CheckGizmoComponentPicking(const UStaticMeshComponent* Component, const FRay& Ray, float& OutDistance)
+bool CPickingSystem::CheckGizmoComponentPicking(const UStaticMeshComponent* Component, const FRay& Ray, float& OutDistance, FVector& OutImpactPoint)
 {
 	if (!Component) return false;
 
@@ -755,6 +755,7 @@ bool CPickingSystem::CheckGizmoComponentPicking(const UStaticMeshComponent* Comp
 		};
 
 	float ClosestT = 1e9f;
+	FVector ClosestImpactPoint = FVector::Zero(); // 가장 가까운 충돌 지점 저장
 	bool bHasHit = false;
 
 	// 인덱스가 있는 경우: 인덱스 삼각형 집합 검사
@@ -778,6 +779,7 @@ bool CPickingSystem::CheckGizmoComponentPicking(const UStaticMeshComponent* Comp
 				{
 					ClosestT = THit;
 					bHasHit = true;
+					ClosestImpactPoint = Ray.Origin + Ray.Direction * THit; // 충돌 지점 계산
 				}
 			}
 		}
@@ -803,6 +805,7 @@ bool CPickingSystem::CheckGizmoComponentPicking(const UStaticMeshComponent* Comp
 				{
 					ClosestT = THit;
 					bHasHit = true;
+					ClosestImpactPoint = Ray.Origin + Ray.Direction * THit; // 충돌 지점 계산
 				}
 			}
 		}
@@ -812,6 +815,7 @@ bool CPickingSystem::CheckGizmoComponentPicking(const UStaticMeshComponent* Comp
 	if (bHasHit)
 	{
 		OutDistance = ClosestT;
+		OutImpactPoint = ClosestImpactPoint; // 최종 충돌 지점 반환
 		return true;
 	}
 
