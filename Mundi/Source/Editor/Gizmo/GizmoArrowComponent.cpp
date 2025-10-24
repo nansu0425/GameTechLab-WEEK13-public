@@ -12,6 +12,9 @@ UGizmoArrowComponent::UGizmoArrowComponent()
 
 	// 기즈모 셰이더로 설정
 	SetMaterialByName(0, "Shaders/UI/Gizmo.hlsl");
+
+	// 기즈모는 기본적으로 게임(PIE)에서 숨김
+	bHiddenInGame = true;
 }
 
 UGizmoArrowComponent::~UGizmoArrowComponent()
@@ -72,9 +75,9 @@ void UGizmoArrowComponent::SetDrawScale(float ViewWidth, float ViewHeight, const
 
 void UGizmoArrowComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View)
 {
-	if (!IsActive() || !StaticMesh)
+	if (!IsVisible() || !StaticMesh)
 	{
-		return; // 그릴 메시 애셋이 없음
+		return; // 그릴 메시 애셋이 없거나 보이지 않음
 	}
 
 	if (!View)

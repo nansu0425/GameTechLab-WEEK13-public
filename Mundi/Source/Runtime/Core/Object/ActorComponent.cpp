@@ -15,7 +15,7 @@ UActorComponent::UActorComponent()
     : Owner(nullptr)
     , bIsActive(true)
     , bCanEverTick(false)
-    , bTickEnabled(false)
+    , bTickEnabled(true)
     , bRegistered(false)
     , bHasBegunPlay(false)
     , bPendingDestroy(false)
@@ -37,11 +37,16 @@ UWorld* UActorComponent::GetWorld() const
 
 void UActorComponent::RegisterComponent(UWorld* InWorld)
 {
-    if (bRegistered) return;
+    if (bRegistered)
+    {
+        UE_LOG("ActorComponent::RegisterComponent - Already registered, skipping: %s", GetClass()->Name);
+        return;
+    }
+    UE_LOG("ActorComponent::RegisterComponent - Registering: %s", GetClass()->Name);
     bRegistered = true;
     OnRegister(InWorld);
 
-    
+
     // 여기서는 게임 수명 훅을 직접 부르지 않음.
     // BeginPlay/InitializeComponent는 보통 Actor/World 타이밍에서 호출.
     // 다만 에디터 유틸 컴포넌트라면 필요에 따라 여기서 InitializeComponent를 호출해도 됨.

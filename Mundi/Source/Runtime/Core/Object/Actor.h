@@ -139,6 +139,7 @@ public:
 
     // ───── 복사 관련 ────────────────────────────
     void DuplicateSubObjects() override;
+    void PostDuplicate() override;
     DECLARE_DUPLICATE(AActor)
 
     // Serialize

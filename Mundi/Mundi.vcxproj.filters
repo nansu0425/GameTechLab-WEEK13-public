@@ -415,6 +415,9 @@
     <ClCompile Include="Source\Runtime\Engine\Components\RotatingMovementComponent.cpp">
       <Filter>Source\Runtime\Engine\Components</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Editor\Clipboard\ClipboardManager.cpp">
+      <Filter>Source\Editor\Clipboard</Filter>
+    </ClCompile>
   </ItemGroup>
   <!-- ThirdParty/ImGui Files -->
   <!-- Source Files -->
@@ -868,6 +871,9 @@
     <ClInclude Include="Source\Runtime\Engine\Components\RotatingMovementComponent.h">
       <Filter>Source\Runtime\Engine\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Editor\Clipboard\ClipboardManager.h">
+      <Filter>Source\Editor\Clipboard</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source">
@@ -971,6 +977,9 @@
     </Filter>
     <Filter Include="Shaders\Common">
       <UniqueIdentifier>{d1bddf1e-dd35-48e7-b930-c62fd0672d92}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Editor\Clipboard">
+      <UniqueIdentifier>{e3a76874-0fb9-4a70-9fd5-ce9cdf3abd9b}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

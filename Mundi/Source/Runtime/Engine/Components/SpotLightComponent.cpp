@@ -485,4 +485,5 @@ void USpotLightComponent::OnSerialized()
 void USpotLightComponent::DuplicateSubObjects()
 {
 	Super::DuplicateSubObjects();
+	DirectionGizmo = nullptr;
 }

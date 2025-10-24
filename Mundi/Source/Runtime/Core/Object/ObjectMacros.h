@@ -200,4 +200,5 @@ public:
 	InVariableName->SetOwner(this->GetOwner());\
 	InVariableName->SetupAttachment(this, EAttachmentRule::KeepRelative);\
 	this->GetOwner()->AddOwnedComponent(InVariableName);\
-	InVariableName->SetEditability(false);
+	InVariableName->SetEditability(false);\
+	InVariableName->SetHiddenInGame(true);

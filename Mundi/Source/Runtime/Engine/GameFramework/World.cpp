@@ -212,6 +212,10 @@ bool UWorld::DestroyActor(AActor* Actor)
 
 void UWorld::OnActorSpawned(AActor* Actor)
 {
+	if (!Actor) return;
+
+	// Level에 Actor 추가 (SceneManagerWidget에 표시되도록)
+	AddActorToLevel(Actor);
 }
 
 void UWorld::OnActorDestroyed(AActor* Actor)

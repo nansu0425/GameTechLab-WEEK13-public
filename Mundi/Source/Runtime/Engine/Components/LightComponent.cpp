@@ -98,9 +98,16 @@ FLinearColor ULightComponent::GetLightColorWithIntensity() const
 void ULightComponent::OnRegister(UWorld* InWorld)
 {
 	Super_t::OnRegister(InWorld);
+	UE_LOG("LightComponent::OnRegister called");
 	if (!SpriteComponent)
 	{
+		UE_LOG("Creating SpriteComponent (Billboard)...");
 		CREATE_EDITOR_COMPONENT(SpriteComponent, UBillboardComponent);
+		UE_LOG("SpriteComponent created successfully");
+	}
+	else
+	{
+		UE_LOG("SpriteComponent already exists, skipping creation");
 	}
 }
 
@@ -113,4 +120,7 @@ void ULightComponent::OnSerialized()
 void ULightComponent::DuplicateSubObjects()
 {
 	Super::DuplicateSubObjects();
+
+	// Critical: Nullify editor component pointers
+	// These will be recreated in OnRegister() when actor is registered to world
 }

@@ -455,6 +455,41 @@ void AGizmoActor::ProcessGizmoDragging(ACameraActor* Camera, FViewport* Viewport
 		DraggingAxis = GizmoAxis;
 		DragCamera = Camera;
 
+		// Alt 키가 눌려있으면 Actor 복제
+		bool bIsAltDown = InputManager->IsKeyDown(VK_MENU);
+		if (bIsAltDown && SelectionManager->IsActorMode())
+		{
+			AActor* SelectedActor = SelectionManager->GetSelectedActor();
+			if (SelectedActor && World)
+			{
+				// Actor 복제
+				AActor* DuplicatedActor = SelectedActor->Duplicate();
+				if (DuplicatedActor)
+				{
+					// 원본과 같은 위치에 복제본 생성
+					DuplicatedActor->SetActorLocation(SelectedActor->GetActorLocation());
+					DuplicatedActor->SetActorRotation(SelectedActor->GetActorRotation());
+					DuplicatedActor->SetActorScale(SelectedActor->GetActorScale());
+
+					// 고유한 이름 생성
+					FString ActorTypeName = SelectedActor->GetClass()->Name;
+					FString UniqueName = World->GenerateUniqueActorName(ActorTypeName);
+					DuplicatedActor->SetName(UniqueName);
+
+					// World에 등록
+					DuplicatedActor->SetWorld(World);
+					World->OnActorSpawned(DuplicatedActor);
+
+					// 복제본을 선택 (이제 복제본을 드래그함)
+					SelectionManager->ClearSelection();
+					SelectionManager->SelectActor(DuplicatedActor);
+
+					// SelectedComponent를 복제본의 RootComponent로 업데이트
+					SelectedComponent = DuplicatedActor->GetRootComponent();
+				}
+			}
+		}
+
 		// 드래그 시작 상태 저장
 		DragStartLocation = SelectedComponent->GetWorldLocation();
 		DragStartRotation = SelectedComponent->GetWorldRotation();

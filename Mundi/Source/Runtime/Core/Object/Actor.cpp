@@ -173,7 +173,6 @@ void AActor::RegisterAllComponents(UWorld* InWorld)
 	{
 		RootComponent = CreateDefaultSubobject<USceneComponent>("DefaultSceneComponent");
 		RootComponent->RegisterComponent(InWorld);
-
 	}
 }
 
@@ -395,6 +394,19 @@ void AActor::SetActorHiddenInEditor(bool bNewHidden)
 bool AActor::IsActorVisible() const
 {
 	return GWorld->bPie ? !bHiddenInGame : !bHiddenInEditor;
+}
+
+void AActor::PostDuplicate()
+{
+	Super::PostDuplicate();
+
+	for (UActorComponent* Comp : OwnedComponents)
+	{
+		if (Comp)
+		{
+			Comp->SetRegistered(false);
+		}
+	}
 }
 
 void AActor::DuplicateSubObjects()

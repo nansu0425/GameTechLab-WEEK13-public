@@ -312,6 +312,7 @@ void USceneComponent::DuplicateSubObjects()
     Super::DuplicateSubObjects();
 
     AttachParent = nullptr; // 부모 컴포넌트가 이 객체의 SetupAttachment를 호출할 경우, 불필요한 로직(기존 부모에서 제거) 수행 방지
+    SpriteComponent = nullptr;
 
     // AttachChildren 배열의 실제 요소의 포인터 값을 바꿔야 하므로 *이 아닌, *&로 받음
     for (USceneComponent*& Child : AttachChildren)

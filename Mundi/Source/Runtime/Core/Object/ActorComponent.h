@@ -71,6 +71,7 @@ public:
     
     // 상태 쿼리
     bool IsRegistered()    const { return bRegistered; }
+    void SetRegistered(bool bInRegistered) { bRegistered = bInRegistered; }
     bool HasBegunPlay()    const { return bHasBegunPlay; }
     bool IsPendingDestroy()const { return bPendingDestroy; }
 

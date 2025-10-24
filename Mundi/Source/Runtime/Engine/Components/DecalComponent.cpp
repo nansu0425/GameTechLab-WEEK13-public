@@ -33,6 +33,8 @@ void UDecalComponent::OnSerialized()
 void UDecalComponent::DuplicateSubObjects()
 {
 	Super::DuplicateSubObjects();
+	DirectionGizmo = nullptr;
+	SpriteComponent = nullptr;
 }
 
 void UDecalComponent::TickComponent(float DeltaTime)
