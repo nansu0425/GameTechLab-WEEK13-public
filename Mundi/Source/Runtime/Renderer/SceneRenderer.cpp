@@ -245,6 +245,7 @@ void FSceneRenderer::RenderShadowMaps()
 			
 			RHIDevice->ClearDepthBuffer(1.0f, 0);
 			RHIDevice->RSSetState(ERasterizerMode::Solid);
+			RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
 
 			// 1.2. 2D 섀도우 요청 수집
 			TArray<FShadowRenderRequest> Requests2D;

@@ -17,7 +17,6 @@ USpotLightComponent::USpotLightComponent()
 {
 	InnerConeAngle = 30.0f;
 	OuterConeAngle = 45.0f;
-	ShadowMapSRV= GWorld->GetLightManager()->GetShadowAtlasSRV2D();
 }
 
 void USpotLightComponent::ValidateConeAngles()
@@ -73,8 +72,8 @@ void USpotLightComponent::GetShadowRenderRequests(FSceneView* View, TArray<FShad
 
 	FShadowRenderRequest ShadowRenderRequest;
 	ShadowRenderRequest.LightOwner = this;
-	ShadowRenderRequest.ViewMatrix = GetViewMatrix().Inverse();
-	ShadowRenderRequest.ProjectionMatrix = GetProjectionMatrix().Inverse();
+	ShadowRenderRequest.ViewMatrix = GetViewMatrix();
+	ShadowRenderRequest.ProjectionMatrix = GetProjectionMatrix();
 	ShadowRenderRequest.Size = 256;
 	ShadowRenderRequest.SubViewIndex = 0;
 	ShadowRenderRequest.AtlasScaleOffset = 0;
