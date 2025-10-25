@@ -40,6 +40,7 @@ void FLightManager::Initialize(D3D11RHI* RHIDevice)
 		TexDesc.ArraySize = 1;
 		TexDesc.Format = DXGI_FORMAT_R24G8_TYPELESS; // DSV/SRV 바인딩을 위해 Typeless
 		TexDesc.SampleDesc.Count = 1;
+		TexDesc.SampleDesc.Quality = 0;
 		TexDesc.Usage = D3D11_USAGE_DEFAULT;
 		TexDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
 
@@ -332,6 +333,34 @@ ID3D11DepthStencilView* FLightManager::GetShadowCubeFaceDSV(UINT SliceIndex, UIN
 		return ShadowCubeFaceDSVs[Index];
 	}
 	return nullptr;
+}
+
+bool FLightManager::GetCachedShadowData(ULightComponent* Light, int32 SubViewIndex, FShadowMapData& OutData) const
+{
+	// 1. 유효성 검사
+	if (!Light || SubViewIndex < 0)
+	{
+		return false;
+	}
+
+	// 2. 해당 라이트에 대한 캐시 데이터(TArray) 찾기
+	const TArray<FShadowMapData>* FoundDataArray = ShadowDataCache2D.Find(Light);
+	if (!FoundDataArray)
+	{
+		// 이 라이트에 대한 캐시 데이터가 없음
+		return false;
+	}
+
+	// 3. 요청된 SubViewIndex가 TArray 범위 내에 있는지 확인
+	if (SubViewIndex >= FoundDataArray->Num())
+	{
+		// 유효하지 않은 인덱스
+		return false;
+	}
+
+	// 4. 데이터 복사 및 성공 반환
+	OutData = (*FoundDataArray)[SubViewIndex];
+	return true;
 }
 
 void FLightManager::ClearAllLightList()

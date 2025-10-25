@@ -126,7 +126,7 @@ public:
     uint32 GetShadowCubeArraySize() const { return AtlasSizeCube; }
     uint32 GetShadowCubeArrayCount() const { return CubeArrayCount; }
     ID3D11DepthStencilView* GetShadowCubeFaceDSV(UINT SliceIndex, UINT FaceIndex) const; // (구현 필요)
-
+    bool GetCachedShadowData(ULightComponent* Light, int32 SubViewIndex, FShadowMapData& OutData) const;
 
     TArray<UAmbientLightComponent*> GetAmbientLightList() { return AmbientLightList; }
     TArray<UDirectionalLightComponent*> GetDirectionalLightList() { return DIrectionalLightList; }

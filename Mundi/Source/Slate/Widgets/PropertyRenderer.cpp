@@ -420,16 +420,48 @@ bool UPropertyRenderer::RenderTextureProperty(const FProperty& Prop, void* Insta
 }
 bool UPropertyRenderer::RenderSRVProperty(const FProperty& Prop, void* Instance)
 {
-	ID3D11ShaderResourceView** SRVPtr = Prop.GetValuePtr<ID3D11ShaderResourceView*>(Instance);
+	// NOTE: 일단 임시로 프로퍼티와 관련없이 LightManager의 ShadowAtlasSRV2D를 가져와서 그림
 
+	// 1. 현재 렌더링 중인 컴포넌트 가져오기 (예시, 실제 구현은 다를 수 있음)
+	ULightComponent* LightComp = static_cast<ULightComponent*>(Instance);
+	if (!LightComp) return false;
+
+	FLightManager* LightManager = GWorld->GetLightManager();
+	if (!LightManager) return false;
+
+	// 2. 매번 최신 아틀라스 SRV 가져오기
+	ID3D11ShaderResourceView* AtlasSRV = LightManager->GetShadowAtlasSRV2D();
+	if (!AtlasSRV)
+	{
+		ImGui::Text("Shadow Atlas SRV is null");
+		return false; // SRV가 없으면 표시할 수 없음
+	}
+
+	// 3. 이 라이트의 아틀라스 UV 정보 가져오기 (FLightManager에 이 정보를 얻는 함수 필요)
+	//    (GetShadowMapData 함수 등을 활용하여 캐시된 데이터 조회)
+	FShadowMapData ShadowData;
+	if (!LightManager->GetCachedShadowData(LightComp, 0, ShadowData)) // 0번 SubView (Spot)
+	{
+		ImGui::Text("Shadow data not available");
+		return false;
+	}
+
+	// 4. AtlasScaleOffset 정보를 ImGui UV로 변환
+	//    Data.AtlasScaleOffset = (ScaleX, ScaleY, OffsetX, OffsetY)
+	ImVec2 uv0(ShadowData.AtlasScaleOffset.Z, ShadowData.AtlasScaleOffset.W); // UV 시작 (좌상단 Offset)
+	ImVec2 uv1(ShadowData.AtlasScaleOffset.Z + ShadowData.AtlasScaleOffset.X,
+		ShadowData.AtlasScaleOffset.W + ShadowData.AtlasScaleOffset.Y); // UV 끝 (Offset + Scale)
+
+
+	// 5. ImGui::Image 호출 (SRV + 계산된 UV 사용)
 	ImGui::Image(
-		(ImTextureID)*SRVPtr,          // SRV를 ImTextureID로 캐스팅
+		(ImTextureID)AtlasSRV,       // 전체 아틀라스 SRV
 		ImVec2(256, 256),            // 표시 크기
-		ImVec2(0, 0),                // UV 시작 (좌상단)
-		ImVec2(1, 1)                 // UV 끝 (우하단)
+		uv0,                         // 표시할 영역의 시작 UV
+		uv1                          // 표시할 영역의 끝 UV
 	);
 
-	return false;
+	return false; // 속성 값은 변경되지 않았음
 }
 
 bool UPropertyRenderer::RenderStaticMeshProperty(const FProperty& Prop, void* Instance)

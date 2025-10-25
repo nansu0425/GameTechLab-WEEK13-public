@@ -240,11 +240,11 @@ void FSceneRenderer::RenderShadowMaps()
 		if (AtlasDSV2D && AtlasTotalSize2D > 0)
 		{
 			// 1.1. RHI 상태 설정 (2D 아틀라스)
-			//RHIDevice->OMSetCustomRenderTargets(0, nullptr, AtlasDSV2D);
-			RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTarget);			
-			
+			RHIDevice->OMSetCustomRenderTargets(0, nullptr, AtlasDSV2D);
+			RHIDevice->GetDeviceContext()->ClearDepthStencilView(AtlasDSV2D, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
+
 			RHIDevice->ClearDepthBuffer(1.0f, 0);
-			RHIDevice->RSSetState(ERasterizerMode::Solid);
+			RHIDevice->RSSetState(ERasterizerMode::Shadows);
 			RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
 
 			// 1.2. 2D 섀도우 요청 수집
@@ -268,17 +268,17 @@ void FSceneRenderer::RenderShadowMaps()
 
 			for (FShadowRenderRequest& Request : Requests2D)
 			{
-				// if (CurrentAtlasX + Request.Size > AtlasTotalSize2D)
-				// {
-				// 	CurrentAtlasY += CurrentShelfMaxHeight;
-				// 	CurrentAtlasX = 0;
-				// 	CurrentShelfMaxHeight = 0;
-				// }
-				// if (CurrentAtlasY + Request.Size > AtlasTotalSize2D)
-				// {
-				// 	Request.Size = 0; // 꽉 참 (렌더링 실패)
-				// 	continue;
-				// }
+				 if (CurrentAtlasX + Request.Size > AtlasTotalSize2D)
+				 {
+				 	CurrentAtlasY += CurrentShelfMaxHeight;
+				 	CurrentAtlasX = 0;
+				 	CurrentShelfMaxHeight = 0;
+				 }
+				 if (CurrentAtlasY + Request.Size > AtlasTotalSize2D)
+				 {
+				 	Request.Size = 0; // 꽉 참 (렌더링 실패)
+				 	continue;
+				 }
 
 				// 뷰포트 설정
 				D3D11_VIEWPORT ShadowVP = { (float)CurrentAtlasX, (float)CurrentAtlasY, (float)Request.Size, (float)Request.Size, 0.0f, 1.0f };
