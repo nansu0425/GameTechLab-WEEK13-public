@@ -109,7 +109,7 @@ void FSceneRenderer::Render()
 	//그리드와 디버그용 Primitive는 Post Processing 적용하지 않음.
 	RenderEditorPrimitivesPass();	// 빌보드, 기타 화살표 출력 (상호작용, 피킹 O)
 	RenderDebugPass();	//  그리드, 선택한 물체의 경계 출력 (상호작용, 피킹 X)
-
+	
 	// 오버레이(Overlay) Primitive 렌더링
 	RenderOverayEditorPrimitivesPass();	// 기즈모 출력
 
@@ -235,13 +235,16 @@ void FSceneRenderer::RenderShadowMaps()
 	// --- 1단계: 2D 아틀라스 렌더링 (Spot + Directional) ---
 	{
 		ID3D11DepthStencilView* AtlasDSV2D = LightManager->GetShadowAtlasDSV2D();
+		ID3D11Texture2D* AtlasTexture2D = LightManager->GetShadowAtlasTexture2D();
 		float AtlasTotalSize2D = (float)LightManager->GetShadowAtlasSize2D();
 		if (AtlasDSV2D && AtlasTotalSize2D > 0)
 		{
 			// 1.1. RHI 상태 설정 (2D 아틀라스)
-			RHIDevice->OMSetCustomRenderTargets(0, nullptr, AtlasDSV2D);
+			//RHIDevice->OMSetCustomRenderTargets(0, nullptr, AtlasDSV2D);
+			RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTarget);			
+			
 			RHIDevice->ClearDepthBuffer(1.0f, 0);
-			RHIDevice->RSSetState(ERasterizerMode::Shadows);
+			RHIDevice->RSSetState(ERasterizerMode::Solid);
 
 			// 1.2. 2D 섀도우 요청 수집
 			TArray<FShadowRenderRequest> Requests2D;
@@ -264,17 +267,17 @@ void FSceneRenderer::RenderShadowMaps()
 
 			for (FShadowRenderRequest& Request : Requests2D)
 			{
-				if (CurrentAtlasX + Request.Size > AtlasTotalSize2D)
-				{
-					CurrentAtlasY += CurrentShelfMaxHeight;
-					CurrentAtlasX = 0;
-					CurrentShelfMaxHeight = 0;
-				}
-				if (CurrentAtlasY + Request.Size > AtlasTotalSize2D)
-				{
-					Request.Size = 0; // 꽉 참 (렌더링 실패)
-					continue;
-				}
+				// if (CurrentAtlasX + Request.Size > AtlasTotalSize2D)
+				// {
+				// 	CurrentAtlasY += CurrentShelfMaxHeight;
+				// 	CurrentAtlasX = 0;
+				// 	CurrentShelfMaxHeight = 0;
+				// }
+				// if (CurrentAtlasY + Request.Size > AtlasTotalSize2D)
+				// {
+				// 	Request.Size = 0; // 꽉 참 (렌더링 실패)
+				// 	continue;
+				// }
 
 				// 뷰포트 설정
 				D3D11_VIEWPORT ShadowVP = { (float)CurrentAtlasX, (float)CurrentAtlasY, (float)Request.Size, (float)Request.Size, 0.0f, 1.0f };
@@ -347,7 +350,7 @@ void FSceneRenderer::RenderShadowMaps()
 				}
 
 				// 2.3. 6개 면 렌더링
-				for (const FShadowRenderRequest& Request : TempRequestsCube) // 6번 루프
+				for (FShadowRenderRequest& Request : TempRequestsCube) // 6번 루프
 				{
 					int32 FaceIndex = Request.SubViewIndex;
 
@@ -385,7 +388,7 @@ void FSceneRenderer::RenderShadowMaps()
 	RHIDevice->SetAndUpdateConstantBuffer(ViewProjBufferType(ViewProjBuffer));
 }
 
-void FSceneRenderer::RenderShadowDepthPass(const FMatrix& InLightView, const FMatrix& InLightProj, const TArray<FMeshBatchElement>& InShadowBatches)
+void FSceneRenderer::RenderShadowDepthPass(FMatrix& InLightView, FMatrix& InLightProj, const TArray<FMeshBatchElement>& InShadowBatches)
 {
 	// 1. 뎁스 전용 셰이더 로드
 	UShader* DepthVS = UResourceManager::GetInstance().Load<UShader>("Shaders/Shadows/DepthOnly_VS.hlsl");
@@ -400,8 +403,8 @@ void FSceneRenderer::RenderShadowDepthPass(const FMatrix& InLightView, const FMa
 	RHIDevice->GetDeviceContext()->PSSetShader(nullptr, nullptr, 0); // 픽셀 셰이더 없음
 
 	// 3. 라이트의 View-Projection 행렬을 메인 ViewProj 버퍼에 설정
-	FMatrix InvView = InLightView.InverseAffine();
-	FMatrix InvProj = InLightProj.InversePerspectiveProjection();
+	FMatrix InvView = InLightView.Inverse();
+	FMatrix InvProj = InLightProj.Inverse();
 
 	ViewProjBufferType ViewProjBuffer = ViewProjBufferType(InLightView, InLightProj, InvView, InvProj);
 	RHIDevice->SetAndUpdateConstantBuffer(ViewProjBufferType(ViewProjBuffer));

@@ -50,6 +50,9 @@
     <FxCompile Include="Shaders\Shadows\DepthOnly_VS.hlsl">
       <Filter>Shaders\Shadows</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\Utility\ShadowMap.hlsl">
+      <Filter>Shaders\Utility</Filter>
+    </FxCompile>
   </ItemGroup>
   <!-- Root Files -->
   <ItemGroup>

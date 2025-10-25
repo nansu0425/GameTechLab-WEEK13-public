@@ -74,6 +74,7 @@ public:
 	FMatrix GetViewMatrix() const;
 	FMatrix GetProjectionMatrix() const;
 	void RenderDebugFrustum(TArray<FVector>& StartPoints, TArray<FVector>& EndPoints, TArray<FVector4>& Colors) const;
+	void CreateShadowMap(D3D11RHI* RHIDevice);
 	
 
 protected:
@@ -83,6 +84,11 @@ protected:
 	// 이전 값 추적 (UI 변경 감지용)
 	float PreviousInnerConeAngle = 30.0f;
 	float PreviousOuterConeAngle = 45.0f;
+
+	ID3D11ShaderResourceView* ShadowMapSRV = nullptr;
+	ID3D11DepthStencilView* ShadowMapDSV = nullptr;
+	D3D11_VIEWPORT ShadowMapViewport{};
+	FVector2D ShadowMapResolution = {1024.0f, 1024.0f};
 
 	// Direction Gizmo (shows light direction)
 	class UGizmoArrowComponent* DirectionGizmo = nullptr;

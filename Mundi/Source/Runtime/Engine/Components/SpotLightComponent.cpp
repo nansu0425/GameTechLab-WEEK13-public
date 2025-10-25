@@ -10,12 +10,14 @@ BEGIN_PROPERTIES(USpotLightComponent)
 	MARK_AS_COMPONENT("스포트 라이트", "스포트 라이트 컴포넌트를 추가합니다.")
 	ADD_PROPERTY_RANGE(float, InnerConeAngle, "Light", 0.0f, 90.0f, true, "원뿔 내부 각도입니다. 이 각도 안에서는 빛이 최대 밝기로 표시됩니다.")
 	ADD_PROPERTY_RANGE(float, OuterConeAngle, "Light", 0.0f, 90.0f, true, "원뿔 외부 각도입니다. 이 각도 밖에서는 빛이 보이지 않습니다.")
+ADD_PROPERTY_SRV(ID3D11ShaderResourceView*, ShadowMapSRV, "ShadowMap", true, "쉐도우 맵 Far Plane")
 END_PROPERTIES()
 
 USpotLightComponent::USpotLightComponent()
 {
 	InnerConeAngle = 30.0f;
 	OuterConeAngle = 45.0f;
+	ShadowMapSRV= GWorld->GetLightManager()->GetShadowAtlasSRV2D();
 }
 
 void USpotLightComponent::ValidateConeAngles()
@@ -52,6 +54,17 @@ void USpotLightComponent::ValidateConeAngles()
 
 USpotLightComponent::~USpotLightComponent()
 {
+	if (ShadowMapSRV)
+	{
+		ShadowMapSRV->Release();
+		ShadowMapSRV = nullptr;
+	}
+
+	if (ShadowMapDSV)
+	{
+		ShadowMapDSV->Release();
+		ShadowMapDSV = nullptr;
+	}
 }
 
 void USpotLightComponent::GetShadowRenderRequests(FSceneView* View, TArray<FShadowRenderRequest>& OutRequests)
@@ -60,8 +73,8 @@ void USpotLightComponent::GetShadowRenderRequests(FSceneView* View, TArray<FShad
 
 	FShadowRenderRequest ShadowRenderRequest;
 	ShadowRenderRequest.LightOwner = this;
-	ShadowRenderRequest.ViewMatrix = GetWorldMatrix().InverseAffine();
-	ShadowRenderRequest.ProjectionMatrix = FMatrix::Identity();
+	ShadowRenderRequest.ViewMatrix = GetViewMatrix().Inverse();
+	ShadowRenderRequest.ProjectionMatrix = GetProjectionMatrix().Inverse();
 	ShadowRenderRequest.Size = 256;
 	ShadowRenderRequest.SubViewIndex = 0;
 	ShadowRenderRequest.AtlasScaleOffset = 0;
@@ -284,6 +297,65 @@ void USpotLightComponent::RenderDebugFrustum(TArray<FVector>& StartPoints, TArra
 	StartPoints.Add(WorldFrustum[3]);
 	EndPoints.Add(WorldFrustum[7]);
 	Colors.Add(FrustumColor);
+}
+
+void USpotLightComponent::CreateShadowMap(D3D11RHI* RHIDevice)
+{
+	ShadowMapViewport.TopLeftX = 0.0f;
+	ShadowMapViewport.TopLeftY = 0.0f;
+	ShadowMapViewport.Width = static_cast<float>(ShadowMapResolution.X);
+	ShadowMapViewport.Height = static_cast<float>(ShadowMapResolution.Y);
+	ShadowMapViewport.MinDepth = 0.0f;
+	ShadowMapViewport.MaxDepth = 1.0f;
+
+	D3D11_TEXTURE2D_DESC TextureDesc{};
+	TextureDesc.Width = static_cast<uint32>(ShadowMapResolution.X);
+	TextureDesc.Height = static_cast<uint32>(ShadowMapResolution.Y);
+	TextureDesc.MipLevels = 1;
+	TextureDesc.ArraySize = 1;
+	TextureDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
+	TextureDesc.SampleDesc.Count = 1;
+	TextureDesc.SampleDesc.Quality = 0;
+	TextureDesc.Usage = D3D11_USAGE_DEFAULT;
+	TextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_DEPTH_STENCIL;
+	TextureDesc.CPUAccessFlags = 0;
+	TextureDesc.MiscFlags = 0;
+
+	ID3D11Texture2D* ShadowMapTexture = nullptr;
+	HRESULT hr = RHIDevice->GetDevice()->CreateTexture2D(&TextureDesc, 0, &ShadowMapTexture);
+	if (FAILED(hr))
+	{
+		UE_LOG("Shadow Map Texture Create Fail");
+		return;
+	}
+
+	D3D11_DEPTH_STENCIL_VIEW_DESC DSVDesc{};
+	DSVDesc.Flags = 0;
+	DSVDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	DSVDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	DSVDesc.Texture2D.MipSlice = 0;
+	hr = RHIDevice->GetDevice()->CreateDepthStencilView(ShadowMapTexture, &DSVDesc, &ShadowMapDSV);
+	if (FAILED(hr))
+	{
+		UE_LOG("Shadow Map DSV Create Fail");
+		ShadowMapTexture->Release();
+		return;
+	}	
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc{};
+	SRVDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+	SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	SRVDesc.Texture2D.MipLevels = TextureDesc.MipLevels;
+	SRVDesc.Texture2D.MostDetailedMip = 0;
+	hr = RHIDevice->GetDevice()->CreateShaderResourceView(ShadowMapTexture, &SRVDesc, &ShadowMapSRV);
+	if (FAILED(hr))
+	{
+		UE_LOG("Shadow Map SRV Create Fail");
+		ShadowMapTexture->Release();
+		return;
+	}
+
+	ShadowMapTexture->Release();
 }
 
 void USpotLightComponent::RenderDebugVolume(URenderer* Renderer) const
