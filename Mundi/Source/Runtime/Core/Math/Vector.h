@@ -806,6 +806,110 @@ struct alignas(16) FMatrix
 		return rot;
 	}
 
+	FMatrix Inverse()
+	{
+		FMatrix InverseMatrix;
+		// 원본 행렬(VP_Matrix)의 요소를 로컬 변수로 복사
+		float m00 = this->M[0][0], m01 = this->M[0][1], m02 = this->M[0][2], m03 = this->M[0][3];
+		float m10 = this->M[1][0], m11 = this->M[1][1], m12 = this->M[1][2], m13 = this->M[1][3];
+		float m20 = this->M[2][0], m21 = this->M[2][1], m22 = this->M[2][2], m23 = this->M[2][3];
+		float m30 = this->M[3][0], m31 = this->M[3][1], m32 = this->M[3][2], m33 = this->M[3][3];
+
+		// --- 수반 행렬(Adjugate Matrix)의 첫 번째 행 계산 ---
+		FMatrix Adj;
+
+		// 2x2 부분 행렬식(sub-determinant) 계산
+		float t0 = m22 * m33 - m23 * m32;
+		float t1 = m21 * m33 - m23 * m31;
+		float t2 = m21 * m32 - m22 * m31;
+		float t3 = m20 * m33 - m23 * m30;
+		float t4 = m20 * m32 - m22 * m30;
+		float t5 = m20 * m31 - m21 * m30;
+
+		Adj.M[0][0] = (m11 * t0 - m12 * t1 + m13 * t2);
+		Adj.M[0][1] = -(m10 * t0 - m12 * t3 + m13 * t4);
+		Adj.M[0][2] = (m10 * t1 - m11 * t3 + m13 * t5);
+		Adj.M[0][3] = -(m10 * t2 - m11 * t4 + m12 * t5);
+
+		// --- 행렬식(Determinant) 계산 ---
+		float Det = m00 * Adj.M[0][0] + m01 * Adj.M[0][1] + m02 * Adj.M[0][2] + m03 * Adj.M[0][3];
+
+		// 행렬식이 0에 가까우면 (특이 행렬), 역행렬이 존재하지 않음
+		if (std::fabs(Det) < KINDA_SMALL_NUMBER)
+		{
+			return Identity(); // 단위 행렬 할당
+		}
+		else
+		{
+			// 행렬식의 역수 (1.0f / Det)
+			float InvDet = 1.0f / Det;
+
+			// --- 수반 행렬의 나머지 3개 행 계산 ---
+
+			// 2x2 부분 행렬식 (Row 1)
+			float t6 = m02 * m33 - m03 * m32;
+			float t7 = m01 * m33 - m03 * m31;
+			float t8 = m01 * m32 - m02 * m31;
+			float t9 = m00 * m33 - m03 * m30;
+			float t10 = m00 * m32 - m02 * m30;
+			float t11 = m00 * m31 - m01 * m30;
+
+			Adj.M[1][0] = -(m01 * t0 - m02 * t1 + m03 * t2); // C[0][1]
+			Adj.M[1][1] = (m00 * t0 - m02 * t3 + m03 * t4); // C[1][1]
+			Adj.M[1][2] = -(m00 * t1 - m01 * t3 + m03 * t5); // C[2][1]
+			Adj.M[1][3] = (m00 * t2 - m01 * t4 + m02 * t5); // C[3][1]
+
+			// 2x2 부분 행렬식 (Row 2)
+			float t12 = m02 * m13 - m03 * m12;
+			float t13 = m01 * m13 - m03 * m11;
+			float t14 = m01 * m12 - m02 * m11;
+			float t15 = m00 * m13 - m03 * m10;
+			float t16 = m00 * m12 - m02 * m10;
+			float t17 = m00 * m11 - m01 * m10;
+
+			Adj.M[2][0] = (m31 * t12 - m32 * t13 + m33 * t14); // C[0][2]
+			Adj.M[2][1] = -(m30 * t12 - m32 * t15 + m33 * t16); // C[1][2]
+			Adj.M[2][2] = (m30 * t13 - m31 * t15 + m33 * t17); // C[2][2]
+			Adj.M[2][3] = -(m30 * t14 - m31 * t16 + m32 * t17); // C[3][2]
+
+			// 2x2 부분 행렬식 (Row 3)
+			float t18 = m02 * m23 - m03 * m22;
+			float t19 = m01 * m23 - m03 * m21;
+			float t20 = m01 * m22 - m02 * m21;
+			float t21 = m00 * m23 - m03 * m20;
+			float t22 = m00 * m22 - m02 * m20;
+			float t23 = m00 * m21 - m01 * m20;
+
+			Adj.M[3][0] = -(m21 * t12 - m22 * t13 + m23 * t14); // C[0][3]
+			Adj.M[3][1] = (m20 * t12 - m22 * t15 + m23 * t16); // C[1][3]
+			Adj.M[3][2] = -(m20 * t13 - m21 * t15 + m23 * t17); // C[2][3]
+			Adj.M[3][3] = (m20 * t14 - m21 * t16 + m22 * t17); // C[3][3]
+
+			// --- 최종 역행렬 계산 ---
+			InverseMatrix.M[0][0] = Adj.M[0][0] * InvDet;
+			InverseMatrix.M[0][1] = Adj.M[1][0] * InvDet; // [0][1] <- [1][0]
+			InverseMatrix.M[0][2] = Adj.M[2][0] * InvDet; // [0][2] <- [2][0]
+			InverseMatrix.M[0][3] = Adj.M[3][0] * InvDet; // [0][3] <- [3][0]
+
+			InverseMatrix.M[1][0] = Adj.M[0][1] * InvDet; // [1][0] <- [0][1]
+			InverseMatrix.M[1][1] = Adj.M[1][1] * InvDet;
+			InverseMatrix.M[1][2] = Adj.M[2][1] * InvDet; // [1][2] <- [2][1]
+			InverseMatrix.M[1][3] = Adj.M[3][1] * InvDet; // [1][3] <- [3][1]
+
+			InverseMatrix.M[2][0] = Adj.M[0][2] * InvDet; // [2][0] <- [0][2]
+			InverseMatrix.M[2][1] = Adj.M[1][2] * InvDet; // [2][1] <- [1][2]
+			InverseMatrix.M[2][2] = Adj.M[2][2] * InvDet;
+			InverseMatrix.M[2][3] = Adj.M[3][2] * InvDet; // [2][3] <- [3][2]
+
+			InverseMatrix.M[3][0] = Adj.M[0][3] * InvDet; // [3][0] <- [0][3]
+			InverseMatrix.M[3][1] = Adj.M[1][3] * InvDet; // [3][1] <- [1][3]
+			InverseMatrix.M[3][2] = Adj.M[2][3] * InvDet; // [3][2] <- [2][3]
+			InverseMatrix.M[3][3] = Adj.M[3][3] * InvDet;
+		}
+
+		return InverseMatrix;
+	}
+
 	// 비교 연산자
 	bool operator==(const FMatrix& Other) const
 	{

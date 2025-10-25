@@ -172,6 +172,106 @@ void USpotLightComponent::UpdateDirectionGizmo()
 	DirectionGizmo->SetColor(FVector(BaseColor.R, BaseColor.G, BaseColor.B));
 }
 
+FMatrix USpotLightComponent::GetViewMatrix() const
+{
+	static const FMatrix YUpToZUp(
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		1, 0, 0, 0,
+		0, 0, 0, 1
+	);
+
+	const FMatrix World = GetWorldTransform().ToMatrix();
+
+	return (YUpToZUp * World).InverseAffine();
+}
+
+FMatrix USpotLightComponent::GetProjectionMatrix() const
+{
+	float Fovy = DegreesToRadians(OuterConeAngle);
+	return FMatrix::PerspectiveFovLH(Fovy, 1.0f, 0.1f, GetAttenuationRadius());
+}
+
+void USpotLightComponent::RenderDebugFrustum(TArray<FVector>& StartPoints, TArray<FVector>& EndPoints, TArray<FVector4>& Colors) const
+{
+	// shadow map frustum
+	const FVector4 FrustumColor = FVector4(1.0f, 0.0f, 1.0f, 1.0f);
+
+	FMatrix VP_Matrix = (GetViewMatrix() * GetProjectionMatrix());
+	
+	FMatrix InverseViewProj = VP_Matrix.Inverse();
+	
+	FVector NDC[8] = {
+		// near
+		FVector(-1.0f, -1.0f, 0.0f), // bottom left
+		FVector(1.0f, -1.0f, 0.0f), // bottom right
+		FVector(1.0f, 1.0f, 0.0f), // top right
+		FVector(-1.0f, 1.0f, 0.0f), // top left
+		// far
+		FVector(-1.0f, -1.0f, 1.0f), // bottom left 
+		FVector(1.0f, -1.0f, 1.0f), // bottom right
+		FVector(1.0f, 1.0f, 1.0f), // top right
+		FVector(-1.0f, 1.0f, 1.0f) // top left
+	};
+
+	// 0, 1 / 1, 2 / 2, 3 / 3, 0
+	FVector WorldFrustum[8];
+	for (int i =0; i<8; i++)
+	{
+		FVector4 NDCCorner = FVector4(NDC[i].X, NDC[i].Y, NDC[i].Z, 1.0f);
+		FVector4 WorldCorner = NDCCorner * InverseViewProj;
+
+		if (FMath::Abs(WorldCorner.W) > KINDA_SMALL_NUMBER)
+		{
+			WorldFrustum[i] = FVector(WorldCorner.X, WorldCorner.Y, WorldCorner.Z) / WorldCorner.W; 
+		}
+		else
+		{
+			WorldFrustum[i] = FVector(WorldCorner.X, WorldCorner.Y, WorldCorner.Z);
+		}
+	}
+
+	// near
+	StartPoints.Add(WorldFrustum[0]);
+	EndPoints.Add(WorldFrustum[1]);
+	Colors.Add(FrustumColor);
+	StartPoints.Add(WorldFrustum[1]);
+	EndPoints.Add(WorldFrustum[2]);
+	Colors.Add(FrustumColor);
+	StartPoints.Add(WorldFrustum[2]);
+	EndPoints.Add(WorldFrustum[3]);
+	Colors.Add(FrustumColor);
+	StartPoints.Add(WorldFrustum[3]);
+	EndPoints.Add(WorldFrustum[0]);
+	Colors.Add(FrustumColor);
+	
+	StartPoints.Add(WorldFrustum[4]);
+	EndPoints.Add(WorldFrustum[5]);
+	Colors.Add(FrustumColor);
+	StartPoints.Add(WorldFrustum[5]);
+	EndPoints.Add(WorldFrustum[6]);
+	Colors.Add(FrustumColor);
+	StartPoints.Add(WorldFrustum[6]);
+	EndPoints.Add(WorldFrustum[7]);
+	Colors.Add(FrustumColor);
+	StartPoints.Add(WorldFrustum[7]);
+	EndPoints.Add(WorldFrustum[4]);
+	Colors.Add(FrustumColor);
+
+	StartPoints.Add(WorldFrustum[0]);
+	EndPoints.Add(WorldFrustum[4]);
+	Colors.Add(FrustumColor);
+	StartPoints.Add(WorldFrustum[1]);
+	EndPoints.Add(WorldFrustum[5]);
+	Colors.Add(FrustumColor);
+	StartPoints.Add(WorldFrustum[2]);
+	EndPoints.Add(WorldFrustum[6]);
+	Colors.Add(FrustumColor);
+	StartPoints.Add(WorldFrustum[3]);
+	EndPoints.Add(WorldFrustum[7]);
+	Colors.Add(FrustumColor);
+}
+
 void USpotLightComponent::RenderDebugVolume(URenderer* Renderer) const
 {
 	// Cone 각도 유효성 검사 (const 메서드이므로 const_cast 사용)
@@ -468,8 +568,10 @@ void USpotLightComponent::RenderDebugVolume(URenderer* Renderer) const
 		}
 
 		// InnerCone은 아크를 그리지 않음
-	}
+	}		
 
+	RenderDebugFrustum(StartPoints, EndPoints, Colors);
+	
 	// 렌더러에 라인 데이터 전달
 	Renderer->AddLines(StartPoints, EndPoints, Colors);
 }

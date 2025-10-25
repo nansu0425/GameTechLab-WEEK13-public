@@ -69,6 +69,11 @@ public:
 	// Update Gizmo to match light properties
 	void UpdateDirectionGizmo();
 
+	FMatrix GetViewMatrix() const;
+	FMatrix GetProjectionMatrix() const;
+	void RenderDebugFrustum(TArray<FVector>& StartPoints, TArray<FVector>& EndPoints, TArray<FVector4>& Colors) const;
+	
+
 protected:
 	float InnerConeAngle = 30.0f; // 내부 원뿔 각도
 	float OuterConeAngle = 45.0f; // 외부 원뿔 각도
