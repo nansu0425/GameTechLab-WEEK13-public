@@ -142,7 +142,7 @@ float3 CalculateDirectionalLight(FDirectionalLightInfo light, float3 normal, flo
     {
         return float3(0.0f, 0.0f, 0.0f);
     }
-
+    
     float3 lightDir = normalize(-light.Direction);
 
     // Diffuse (light.Color는 이미 Intensity 포함)
@@ -364,4 +364,39 @@ float3 CalculateAllLights(
     }
 
     return litColor;
+}
+
+float CalculateSpotLightShadowFactor(
+    float4 WorldPos, FShadowMapData ShadowMapData, Texture2D ShadowMap, SamplerState ShadowSampler)
+{
+    // 빛 적용 가정
+    float ShadowFactor = 1.0f;
+    
+    // 월드 -> 광원좌표 -> 텍스처 uv좌표
+    float4 ShadowTexCoord = mul(WorldPos, ShadowMapData.ShadowViewProjMatrix);
+
+    // 원근 나눗셈
+    ShadowTexCoord.xyz /= ShadowTexCoord.w;
+
+    // 아틀라스 uv좌표로 변환
+    float2 AtlasUV = ShadowTexCoord.xy;
+    AtlasUV.x = AtlasUV.x * ShadowMapData.AtlasScaleOffset.x + ShadowMapData.AtlasScaleOffset.z;
+    AtlasUV.y = AtlasUV.y * ShadowMapData.AtlasScaleOffset.y + ShadowMapData.AtlasScaleOffset.w;
+
+    if (saturate(AtlasUV.x) == AtlasUV.x && saturate(AtlasUV.y) == AtlasUV.y)
+    {
+        // 텍스처 상에서 현재 픽셀의 깊이
+        float PixelDepth = ShadowTexCoord.z;
+        
+        // 텍스처에서 깊이 추출, R24G8 포맷이라 r값이 깊이
+        float TextureDepth = ShadowMap.Sample(ShadowSampler, AtlasUV).r;
+
+        // 현재 픽셀의 깊이가 텍스처 깊이보다 크면 그림자
+        if (PixelDepth > TextureDepth)
+        {
+            ShadowFactor = 0.0f;
+        }
+    }
+
+    return ShadowFactor;
 }

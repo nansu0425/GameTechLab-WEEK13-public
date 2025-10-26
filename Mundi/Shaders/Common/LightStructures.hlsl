@@ -12,6 +12,12 @@
 // 주의: Color는 이미 Intensity와 Temperature가 포함됨 (C++에서 계산)
 // 최소 메모리 사용을 위한 최적화된 패딩
 
+struct FShadowMapData
+{
+    row_major float4x4 ShadowViewProjMatrix;
+    float4 AtlasScaleOffset;
+};
+
 struct FAmbientLightInfo
 {
     float4 Color;       // 16 bytes - FLinearColor (Intensity + Temperature 포함)
@@ -52,4 +58,6 @@ struct FSpotLightInfo
 
     float FalloffExponent; // 4 bytes
     uint bUseInverseSquareFalloff; // 4 bytes
+
+    FShadowMapData ShadowData; // 80 bytes (FMatrix(64) + FVector4(16))
 };

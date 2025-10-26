@@ -127,7 +127,7 @@ FSpotLightInfo USpotLightComponent::GetLightInfo() const
 	Info.AttenuationRadius = GetAttenuationRadius();
 	Info.FalloffExponent = GetFalloffExponent(); // Always pass FalloffExponent (used when bUseInverseSquareFalloff = false)
 	Info.bUseInverseSquareFalloff = IsUsingInverseSquareFalloff() ? 1u : 0u;
-
+	Info.ShadowData.ShadowViewProjMatrix = GetViewMatrix() * GetProjectionMatrix();
 	return Info;
 }
 

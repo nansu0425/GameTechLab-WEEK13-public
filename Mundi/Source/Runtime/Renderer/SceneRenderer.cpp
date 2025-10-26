@@ -404,8 +404,8 @@ void FSceneRenderer::RenderShadowDepthPass(FMatrix& InLightView, FMatrix& InLigh
 	RHIDevice->GetDeviceContext()->PSSetShader(nullptr, nullptr, 0); // 픽셀 셰이더 없음
 
 	// 3. 라이트의 View-Projection 행렬을 메인 ViewProj 버퍼에 설정
-	FMatrix InvView = InLightView.Inverse();
-	FMatrix InvProj = InLightProj.Inverse();
+	FMatrix InvView = InLightView;
+	FMatrix InvProj = InLightProj;
 
 	ViewProjBufferType ViewProjBuffer = ViewProjBufferType(InLightView, InLightProj, InvView, InvProj);
 	RHIDevice->SetAndUpdateConstantBuffer(ViewProjBufferType(ViewProjBuffer));
@@ -1273,7 +1273,7 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 
 			// 2. 샘플러 바인딩
 			ID3D11SamplerState* Samplers[2] = { DefaultSampler, DefaultSampler };
-			RHIDevice->GetDeviceContext()->PSSetSamplers(0, 2, Samplers);
+			RHIDevice->GetDeviceContext()->PSSetSamplers(0, 2, Samplers);			
 
 			// 3. 재질 CBuffer 바인딩
 			RHIDevice->SetAndUpdateConstantBuffer(PixelConst);

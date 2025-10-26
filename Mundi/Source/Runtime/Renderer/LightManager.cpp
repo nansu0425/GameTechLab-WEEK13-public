@@ -308,6 +308,7 @@ void FLightManager::SetShadowMapData(ULightComponent* Light, int32 SubViewIndex,
 
 	// 데이터 저장
 	Cascades[SubViewIndex] = Data;
+	
 
 	bShadowDataDirty = true;
 	bHaveToUpdate = true;

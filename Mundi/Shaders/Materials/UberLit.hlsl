@@ -75,6 +75,8 @@ cbuffer PixelConstBuffer : register(b4)
 // --- 텍스처 및 샘플러 리소스 ---
 Texture2D g_DiffuseTexColor : register(t0);
 Texture2D g_NormalTexColor : register(t1);
+TextureCubeArray g_ShadowAtlasCube : register(t8);
+Texture2D g_ShadowAtlas2D : register(t9);
 SamplerState g_Sample : register(s0);
 SamplerState g_Sample2 : register(s1);
 
@@ -110,11 +112,11 @@ struct PS_OUTPUT
 PS_INPUT mainVS(VS_INPUT Input)
 {
     PS_INPUT Out;
-
+    
     // 위치를 월드 공간으로 먼저 변환
     float4 worldPos = mul(float4(Input.Position, 1.0f), WorldMatrix);
     Out.WorldPos = worldPos.xyz;
-
+    
     // 뷰 공간으로 변환
     float4 viewPos = mul(worldPos, ViewMatrix);
 
@@ -496,6 +498,12 @@ PS_OUTPUT mainPS(PS_INPUT Input)
     if (bHasMaterial)
     {
         finalPixel.a *= (1.0f - Material.Transparency);
+    }
+    
+    for (int i = 0; i < SpotLightCount; i++)
+    {        
+        float ShadowFactor = CalculateSpotLightShadowFactor(Input.Position, g_SpotLightList[i].ShadowData, g_ShadowAtlas2D, g_Sample);
+        finalPixel *= ShadowFactor;
     }
 
     Output.Color = finalPixel;
