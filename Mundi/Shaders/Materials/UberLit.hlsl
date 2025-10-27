@@ -85,6 +85,7 @@ cbuffer FLightShadowmBufferType : register(b5)
 // --- 텍스처 및 샘플러 리소스 ---
 Texture2D g_DiffuseTexColor : register(t0);
 Texture2D g_NormalTexColor : register(t1);
+Texture2D g_DirectionalShadowMap : register(t5);
 TextureCubeArray g_ShadowAtlasCube : register(t8);
 Texture2D g_ShadowAtlas2D : register(t9);
 SamplerState g_Sample : register(s0);
