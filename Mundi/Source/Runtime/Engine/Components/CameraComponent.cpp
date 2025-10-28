@@ -129,14 +129,14 @@ TArray<FVector> UCameraComponent::GetFrustumVerticesCascaded(FViewport* Viewport
         FarHalfHeight = NearHalfHeight;
         FarHalfWidth = NearHalfWidth;
     }
-    Vertices.emplace_back(FVector(-NearHalfWidth, -NearHalfHeight, NearClip));
-    Vertices.emplace_back(FVector(NearHalfWidth, -NearHalfHeight, NearClip));
-    Vertices.emplace_back(FVector(NearHalfWidth, NearHalfHeight, NearClip));
-    Vertices.emplace_back(FVector(-NearHalfWidth, NearHalfHeight, NearClip));
-    Vertices.emplace_back(FVector(-FarHalfWidth, -FarHalfHeight, FarClip));
-    Vertices.emplace_back(FVector(FarHalfWidth, -FarHalfHeight, FarClip));
-    Vertices.emplace_back(FVector(FarHalfWidth, FarHalfHeight, FarClip));
-    Vertices.emplace_back(FVector(-FarHalfWidth, FarHalfHeight, FarClip));
+    Vertices.emplace_back(FVector(-NearHalfWidth, -NearHalfHeight, Near));
+    Vertices.emplace_back(FVector(NearHalfWidth, -NearHalfHeight, Near));
+    Vertices.emplace_back(FVector(NearHalfWidth, NearHalfHeight, Near));
+    Vertices.emplace_back(FVector(-NearHalfWidth, NearHalfHeight, Near));
+    Vertices.emplace_back(FVector(-FarHalfWidth, -FarHalfHeight, Far));
+    Vertices.emplace_back(FVector(FarHalfWidth, -FarHalfHeight, Far));
+    Vertices.emplace_back(FVector(FarHalfWidth, FarHalfHeight, Far));
+    Vertices.emplace_back(FVector(-FarHalfWidth, FarHalfHeight, Far));
 
     return Vertices;
 }

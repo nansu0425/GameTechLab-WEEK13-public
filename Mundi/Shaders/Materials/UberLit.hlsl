@@ -254,7 +254,31 @@ PS_INPUT mainVS(VS_INPUT Input)
 PS_OUTPUT mainPS(PS_INPUT Input)
 {
     PS_OUTPUT Output;
-    Output.UUID = UUID;
+    //Output.UUID = UUID;
+    
+    //CSM 구간 시각화
+    //float3 Color[8] = {  
+    //    float3(1, 0, 0),
+    //    float3(0, 1, 0 ),
+    //    float3(1, 1, 0 ),
+    //    float3(0, 0, 1 ),
+    //    float3(1, 0, 1 ),
+    //    float3(0, 1, 1 ),
+    //    float3(1, 1, 1 ),
+    //    float3(0.5f, 1,1)
+    //};
+    //int CascadeCount = DirectionalLight.CascadeCount;
+    //float4 ViewPos = mul(float4(Input.WorldPos, 1), ViewMatrix);
+    //for (int i = 0; i < CascadeCount; i++)
+    //{
+    //    if (ViewPos.z < DirectionalLight.CascadedSliceDepth[(i + 1) / 4][(i + 1) % 4])
+    //    {
+    //        Output.Color = float4(Color[i], 1);
+    //        break;
+    //    }
+    //}
+    //return Output;
+    
     
     // UV 스크롤링 적용 (활성화된 경우)
     float2 uv = Input.TexCoord;
@@ -262,8 +286,8 @@ PS_OUTPUT mainPS(PS_INPUT Input)
     //{
     //    uv += UVScrollSpeed * UVScrollTime;
     //}
-
     
+
 #ifdef VIEWMODE_WORLD_NORMAL
     // World Normal 시각화: Normal 벡터를 색상으로 변환
     // Normal 범위: -1~1 → 색상 범위: 0~1
@@ -281,7 +305,7 @@ PS_OUTPUT mainPS(PS_INPUT Input)
 #endif
     
     // 텍스처 샘플링
-    float4 texColor = g_DiffuseTexColor.Sample(g_Sample, uv) * float4(Material.DiffuseColor, 1.0f);
+        float4 texColor = g_DiffuseTexColor.Sample(g_Sample, uv) * float4(Material.DiffuseColor, 1.0f);
 
     // 머티리얼의 SpecularExponent 사용, 머티리얼이 없으면 기본값 사용
     float specPower = bHasMaterial ? Material.SpecularExponent : 32.0f;
