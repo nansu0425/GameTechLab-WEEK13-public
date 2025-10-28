@@ -170,7 +170,7 @@ float SamplePointLightShadow(uint lightIndex, float3 worldPos, float3 lightPos, 
     float3 lightToPixel = worldPos - lightPos;
     float distance = length(lightToPixel); // ViewSpace.z 역할
 
-    float nearPlane = 0.1f;
+    float nearPlane = 0.2f;
     
     // --- [수정] 원근 투영 Z 변환 적용 ---
     float nonLinearDepth = (farPlane / (farPlane - nearPlane)) - (nearPlane * farPlane / (farPlane - nearPlane)) / distance;
