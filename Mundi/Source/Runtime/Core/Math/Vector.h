@@ -812,7 +812,7 @@ struct alignas(16) FMatrix
 		return rot;
 	}
 
-	FMatrix Inverse()
+	FMatrix Inverse() const
 	{
 		FMatrix InverseMatrix;
 		// 원본 행렬(VP_Matrix)의 요소를 로컬 변수로 복사

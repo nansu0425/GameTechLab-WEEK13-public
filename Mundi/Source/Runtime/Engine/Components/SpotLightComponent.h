@@ -2,6 +2,8 @@
 #include "PointLightComponent.h"
 #include "LightManager.h"
 
+class UCameraComponent;
+
 // 스포트라이트 (원뿔 형태로 빛 방출)
 class USpotLightComponent : public UPointLightComponent
 {
@@ -73,9 +75,10 @@ public:
 
 	FMatrix GetViewMatrix() const;
 	FMatrix GetProjectionMatrix() const;
+	FMatrix GetWarpMatrix() const { return WarpMatrix; }
 	void RenderDebugFrustum(TArray<FVector>& StartPoints, TArray<FVector>& EndPoints, TArray<FVector4>& Colors) const;
 	void CreateShadowMap(D3D11RHI* RHIDevice);
-	
+	void CalculateWarpMatrix(URenderer* Renderer, UCameraComponent* Camera, FViewport* Viewport);
 
 protected:
 	float InnerConeAngle = 30.0f; // 내부 원뿔 각도
@@ -85,11 +88,14 @@ protected:
 	float PreviousInnerConeAngle = 30.0f;
 	float PreviousOuterConeAngle = 45.0f;
 
+
 	ID3D11ShaderResourceView* ShadowMapSRV = nullptr;
 	ID3D11DepthStencilView* ShadowMapDSV = nullptr;
 	D3D11_VIEWPORT ShadowMapViewport{};
 	FVector2D ShadowMapResolution = {1024.0f, 1024.0f};
 	int32 SampleCount = 4;
+	FMatrix WarpMatrix = FMatrix::Identity();
+
 
 	// Direction Gizmo (shows light direction)
 	class UGizmoArrowComponent* DirectionGizmo = nullptr;
