@@ -86,10 +86,8 @@ protected:
 	float PreviousInnerConeAngle = 30.0f;
 	float PreviousOuterConeAngle = 45.0f;
 
+	// NOTE: 실제로는 사용하지 않지만 프로퍼티 양식 때문에 어쩔 수 없이 임시로 선언
 	ID3D11ShaderResourceView* ShadowMapSRV = nullptr;
-	ID3D11DepthStencilView* ShadowMapDSV = nullptr;
-	D3D11_VIEWPORT ShadowMapViewport{};
-	FVector2D ShadowMapResolution = {1024.0f, 1024.0f};
 	int32 SampleCount = 4;
 
 	// Direction Gizmo (shows light direction)

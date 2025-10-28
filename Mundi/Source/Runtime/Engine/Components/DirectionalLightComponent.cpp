@@ -12,8 +12,6 @@ IMPLEMENT_CLASS(UDirectionalLightComponent)
 
 BEGIN_PROPERTIES(UDirectionalLightComponent)
 	MARK_AS_COMPONENT("디렉셔널 라이트", "방향성 라이트 (태양광 같은 평행광) 컴포넌트입니다.")
-	ADD_PROPERTY_RANGE(int, ShadowMapWidth, "ShadowMap", 32, 2048, true, "쉐도우 맵 Width")
-	ADD_PROPERTY_RANGE(int, ShadowMapHeight, "ShadowMap", 32, 2048, true, "쉐도우 맵 Height")
 	ADD_PROPERTY_RANGE(float, Near, "ShadowMap", 0.01f, 10.0f, true, "쉐도우 맵 Near Plane")
 	ADD_PROPERTY_RANGE(float, Far, "ShadowMap", 11.0f, 1000.0f, true, "쉐도우 맵 Far Plane")
 	ADD_PROPERTY_SRV(ID3D11ShaderResourceView*, ShadowMapSRV, "ShadowMap", true, "쉐도우 맵 Far Plane")
@@ -22,6 +20,7 @@ END_PROPERTIES()
 
 UDirectionalLightComponent::UDirectionalLightComponent()
 {
+	ShadowResolutionScale = 8196;
 }
 
 UDirectionalLightComponent::~UDirectionalLightComponent()
@@ -51,7 +50,7 @@ void UDirectionalLightComponent::GetShadowRenderRequests(FSceneView* View, TArra
 	ShadowRenderRequest.LightOwner = this;
 	ShadowRenderRequest.ViewMatrix = ShadowMapView;
 	ShadowRenderRequest.ProjectionMatrix = ShadowMapOrtho;
-	ShadowRenderRequest.Size = 8196;
+	ShadowRenderRequest.Size = ShadowResolutionScale;
 	ShadowRenderRequest.SubViewIndex = 0;
 	ShadowRenderRequest.AtlasScaleOffset = 0;
 	OutRequests.Add(ShadowRenderRequest);

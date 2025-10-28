@@ -42,10 +42,8 @@ protected:
 	class UGizmoArrowComponent* DirectionGizmo = nullptr;
 	ID3D11ShaderResourceView* ShadowMapSRV = nullptr;
 private:
-	uint32 ShadowMapWidth = 512;
-	uint32 ShadowMapHeight = 512;
 	float Angle = 45;
 	float Near = 0.1f;
 	float Far = 100.0f;
-	bool bOverrideCameraLightPerspective;
+	bool bOverrideCameraLightPerspective = false;
 };
