@@ -15,6 +15,7 @@ BEGIN_PROPERTIES(USpotLightComponent)
 	ADD_PROPERTY_RANGE(float, OuterConeAngle, "Light", 0.0f, 90.0f, true, "원뿔 외부 각도입니다. 이 각도 밖에서는 빛이 보이지 않습니다.")
 	ADD_PROPERTY_RANGE(int, SampleCount, "Light", 0, 16, "PCF 샘플 횟수")
 	ADD_PROPERTY_SRV(ID3D11ShaderResourceView*, ShadowMapSRV, "ShadowMap", true, "쉐도우 맵 Far Plane")
+	ADD_PROPERTY(bool, bOverrideCameraLightPerspective, "ShadowMap", true, "Override Camera Light Perspective")
 END_PROPERTIES()
 
 USpotLightComponent::USpotLightComponent()
@@ -57,17 +58,6 @@ void USpotLightComponent::ValidateConeAngles()
 
 USpotLightComponent::~USpotLightComponent()
 {
-	if (ShadowMapSRV)
-	{
-		ShadowMapSRV->Release();
-		ShadowMapSRV = nullptr;
-	}
-
-	if (ShadowMapDSV)
-	{
-		ShadowMapDSV->Release();
-		ShadowMapDSV = nullptr;
-	}
 }
 
 void USpotLightComponent::GetShadowRenderRequests(FSceneView* View, TArray<FShadowRenderRequest>& OutRequests)
@@ -78,6 +68,7 @@ void USpotLightComponent::GetShadowRenderRequests(FSceneView* View, TArray<FShad
 	ShadowRenderRequest.LightOwner = this;
 	ShadowRenderRequest.ViewMatrix = GetViewMatrix();
 	ShadowRenderRequest.ProjectionMatrix = GetProjectionMatrix();
+	ShadowRenderRequest.Size = ShadowResolutionScale;
 	// ShadowRenderRequest.ViewMatrix = GetViewMatrix() * GetProjectionMatrix();
 	// ShadowRenderRequest.ProjectionMatrix = WarpMatrix;
 	ShadowRenderRequest.Size = 256;
@@ -305,243 +296,6 @@ void USpotLightComponent::RenderDebugFrustum(TArray<FVector>& StartPoints, TArra
 	StartPoints.Add(WorldFrustum[3]);
 	EndPoints.Add(WorldFrustum[7]);
 	Colors.Add(FrustumColor);
-	
-}
-
-void USpotLightComponent::CreateShadowMap(D3D11RHI* RHIDevice)
-{
-	ShadowMapViewport.TopLeftX = 0.0f;
-	ShadowMapViewport.TopLeftY = 0.0f;
-	ShadowMapViewport.Width = static_cast<float>(ShadowMapResolution.X);
-	ShadowMapViewport.Height = static_cast<float>(ShadowMapResolution.Y);
-	ShadowMapViewport.MinDepth = 0.0f;
-	ShadowMapViewport.MaxDepth = 1.0f;
-
-	D3D11_TEXTURE2D_DESC TextureDesc{};
-	TextureDesc.Width = static_cast<uint32>(ShadowMapResolution.X);
-	TextureDesc.Height = static_cast<uint32>(ShadowMapResolution.Y);
-	TextureDesc.MipLevels = 1;
-	TextureDesc.ArraySize = 1;
-	TextureDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
-	TextureDesc.SampleDesc.Count = 1;
-	TextureDesc.SampleDesc.Quality = 0;
-	TextureDesc.Usage = D3D11_USAGE_DEFAULT;
-	TextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_DEPTH_STENCIL;
-	TextureDesc.CPUAccessFlags = 0;
-	TextureDesc.MiscFlags = 0;
-
-	ID3D11Texture2D* ShadowMapTexture = nullptr;
-	HRESULT hr = RHIDevice->GetDevice()->CreateTexture2D(&TextureDesc, 0, &ShadowMapTexture);
-	if (FAILED(hr))
-	{
-		UE_LOG("Shadow Map Texture Create Fail");
-		return;
-	}
-
-	D3D11_DEPTH_STENCIL_VIEW_DESC DSVDesc{};
-	DSVDesc.Flags = 0;
-	DSVDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	DSVDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-	DSVDesc.Texture2D.MipSlice = 0;
-	hr = RHIDevice->GetDevice()->CreateDepthStencilView(ShadowMapTexture, &DSVDesc, &ShadowMapDSV);
-	if (FAILED(hr))
-	{
-		UE_LOG("Shadow Map DSV Create Fail");
-		ShadowMapTexture->Release();
-		return;
-	}	
-
-	D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc{};
-	SRVDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
-	SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	SRVDesc.Texture2D.MipLevels = TextureDesc.MipLevels;
-	SRVDesc.Texture2D.MostDetailedMip = 0;
-	hr = RHIDevice->GetDevice()->CreateShaderResourceView(ShadowMapTexture, &SRVDesc, &ShadowMapSRV);
-	if (FAILED(hr))
-	{
-		UE_LOG("Shadow Map SRV Create Fail");
-		ShadowMapTexture->Release();
-		return;
-	}
-
-	ShadowMapTexture->Release();
-}
-
-void USpotLightComponent::CalculateWarpMatrix(URenderer* Renderer, UCameraComponent* Camera, FViewport* Viewport)
-{	
-	FVector CameraNDCCorners[8]= {
-		// near
-		FVector(-1.0f, -1.0f, 0.0f), // bottom left
-		FVector(1.0f, -1.0f, 0.0f), // bottom right
-		FVector(1.0f, 1.0f, 0.0f), // top right
-		FVector(-1.0f, 1.0f, 0.0f), // top left
-		// far
-		FVector(-1.0f, -1.0f, 1.0f), // bottom left 
-		FVector(1.0f, -1.0f, 1.0f), // bottom right
-		FVector(1.0f, 1.0f, 1.0f), // top right
-		FVector(-1.0f, 1.0f, 1.0f) // top left
-	};
-
-	// === [1단계: 카메라 절두체의 월드 공간 꼭짓점 8개 구하기] ===
-    // (이 로직은 CSM과 PSM이 동일함. 네 코드 그대로 사용)
-    FMatrix CameraView = Camera->GetViewMatrix();
-    FMatrix CameraProj = Camera->GetProjectionMatrix(Viewport->GetAspectRatio(), Viewport);
-    FMatrix InverseCameraViewProj = (CameraView * CameraProj).Inverse();
-    
-    FVector WorldFrustum[8] = {};
-    for (int i = 0; i < 8; i++)
-    {
-       FVector4 NDC = FVector4(CameraNDCCorners[i].X, CameraNDCCorners[i].Y, CameraNDCCorners[i].Z, 1.0f) * InverseCameraViewProj;
-       if (FMath::Abs(NDC.W) > KINDA_SMALL_NUMBER)
-       {
-          WorldFrustum[i] = FVector(NDC.X, NDC.Y, NDC.Z) / NDC.W;          
-       }
-       else
-       {
-          WorldFrustum[i] = FVector(NDC.X, NDC.Y, NDC.Z);
-       }
-    }
-
-    // === [2단계: 월드 공간 꼭짓점을 '라이트의 NDC 공간'으로 변환] ===
-    // (CSM의 'LightView'만 곱하는 것과 달리, 'LightViewProj'를 모두 곱함)
-    
-    FMatrix LightView = GetViewMatrix();
-    FMatrix LightProj = GetProjectionMatrix(); // 스포트라이트의 '원본' 원근 투영
-    FMatrix LightViewProj = LightView * LightProj;
-
-    TArray<FVector> LightNDCCorners;
-    LightNDCCorners.Reserve(8); // 8개 공간 예약
-
-    for (int i = 0; i < 8; i++)
-    {
-       FVector4 WorldCorner = FVector4(WorldFrustum[i].X, WorldFrustum[i].Y, WorldFrustum[i].Z, 1.0f);
-       FVector4 LightClipCorner = WorldCorner * LightViewProj; // 라이트의 클립 공간으로
-
-       // [중요] 라이트의 Near Plane(W) 뒤에 있는 점은 클리핑 (AABB를 망가뜨림)
-       if (LightClipCorner.W > KINDA_SMALL_NUMBER)
-       {
-           // Perspective Divide (퍼스펙티브 나누기) 수행
-           FVector LightNDC = FVector(LightClipCorner.X, LightClipCorner.Y, LightClipCorner.Z) / LightClipCorner.W;
-
-           // D3D11의 Z는 [0, 1] 범위임. 이 범위를 벗어나는 점들도 AABB 계산에 포함하되,
-           // Z좌표는 클리핑해서 AABB가 [0, 1] 범위를 유지하게 함.
-           LightNDC.Z = FMath::Clamp(LightNDC.Z, 0.0f, 1.0f);
-           LightNDCCorners.Add(LightNDC);
-       }
-       // else: W가 0이거나 음수(라이트 뒤)면 AABB 계산에서 제외
-    }
-
-    // [중요] 만약 8개의 점이 모두 라이트 뒤에 있다면(예: 라이트가 벽을 보고 있음),
-    // AABB를 만들 수 없으므로 디버그를 중단해야 함.
-    if (LightNDCCorners.Num() == 0)
-    {
-    	this->WarpMatrix = FMatrix::Identity();
-        return; // 그릴 수 있는 절두체가 없음
-    }
-
-    // === [3단계: '라이트 NDC 공간'에서 AABB(경계 상자) 찾기] ===
-    FAABB Bounds(LightNDCCorners);
-    
-    // [중요] PSM에서는 라이트의 원점(NDC 0,0,0)을 포함해야 원근 효과가 유지됨 (LiSPSM 기법)
-    // 여기서는 Z=0 (Near Plane)을 강제로 포함시켜 안정성을 높임
-    Bounds.Min.Z = 0.0f; // D3D11 NDC Z축은 0에서 시작
-    Bounds.Max.Z = FMath::Max(Bounds.Max.Z, 0.0f + KINDA_SMALL_NUMBER); // Z Max가 0이 되는 것 방지
-
-    // === [4단계: 'Warp Matrix' 생성] ===
-    // 'LightNDC_Bounds'를 새로운 [-1, 1] (X,Y), [0, 1] (Z) 공간으로 
-    // 매핑하는 '직교' 행렬을 생성. 이것이 바로 'Warp Matrix'임.
-    
-    // (이전 코드의 AABB 패딩 로직은 여전히 유효함! NaN 방지)
-    float Min = 1.0f; // 최소 크기
-    float ExtentX = Bounds.Max.X - Bounds.Min.X;
-    float ExtentY = Bounds.Max.Y - Bounds.Min.Y;
-    if (ExtentX < Min)
-    {
-       float Mid = (Bounds.Max.X + Bounds.Min.X) * 0.5f;
-       Bounds.Min.X = Mid - (Min * 0.5f);
-       Bounds.Max.X = Mid + (Min * 0.5f);
-    }
-    if (ExtentY < Min)
-    {
-       float Mid = (Bounds.Max.Y + Bounds.Min.Y) * 0.5f;
-       Bounds.Min.Y = Mid - (Min * 0.5f);
-       Bounds.Max.Y = Mid + (Min * 0.5f);
-    }
-    
-    FMatrix NewWarpMatrix = FMatrix::OrthoMatrix(Bounds);
-
-    // === [5단계: 최종 'Warped VP' 행렬 및 그 역행렬 계산] ===
-    // PSM의 핵심: M_WarpedVP = M_Original_VP * M_Warp
-    FMatrix WarpedLightVP = LightViewProj * NewWarpMatrix; 
-    FMatrix InverseWarpedLightVP = WarpedLightVP.Inverse();
-	WarpMatrix = NewWarpMatrix;
- 
-    // === [6단계: 'Warped Frustum'을 월드 공간에 그리기] ===
-    // (이 로직은 CSM 코드와 동일, 사용하는 행렬만 InverseWarpedLightVP로 변경)
-
-	FVector TightCorners[8] = {};
-	for (int i = 0; i < 8; i++)
-	{
-		FVector4 NDCCorner = FVector4(CameraNDCCorners[i].X, CameraNDCCorners[i].Y, CameraNDCCorners[i].Z, 1.0f);
-		FVector4 WorldCorner = NDCCorner * InverseWarpedLightVP; // 최종 왜곡 행렬의 역행렬 사용
-	
-		if (FMath::Abs(WorldCorner.W) > KINDA_SMALL_NUMBER)
-		{
-			TightCorners[i] = FVector(WorldCorner.X, WorldCorner.Y, WorldCorner.Z) / WorldCorner.W;
-		}
-		else
-		{
-			TightCorners[i] = FVector(WorldCorner.X, WorldCorner.Y, WorldCorner.Z);
-		}
-	}
-    
-    // ... (이후 AddLines 호출 코드는 동일) ...
-    FVector4 FrustumColor(1.0f, 0.f, 0.0f, 1.0f);
-    TArray<FVector> StartPoints = {};
-    TArray<FVector> EndPoints = {};
-    TArray<FVector4> Colors = {};
-    
-    // (이하 StartPoints.Add ... 로직은 동일)
-	StartPoints.Add(TightCorners[0]);
-	EndPoints.Add(TightCorners[1]);
-	Colors.Add(FrustumColor);
-	StartPoints.Add(TightCorners[1]);
-	EndPoints.Add(TightCorners[2]);
-	Colors.Add(FrustumColor);
-	StartPoints.Add(TightCorners[2]);
-	EndPoints.Add(TightCorners[3]);
-	Colors.Add(FrustumColor);
-	StartPoints.Add(TightCorners[3]);
-	EndPoints.Add(TightCorners[0]);
-	Colors.Add(FrustumColor);
-	
-	StartPoints.Add(TightCorners[4]);
-	EndPoints.Add(TightCorners[5]);
-	Colors.Add(FrustumColor);
-	StartPoints.Add(TightCorners[5]);
-	EndPoints.Add(TightCorners[6]);
-	Colors.Add(FrustumColor);
-	StartPoints.Add(TightCorners[6]);
-	EndPoints.Add(TightCorners[7]);
-	Colors.Add(FrustumColor);
-	StartPoints.Add(TightCorners[7]);
-	EndPoints.Add(TightCorners[4]);
-	Colors.Add(FrustumColor);
- 
-	StartPoints.Add(TightCorners[0]);
-	EndPoints.Add(TightCorners[4]);
-	Colors.Add(FrustumColor);
-	StartPoints.Add(TightCorners[1]);
-	EndPoints.Add(TightCorners[5]);
-	Colors.Add(FrustumColor);
-	StartPoints.Add(TightCorners[2]);
-	EndPoints.Add(TightCorners[6]);
-	Colors.Add(FrustumColor);
-	StartPoints.Add(TightCorners[3]);
-	EndPoints.Add(TightCorners[7]);
-	Colors.Add(FrustumColor);
-    Renderer->AddLines(StartPoints, EndPoints, Colors);
-	
 }
 
 void USpotLightComponent::RenderDebugVolume(URenderer* Renderer) const

@@ -35,7 +35,10 @@ struct FShadowRenderRequest
     FMatrix ProjectionMatrix;
     uint32 Size;
     int32 SubViewIndex; // Point(0~5), CSM(0~N), Spot(0)
+    int32 AssignedSliceIndex = -1; // Cube Atlas Slice Index
+
     FVector4 AtlasScaleOffset; // 패킹 알고리즘이 채워줄 UV
+    FVector2D AtlasViewportOffset; // 패킹 알고리즘이 채워줄 Viewport
     int32 SampleCount;
 
     bool operator>(const FShadowRenderRequest& Other) const
@@ -123,13 +126,15 @@ public:
 
     // --- 섀도우 리소스 접근자 (FSceneRenderer가 사용) ---
     ID3D11DepthStencilView* GetShadowAtlasDSV2D() const { return ShadowAtlasDSV2D; }
-    ID3D11Texture2D* GetShadowAtlasTexture2D() const { return ShadowAtlasTexture2D; }
     ID3D11ShaderResourceView* GetShadowAtlasSRV2D() const { return ShadowAtlasSRV2D; }
     float GetShadowAtlasSize2D() const { return ShadowAtlasSize2D; }
     uint32 GetShadowCubeArraySize() const { return AtlasSizeCube; }
     uint32 GetShadowCubeArrayCount() const { return CubeArrayCount; }
     ID3D11DepthStencilView* GetShadowCubeFaceDSV(UINT SliceIndex, UINT FaceIndex) const; // (구현 필요)
     bool GetCachedShadowData(ULightComponent* Light, int32 SubViewIndex, FShadowMapData& OutData) const;
+
+    void AllocateAtlasRegions2D(TArray<FShadowRenderRequest>& InOutRequests2D);
+    void AllocateAtlasCubeSlices(TArray<FShadowRenderRequest>& InOutRequestsCube);
 
     TArray<UAmbientLightComponent*> GetAmbientLightList() { return AmbientLightList; }
     TArray<UDirectionalLightComponent*> GetDirectionalLightList() { return DIrectionalLightList; }
@@ -159,7 +164,7 @@ private:
     ID3D11Texture2D* ShadowAtlasTexture2D = nullptr;
     ID3D11DepthStencilView* ShadowAtlasDSV2D = nullptr;
     ID3D11ShaderResourceView* ShadowAtlasSRV2D = nullptr; // t9
-    uint32 ShadowAtlasSize2D = 4096;
+    uint32 ShadowAtlasSize2D = 16384;
 
     // Atlas 2: 큐브맵 아틀라스 (Point Light용)
     ID3D11Texture2D* ShadowAtlasTextureCube = nullptr; // TextureCubeArray 리소스

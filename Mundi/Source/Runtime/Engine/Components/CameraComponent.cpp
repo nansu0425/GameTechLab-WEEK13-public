@@ -102,57 +102,44 @@ FMatrix UCameraComponent::GetProjectionMatrix(float ViewportAspectRatio, FViewpo
             NearClip, FarClip);*/
     }
 }
-
-TArray<FVector> UCameraComponent::GetViewAreaVerticesWS(FViewport* Viewport)
+TArray<FVector> UCameraComponent::GetFrustumVertices(FViewport* Viewport)
 {
-    const FMatrix World = GetWorldTransform().ToMatrix();
-    const FMatrix ViewToWorld = FMatrix::YUpToZUp * World;
+    return GetFrustumVerticesCascaded(Viewport, NearClip, FarClip);
+}
+TArray<FVector> UCameraComponent::GetFrustumVerticesCascaded(FViewport* Viewport, const float Near, const float Far)
+{
     TArray<FVector> Vertices;
     Vertices.reserve(8);
-    float HalfNearHeight, HalfNearWidth, HalfFarHeight, HalfFarWidth;
+    float NearHalfHeight, NearHalfWidth, FarHalfHeight, FarHalfWidth;
     if (ProjectionMode == ECameraProjectionMode::Perspective)
     {
-        //near 4점, far 4점
-        float HalfHeight = tan(DegreesToRadians(FieldOfView) * 0.5f);
-        float HalfWidth = HalfHeight * Viewport->GetAspectRatio();
-
-        HalfNearHeight = HalfHeight * NearClip;
-        HalfNearWidth = HalfWidth * NearClip;
-        HalfFarHeight = HalfHeight * FarClip;
-        HalfFarWidth = HalfWidth * FarClip;
+        const float Tan = tan(DegreesToRadians(FieldOfView) * 0.5f);
+        const float Aspect = Viewport->GetAspectRatio();
+        NearHalfHeight = Tan * Near;
+        NearHalfWidth = NearHalfHeight * Aspect;
+        FarHalfHeight = Tan * Far;
+        FarHalfWidth = FarHalfHeight * Aspect;
     }
     else
     {
         const float pixelsPerWorldUnit = 10.0f;
 
-        HalfNearWidth = (Viewport->GetSizeX() / pixelsPerWorldUnit) * ZooMFactor;
-        HalfNearHeight = (Viewport->GetSizeY() / pixelsPerWorldUnit) * ZooMFactor;
-        HalfFarWidth = HalfNearWidth;
-        HalfFarHeight = HalfNearHeight;
+        NearHalfHeight = (Viewport->GetSizeY() / pixelsPerWorldUnit) * ZooMFactor;
+        NearHalfWidth = (Viewport->GetSizeX() / pixelsPerWorldUnit) * ZooMFactor;
+        FarHalfHeight = NearHalfHeight;
+        FarHalfWidth = NearHalfWidth;
     }
+    Vertices.emplace_back(FVector(-NearHalfWidth, -NearHalfHeight, NearClip));
+    Vertices.emplace_back(FVector(NearHalfWidth, -NearHalfHeight, NearClip));
+    Vertices.emplace_back(FVector(NearHalfWidth, NearHalfHeight, NearClip));
+    Vertices.emplace_back(FVector(-NearHalfWidth, NearHalfHeight, NearClip));
+    Vertices.emplace_back(FVector(-FarHalfWidth, -FarHalfHeight, FarClip));
+    Vertices.emplace_back(FVector(FarHalfWidth, -FarHalfHeight, FarClip));
+    Vertices.emplace_back(FVector(FarHalfWidth, FarHalfHeight, FarClip));
+    Vertices.emplace_back(FVector(-FarHalfWidth, FarHalfHeight, FarClip));
 
-    Vertices.emplace_back(FVector(-HalfNearWidth, -HalfNearHeight, NearClip));
-    Vertices.emplace_back(FVector(HalfNearWidth, -HalfNearHeight, NearClip));
-    Vertices.emplace_back(FVector(HalfNearWidth, HalfNearHeight, NearClip));
-    Vertices.emplace_back(FVector(-HalfNearWidth, HalfNearHeight, NearClip));
-    Vertices.emplace_back(FVector(-HalfFarWidth, -HalfFarHeight, FarClip));
-    Vertices.emplace_back(FVector(HalfFarWidth, -HalfFarHeight, FarClip));
-    Vertices.emplace_back(FVector(HalfFarWidth, HalfFarHeight, FarClip));
-    Vertices.emplace_back(FVector(-HalfFarWidth, HalfFarHeight, FarClip));
-
-    for (int i = 0; i < 8; i++)
-    {
-        Vertices[i] = Vertices[i] * ViewToWorld;
-    }
-
-    if (bSetViewGizmo)
-    {
-        bSetViewGizmo = false;
-        ViewGizmo = Vertices;
-    }
     return Vertices;
 }
-
 
 FVector UCameraComponent::GetForward() const
 {

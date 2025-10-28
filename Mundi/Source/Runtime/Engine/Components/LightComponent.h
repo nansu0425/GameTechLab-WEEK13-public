@@ -39,7 +39,7 @@ public:
 protected:
 	float Temperature = 6500.0f; // 색온도 (K)
 
-	float ShadowResolutionScale = 0.0f;	// NOTE: 추후 필요한 기본값으로 설정 필요
+	int ShadowResolutionScale = 1024;
 	float ShadowBias = 0.0f;	// NOTE: 추후 필요한 기본값으로 설정 필요
 	float ShadowSlopeBias = 0.0f;	// NOTE: 추후 필요한 기본값으로 설정 필요
 	float ShadowSharpen = 0.0f;	// NOTE: 추후 필요한 기본값으로 설정 필요

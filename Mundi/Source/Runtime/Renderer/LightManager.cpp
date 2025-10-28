@@ -308,7 +308,6 @@ void FLightManager::SetShadowMapData(ULightComponent* Light, int32 SubViewIndex,
 
 	// 데이터 저장
 	Cascades[SubViewIndex] = Data;
-	
 
 	bShadowDataDirty = true;
 	bHaveToUpdate = true;
@@ -362,6 +361,114 @@ bool FLightManager::GetCachedShadowData(ULightComponent* Light, int32 SubViewInd
 	// 4. 데이터 복사 및 성공 반환
 	OutData = (*FoundDataArray)[SubViewIndex];
 	return true;
+}
+
+// 단순한 아틀라스 로직
+void FLightManager::AllocateAtlasRegions2D(TArray<FShadowRenderRequest>& InOutRequests2D)
+{
+	// 요청 정렬 (가장 큰 것부터)
+	InOutRequests2D.Sort(std::greater<FShadowRenderRequest>());
+
+	// 동적 패킹(Shelf Algorithm)
+	uint32 CurrentAtlasX = 0;
+	uint32 CurrentAtlasY = 0;
+	uint32 CurrentShelfMaxHeight = 0;
+
+	for (FShadowRenderRequest& Request : InOutRequests2D)
+	{
+		if (CurrentAtlasX + Request.Size > ShadowAtlasSize2D)
+		{
+			CurrentAtlasY += CurrentShelfMaxHeight;
+			CurrentAtlasX = 0;
+			CurrentShelfMaxHeight = 0;
+		}
+		if (CurrentAtlasY + Request.Size > ShadowAtlasSize2D)
+		{
+			Request.Size = 0; // 꽉 참 (렌더링 실패)
+			UE_LOG("그림자 맵 아틀라스가 가득차서 더 이상 그림자를 추가할 수 없습니다.");
+			continue;
+		}
+
+		Request.AtlasViewportOffset = FVector2D((float)CurrentAtlasX, (float)CurrentAtlasY);
+
+		// Pass 2 데이터 (UV) 저장
+		Request.AtlasScaleOffset = FVector4(
+			Request.Size / (float)ShadowAtlasSize2D,    // ScaleX
+			Request.Size / (float)ShadowAtlasSize2D,    // ScaleY
+			CurrentAtlasX / (float)ShadowAtlasSize2D,   // OffsetX
+			CurrentAtlasY / (float)ShadowAtlasSize2D    // OffsetY
+		);
+
+		CurrentAtlasX += Request.Size;
+		CurrentShelfMaxHeight = FMath::Max(CurrentShelfMaxHeight, Request.Size);
+	}
+}
+
+void FLightManager::AllocateAtlasCubeSlices(TArray<FShadowRenderRequest>& InOutRequestsCube)
+{
+	// 슬라이스 개수가 유효하지 않으면 모든 요청 실패 처리
+	if (CubeArrayCount == 0)
+	{
+		for (FShadowRenderRequest& Request : InOutRequestsCube)
+		{
+			Request.Size = 0; // 할당 불가
+			Request.AssignedSliceIndex = -1; // 할당 인덱스를 -1로 설정
+		}
+		return;
+	}
+
+	int AllocatorCube_CurrentSliceIndex = 0;
+
+	ULightComponent* CurrentLightOwner = nullptr; // 현재 처리 중인 라이트 추적용
+	bool bCurrentLightFailed = false; // 현재 라이트가 슬라이스 할당에 실패했는지 여부
+	// 로컬 변수 대신 FLightManager의 멤버 변수 AllocatorCube_CurrentSliceIndex 사용
+
+	// 요청 리스트 순회 (각 라이트당 6개의 요청이 들어옴)
+	for (FShadowRenderRequest& Request : InOutRequestsCube)
+	{
+		// 유효하지 않은 요청은 건너뜀 (예: Size가 0인 경우)
+		if (Request.Size == 0)
+		{
+			Request.AssignedSliceIndex = -1; // 실패 상태 명시
+			continue;
+		}
+
+		// 라이트가 변경되었는지 확인
+		if (Request.LightOwner != CurrentLightOwner)
+		{
+			// 첫 라이트가 아니면서 이전 라이트가 성공적으로 할당되었을 경우, 다음 슬라이스로 이동
+			if (CurrentLightOwner != nullptr && !bCurrentLightFailed)
+			{
+				AllocatorCube_CurrentSliceIndex++; // 다음 슬라이스 인덱스로 증가 (멤버 변수 사용)
+			}
+
+			CurrentLightOwner = Request.LightOwner; // 현재 라이트 갱신
+
+			// 새 라이트가 슬라이스 개수 제한을 초과하는지 확인
+			if (AllocatorCube_CurrentSliceIndex >= CubeArrayCount)
+			{
+				bCurrentLightFailed = true; // 이 라이트는 할당 불가
+			}
+			else
+			{
+				bCurrentLightFailed = false; // 이 라이트는 할당 가능
+			}
+		}
+
+		// 현재 라이트가 할당 실패 상태인지 확인
+		if (bCurrentLightFailed)
+		{
+			Request.Size = 0; // 할당 실패 처리
+			Request.AssignedSliceIndex = -1; // 할당 인덱스를 -1로 설정
+		}
+		else
+		{
+			// --- [핵심 수정] ---
+			// 성공: 현재 슬라이스 인덱스를 'AssignedSliceIndex' 멤버에 기록
+			Request.AssignedSliceIndex = AllocatorCube_CurrentSliceIndex;
+			// OriginalSubViewIndex는 건드리지 않음
+		}
+	}
 }
 
 void FLightManager::ClearAllLightList()
@@ -464,6 +571,8 @@ void FLightManager::DeRegisterLight<UDirectionalLightComponent>(UDirectionalLigh
 	LightComponentList.Remove(LightComponent);
 	DIrectionalLightList.Remove(LightComponent);
 	bHaveToUpdate = true;
+
+	ShadowDataCache2D.Remove(LightComponent);
 }
 template<>
 void FLightManager::DeRegisterLight<UPointLightComponent>(UPointLightComponent* LightComponent)
@@ -478,6 +587,8 @@ void FLightManager::DeRegisterLight<UPointLightComponent>(UPointLightComponent* 
 	PointLightNum--;
 	bPointLightDirty = true;
 	bHaveToUpdate = true;
+
+	ShadowDataCacheCube.Remove(LightComponent);
 }
 template<>
 void FLightManager::DeRegisterLight<USpotLightComponent>(USpotLightComponent* LightComponent)
@@ -491,6 +602,8 @@ void FLightManager::DeRegisterLight<USpotLightComponent>(USpotLightComponent* Li
 	SpotLightNum--;
 	bSpotLightDirty = true;
 	bHaveToUpdate = true;
+
+	ShadowDataCache2D.Remove(LightComponent);
 }
 
 

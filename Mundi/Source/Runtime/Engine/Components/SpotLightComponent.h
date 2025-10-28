@@ -80,6 +80,8 @@ public:
 	void CreateShadowMap(D3D11RHI* RHIDevice);
 	void CalculateWarpMatrix(URenderer* Renderer, UCameraComponent* Camera, FViewport* Viewport);
 
+	bool IsOverrideCameraLightPerspective() { return bOverrideCameraLightPerspective; }
+
 protected:
 	float InnerConeAngle = 30.0f; // 내부 원뿔 각도
 	float OuterConeAngle = 45.0f; // 외부 원뿔 각도
@@ -88,15 +90,14 @@ protected:
 	float PreviousInnerConeAngle = 30.0f;
 	float PreviousOuterConeAngle = 45.0f;
 
-
+	// NOTE: 실제로는 사용하지 않지만 프로퍼티 양식 때문에 어쩔 수 없이 임시로 선언
 	ID3D11ShaderResourceView* ShadowMapSRV = nullptr;
-	ID3D11DepthStencilView* ShadowMapDSV = nullptr;
-	D3D11_VIEWPORT ShadowMapViewport{};
-	FVector2D ShadowMapResolution = {1024.0f, 1024.0f};
 	int32 SampleCount = 4;
 	FMatrix WarpMatrix = FMatrix::Identity();
 
 
 	// Direction Gizmo (shows light direction)
 	class UGizmoArrowComponent* DirectionGizmo = nullptr;
+
+	bool bOverrideCameraLightPerspective;
 };
