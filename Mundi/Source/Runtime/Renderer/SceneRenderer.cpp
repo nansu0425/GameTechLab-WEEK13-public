@@ -295,7 +295,7 @@ void FSceneRenderer::RenderShadowMaps()
 			for (FShadowRenderRequest& Request : Requests2D)
 			{
 				// 뷰포트 설정
-				D3D11_VIEWPORT ShadowVP = { Request.AtlasViewportOffset.X, Request.AtlasViewportOffset.Y, Request.Size, Request.Size, 0.0f, 1.0f };
+				D3D11_VIEWPORT ShadowVP = { Request.AtlasViewportOffset.X, Request.AtlasViewportOffset.Y, static_cast<FLOAT>(Request.Size), static_cast<FLOAT>(Request.Size), 0.0f, 1.0f };
 				RHIDevice->GetDeviceContext()->RSSetViewports(1, &ShadowVP);
 
 				// 뎁스 패스 렌더링
