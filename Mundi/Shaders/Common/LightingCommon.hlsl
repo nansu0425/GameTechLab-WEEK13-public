@@ -367,7 +367,7 @@ float3 CalculateAllLights(
 }
 
 float CalculateSpotLightShadowFactor(
-    float3 WorldPos, FShadowMapData ShadowMapData, Texture2D ShadowMap, SamplerState ShadowSampler)
+    float3 WorldPos, FShadowMapData ShadowMapData, Texture2D ShadowMap, SamplerComparisonState ShadowSampler)
 {
     // 빛 적용 가정
     float ShadowFactor = 1.0f;
@@ -379,12 +379,12 @@ float CalculateSpotLightShadowFactor(
     ShadowTexCoord.xyz /= ShadowTexCoord.w;
 
     // 아틀라스 uv좌표로 변환
-    float2 AtlasUV = ShadowTexCoord.xy;
-    AtlasUV.x = AtlasUV.x * ShadowMapData.AtlasScaleOffset.x + ShadowMapData.AtlasScaleOffset.z;
-    AtlasUV.y = AtlasUV.y * ShadowMapData.AtlasScaleOffset.y + ShadowMapData.AtlasScaleOffset.w;    
+    float2 AtlasUV = ShadowTexCoord.xy;    
 
     if (saturate(AtlasUV.x) == AtlasUV.x && saturate(AtlasUV.y) == AtlasUV.y)
     {
+        AtlasUV.x = AtlasUV.x * ShadowMapData.AtlasScaleOffset.x + ShadowMapData.AtlasScaleOffset.z;
+        AtlasUV.y = AtlasUV.y * ShadowMapData.AtlasScaleOffset.y + ShadowMapData.AtlasScaleOffset.w;
         // 텍스처 상에서 현재 픽셀의 깊이
         float PixelDepth = ShadowTexCoord.z - 0.0025f;
 
@@ -393,7 +393,7 @@ float CalculateSpotLightShadowFactor(
         ShadowMap.GetDimensions(Width, Height);
         float2 AtlasTexelSize = float2(1.0f / Width, 1.0f / Height);
 
-        float2 FilterRadiusUV = 2.0f * AtlasTexelSize;
+        float2 FilterRadiusUV = 1.5f * AtlasTexelSize;
 
         const float2 PoissonDisk[16] = {
             float2(0.540417, 0.640249), float2(0.160918, 0.899496),
@@ -407,15 +407,13 @@ float CalculateSpotLightShadowFactor(
         };
 
         float ShadowFactorSum = 0.0f;
-        [unroll]
+        [loop]
         for (int i = 0; i < ShadowMapData.SampleCount; i++)
         {
             float2 Offset = PoissonDisk[i] * FilterRadiusUV;
             float2 SampleUV = AtlasUV + Offset;
-
-            float TextureDepth = ShadowMap.SampleLevel(ShadowSampler, SampleUV, 0.0f).r;
-
-            ShadowFactorSum += (PixelDepth <= TextureDepth) ? 1.0f : 0.0f;
+            
+            ShadowFactorSum += ShadowMap.SampleCmpLevelZero(ShadowSampler, SampleUV, PixelDepth);
         }
 
         if (ShadowMapData.SampleCount > 0)
@@ -424,8 +422,7 @@ float CalculateSpotLightShadowFactor(
         }
         else
         {
-            float TextureDepth = ShadowMap.SampleLevel(ShadowSampler, AtlasUV, 0.0f).r;
-            ShadowFactor = (PixelDepth <= TextureDepth) ? 1.0f : 0.0f;
+            ShadowFactor = ShadowMap.SampleCmpLevelZero(ShadowSampler, AtlasUV, PixelDepth);
         }
     }
 
