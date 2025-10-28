@@ -32,12 +32,9 @@ void UDirectionalLightComponent::GetShadowRenderRequests(FSceneView* View, TArra
 	FMatrix ShadowMapView = GetWorldRotation().Inverse().ToMatrix() * FMatrix::ZUpToYUp;
 	FMatrix RotInv = GetWorldRotation().Inverse().ToMatrix();
 
-	TArray<FVector> CameraFrustum = View->Camera->GetViewAreaVerticesWS(View->Viewport);
-
-	for (FVector& CameraFrustumPoint : CameraFrustum)
-	{
-		CameraFrustumPoint = CameraFrustumPoint * ShadowMapView;
-	}
+	TArray<FVector> CameraFrustum = View->Camera->GetFrustumVertices(View->Viewport);
+	CameraFrustum * View->Camera->GetViewMatrix().InverseAffine();
+	CameraFrustum * ShadowMapView;
 
 	FAABB CameraFrustumAABB = FAABB(CameraFrustum);
 
@@ -69,7 +66,6 @@ FDirectionalLightInfo UDirectionalLightComponent::GetLightInfo() const
 	// Use GetLightColorWithIntensity() to include Temperature + Intensity
 	Info.Color = GetLightColorWithIntensity();
 	Info.Direction = GetLightDirection();
-
 	return Info;
 }
 

@@ -922,7 +922,7 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 
 			float farClip = camComp->GetFarClip();
 			ImGui::SetNextItemWidth(180);
-			if (ImGui::SliderFloat("##FarClip", &farClip, 100.0f, 10000.0f, "%.0f"))
+			if (ImGui::SliderFloat("##FarClip", &farClip, 10.0f, 1000.0f, "%.0f"))
 			{
 				camComp->SetClipPlanes(camComp->GetNearClip(), farClip);
 			}
