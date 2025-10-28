@@ -366,6 +366,39 @@ float3 CalculateAllLights(
     return litColor;
 }
 
+float SampleShadowPCF(float PixelDepth, float2 AtlasUV,
+    int SampleCount, float2 FilterRadiusUV,
+    Texture2D ShadowMap, SamplerComparisonState ShadowSampler)
+{
+    if (SampleCount <= 0)
+    {
+        return ShadowMap.SampleCmpLevelZero(ShadowSampler, AtlasUV, PixelDepth);
+    }
+    float ShadowFactorSum = 0.0f;
+
+    const float2 PoissonDisk[16] = {
+        float2(0.540417, 0.640249), float2(0.160918, 0.899496),
+        float2(-0.291771, 0.575997), float2(-0.737101, 0.504261),
+        float2(-0.852436, -0.063901), float2(-0.536979, -0.580749),
+        float2(-0.198121, -0.835976), float2(0.284752, -0.730335),
+        float2(0.697495, -0.537658), float2(0.887834, -0.161042),
+        float2(0.818454, 0.334645), float2(0.383842, 0.279867),
+        float2(-0.103009, 0.134190), float2(-0.485496, 0.106886),
+        float2(-0.354784, -0.320412), float2(0.166412, -0.244837)
+    };
+    
+    [loop]
+    for (int i = 0; i < SampleCount; i++)
+    {
+        float2 Offset = PoissonDisk[i] * FilterRadiusUV;
+        float2 SampleUV = AtlasUV + Offset;
+            
+        ShadowFactorSum += ShadowMap.SampleCmpLevelZero(ShadowSampler, SampleUV, PixelDepth);
+    }
+
+    return ShadowFactorSum / SampleCount;
+}
+
 float CalculateSpotLightShadowFactor(
     float3 WorldPos, FShadowMapData ShadowMapData, Texture2D ShadowMap, SamplerComparisonState ShadowSampler)
 {
@@ -387,43 +420,14 @@ float CalculateSpotLightShadowFactor(
         AtlasUV.y = AtlasUV.y * ShadowMapData.AtlasScaleOffset.y + ShadowMapData.AtlasScaleOffset.w;
         // 텍스처 상에서 현재 픽셀의 깊이
         float PixelDepth = ShadowTexCoord.z - 0.0025f;
-
+        
         // PCF
         float Width, Height;
         ShadowMap.GetDimensions(Width, Height);
         float2 AtlasTexelSize = float2(1.0f / Width, 1.0f / Height);
-
         float2 FilterRadiusUV = 1.5f * AtlasTexelSize;
 
-        const float2 PoissonDisk[16] = {
-            float2(0.540417, 0.640249), float2(0.160918, 0.899496),
-            float2(-0.291771, 0.575997), float2(-0.737101, 0.504261),
-            float2(-0.852436, -0.063901), float2(-0.536979, -0.580749),
-            float2(-0.198121, -0.835976), float2(0.284752, -0.730335),
-            float2(0.697495, -0.537658), float2(0.887834, -0.161042),
-            float2(0.818454, 0.334645), float2(0.383842, 0.279867),
-            float2(-0.103009, 0.134190), float2(-0.485496, 0.106886),
-            float2(-0.354784, -0.320412), float2(0.166412, -0.244837)
-        };
-
-        float ShadowFactorSum = 0.0f;
-        [loop]
-        for (int i = 0; i < ShadowMapData.SampleCount; i++)
-        {
-            float2 Offset = PoissonDisk[i] * FilterRadiusUV;
-            float2 SampleUV = AtlasUV + Offset;
-            
-            ShadowFactorSum += ShadowMap.SampleCmpLevelZero(ShadowSampler, SampleUV, PixelDepth);
-        }
-
-        if (ShadowMapData.SampleCount > 0)
-        {
-            ShadowFactor = ShadowFactorSum / ShadowMapData.SampleCount;            
-        }
-        else
-        {
-            ShadowFactor = ShadowMap.SampleCmpLevelZero(ShadowSampler, AtlasUV, PixelDepth);
-        }
+        ShadowFactor = SampleShadowPCF(PixelDepth, AtlasUV, ShadowMapData.SampleCount, FilterRadiusUV, ShadowMap, ShadowSampler);        
     }
 
     return ShadowFactor;
