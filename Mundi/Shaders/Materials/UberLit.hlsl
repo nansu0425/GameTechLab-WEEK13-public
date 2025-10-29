@@ -167,18 +167,19 @@ float GetCascadedShadowAtt(float3 WorldPos)
         }        
     }
     
-    if (DirectionalLight.CascadedAreaShadowDebugValue != -1 && DirectionalLight.CascadedAreaShadowDebugValue != CurIdx)
-    {
-        return 0;
-    }
     float PrevFar = CurIdx == 0 ? 0 : DirectionalLight.CascadedSliceDepth[CurIdx / 4][CurIdx % 4];
     float ExtensionPrevFar = PrevFar + PrevFar * DirectionalLight.CascadedOverlapValue;
     if (CurIdx > 0 && ViewPos.z < ExtensionPrevFar)
     {
         bNeedLerp = true;
-        LerpValue = (ViewPos.z - PrevFar) / ExtensionPrevFar;
+        LerpValue = (ViewPos.z - PrevFar) / (ExtensionPrevFar - PrevFar);
     }
-
+    if (DirectionalLight.CascadedAreaShadowDebugValue != -1 && DirectionalLight.CascadedAreaShadowDebugValue != CurIdx)
+    {
+        return 0;
+    }
+    
+    
     float Width, Height;
     g_ShadowAtlas2D.GetDimensions(Width, Height);
     float2 TexSizeRCP = float2(1.0f / Width, 1.0f / Height);
@@ -187,7 +188,6 @@ float GetCascadedShadowAtt(float3 WorldPos)
     float3 CurUV = mul(float4(WorldPos, 1), DirectionalLight.Cascades[CurIdx].ShadowViewProjMatrix).xyz;
     float2 CurAtlasUV = CurUV.xy * DirectionalLight.Cascades[CurIdx].AtlasScaleOffset.xy + DirectionalLight.Cascades[CurIdx].AtlasScaleOffset.zw;
     float CurShadowFactor = SampleShadowPCF(CurUV.z - 0.0025f, CurAtlasUV, DirectionalLight.Cascades[CurIdx].SampleCount, FilterRadiusUV, g_ShadowAtlas2D, g_ShadowSample);
-    
     if (bNeedLerp)
     {
         int PrevIdx = CurIdx - 1;
