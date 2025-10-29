@@ -21,10 +21,14 @@
 
 // 타일 인덱스 계산 (픽셀 위치로부터)
 // SV_POSITION은 픽셀 중심 좌표 (0.5, 0.5 offset)
-uint CalculateTileIndex(float4 screenPos)
+uint CalculateTileIndex(float4 screenPos, float viewportStartX, float viewportStartY)
 {
-    uint tileX = uint(screenPos.x) / TileSize;
-    uint tileY = uint(screenPos.y) / TileSize;
+    uint localX = uint(screenPos.x) - viewportStartX;
+    uint localY = uint(screenPos.y) - viewportStartY;
+    
+    uint tileX = localX / TileSize;
+    uint tileY = localY / TileSize;
+    
     return tileY * TileCountX + tileX;
 }
 
@@ -57,7 +61,8 @@ float3 CalculateDiffuse(float3 lightDir, float3 normal, float4 lightColor, float
 {
     float NdotL = max(dot(normal, lightDir), 0.0f);
     // materialColor를 직접 사용 (이미 텍스처가 포함되어 있으면 포함됨)
-    return lightColor.rgb * materialColor.rgb * NdotL;
+    float3 Result = lightColor.rgb * materialColor.rgb * NdotL;
+    return Result;
 }
 
 // Specular 색상 결정 매크로
@@ -90,6 +95,100 @@ float3 CalculateSpecular(float3 lightDir, float3 normal, float3 viewDir, float4 
 #endif
 }
 
+//================================================================================================
+// 큐브맵 UV 변환 헬퍼 함수
+//================================================================================================
+
+// 큐브맵 방향 벡터를 UV 좌표로 변환
+struct CubemapUV
+{
+    float2 uv;        // [0,1] 범위 UV
+    int faceIndex;    // 0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z
+};
+
+CubemapUV DirectionToCubemapUV(float3 dir)
+{
+    CubemapUV result;
+    
+    float3 absDir = abs(dir);
+    float maxAxis = max(absDir.x, max(absDir.y, absDir.z));
+    
+    float2 uv;
+    
+    if (maxAxis == absDir.x)
+    {
+        result.faceIndex = dir.x > 0 ? 0 : 1;
+        uv = float2(-sign(dir.x) * dir.z, -dir.y) / absDir.x;
+    }
+    else if (maxAxis == absDir.y)
+    {
+        result.faceIndex = dir.y > 0 ? 2 : 3;
+        uv = float2(dir.x, sign(dir.y) * dir.z) / absDir.y;
+    }
+    else
+    {
+        result.faceIndex = dir.z > 0 ? 4 : 5;
+        uv = float2(sign(dir.z) * dir.x, -dir.y) / absDir.z;
+    }
+    
+    result.uv = uv * 0.5f + 0.5f;  // [-1,1] -> [0,1]
+    return result;
+}
+
+// UV 좌표를 큐브맵 방향 벡터로 변환
+float3 CubemapUVToDirection(float2 uv, int faceIndex)
+{
+    float2 ndc = uv * 2.0f - 1.0f;  // [0,1] -> [-1,1]
+    
+    float3 dir;
+    
+    if (faceIndex == 0)       // +X
+        dir = float3(1.0f, -ndc.y, -ndc.x);
+    else if (faceIndex == 1)  // -X
+        dir = float3(-1.0f, -ndc.y, ndc.x);
+    else if (faceIndex == 2)  // +Y
+        dir = float3(ndc.x, 1.0f, ndc.y);
+    else if (faceIndex == 3)  // -Y
+        dir = float3(ndc.x, -1.0f, -ndc.y);
+    else if (faceIndex == 4)  // +Z
+        dir = float3(ndc.x, -ndc.y, 1.0f);
+    else                      // -Z
+        dir = float3(-ndc.x, -ndc.y, -1.0f);
+    
+    return normalize(dir);
+}
+
+//================================================================================================
+// 쉐도우 샘플링 함수
+//================================================================================================
+
+// Point Light Shadow 샘플링 (TextureCubeArray 사용)
+// lightIndex: 라이트 인덱스, worldPos: 픽셀 월드 위치, lightPos: 라이트 위치, farPlane: 쉐도우 맵 원거리, normal: 표면 노멀
+// 외부에서 g_PointShadowMapArray와 g_ShadowSampler를 선언해야 함
+float SamplePointLightShadow(uint lightIndex, float3 worldPos, float3 lightPos, float farPlane, float3 normal)
+{
+    float3 lightToPixel = worldPos - lightPos;
+    float distance = length(lightToPixel); // ViewSpace.z 역할
+
+    float nearPlane = 0.2f;
+    
+    // --- [수정] 원근 투영 Z 변환 적용 ---
+    float nonLinearDepth = (farPlane / (farPlane - nearPlane)) - (nearPlane * farPlane / (farPlane - nearPlane)) / distance;
+
+    // --- Bias 적용 ---
+    float3 lightDir = normalize(-lightToPixel);
+    float NdotL = max(dot(normal, lightDir), 0.0f);
+    float slopeBias = 0.005f * tan(acos(NdotL));
+    float baseBias = 0.001f;
+    float bias = baseBias + clamp(slopeBias, 0.0f, 0.01f);
+
+    // [수정] 비선형 깊이에 Bias 적용
+    float pixelDepthForCompare = nonLinearDepth - bias;
+
+    // --- SampleCmp 호출 ---
+    float3 cubemapDir = float3(lightToPixel.y, lightToPixel.z, lightToPixel.x); // 좌표계 변환
+    return g_ShadowAtlasCube.SampleCmpLevelZero(g_ShadowSample, float4(cubemapDir, lightIndex), pixelDepthForCompare); // SampleCmpLevelZero 권장
+}
 //================================================================================================
 // 감쇠(Attenuation) 함수
 //================================================================================================
@@ -189,6 +288,14 @@ float3 CalculatePointLight(FPointLightInfo light, float3 worldPos, float3 normal
     if (includeSpecular)
     {
         specular = CalculateSpecular(lightDir, normal, viewDir, light.Color, specularPower) * attenuation;
+    }
+
+    // Shadow 적용 (bCastShadows 플래그 확인)
+    if (light.bCastShadows)
+    {
+        float shadowFactor = SamplePointLightShadow(light.LightIndex, worldPos, light.Position, light.AttenuationRadius, normal);
+        diffuse *= shadowFactor;
+        specular *= shadowFactor;
     }
 
     return diffuse + specular;
@@ -297,7 +404,7 @@ float3 CalculateAllLights(
     // Point + Spot with 타일 컬링
     if (bUseTileCulling)
     {
-        uint tileIndex = CalculateTileIndex(screenPos);
+        uint tileIndex = CalculateTileIndex(screenPos, ViewportStartX, ViewportStartY);
         uint tileDataOffset = GetTileDataOffset(tileIndex);
         uint lightCount = g_TileLightIndices[tileDataOffset];
 
@@ -366,8 +473,41 @@ float3 CalculateAllLights(
     return litColor;
 }
 
+float SampleShadowPCF(float PixelDepth, float2 AtlasUV,
+    int SampleCount, float2 FilterRadiusUV,
+    Texture2D ShadowMap, SamplerComparisonState ShadowSampler)
+{
+    if (SampleCount <= 0)
+    {
+        return ShadowMap.SampleCmpLevelZero(ShadowSampler, AtlasUV, PixelDepth);
+    }
+    float ShadowFactorSum = 0.0f;
+
+    const float2 PoissonDisk[16] = {
+        float2(0.540417, 0.640249), float2(0.160918, 0.899496),
+        float2(-0.291771, 0.575997), float2(-0.737101, 0.504261),
+        float2(-0.852436, -0.063901), float2(-0.536979, -0.580749),
+        float2(-0.198121, -0.835976), float2(0.284752, -0.730335),
+        float2(0.697495, -0.537658), float2(0.887834, -0.161042),
+        float2(0.818454, 0.334645), float2(0.383842, 0.279867),
+        float2(-0.103009, 0.134190), float2(-0.485496, 0.106886),
+        float2(-0.354784, -0.320412), float2(0.166412, -0.244837)
+    };
+    
+    [loop]
+    for (int i = 0; i < SampleCount; i++)
+    {
+        float2 Offset = PoissonDisk[i] * FilterRadiusUV;
+        float2 SampleUV = AtlasUV + Offset;
+            
+        ShadowFactorSum += ShadowMap.SampleCmpLevelZero(ShadowSampler, SampleUV, PixelDepth);
+    }
+
+    return ShadowFactorSum / SampleCount;
+}
+
 float CalculateSpotLightShadowFactor(
-    float3 WorldPos, FShadowMapData ShadowMapData, Texture2D ShadowMap, SamplerState ShadowSampler)
+    float3 WorldPos, FShadowMapData ShadowMapData, Texture2D ShadowMap, SamplerComparisonState ShadowSampler)
 {
     // 빛 적용 가정
     float ShadowFactor = 1.0f;
@@ -379,54 +519,22 @@ float CalculateSpotLightShadowFactor(
     ShadowTexCoord.xyz /= ShadowTexCoord.w;
 
     // 아틀라스 uv좌표로 변환
-    float2 AtlasUV = ShadowTexCoord.xy;
-    AtlasUV.x = AtlasUV.x * ShadowMapData.AtlasScaleOffset.x + ShadowMapData.AtlasScaleOffset.z;
-    AtlasUV.y = AtlasUV.y * ShadowMapData.AtlasScaleOffset.y + ShadowMapData.AtlasScaleOffset.w;    
+    float2 AtlasUV = ShadowTexCoord.xy;    
 
     if (saturate(AtlasUV.x) == AtlasUV.x && saturate(AtlasUV.y) == AtlasUV.y)
     {
+        AtlasUV.x = AtlasUV.x * ShadowMapData.AtlasScaleOffset.x + ShadowMapData.AtlasScaleOffset.z;
+        AtlasUV.y = AtlasUV.y * ShadowMapData.AtlasScaleOffset.y + ShadowMapData.AtlasScaleOffset.w;
         // 텍스처 상에서 현재 픽셀의 깊이
         float PixelDepth = ShadowTexCoord.z - 0.0025f;
-
+        
         // PCF
         float Width, Height;
         ShadowMap.GetDimensions(Width, Height);
         float2 AtlasTexelSize = float2(1.0f / Width, 1.0f / Height);
+        float2 FilterRadiusUV = 1.5f * AtlasTexelSize;
 
-        float2 FilterRadiusUV = 2.0f * AtlasTexelSize;
-
-        const float2 PoissonDisk[16] = {
-            float2(0.540417, 0.640249), float2(0.160918, 0.899496),
-            float2(-0.291771, 0.575997), float2(-0.737101, 0.504261),
-            float2(-0.852436, -0.063901), float2(-0.536979, -0.580749),
-            float2(-0.198121, -0.835976), float2(0.284752, -0.730335),
-            float2(0.697495, -0.537658), float2(0.887834, -0.161042),
-            float2(0.818454, 0.334645), float2(0.383842, 0.279867),
-            float2(-0.103009, 0.134190), float2(-0.485496, 0.106886),
-            float2(-0.354784, -0.320412), float2(0.166412, -0.244837)
-        };
-
-        float ShadowFactorSum = 0.0f;
-        [unroll]
-        for (int i = 0; i < ShadowMapData.SampleCount; i++)
-        {
-            float2 Offset = PoissonDisk[i] * FilterRadiusUV;
-            float2 SampleUV = AtlasUV + Offset;
-
-            float TextureDepth = ShadowMap.SampleLevel(ShadowSampler, SampleUV, 0.0f).r;
-
-            ShadowFactorSum += (PixelDepth <= TextureDepth) ? 1.0f : 0.0f;
-        }
-
-        if (ShadowMapData.SampleCount > 0)
-        {
-            ShadowFactor = ShadowFactorSum / ShadowMapData.SampleCount;            
-        }
-        else
-        {
-            float TextureDepth = ShadowMap.SampleLevel(ShadowSampler, AtlasUV, 0.0f).r;
-            ShadowFactor = (PixelDepth <= TextureDepth) ? 1.0f : 0.0f;
-        }
+        ShadowFactor = SampleShadowPCF(PixelDepth, AtlasUV, ShadowMapData.SampleCount, FilterRadiusUV, ShadowMap, ShadowSampler);        
     }
 
     return ShadowFactor;
