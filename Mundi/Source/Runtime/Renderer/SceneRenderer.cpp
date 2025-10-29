@@ -42,6 +42,7 @@
 #include "LineComponent.h"
 #include "LightStats.h"
 #include "ShadowStats.h"
+#include "PlatformTime.h"
 
 FSceneRenderer::FSceneRenderer(UWorld* InWorld, FSceneView* InView, URenderer* InOwnerRenderer)
 	: World(InWorld)
@@ -76,7 +77,9 @@ void FSceneRenderer::Render()
 	// 렌더링할 대상 수집 (Cull + Gather)
 	GatherVisibleProxies();
 
+	TIME_PROFILE(ShadowMapPass)
 	RenderShadowMaps();
+	TIME_PROFILE_END(ShadowMapPass)
 	
 	// ViewMode에 따라 렌더링 경로 결정
 	if (View->ViewMode == EViewModeIndex::VMI_Lit ||
