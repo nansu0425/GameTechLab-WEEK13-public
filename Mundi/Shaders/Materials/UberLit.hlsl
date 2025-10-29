@@ -77,11 +77,6 @@ cbuffer FLightShadowmBufferType : register(b5)
 // 금속 재질의 컬러 Specular 지원
 #define SPECULAR_COLOR (bHasMaterial ? Material.SpecularColor : float3(1.0f, 1.0f, 1.0f))
 
-// --- 공통 조명 시스템 include ---
-#include "../Common/LightStructures.hlsl"
-#include "../Common/LightingBuffers.hlsl"
-#include "../Common/LightingCommon.hlsl"
-
 // --- 텍스처 및 샘플러 리소스 ---
 Texture2D g_DiffuseTexColor : register(t0);
 Texture2D g_NormalTexColor : register(t1);
@@ -93,6 +88,11 @@ SamplerState g_Sample : register(s0);
 SamplerState g_Sample2 : register(s1);
 SamplerComparisonState g_ShadowSample : register(s2);
 SamplerState g_VSMSampler : register(s3);
+
+// --- 공통 조명 시스템 include ---
+#include "../Common/LightStructures.hlsl"
+#include "../Common/LightingBuffers.hlsl"
+#include "../Common/LightingCommon.hlsl"
 
 // --- 셰이더 입출력 구조체 ---
 struct VS_INPUT
@@ -122,36 +122,110 @@ struct PS_OUTPUT
 //================================================================================================
 // 그림자
 //================================================================================================
-float GetDirectionalShadowAtt(float3 WorldPos, float3 L, float3 N)
-{
-    uint Width, Height;
-    g_DirectionalShadowMap.GetDimensions(Width, Height); // width, height 읽기
-    float2 TexSizeRCP = float2(1.0f / Width, 1.0f / Height);
+//float GetDirectionalShadowAtt(float3 WorldPos, float3 L, float3 N)
+//{
+//    uint Width, Height;
+//    g_DirectionalShadowMap.GetDimensions(Width, Height); // width, height 읽기
+//    float2 TexSizeRCP = float2(1.0f / Width, 1.0f / Height);
     
-    float4 CameraViewPos = mul(float4(WorldPos, 1), ViewMatrix);
-    float4 CameraProjPos = mul(CameraViewPos, ProjectionMatrix);
-    CameraProjPos.xyz /= CameraProjPos.w;
-    float4 LightViewPosUV = mul(float4(CameraProjPos.xyz, 1), LightShadowViewUV);
-    float4 LightProjPosForUV = mul(LightViewPosUV, LightShadowProj);
+//    float4 CameraViewPos = mul(float4(WorldPos, 1), ViewMatrix);
+//    float4 CameraProjPos = mul(CameraViewPos, ProjectionMatrix);
+//    CameraProjPos.xyz /= CameraProjPos.w;
+//    float4 LightViewPosUV = mul(float4(CameraProjPos.xyz, 1), LightShadowViewUV);
+//    float4 LightProjPosForUV = mul(LightViewPosUV, LightShadowProj);
 
-    float4 LightViewPos = mul(float4(WorldPos, 1), LightShadowView);
-    float4 LightProjPos = mul(LightViewPos, LightShadowProj);
+//    float4 LightViewPos = mul(float4(WorldPos, 1), LightShadowView);
+//    float4 LightProjPos = mul(LightViewPos, LightShadowProj);
     
-    float2 LightShadowUV = LightProjPos.xy * 0.5f + 0.5f;
-    LightShadowUV.y = 1 - LightShadowUV.y;
-    float Bias = ShadowBias + (saturate(1 - dot(L, N)) * SlopeScaledBias);
-    float ShadowValue = 0;
-    for (int y = -1; y < 2;y++)
-    {
-        for (int x = -1; x < 2;x++)
-        {
-            float ShadowMapDepth = g_DirectionalShadowMap.Sample(g_Sample2, LightShadowUV + TexSizeRCP * float2(x, y)).r;
-            ShadowValue += LightProjPos.z - Bias > ShadowMapDepth ? 0 : 1;
-        }
-    }
+//    float2 LightShadowUV = LightProjPos.xy * 0.5f + 0.5f;
+//    LightShadowUV.y = 1 - LightShadowUV.y;
+//    float Bias = ShadowBias + (saturate(1 - dot(L, N)) * SlopeScaledBias);
+//    float ShadowValue = 0;
+//    for (int y = -1; y < 2;y++)
+//    {
+//        for (int x = -1; x < 2;x++)
+//        {
+//            float ShadowMapDepth = g_DirectionalShadowMap.Sample(g_Sample2, LightShadowUV + TexSizeRCP * float2(x, y)).r;
+//            ShadowValue += LightProjPos.z - Bias > ShadowMapDepth ? 0 : 1;
+//        }
+//    }
     
-    return ShadowValue / 9;
-}
+//    return ShadowValue / 9;
+//}
+//float GetCascadedShadowAtt(float3 WorldPos)
+//{
+//    float4 ViewPos = mul(float4(WorldPos, 1), ViewMatrix);
+//    int CurIdx;
+//    bool bNeedLerp;
+//    float LerpValue;
+    
+//    if (DirectionalLight.CascadedAreaShadowDebugValue != -1)
+//    {
+
+//        CurIdx = DirectionalLight.CascadedAreaShadowDebugValue;
+//        float Width, Height;
+//        g_ShadowAtlas2D.GetDimensions(Width, Height);
+//        float2 TexSizeRCP = float2(1.0f / Width, 1.0f / Height);
+//        float2 FilterRadiusUV = 1.5f * TexSizeRCP;
+    
+//        float3 CurUV = mul(float4(WorldPos, 1), DirectionalLight.Cascades[CurIdx].ShadowViewProjMatrix).xyz;
+//        if (saturate(CurUV.x) == CurUV.x && saturate(CurUV.y) == CurUV.y)
+//        {
+//            float2 CurAtlasUV = CurUV.xy * DirectionalLight.Cascades[CurIdx].AtlasScaleOffset.xy + DirectionalLight.Cascades[CurIdx].AtlasScaleOffset.zw;
+//            float CurShadowFactor = SampleShadowPCF(CurUV.z - 0.0025f, CurAtlasUV, DirectionalLight.Cascades[CurIdx].SampleCount, FilterRadiusUV, g_ShadowAtlas2D, g_ShadowSample);
+//            return CurShadowFactor;
+//        }
+//        return 0;
+//    }
+//    else
+//    {
+        
+    
+//        for (int i = 0; i < DirectionalLight.CascadeCount; i++)
+//        {
+//            float CurFar = DirectionalLight.CascadedSliceDepth[(i + 1) / 4][(i + 1) % 4];
+//            if (ViewPos.z < CurFar)
+//            {
+//                CurIdx = i;
+//                break;
+//            }
+//        }
+    
+//        float PrevFar = CurIdx == 0 ? 0 : DirectionalLight.CascadedSliceDepth[CurIdx / 4][CurIdx % 4];
+//        float ExtensionPrevFar = PrevFar + PrevFar * DirectionalLight.CascadedOverlapValue;
+//        if (CurIdx > 0 && ViewPos.z < ExtensionPrevFar)
+//        {
+//            bNeedLerp = true;
+//            LerpValue = (ViewPos.z - PrevFar) / (ExtensionPrevFar - PrevFar);
+//        }
+   
+    
+    
+//        float Width, Height;
+//        g_ShadowAtlas2D.GetDimensions(Width, Height);
+//        float2 TexSizeRCP = float2(1.0f / Width, 1.0f / Height);
+//        float2 FilterRadiusUV = 1.5f * TexSizeRCP;
+    
+//        float3 CurUV = mul(float4(WorldPos, 1), DirectionalLight.Cascades[CurIdx].ShadowViewProjMatrix).xyz;
+//        float2 CurAtlasUV = CurUV.xy * DirectionalLight.Cascades[CurIdx].AtlasScaleOffset.xy + DirectionalLight.Cascades[CurIdx].AtlasScaleOffset.zw;
+//        float CurShadowFactor = SampleShadowPCF(CurUV.z - 0.0025f, CurAtlasUV, DirectionalLight.Cascades[CurIdx].SampleCount, FilterRadiusUV, g_ShadowAtlas2D, g_ShadowSample);
+//        if (bNeedLerp)
+//        {
+//            int PrevIdx = CurIdx - 1;
+//            float3 PrevUV = mul(float4(WorldPos, 1), DirectionalLight.Cascades[PrevIdx].ShadowViewProjMatrix).xyz;
+//            float2 PrevAtlasUV = PrevUV.xy * DirectionalLight.Cascades[PrevIdx].AtlasScaleOffset.xy + DirectionalLight.Cascades[PrevIdx].AtlasScaleOffset.zw;
+//            float PrevShadowFactor = SampleShadowPCF(PrevUV.z - 0.0025f, PrevAtlasUV, DirectionalLight.Cascades[PrevIdx].SampleCount, FilterRadiusUV, g_ShadowAtlas2D, g_ShadowSample);
+//            return LerpValue * CurShadowFactor + (1 - LerpValue) * PrevShadowFactor;
+//            //return min(CurShadowFactor, PrevShadowFactor);
+//        }
+//        else
+//        {
+//            return CurShadowFactor;
+//        }
+//    }
+    
+ 
+//}
     
 //================================================================================================
 // 버텍스 셰이더 (Vertex Shader)
@@ -216,19 +290,25 @@ PS_INPUT mainVS(VS_INPUT Input)
     }
     finalColor += CalculateAmbientLight(AmbientLight, Ka);
 
-    // Directional light (diffuse + specular)
-    finalColor += CalculateDirectionalLight(DirectionalLight, worldNormal, viewDir, baseColor, true, specPower);
+    // Directional light (diffuse + specular) - 그림자 제외
+    FDirectionalLightInfo dirLightNoShadow = DirectionalLight;
+    dirLightNoShadow.bCastShadows = 0;
+    finalColor += CalculateDirectionalLight(dirLightNoShadow, Out.WorldPos, viewPos.xyz, worldNormal, viewDir, baseColor, true, specPower, g_ShadowAtlas2D, g_ShadowSample);
 
-    // Point lights (diffuse + specular)
+    // Point lights (diffuse + specular) - 그림자 제외
     for (int i = 0; i < PointLightCount; i++)
     {
-        finalColor += CalculatePointLight(g_PointLightList[i], Out.WorldPos, worldNormal, viewDir, baseColor, true, specPower);
+        FPointLightInfo pointLightNoShadow = g_PointLightList[i];
+        pointLightNoShadow.bCastShadows = 0;
+        finalColor += CalculatePointLight(pointLightNoShadow, Out.WorldPos, worldNormal, viewDir, baseColor, true, specPower, g_ShadowAtlasCube, g_ShadowSample);
     }
 
-    // Spot lights (diffuse + specular)
+    // Spot lights (diffuse + specular) - 그림자 제외
     for (int j = 0; j < SpotLightCount; j++)
     {
-        finalColor += CalculateSpotLight(g_SpotLightList[j], Out.WorldPos, worldNormal, viewDir, baseColor, true, specPower);
+        FSpotLightInfo spotLightNoShadow = g_SpotLightList[j];
+        spotLightNoShadow.bCastShadows = 0;
+        finalColor += CalculateSpotLight(spotLightNoShadow, Out.WorldPos, worldNormal, viewDir, baseColor, true, specPower, g_ShadowAtlas2D, g_ShadowSample);
     }
 
     Out.Color = float4(finalColor, baseColor.a);
@@ -258,14 +338,35 @@ PS_OUTPUT mainPS(PS_INPUT Input)
     PS_OUTPUT Output;
     Output.UUID = UUID;
     
+    //CSM 구간 시각화
+    float3 Color[2] =
+    {
+        float3(1, 0, 0),
+        float3(0, 1, 0)
+    };
+    int CascadeCount = DirectionalLight.CascadeCount;
+
+    float4 ViewPos = mul(float4(Input.WorldPos, 1), ViewMatrix);
+
+    float3 CascadeAreaDebugColor;
+    float CascadeAreaDebugBlendValue = DirectionalLight.bCascaded ? DirectionalLight.CascadedAreaColorDebugValue : 0;
+    for (int i = 0; i < CascadeCount; i++)
+    {
+        if (ViewPos.z < DirectionalLight.CascadedSliceDepth[(i + 1) / 4][(i + 1) % 4])
+        {
+            CascadeAreaDebugColor = Color[i % 2];
+            break;
+        }
+    }
+
     // UV 스크롤링 적용 (활성화된 경우)
     float2 uv = Input.TexCoord;
     //if (bHasMaterial && bHasTexture)
     //{
     //    uv += UVScrollSpeed * UVScrollTime;
     //}
-
     
+
 #ifdef VIEWMODE_WORLD_NORMAL
     // World Normal 시각화: Normal 벡터를 색상으로 변환
     // Normal 범위: -1~1 → 색상 범위: 0~1
@@ -282,17 +383,51 @@ PS_OUTPUT mainPS(PS_INPUT Input)
     return Output;
 #endif
     
-    // 텍스처 샘플링
-    float4 texColor = g_DiffuseTexColor.Sample(g_Sample, uv) * float4(Material.DiffuseColor, 1.0f);
+    // 텍스처 샘플링 (머트리얼 색상은 Gouraud는 VS에서 적용됨)
+    float4 texColor = g_DiffuseTexColor.Sample(g_Sample, uv);
 
-    // 머티리얼의 SpecularExponent 사용, 머티리얼이 없으면 기본값 사용
+    // 머트리얼의 SpecularExponent 사용, 머트리얼이 없으면 기본값 사용
     float specPower = bHasMaterial ? Material.SpecularExponent : 32.0f;
 
 #if LIGHTING_MODEL_GOURAUD
-    // Gouraud Shading: 조명이 이미 버텍스 셰이더에서 계산됨
+    // Gouraud Shading: 조명이 이미 버텍스 셸이더에서 계산됨 (그림자 제외)
+    // Pixel Shader에서 그림자 팩터만 계산해서 곱함
     float4 finalPixel = Input.Color;
+    
+    // 그림자 팩터 계산 (모든 라이트 통합)
+    float shadowFactor = 1.0f;
+    
+    // Directional Light 그림자
+    if (DirectionalLight.bCastShadows)
+    {
+        shadowFactor *= CalculateSpotLightShadowFactor(Input.WorldPos, DirectionalLight.Cascades[0], g_ShadowAtlas2D, g_ShadowSample);
+    }
+    
+    // Point Light 그림자
+    for (int i = 0; i < PointLightCount; i++)
+    {
+        if (g_PointLightList[i].bCastShadows)
+        {
+            shadowFactor *= CalculatePointLightShadowFactor(
+                Input.WorldPos, g_PointLightList[i].Position, g_PointLightList[i].AttenuationRadius,
+                g_PointLightList[i].LightIndex, 16, g_ShadowAtlasCube, g_ShadowSample);
+        }
+    }
+    
+    // Spot Light 그림자
+    for (int j = 0; j < SpotLightCount; j++)
+    {
+        if (g_SpotLightList[j].bCastShadows)
+        {
+            shadowFactor *= CalculateSpotLightShadowFactor(
+                Input.WorldPos, g_SpotLightList[j].ShadowData, g_ShadowAtlas2D, g_ShadowSample);
+        }
+    }
+    
+    // 그림자 적용 (VS에서 계산된 조명)
+    finalPixel.rgb *= shadowFactor;
 
-    // 텍스처 또는 머티리얼 색상 적용
+    // 텍스처 또는 머트리얼 색상 적용
     if (bHasTexture)
     {
         // 텍스처 모듈레이션: 조명 결과에 텍스처 곱하기
@@ -320,6 +455,7 @@ PS_OUTPUT mainPS(PS_INPUT Input)
     }
 
     Output.Color = finalPixel;
+    Output.Color.rgb = (1 - CascadeAreaDebugBlendValue) * Output.Color.rgb + CascadeAreaDebugBlendValue * CascadeAreaDebugColor;
     return Output;
 
 #elif LIGHTING_MODEL_LAMBERT
@@ -362,7 +498,7 @@ PS_OUTPUT mainPS(PS_INPUT Input)
     if (bUseTileCulling)
     {
         // 현재 픽셀이 속한 타일 계산
-        uint tileIndex = CalculateTileIndex(Input.Position);
+        uint tileIndex = CalculateTileIndex(Input.Position, ViewportStartX, ViewportStartY);
         uint tileDataOffset = GetTileDataOffset(tileIndex);
 
         // 타일에 영향을 주는 라이트 개수
@@ -378,12 +514,11 @@ PS_OUTPUT mainPS(PS_INPUT Input)
 
             if (lightType == 0)  // Point Light
             {
-                litColor += CalculatePointLight(g_PointLightList[lightIdx], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f);
+                litColor += CalculatePointLight(g_PointLightList[lightIdx], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f, g_ShadowAtlasCube, g_ShadowSample);
             }
             else if (lightType == 1)  // Spot Light
             {
-                float3 SpotLightColor = CalculateSpotLight(g_SpotLightList[lightIdx], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f);
-                float ShadowFactor = CalculateSpotLightShadowFactor(Input.WorldPos, g_SpotLightList[lightIdx].ShadowData, g_ShadowAtlas2D, g_ShadowSample);
+                litColor +=  CalculateSpotLight(g_SpotLightList[lightIdx], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f, g_ShadowAtlas2D, g_ShadowSample);
                 //float ShadowFactor = CalculateSpotLightShadowFactorVSM(Input.WorldPos, g_SpotLightList[lightIdx].ShadowData, g_SpotLightList[lightIdx].AttenuationRadius, g_VSMShadowAtlas, g_VSMSampler);
                 litColor += (SpotLightColor * ShadowFactor);
             }
@@ -391,19 +526,17 @@ PS_OUTPUT mainPS(PS_INPUT Input)
     }
     else
     {
-        // 타일 컬링 비활성화: 모든 라이트 순회 (기존 방식)
+        // 타일 컴링 비활성화: 모든 라이트 순회 (기존 방식)
         for (int i = 0; i < PointLightCount; i++)
         {
-            litColor += CalculatePointLight(g_PointLightList[i], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f);
+            litColor += CalculatePointLight(g_PointLightList[i], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f, g_ShadowAtlasCube, g_ShadowSample);
         }
 
         [loop]
         for (int j = 0; j < SpotLightCount; j++)
         {
-            float3 SpotLightColor = CalculateSpotLight(g_SpotLightList[j], Input.WorldPos, normal, viewDir, baseColor, true, specPower);
-            float ShadowFactor = CalculateSpotLightShadowFactor(Input.WorldPos, g_SpotLightList[j].ShadowData, g_ShadowAtlas2D, g_ShadowSample);
+            litColor +=  CalculateSpotLight(g_SpotLightList[j], Input.WorldPos, normal, float3(0, 0, 0), baseColor, false, 0.0f, g_ShadowAtlas2D, g_ShadowSample);
             //float ShadowFactor = CalculateSpotLightShadowFactorVSM(Input.WorldPos, g_SpotLightList[lightIdx].ShadowData, g_SpotLightList[j].AttenuationRadius, g_VSMShadowAtlas, g_VSMSampler);
-            litColor += (SpotLightColor * ShadowFactor);
         }
     }
 
@@ -423,6 +556,7 @@ PS_OUTPUT mainPS(PS_INPUT Input)
     }
 
     Output.Color = float4(litColor, finalAlpha);
+    Output.Color.rgb = (1 - CascadeAreaDebugBlendValue) * Output.Color.rgb + CascadeAreaDebugBlendValue * CascadeAreaDebugColor;
     return Output;
 
 #elif LIGHTING_MODEL_PHONG
@@ -466,19 +600,16 @@ PS_OUTPUT mainPS(PS_INPUT Input)
     litColor += CalculateAmbientLight(AmbientLight, Ka);
 
     // Directional light (diffuse + specular)
-    float3 DirectionalLightColor =  CalculateDirectionalLight(DirectionalLight, normal, viewDir, baseColor, true, specPower);
+    float3 DirectionalLightColor = CalculateDirectionalLight(DirectionalLight, Input.WorldPos, ViewPos.xyz, normal, viewDir, baseColor, true, specPower, g_ShadowAtlas2D, g_ShadowSample);
+   
     
-    float DirectionalShadowAtt = CalculateSpotLightShadowFactor(Input.WorldPos, DirectionalLight.Cascades[0], g_ShadowAtlas2D, g_ShadowSample);
-        
-    //float DirectionalShadowAtt = GetDirectionalShadowAtt(Input.WorldPos, -DirectionalLight.Direction, Input.Normal);
-    
-    litColor += DirectionalLightColor * DirectionalShadowAtt;
+    litColor += DirectionalLightColor;
 
     // 타일 기반 라이트 컬링 적용 (활성화된 경우)
     if (bUseTileCulling)
     {
         // 현재 픽셀이 속한 타일 계산
-        uint tileIndex = CalculateTileIndex(Input.Position);
+        uint tileIndex = CalculateTileIndex(Input.Position, ViewportStartX, ViewportStartY);
         uint tileDataOffset = GetTileDataOffset(tileIndex);
 
         // 타일에 영향을 주는 라이트 개수
@@ -494,32 +625,28 @@ PS_OUTPUT mainPS(PS_INPUT Input)
 
             if (lightType == 0)  // Point Light
             {
-                litColor += CalculatePointLight(g_PointLightList[lightIdx], Input.WorldPos, normal, viewDir, baseColor, true, specPower);
+                litColor += CalculatePointLight(g_PointLightList[lightIdx], Input.WorldPos, normal, viewDir, baseColor, true, specPower, g_ShadowAtlasCube, g_ShadowSample);
             }
             else if (lightType == 1)  // Spot Light
             {
-                float3 SpotLightColor = CalculateSpotLight(g_SpotLightList[lightIdx], Input.WorldPos, normal, viewDir, baseColor, true, specPower);
-                //float ShadowFactor = CalculateSpotLightShadowFactor(Input.WorldPos, g_SpotLightList[lightIdx].ShadowData, g_ShadowAtlas2D, g_ShadowSample);
-                float ShadowFactor = CalculateSpotLightShadowFactorVSM(Input.WorldPos, g_SpotLightList[lightIdx].ShadowData, g_SpotLightList[lightIdx].AttenuationRadius, g_VSMShadowAtlas, g_VSMSampler);
-                litColor += (SpotLightColor * ShadowFactor);                
+                litColor +=  CalculateSpotLight(g_SpotLightList[lightIdx], Input.WorldPos, normal, viewDir, baseColor, true, specPower, g_ShadowAtlas2D, g_ShadowSample);
+                //float ShadowFactor = CalculateSpotLightShadowFactorVSM(Input.WorldPos, g_SpotLightList[lightIdx].ShadowData, g_SpotLightList[lightIdx].AttenuationRadius, g_VSMShadowAtlas, g_VSMSampler);
             }
         }
     }
     else
     {
-        // 타일 컬링 비활성화: 모든 라이트 순회 (기존 방식)
+        // 타일 컴링 비활성화: 모든 라이트 순회 (기존 방식)
         for (int i = 0; i < PointLightCount; i++)
         {
-            litColor += CalculatePointLight(g_PointLightList[i], Input.WorldPos, normal, viewDir, baseColor, true, specPower);
+            litColor += CalculatePointLight(g_PointLightList[i], Input.WorldPos, normal, viewDir, baseColor, true, specPower, g_ShadowAtlasCube, g_ShadowSample);
         }
         
         [loop]
         for (int j = 0; j < SpotLightCount; j++)
         {
-            float3 SpotLightColor = CalculateSpotLight(g_SpotLightList[j], Input.WorldPos, normal, viewDir, baseColor, true, specPower);
-            float ShadowFactor = CalculateSpotLightShadowFactor(Input.WorldPos, g_SpotLightList[j].ShadowData, g_ShadowAtlas2D, g_ShadowSample);
+            litColor +=  CalculateSpotLight(g_SpotLightList[j], Input.WorldPos, normal, viewDir, baseColor, true, specPower, g_ShadowAtlas2D, g_ShadowSample);
             //float ShadowFactor = CalculateSpotLightShadowFactorVSM(Input.WorldPos, g_SpotLightList[lightIdx].ShadowData, g_SpotLightList[j].AttenuationRadius, g_VSMShadowAtlas, g_VSMSampler);
-            litColor += (SpotLightColor * ShadowFactor);
         }
     }
 
@@ -537,8 +664,9 @@ PS_OUTPUT mainPS(PS_INPUT Input)
     {
         finalAlpha *= (1.0f - Material.Transparency);
     }
-
+    
     Output.Color = float4(litColor, finalAlpha);
+    Output.Color.rgb = (1 - CascadeAreaDebugBlendValue) * Output.Color.rgb + CascadeAreaDebugBlendValue * CascadeAreaDebugColor;
     return Output;
 
 #else

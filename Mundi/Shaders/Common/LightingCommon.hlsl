@@ -14,7 +14,6 @@
 // USE_BLINN_PHONG 정의됨: Half-vector 기반 Blinn-Phong (더 빠르고 부드러운 하이라이트)
 // USE_BLINN_PHONG 주석 처리: Reflection vector 기반 전통적인 Phong (더 날카로운 하이라이트)
 #define USE_BLINN_PHONG 1
-//#include "Enums.h"
 
 //================================================================================================
 // 유틸리티 함수
@@ -22,10 +21,14 @@
 
 // 타일 인덱스 계산 (픽셀 위치로부터)
 // SV_POSITION은 픽셀 중심 좌표 (0.5, 0.5 offset)
-uint CalculateTileIndex(float4 screenPos)
+uint CalculateTileIndex(float4 screenPos, float viewportStartX, float viewportStartY)
 {
-    uint tileX = uint(screenPos.x) / TileSize;
-    uint tileY = uint(screenPos.y) / TileSize;
+    uint localX = uint(screenPos.x) - viewportStartX;
+    uint localY = uint(screenPos.y) - viewportStartY;
+    
+    uint tileX = localX / TileSize;
+    uint tileY = localY / TileSize;
+    
     return tileY * TileCountX + tileX;
 }
 
@@ -58,7 +61,8 @@ float3 CalculateDiffuse(float3 lightDir, float3 normal, float4 lightColor, float
 {
     float NdotL = max(dot(normal, lightDir), 0.0f);
     // materialColor를 직접 사용 (이미 텍스처가 포함되어 있으면 포함됨)
-    return lightColor.rgb * materialColor.rgb * NdotL;
+    float3 Result = lightColor.rgb * materialColor.rgb * NdotL;
+    return Result;
 }
 
 // Specular 색상 결정 매크로
@@ -131,12 +135,289 @@ float CalculateExponentFalloff(float distance, float attenuationRadius, float fa
     return attenuation;
 }
 
+
+//================================================================================================
+// 큐브맵 UV 변환 헬퍼 함수
+//================================================================================================
+
+// 큐브맵 방향 벡터를 UV 좌표로 변환
+struct CubemapUV
+{
+    float2 uv;        // [0,1] 범위 UV
+    int faceIndex;    // 0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z
+};
+
+CubemapUV DirectionToCubemapUV(float3 dir)
+{
+    CubemapUV result;
+    
+    float3 absDir = abs(dir);
+    float maxAxis = max(absDir.x, max(absDir.y, absDir.z));
+    
+    float2 uv;
+    
+    if (maxAxis == absDir.x)
+    {
+        result.faceIndex = dir.x > 0 ? 0 : 1;
+        uv = float2(-sign(dir.x) * dir.z, -dir.y) / absDir.x;
+    }
+    else if (maxAxis == absDir.y)
+    {
+        result.faceIndex = dir.y > 0 ? 2 : 3;
+        uv = float2(dir.x, sign(dir.y) * dir.z) / absDir.y;
+    }
+    else
+    {
+        result.faceIndex = dir.z > 0 ? 4 : 5;
+        uv = float2(sign(dir.z) * dir.x, -dir.y) / absDir.z;
+    }
+    
+    result.uv = uv * 0.5f + 0.5f;  // [-1,1] -> [0,1]
+    return result;
+}
+
+// UV 좌표를 큐브맵 방향 벡터로 변환
+float3 CubemapUVToDirection(float2 uv, int faceIndex)
+{
+    float2 ndc = uv * 2.0f - 1.0f;  // [0,1] -> [-1,1]
+    
+    float3 dir;
+    
+    if (faceIndex == 0)       // +X
+        dir = float3(1.0f, -ndc.y, -ndc.x);
+    else if (faceIndex == 1)  // -X
+        dir = float3(-1.0f, -ndc.y, ndc.x);
+    else if (faceIndex == 2)  // +Y
+        dir = float3(ndc.x, 1.0f, ndc.y);
+    else if (faceIndex == 3)  // -Y
+        dir = float3(ndc.x, -1.0f, -ndc.y);
+    else if (faceIndex == 4)  // +Z
+        dir = float3(ndc.x, -ndc.y, 1.0f);
+    else                      // -Z
+        dir = float3(-ndc.x, -ndc.y, -1.0f);
+    
+    return normalize(dir);
+}
+
+//================================================================================================
+// 쉐도우 샘플링 함수
+//================================================================================================
+
+// PCF 샘플링 오버로드 (Spot Light용 - Texture2D)
+float SampleShadowPCF(float PixelDepth, float2 AtlasUV,
+    int SampleCount, float2 FilterRadiusUV,
+    Texture2D ShadowMap, SamplerComparisonState ShadowSampler)
+{
+    if (SampleCount <= 0)
+    {
+        return ShadowMap.SampleCmpLevelZero(ShadowSampler, AtlasUV, PixelDepth);
+    }
+    float ShadowFactorSum = 0.0f;
+
+    const float2 PoissonDisk[16] = {
+        float2(0.540417, 0.640249), float2(0.160918, 0.899496),
+        float2(-0.291771, 0.575997), float2(-0.737101, 0.504261),
+        float2(-0.852436, -0.063901), float2(-0.536979, -0.580749),
+        float2(-0.198121, -0.835976), float2(0.284752, -0.730335),
+        float2(0.697495, -0.537658), float2(0.887834, -0.161042),
+        float2(0.818454, 0.334645), float2(0.383842, 0.279867),
+        float2(-0.103009, 0.134190), float2(-0.485496, 0.106886),
+        float2(-0.354784, -0.320412), float2(0.166412, -0.244837)
+    };
+    
+    [loop]
+    for (int i = 0; i < SampleCount; i++)
+    {
+        float2 Offset = PoissonDisk[i] * FilterRadiusUV;
+        float2 SampleUV = AtlasUV + Offset;
+            
+        ShadowFactorSum += ShadowMap.SampleCmpLevelZero(ShadowSampler, SampleUV, PixelDepth);
+    }
+
+    return ShadowFactorSum / SampleCount;
+}
+
+// PCF 샘플링 오버로드 (Point Light용 - TextureCubeArray)
+// 큐브맵 UV 변환 함수를 사용하여 정확한 UV 공간에서 오프셋 적용
+float SampleShadowPCF(float PixelDepth, float3 CubemapDir, uint LightIndex,
+    int SampleCount, float FilterRadiusTexel,
+    TextureCubeArray ShadowMapCube, SamplerComparisonState ShadowSampler)
+{
+    if (SampleCount <= 0)
+    {
+        return ShadowMapCube.SampleCmpLevelZero(ShadowSampler, float4(CubemapDir, LightIndex), PixelDepth);
+    }
+    
+    float ShadowFactorSum = 0.0f;
+    
+    // Poisson Disk 샘플링 (2D UV 공간)
+    const float2 PoissonDisk[16] = {
+        float2(0.540417, 0.640249), float2(0.160918, 0.899496),
+        float2(-0.291771, 0.575997), float2(-0.737101, 0.504261),
+        float2(-0.852436, -0.063901), float2(-0.536979, -0.580749),
+        float2(-0.198121, -0.835976), float2(0.284752, -0.730335),
+        float2(0.697495, -0.537658), float2(0.887834, -0.161042),
+        float2(0.818454, 0.334645), float2(0.383842, 0.279867),
+        float2(-0.103009, 0.134190), float2(-0.485496, 0.106886),
+        float2(-0.354784, -0.320412), float2(0.166412, -0.244837)
+    };
+    
+    // 1. 월드 방향 벡터 -> UV 변환
+    CubemapUV baseUV = DirectionToCubemapUV(CubemapDir);
+    
+    [loop]
+    for (int i = 0; i < SampleCount; i++)
+    {
+        // 2. UV 공간에서 오프셋 적용 (텍셀 단위)
+        float2 offsetUV = baseUV.uv + PoissonDisk[i] * FilterRadiusTexel;
+        
+        // 3. 오프셋된 UV -> 월드 방향 벡터로 재변환
+        float3 sampleDir = CubemapUVToDirection(offsetUV, baseUV.faceIndex);
+        
+        // 4. 샘플링
+        ShadowFactorSum += ShadowMapCube.SampleCmpLevelZero(ShadowSampler, float4(sampleDir, LightIndex), PixelDepth);
+    }
+    
+    return ShadowFactorSum / SampleCount;
+}
+
+float CalculateSpotLightShadowFactor(
+    float3 WorldPos, FShadowMapData ShadowMapData, Texture2D ShadowMap, SamplerComparisonState ShadowSampler)
+{
+    // 빛 적용 가정
+    float ShadowFactor = 1.0f;
+    
+    // 월드 -> 광원좌표 -> 텍스처 uv좌표
+    float4 ShadowTexCoord = mul(float4(WorldPos, 1.0f), ShadowMapData.ShadowViewProjMatrix);
+
+    // 원근 나눗셈
+    ShadowTexCoord.xyz /= ShadowTexCoord.w;
+
+    // 아틀라스 uv좌표로 변환
+    float2 AtlasUV = ShadowTexCoord.xy;    
+
+    if (saturate(AtlasUV.x) == AtlasUV.x && saturate(AtlasUV.y) == AtlasUV.y)
+    {
+        AtlasUV.x = AtlasUV.x * ShadowMapData.AtlasScaleOffset.x + ShadowMapData.AtlasScaleOffset.z;
+        AtlasUV.y = AtlasUV.y * ShadowMapData.AtlasScaleOffset.y + ShadowMapData.AtlasScaleOffset.w;
+        // 텍스처 상에서 현재 픽셀의 깊이
+        float PixelDepth = ShadowTexCoord.z - 0.0025f;
+        
+        // PCF
+        float Width, Height;
+        ShadowMap.GetDimensions(Width, Height);
+        float2 AtlasTexelSize = float2(1.0f / Width, 1.0f / Height);
+        float2 FilterRadiusUV = 1.5f * AtlasTexelSize;
+
+        ShadowFactor = SampleShadowPCF(PixelDepth, AtlasUV, ShadowMapData.SampleCount, FilterRadiusUV, ShadowMap, ShadowSampler);        
+    }
+
+    return ShadowFactor;
+}
+
+float CalculatePointLightShadowFactor(
+    float3 WorldPos, float3 LightPos, float FarPlane, uint LightIndex, int SampleCount,
+    TextureCubeArray ShadowMapCube, SamplerComparisonState ShadowSampler)
+{
+    float3 lightToPixel = WorldPos - LightPos;
+    float distance = length(lightToPixel);
+    
+    float nearPlane = 0.2f;
+    
+    // 원근 투영 Z 변환 적용
+    float nonLinearDepth = (FarPlane / (FarPlane - nearPlane)) - (nearPlane * FarPlane / (FarPlane - nearPlane)) / distance;
+    
+    // Bias 적용
+    float baseBias = 0.001f;
+    float pixelDepthForCompare = nonLinearDepth - baseBias;
+    
+    // 좌표계 변환
+    float3 cubemapDir = float3(lightToPixel.y, lightToPixel.z, lightToPixel.x);
+    
+    // 큐브맵 텍셀 크기 계산
+    float Width, Height, Elements;
+    ShadowMapCube.GetDimensions(Width, Height, Elements);
+    float texelSize = 1.0f / Width;  // 큐브맵은 정사각형으로 가정
+    
+    // PCF 샘플링 (텍셀 단위 필터 반경)
+    float filterRadiusTexel = 1.5f * texelSize;
+    return SampleShadowPCF(pixelDepthForCompare, cubemapDir, LightIndex,
+        SampleCount, filterRadiusTexel, ShadowMapCube, ShadowSampler);
+}
+
+float GetCascadedShadowAtt(float3 WorldPos, float3 ViewPos, Texture2D ShadowMap, SamplerComparisonState ShadowSampler)
+{
+    int CurIdx;
+    bool bNeedLerp;
+    float LerpValue;
+    float Width, Height;
+    ShadowMap.GetDimensions(Width, Height);
+    float2 TexSizeRCP = float2(1.0f / Width, 1.0f / Height);
+    float2 FilterRadiusUV = 1.5f * TexSizeRCP;
+    
+    //Cascade 특정 idx구역만 렌더링 하는경우
+    if (DirectionalLight.CascadedAreaShadowDebugValue != -1)
+    {
+        CurIdx = DirectionalLight.CascadedAreaShadowDebugValue;
+    
+        float3 CurUV = mul(float4(WorldPos, 1), DirectionalLight.Cascades[CurIdx].ShadowViewProjMatrix).xyz;
+        if (saturate(CurUV.x) == CurUV.x && saturate(CurUV.y) == CurUV.y)
+        {
+            float2 CurAtlasUV = CurUV.xy * DirectionalLight.Cascades[CurIdx].AtlasScaleOffset.xy + DirectionalLight.Cascades[CurIdx].AtlasScaleOffset.zw;
+            float CurShadowFactor = SampleShadowPCF(CurUV.z - 0.0025f, CurAtlasUV, DirectionalLight.Cascades[CurIdx].SampleCount, FilterRadiusUV, ShadowMap, ShadowSampler);
+            return CurShadowFactor;
+        }
+        return 0;
+    }
+    else
+    {
+        //Cascade 구역 계산
+        for (uint i = 0; i < DirectionalLight.CascadeCount; i++)
+        {
+            float CurFar = DirectionalLight.CascadedSliceDepth[(i + 1) / 4][(i + 1) % 4];
+            if (ViewPos.z < CurFar)
+            {
+                CurIdx = i;
+                break;
+            }
+        }
+    
+        float PrevFar = CurIdx == 0 ? 0 : DirectionalLight.CascadedSliceDepth[CurIdx / 4][CurIdx % 4];
+        float ExtensionPrevFar = PrevFar + PrevFar * DirectionalLight.CascadedOverlapValue;
+        if (CurIdx > 0 && ViewPos.z < ExtensionPrevFar)
+        {
+            //Blending 필요
+            bNeedLerp = true;
+            LerpValue = (ViewPos.z - PrevFar) / (ExtensionPrevFar - PrevFar);
+        }
+    
+        float3 CurUV = mul(float4(WorldPos, 1), DirectionalLight.Cascades[CurIdx].ShadowViewProjMatrix).xyz;
+        float2 CurAtlasUV = CurUV.xy * DirectionalLight.Cascades[CurIdx].AtlasScaleOffset.xy + DirectionalLight.Cascades[CurIdx].AtlasScaleOffset.zw;
+        float CurShadowFactor = SampleShadowPCF(CurUV.z - 0.0025f, CurAtlasUV, DirectionalLight.Cascades[CurIdx].SampleCount, FilterRadiusUV, ShadowMap, ShadowSampler);
+        if (bNeedLerp)
+        {
+            int PrevIdx = CurIdx - 1;
+            float3 PrevUV = mul(float4(WorldPos, 1), DirectionalLight.Cascades[PrevIdx].ShadowViewProjMatrix).xyz;
+            float2 PrevAtlasUV = PrevUV.xy * DirectionalLight.Cascades[PrevIdx].AtlasScaleOffset.xy + DirectionalLight.Cascades[PrevIdx].AtlasScaleOffset.zw;
+            float PrevShadowFactor = SampleShadowPCF(PrevUV.z - 0.0025f, PrevAtlasUV, DirectionalLight.Cascades[PrevIdx].SampleCount, FilterRadiusUV, ShadowMap, ShadowSampler);
+            return LerpValue * CurShadowFactor + (1 - LerpValue) * PrevShadowFactor;
+        }
+        else
+        {
+            return CurShadowFactor;
+        }
+    }
+    
+ 
+}
 //================================================================================================
 // 통합 조명 계산 함수
 //================================================================================================
 
 // Directional Light 계산 (Diffuse + Specular)
-float3 CalculateDirectionalLight(FDirectionalLightInfo light, float3 normal, float3 viewDir, float4 materialColor, bool includeSpecular, float specularPower)
+float3 CalculateDirectionalLight
+    (FDirectionalLightInfo light, float3 WorldPos, float3 ViewPos, float3 normal, float3 viewDir, float4 materialColor, bool includeSpecular, float specularPower,
+ Texture2D ShadowMap, SamplerComparisonState ShadowSampler)
 {
     // Light.Direction이 영벡터인 경우, 정규화 문제 방지
     if (all(light.Direction == float3(0.0f, 0.0f, 0.0f)))
@@ -156,47 +437,28 @@ float3 CalculateDirectionalLight(FDirectionalLightInfo light, float3 normal, flo
         specular = CalculateSpecular(lightDir, normal, viewDir, light.Color, specularPower);
     }
 
-    return diffuse + specular;
-}
-
-// Point Light 계산 (Diffuse + Specular with Attenuation and Falloff)
-float3 CalculatePointLight(FPointLightInfo light, float3 worldPos, float3 normal, float3 viewDir, float4 materialColor, bool includeSpecular, float specularPower)
-{
-    float3 lightVec = light.Position - worldPos;
-    float distance = length(lightVec);
-
-    // epsilon으로 0으로 나누기 방지
-    distance = max(distance, 0.0001f);
-    float3 lightDir = lightVec / distance;
-
-    // Falloff 모드에 따라 감쇠 계산
-    float attenuation;
-    if (light.bUseInverseSquareFalloff)
+    // // Shadow 적용 (bCastShadows 플래그 확인) - PCF 샘플링 사용
+    float shadowFactor = 1;
+    if (light.bCastShadows)
     {
-        // 물리 기반 역제곱 감쇠 (Unreal Engine 스타일)
-        attenuation = CalculateInverseSquareFalloff(distance, light.AttenuationRadius);
-    }
-    else
-    {
-        // 더 큰 제어를 위한 예술적 지수 기반 감쇠
-        attenuation = CalculateExponentFalloff(distance, light.AttenuationRadius, light.FalloffExponent);
+        if (light.bCascaded)
+        {
+            shadowFactor = GetCascadedShadowAtt(WorldPos, ViewPos, ShadowMap, ShadowSampler);
+        }
+        else
+        {
+            shadowFactor = CalculateSpotLightShadowFactor(
+             WorldPos, light.Cascades[0], ShadowMap, ShadowSampler);
+        }
     }
 
-    // Diffuse (light.Color는 이미 Intensity 포함)
-    float3 diffuse = CalculateDiffuse(lightDir, normal, light.Color, materialColor) * attenuation;
-
-    // Specular (선택사항)
-    float3 specular = float3(0.0f, 0.0f, 0.0f);
-    if (includeSpecular)
-    {
-        specular = CalculateSpecular(lightDir, normal, viewDir, light.Color, specularPower) * attenuation;
-    }
-
-    return diffuse + specular;
+    return (diffuse + specular) * shadowFactor;
 }
 
 // Spot Light 계산 (Diffuse + Specular with Attenuation and Cone)
-float3 CalculateSpotLight(FSpotLightInfo light, float3 worldPos, float3 normal, float3 viewDir, float4 materialColor, bool includeSpecular, float specularPower)
+float3 CalculateSpotLight(
+    FSpotLightInfo light, float3 worldPos, float3 normal, float3 viewDir, float4 materialColor, bool includeSpecular, float specularPower,
+    Texture2D ShadowMap, SamplerComparisonState ShadowSampler)
 {
     float3 lightVec = light.Position - worldPos;
     float distance = length(lightVec);
@@ -241,6 +503,64 @@ float3 CalculateSpotLight(FSpotLightInfo light, float3 worldPos, float3 normal, 
         specular = CalculateSpecular(lightDir, normal, viewDir, light.Color, specularPower) * attenuation;
     }
 
+    // Shadow 적용 (bCastShadows 플래그 확인) - PCF 샘플링 사용
+    if (light.bCastShadows)
+    {
+        float shadowFactor = CalculateSpotLightShadowFactor(
+            worldPos, light.ShadowData, ShadowMap, ShadowSampler);
+        diffuse *= shadowFactor;
+        specular *= shadowFactor;
+    }
+
+    return diffuse + specular;
+}
+
+// Point Light 계산 (Diffuse + Specular with Attenuation and Falloff)
+float3 CalculatePointLight(
+    FPointLightInfo light, float3 worldPos, float3 normal, float3 viewDir, float4 materialColor, bool includeSpecular, float specularPower,
+    TextureCubeArray ShadowMapCube, SamplerComparisonState ShadowSampler)
+{
+    float3 lightVec = light.Position - worldPos;
+    float distance = length(lightVec);
+
+    // epsilon으로 0으로 나누기 방지
+    distance = max(distance, 0.0001f);
+    float3 lightDir = lightVec / distance;
+
+    // Falloff 모드에 따라 감쇠 계산
+    float attenuation;
+    if (light.bUseInverseSquareFalloff)
+    {
+        // 물리 기반 역제곱 감쇠 (Unreal Engine 스타일)
+        attenuation = CalculateInverseSquareFalloff(distance, light.AttenuationRadius);
+    }
+    else
+    {
+        // 더 큰 제어를 위한 예술적 지수 기반 감쇠
+        attenuation = CalculateExponentFalloff(distance, light.AttenuationRadius, light.FalloffExponent);
+    }
+
+    // Diffuse (light.Color는 이미 Intensity 포함)
+    float3 diffuse = CalculateDiffuse(lightDir, normal, light.Color, materialColor) * attenuation;
+
+    // Specular (선택사항)
+    float3 specular = float3(0.0f, 0.0f, 0.0f);
+    if (includeSpecular)
+    {
+        specular = CalculateSpecular(lightDir, normal, viewDir, light.Color, specularPower) * attenuation;
+    }
+
+    // Shadow 적용 (bCastShadows 플래그 확인) - PCF 샘플링 사용
+    if (light.bCastShadows)
+    {
+        int sampleCount = 16; // PCF 샘플 카운트
+        float shadowFactor = CalculatePointLightShadowFactor(
+            worldPos, light.Position, light.AttenuationRadius, light.LightIndex, sampleCount,
+            ShadowMapCube, ShadowSampler);
+        diffuse *= shadowFactor;
+        specular *= shadowFactor;
+    }
+
     return diffuse + specular;
 }
 
@@ -274,31 +594,38 @@ float3 CalculateSpotLight(FSpotLightInfo light, float3 worldPos, float3 normal, 
 //       OBJ/MTL 재질의 경우, Material.AmbientColor로 CalculateAmbientLight를 별도로 호출할 것
 float3 CalculateAllLights(
     float3 worldPos,
+    float3 viewPos,
     float3 normal,
     float3 viewDir,        // LAMBERT에서는 사용 안 함
     float4 baseColor,
     float specularPower,
-    float4 screenPos)      // 타일 컬링용
+    float4 screenPos,      // 타일 컴링용
+    SamplerComparisonState ShadowSampler,
+    Texture2D ShadowMap2D,
+    TextureCubeArray ShadowMapCube
+    )
 {
     float3 litColor = float3(0, 0, 0);
 
     // Ambient (비재질 오브젝트는 Ka = Kd 가정)
     litColor += CalculateAmbientLight(AmbientLight, baseColor.rgb);
 
-    // Directional
     litColor += CalculateDirectionalLight(
         DirectionalLight,
+        worldPos,
+        viewPos,
         normal,
         viewDir,  // LAMBERT에서는 무시됨
         baseColor,
         LIGHTING_INCLUDE_SPECULAR,  // 매크로에 따라 자동 설정
-        specularPower
+        specularPower,
+        ShadowMap2D, ShadowSampler
     );
 
     // Point + Spot with 타일 컬링
     if (bUseTileCulling)
     {
-        uint tileIndex = CalculateTileIndex(screenPos);
+        uint tileIndex = CalculateTileIndex(screenPos, ViewportStartX, ViewportStartY);
         uint tileDataOffset = GetTileDataOffset(tileIndex);
         uint lightCount = g_TileLightIndices[tileDataOffset];
 
@@ -317,7 +644,8 @@ float3 CalculateAllLights(
                     viewDir,
                     baseColor,
                     LIGHTING_INCLUDE_SPECULAR,  // 매크로 자동 대응
-                    specularPower
+                    specularPower,
+                    ShadowMapCube, ShadowSampler
                 );
             }
             else if (lightType == 1)  // Spot Light
@@ -329,14 +657,15 @@ float3 CalculateAllLights(
                     viewDir,
                     baseColor,
                     LIGHTING_INCLUDE_SPECULAR,  // 매크로 자동 대응
-                    specularPower
+                    specularPower,
+                    ShadowMap2D, ShadowSampler
                 );
             }
         }
     }
     else
     {
-        // 모든 라이트 순회 (타일 컬링 비활성화)
+        // 모든 라이트 순회 (타일 컴링 비활성화)
         for (uint i = 0; i < PointLightCount; i++)
         {
             litColor += CalculatePointLight(
@@ -346,7 +675,8 @@ float3 CalculateAllLights(
                 viewDir,
                 baseColor,
                 LIGHTING_INCLUDE_SPECULAR,
-                specularPower
+                specularPower,
+                ShadowMapCube, ShadowSampler
             );
         }
 
@@ -359,45 +689,13 @@ float3 CalculateAllLights(
                 viewDir,
                 baseColor,
                 LIGHTING_INCLUDE_SPECULAR,
-                specularPower
+                specularPower,
+                ShadowMap2D, ShadowSampler
             );
         }
     }
 
     return litColor;
-}
-
-float SampleShadowPCF(float PixelDepth, float2 AtlasUV,
-    int SampleCount, float2 FilterRadiusUV,
-    Texture2D ShadowMap, SamplerComparisonState ShadowSampler)
-{
-    if (SampleCount <= 0)
-    {
-        return ShadowMap.SampleCmpLevelZero(ShadowSampler, AtlasUV, PixelDepth);
-    }
-    float ShadowFactorSum = 0.0f;
-
-    const float2 PoissonDisk[16] = {
-        float2(0.540417, 0.640249), float2(0.160918, 0.899496),
-        float2(-0.291771, 0.575997), float2(-0.737101, 0.504261),
-        float2(-0.852436, -0.063901), float2(-0.536979, -0.580749),
-        float2(-0.198121, -0.835976), float2(0.284752, -0.730335),
-        float2(0.697495, -0.537658), float2(0.887834, -0.161042),
-        float2(0.818454, 0.334645), float2(0.383842, 0.279867),
-        float2(-0.103009, 0.134190), float2(-0.485496, 0.106886),
-        float2(-0.354784, -0.320412), float2(0.166412, -0.244837)
-    };
-    
-    [loop]
-    for (int i = 0; i < SampleCount; i++)
-    {
-        float2 Offset = PoissonDisk[i] * FilterRadiusUV;
-        float2 SampleUV = AtlasUV + Offset;
-            
-        ShadowFactorSum += ShadowMap.SampleCmpLevelZero(ShadowSampler, SampleUV, PixelDepth);
-    }
-
-    return ShadowFactorSum / SampleCount;
 }
 
 float SampleShadowVSM(float PixelDepth, float2 AtlasUV, Texture2D<float2> VShadowMap, SamplerState ShadowSampler)
@@ -422,40 +720,6 @@ float SampleShadowVSM(float PixelDepth, float2 AtlasUV, Texture2D<float2> VShado
     }
 
     return saturate(LitFactor);
-}
-
-float CalculateSpotLightShadowFactor(
-    float3 WorldPos, FShadowMapData ShadowMapData, Texture2D ShadowMap, SamplerComparisonState ShadowSampler)
-{
-    // 빛 적용 가정
-    float ShadowFactor = 1.0f;
-    
-    // 월드 -> 광원좌표 -> 텍스처 uv좌표
-    float4 ShadowTexCoord = mul(float4(WorldPos, 1.0f), ShadowMapData.ShadowViewProjMatrix);
-
-    // 원근 나눗셈
-    ShadowTexCoord.xyz /= ShadowTexCoord.w;
-
-    // 아틀라스 uv좌표로 변환
-    float2 AtlasUV = ShadowTexCoord.xy;    
-
-    if (saturate(AtlasUV.x) == AtlasUV.x && saturate(AtlasUV.y) == AtlasUV.y)
-    {
-        AtlasUV.x = AtlasUV.x * ShadowMapData.AtlasScaleOffset.x + ShadowMapData.AtlasScaleOffset.z;
-        AtlasUV.y = AtlasUV.y * ShadowMapData.AtlasScaleOffset.y + ShadowMapData.AtlasScaleOffset.w;
-        // 텍스처 상에서 현재 픽셀의 깊이
-        float PixelDepth = ShadowTexCoord.z - 0.005f;
-        
-        // PCF
-        float Width, Height;
-        ShadowMap.GetDimensions(Width, Height);
-        float2 AtlasTexelSize = float2(1.0f / Width, 1.0f / Height);
-        float2 FilterRadiusUV = 1.5f * AtlasTexelSize;
-
-        ShadowFactor = SampleShadowPCF(PixelDepth, AtlasUV, ShadowMapData.SampleCount, FilterRadiusUV, ShadowMap, ShadowSampler);        
-    }
-
-    return ShadowFactor;
 }
 
 float CalculateSpotLightShadowFactorVSM(

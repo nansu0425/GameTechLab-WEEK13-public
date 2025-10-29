@@ -111,18 +111,33 @@ void FLightManager::Initialize(D3D11RHI* RHIDevice)
 
 		// 3.3. 각 면(Face)에 대한 DSV 생성 (Pass 1 렌더링용)
 		ShadowCubeFaceDSVs.SetNum(CubeArrayCount * 6);
+		ShadowCubeFaceSRVs.SetNum(CubeArrayCount * 6);
 		for (uint32 SliceIndex = 0; SliceIndex < CubeArrayCount; ++SliceIndex)
 		{
 			for (uint32 FaceIndex = 0; FaceIndex < 6; ++FaceIndex)
 			{
+				uint32 Index = (SliceIndex * 6) + FaceIndex;
+				
+				// DSV 생성
 				D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
 				dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
 				dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DARRAY;
 				dsvDesc.Texture2DArray.MipSlice = 0;
-				dsvDesc.Texture2DArray.FirstArraySlice = (SliceIndex * 6) + FaceIndex;
+				dsvDesc.Texture2DArray.FirstArraySlice = Index;
 				dsvDesc.Texture2DArray.ArraySize = 1; // 각 DSV는 1개의 면만 참조
 
-				RHIDevice->GetDevice()->CreateDepthStencilView(ShadowAtlasTextureCube, &dsvDesc, &ShadowCubeFaceDSVs[(SliceIndex * 6) + FaceIndex]);
+				RHIDevice->GetDevice()->CreateDepthStencilView(ShadowAtlasTextureCube, &dsvDesc, &ShadowCubeFaceDSVs[Index]);
+				
+				// SRV 생성 (각 면을 2D 텍스처로 읽을 수 있도록)
+				D3D11_SHADER_RESOURCE_VIEW_DESC srvFaceDesc = {};
+				srvFaceDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+				srvFaceDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
+				srvFaceDesc.Texture2DArray.MostDetailedMip = 0;
+				srvFaceDesc.Texture2DArray.MipLevels = 1;
+				srvFaceDesc.Texture2DArray.FirstArraySlice = Index;
+				srvFaceDesc.Texture2DArray.ArraySize = 1; // 각 SRV는 1개의 면만 참조
+				
+				RHIDevice->GetDevice()->CreateShaderResourceView(ShadowAtlasTextureCube, &srvFaceDesc, &ShadowCubeFaceSRVs[Index]);
 			}
 		}
 	}
@@ -222,6 +237,11 @@ void FLightManager::Release()
 		if (dsv) dsv->Release();
 	}
 	ShadowCubeFaceDSVs.clear();
+	for (auto* srv : ShadowCubeFaceSRVs)
+	{
+		if (srv) srv->Release();
+	}
+	ShadowCubeFaceSRVs.clear();
 	if (ShadowAtlasTextureCube) { ShadowAtlasTextureCube->Release(); ShadowAtlasTextureCube = nullptr; }
 }
 
@@ -256,10 +276,8 @@ void FLightManager::UpdateLightBuffer(D3D11RHI* RHIDevice)
 		if (Light->IsCastShadows() && ShadowDataCache2D.Contains(Light))
 		{
 			const TArray<FShadowMapData>& Cascades = ShadowDataCache2D[Light];
-			int32 CascadeCount = FMath::Min(Cascades.Num(), 4); // 최대 4개까지만 복사
+			int32 CascadeCount = FMath::Min(Cascades.Num(), CASCADED_MAX); // 최대 4개까지만 복사
 
-			LightBuffer.DirectionalLight.bCastShadows = (CascadeCount > 0);
-			LightBuffer.DirectionalLight.CascadeCount = CascadeCount;
 			for (int32 i = 0; i < CascadeCount; ++i)
 			{
 				LightBuffer.DirectionalLight.Cascades[i] = Cascades[i];
@@ -379,7 +397,7 @@ void FLightManager::SetShadowMapData(ULightComponent* Light, int32 SubViewIndex,
 void FLightManager::SetShadowCubeMapData(ULightComponent* Light, int32 SliceIndex)
 {
 	if (!Light) return;
-	if (SliceIndex < 0 || ShadowDataCacheCube.Num() <= SliceIndex) return;
+	if (SliceIndex < 0 || CubeArrayCount <= SliceIndex) return;
 
 	// TMap에 슬라이스 인덱스 저장
 	ShadowDataCacheCube[Light] = SliceIndex;
@@ -396,6 +414,37 @@ ID3D11DepthStencilView* FLightManager::GetShadowCubeFaceDSV(UINT SliceIndex, UIN
 		return ShadowCubeFaceDSVs[Index];
 	}
 	return nullptr;
+}
+
+ID3D11ShaderResourceView* FLightManager::GetShadowCubeFaceSRV(UINT SliceIndex, UINT FaceIndex) const
+{
+	UINT Index = (SliceIndex * 6) + FaceIndex;
+	if (Index < ShadowCubeFaceSRVs.Num())
+	{
+		return ShadowCubeFaceSRVs[Index];
+	}
+	return nullptr;
+}
+
+void FLightManager::ClearAllDepthStencilView(D3D11RHI* RHIDevice)
+{
+	ID3D11DepthStencilView* AtlasDSV2D = GetShadowAtlasDSV2D();
+	if (AtlasDSV2D)
+	{
+		RHIDevice->GetDeviceContext()->ClearDepthStencilView(AtlasDSV2D, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
+	}
+
+	// NOTE: 추후 CubeArrayMasterDSV 로 한번에 clear 하도록 교체
+	for (ID3D11DepthStencilView* faceDSV : ShadowCubeFaceDSVs)
+	{
+		if (faceDSV)
+		{
+			RHIDevice->GetDeviceContext()->ClearDepthStencilView(faceDSV, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+		}
+	}
+	
+	// 비워진 리소스를 다시 할당 시키려고
+	bHaveToUpdate = true;
 }
 
 bool FLightManager::GetCachedShadowData(ULightComponent* Light, int32 SubViewIndex, FShadowMapData& OutData) const
@@ -423,6 +472,29 @@ bool FLightManager::GetCachedShadowData(ULightComponent* Light, int32 SubViewInd
 
 	// 4. 데이터 복사 및 성공 반환
 	OutData = (*FoundDataArray)[SubViewIndex];
+	return true;
+}
+
+bool FLightManager::GetCachedShadowCubeSliceIndex(ULightComponent* Light, int32& OutSliceIndex) const
+{
+	// 1. 유효성 검사
+	if (!Light)
+	{
+		OutSliceIndex = -1;
+		return false;
+	}
+
+	// 2. 해당 라이트에 대한 캐시 데이터(int32) 찾기
+	const int32* FoundIndex = ShadowDataCacheCube.Find(Light);
+	if (!FoundIndex)
+	{
+		// 이 라이트에 대한 캐시 데이터가 없음
+		OutSliceIndex = -1;
+		return false;
+	}
+
+	// 3. 데이터 복사 및 성공 반환
+	OutSliceIndex = *FoundIndex;
 	return true;
 }
 

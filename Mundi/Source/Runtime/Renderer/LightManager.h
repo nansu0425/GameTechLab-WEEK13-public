@@ -1,4 +1,5 @@
 ﻿#pragma once
+#define CASCADED_MAX 8
 
 class UAmbientLightComponent;
 class UDirectionalLightComponent;
@@ -42,7 +43,7 @@ struct FShadowRenderRequest
 
     FVector4 AtlasScaleOffset; // 패킹 알고리즘이 채워줄 UV
     FVector2D AtlasViewportOffset; // 패킹 알고리즘이 채워줄 Viewport
-    int32 SampleCount;
+    int32 SampleCount = 0;
 
     bool operator>(const FShadowRenderRequest& Other) const
     {
@@ -66,26 +67,29 @@ struct FDirectionalLightInfo
     FVector Direction;       // 12 bytes
     uint32 bCastShadows;     // 4 bytes (0 or 1)
 
+    uint32 bCascaded;
     uint32 CascadeCount;     // 4 bytes
+    float CascadedOverlapValue;
+    float CascadedAreaColorDebugValue;
+
+    float CascadedAreaShadowDebugValue;
     float Padding[3];        // 12 bytes (정렬용)
+
+    float CascadedSliceDepth[CASCADED_MAX + 4]; //카메라 Near값이 없어서 0번에 추가해둠 후에 구조수정 필요
 
     // CSM은 데이터가 크므로 CBuffer가 아닌 별도 Structured Buffer(예: t19)로 전달하는 것이
     // 가장 이상적이지만, CBuffer에 고정 크기 배열로 담는 것도 간단한 엔진에서는 가능합니다.
-    // 여기서는 최대 4개의 캐스케이드를 CBuffer에 포함하는 방식을 사용합니다.
-    FShadowMapData Cascades[4]; // (64+16)*4 = 320 bytes
-
-    // Total: 32 + 16 + 320 = 368 bytes
+    FShadowMapData Cascades[CASCADED_MAX];
 };
 
 struct FPointLightInfo
 {
     FLinearColor Color;      // 16 bytes
     FVector Position;        // 12 bytes
-    uint32 bCastShadows;     // 4 bytes (0 or 1)
-
     float AttenuationRadius; // 4 bytes
     float FalloffExponent;   // 4 bytes
     uint32 bUseInverseSquareFalloff; // 4 bytes
+    uint32 bCastShadows;     // 4 bytes (0 or 1)
     int32 ShadowArrayIndex;  // 4 bytes (t8 TextureCubeArray의 슬라이스 인덱스, -1=섀도우 없음)
     // Total: 48 bytes
 };
@@ -135,6 +139,11 @@ public:
     uint32 GetShadowCubeArrayCount() const { return CubeArrayCount; }
     ID3D11DepthStencilView* GetShadowCubeFaceDSV(UINT SliceIndex, UINT FaceIndex) const; // (구현 필요)
     bool GetCachedShadowData(ULightComponent* Light, int32 SubViewIndex, FShadowMapData& OutData) const;
+    bool GetCachedShadowCubeSliceIndex(ULightComponent* Light, int32& OutSliceIndex) const;
+    ID3D11ShaderResourceView* GetShadowAtlasSRVCube() const { return ShadowAtlasSRVCube; }
+    ID3D11ShaderResourceView* GetShadowCubeFaceSRV(UINT SliceIndex, UINT FaceIndex) const; // Cube의 각 면을 2D SRV로 반환
+
+    void ClearAllDepthStencilView(D3D11RHI* RHIDevice);
     ID3D11RenderTargetView* GetVSMShadowAtlasRTV2D() const { return VSMShadowAtlasRTV2D; }
 
     void AllocateAtlasRegions2D(TArray<FShadowRenderRequest>& InOutRequests2D);
@@ -175,6 +184,8 @@ private:
     ID3D11ShaderResourceView* ShadowAtlasSRVCube = nullptr; // t8
     // 큐브맵의 각 면(Slice*6)에 대한 DSV 배열
     TArray<ID3D11DepthStencilView*> ShadowCubeFaceDSVs;
+    // 큐브맵의 각 면을 2D 텍스처로 읽을 수 있는 SRV 배열 (UI 표시용)
+    TArray<ID3D11ShaderResourceView*> ShadowCubeFaceSRVs;
     uint32 AtlasSizeCube = 1024;
     uint32 CubeArrayCount = 8;
 

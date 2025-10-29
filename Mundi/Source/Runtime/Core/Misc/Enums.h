@@ -409,9 +409,10 @@ enum class EEngineShowFlags : uint64
     SF_Billboard = 1ull << 15,
 
     SF_Shadows = 1ull << 16,
+    SF_ShadowAntiAliasing = 1ull << 17,
 
     // Default enabled flags
-    SF_DefaultEnabled = SF_Primitives | SF_StaticMeshes | SF_Grid | SF_Lighting | SF_Decals | SF_Fog | SF_FXAA | SF_TileCulling | SF_Billboard | SF_Shadows,
+    SF_DefaultEnabled = SF_Primitives | SF_StaticMeshes | SF_Grid | SF_Lighting | SF_Decals | SF_Fog | SF_FXAA |SF_Billboard | SF_Shadows | SF_ShadowAntiAliasing,
 
     // All flags (for initialization/reset)
     SF_All = 0xFFFFFFFFFFFFFFFFull
@@ -423,6 +424,11 @@ enum class EViewportLayoutMode
     FourSplit
 };
 
+enum class EShadowAATechnique : uint8
+{
+    PCF,	// Percentage-Closer Filtering
+    VSM		// Variance Shadow Maps
+};
 
 // Bit flag operators for EEngineShowFlags
 inline EEngineShowFlags operator|(EEngineShowFlags a, EEngineShowFlags b)

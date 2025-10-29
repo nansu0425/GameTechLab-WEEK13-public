@@ -47,7 +47,10 @@ cbuffer DecalBuffer : register(b6)
 
 // --- 텍스처 리소스 ---
 Texture2D g_DecalTexColor : register(t0);
+TextureCubeArray g_ShadowAtlasCube : register(t8);
+Texture2D g_ShadowAtlas2D : register(t9);
 SamplerState g_Sample : register(s0);
+SamplerComparisonState g_ShadowSample : register(s2);
 
 // --- 입출력 구조체 ---
 struct VS_INPUT
@@ -83,7 +86,7 @@ PS_INPUT mainVS(VS_INPUT input)
 
     // World position
     float4 worldPos = mul(float4(input.position, 1.0f), WorldMatrix);
-
+    float4 viewPos = mul(worldPos, ViewMatrix);
     // Decal projection
     output.decalPos = mul(worldPos, DecalMatrix);
 
@@ -106,11 +109,15 @@ PS_INPUT mainVS(VS_INPUT input)
 
         float3 litColor = CalculateAllLights(
             output.worldPos,
+            viewPos.xyz,
             output.normal,
             viewDir,
             baseColor,
             specPower,
-            output.position
+            output.position,
+            g_ShadowSample,
+            g_ShadowAtlas2D,
+            g_ShadowAtlasCube
         );
 
         output.litColor = float4(litColor, 1.0f);
@@ -159,6 +166,7 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     float3 normal = normalize(input.normal);
     float4 baseColor = decalTexture;
     float specPower = 32.0f;
+    float4 viewPos = mul(input.worldPos, ViewMatrix);
 
     #ifdef LIGHTING_MODEL_PHONG
         float3 viewDir = normalize(CameraPosition - input.worldPos);
@@ -168,11 +176,15 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
 
     float3 litColor = CalculateAllLights(
         input.worldPos,
+        viewPos.xyz,
         normal,
         viewDir,
         baseColor,
         specPower,
-        input.position
+        input.position,
+        g_ShadowSample,
+        g_ShadowAtlas2D,
+        g_ShadowAtlasCube
     );
 
     float4 finalColor = float4(litColor, decalTexture.a * DecalOpacity);
