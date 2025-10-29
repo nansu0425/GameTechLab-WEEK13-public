@@ -95,6 +95,8 @@ private:
     UTexture* IconCollision = nullptr;
     UTexture* IconAntiAliasing = nullptr;
     UTexture* IconTile = nullptr;
+    UTexture* IconShadow = nullptr;
+    UTexture* IconShadowAA = nullptr;
 
     // 뷰포트 레이아웃 전환 아이콘
     UTexture* IconSingleToMultiViewport = nullptr;  // 단일 뷰포트 아이콘

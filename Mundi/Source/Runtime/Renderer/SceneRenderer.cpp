@@ -201,12 +201,6 @@ void FSceneRenderer::RenderSceneDepthPath()
 
 void FSceneRenderer::RenderShadowMaps()
 {
-	// 1. ShowFlag 및 리소스 확인
-	if (!World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Shadows))
-	{
-		return;
-	}
-
 	FLightManager* LightManager = GWorld->GetLightManager();
 	if (!LightManager) return;
 
@@ -288,6 +282,13 @@ void FSceneRenderer::RenderShadowMaps()
 		}
 	}
 
+	// SF_Shadows와 관련 없이 IsOverrideCameraLightPerspective 를 사용하기 위해서 밑에서 처리
+	if (!World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Shadows))
+	{
+		LightManager->ClearAllDepthStencilView(RHIDevice);
+		return;
+	}
+
 	// 2D 아틀라스 할당
 	LightManager->AllocateAtlasRegions2D(Requests2D);
 	// 2.2. 큐브맵 슬라이스 할당 (Allocate only)
@@ -302,8 +303,6 @@ void FSceneRenderer::RenderShadowMaps()
 			// 1.1. RHI 상태 설정 (2D 아틀라스)
 			RHIDevice->OMSetCustomRenderTargets(0, nullptr, AtlasDSV2D);
 			RHIDevice->GetDeviceContext()->ClearDepthStencilView(AtlasDSV2D, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
-
-			RHIDevice->ClearDepthBuffer(1.0f, 0);
 			RHIDevice->RSSetState(ERasterizerMode::Shadows);
 			RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
 
@@ -336,7 +335,6 @@ void FSceneRenderer::RenderShadowMaps()
 		if (AtlasSizeCube > 0 && MaxCubeSlices > 0)
 		{
 			// 2.1. RHI 상태 설정 (큐브맵)
-			RHIDevice->ClearDepthBuffer(1.0f, 0);
 			RHIDevice->RSSetState(ERasterizerMode::Shadows);
 			RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual); // 상태 설정 추가
 

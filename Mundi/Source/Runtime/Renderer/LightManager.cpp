@@ -363,6 +363,27 @@ ID3D11ShaderResourceView* FLightManager::GetShadowCubeFaceSRV(UINT SliceIndex, U
 	return nullptr;
 }
 
+void FLightManager::ClearAllDepthStencilView(D3D11RHI* RHIDevice)
+{
+	ID3D11DepthStencilView* AtlasDSV2D = GetShadowAtlasDSV2D();
+	if (AtlasDSV2D)
+	{
+		RHIDevice->GetDeviceContext()->ClearDepthStencilView(AtlasDSV2D, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
+	}
+
+	// NOTE: 추후 CubeArrayMasterDSV 로 한번에 clear 하도록 교체
+	for (ID3D11DepthStencilView* faceDSV : ShadowCubeFaceDSVs)
+	{
+		if (faceDSV)
+		{
+			RHIDevice->GetDeviceContext()->ClearDepthStencilView(faceDSV, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+		}
+	}
+	
+	// 비워진 리소스를 다시 할당 시키려고
+	bHaveToUpdate = true;
+}
+
 bool FLightManager::GetCachedShadowData(ULightComponent* Light, int32 SubViewIndex, FShadowMapData& OutData) const
 {
 	// 1. 유효성 검사

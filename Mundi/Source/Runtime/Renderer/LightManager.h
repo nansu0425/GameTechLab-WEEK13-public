@@ -140,6 +140,8 @@ public:
     ID3D11ShaderResourceView* GetShadowAtlasSRVCube() const { return ShadowAtlasSRVCube; }
     ID3D11ShaderResourceView* GetShadowCubeFaceSRV(UINT SliceIndex, UINT FaceIndex) const; // Cube의 각 면을 2D SRV로 반환
 
+    void ClearAllDepthStencilView(D3D11RHI* RHIDevice);
+
     void AllocateAtlasRegions2D(TArray<FShadowRenderRequest>& InOutRequests2D);
     void AllocateAtlasCubeSlices(TArray<FShadowRenderRequest>& InOutRequestsCube);
 

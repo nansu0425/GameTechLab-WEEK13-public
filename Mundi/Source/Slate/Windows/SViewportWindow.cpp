@@ -421,6 +421,12 @@ void SViewportWindow::LoadToolbarIcons(ID3D11Device* Device)
 	IconTile = NewObject<UTexture>();
 	IconTile->Load(GDataDir + "/Icon/Viewport_Tile.png", Device);
 
+	IconShadow = NewObject<UTexture>();
+	IconShadow->Load(GDataDir + "/Icon/Viewport_Shadow.png", Device);
+
+	IconShadowAA = NewObject<UTexture>();
+	IconShadowAA->Load(GDataDir + "/Icon/Viewport_ShadowAA.png", Device);
+
 	// 뷰포트 레이아웃 전환 아이콘 로드
 	IconSingleToMultiViewport = NewObject<UTexture>();
 	IconSingleToMultiViewport->Load(GDataDir + "/Icon/Viewport_SingleToMultiViewport.png", Device);
@@ -1628,6 +1634,24 @@ void SViewportWindow::RenderShowFlagDropdownMenu()
 			ImGui::SetTooltip("바운딩 박스를 표시합니다.");
 		}
 
+		// 그림자
+		bool bShadows = RenderSettings.IsShowFlagEnabled(EEngineShowFlags::SF_Shadows);
+		if (ImGui::Checkbox("##Shadows", &bShadows))
+		{
+			RenderSettings.ToggleShowFlag(EEngineShowFlags::SF_Shadows);
+		}
+		ImGui::SameLine();
+		if (IconShadow && IconShadow->GetShaderResourceView())
+		{
+			ImGui::Image((void*)IconShadow->GetShaderResourceView(), IconSize);
+			ImGui::SameLine(0, 4);
+		}
+		ImGui::Text(" 그림자");
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip("그림자를 표시합니다.");
+		}
+
 		// --- 섹션: 그래픽스 기능 ---
 		ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "그래픽스 기능");
 		ImGui::Separator();
@@ -1820,6 +1844,57 @@ void SViewportWindow::RenderShowFlagDropdownMenu()
 		if (ImGui::IsItemHovered())
 		{
 			ImGui::SetTooltip("타일 기반 라이트 컬링 설정");
+		}
+
+		// ===== 그림자 안티 에일리어싱 =====
+		bool bShadowAA = RenderSettings.IsShowFlagEnabled(EEngineShowFlags::SF_ShadowAntiAliasing);
+		if (ImGui::Checkbox("##ShadowAA", &bShadowAA))
+		{
+			RenderSettings.ToggleShowFlag(EEngineShowFlags::SF_ShadowAntiAliasing);
+		}
+		ImGui::SameLine();
+		if (IconShadowAA && IconShadowAA->GetShaderResourceView())
+		{
+			ImGui::Image((void*)IconShadowAA->GetShaderResourceView(), IconSize);
+			ImGui::SameLine(0, 4);
+		}
+
+		// 서브메뉴
+		if (ImGui::BeginMenu(" 그림자 안티 에일리어싱"))
+		{
+			ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "그림자 안티 에일리어싱");
+			ImGui::Separator();
+
+			// RadioButton과 바인딩할 int 변수 준비
+			EShadowAATechnique currentTechnique = RenderSettings.GetShadowAATechnique();
+			int techniqueInt = static_cast<int>(currentTechnique);
+			const int oldTechniqueInt = techniqueInt; // 변경 감지를 위한 원본 값
+
+			// RadioButton으로 변경 (int 값 0에 바인딩)
+			ImGui::RadioButton(" PCF (Percentage-Closer Filtering)", &techniqueInt, static_cast<int>(EShadowAATechnique::PCF));
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip("부드러운 그림자 가장자리를 생성합니다. (기본값)");
+			}
+
+			// RadioButton으로 변경 (int 값 1에 바인딩)
+			ImGui::RadioButton(" VSM (Variance Shadow Maps)", &techniqueInt, static_cast<int>(EShadowAATechnique::VSM));
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip("매우 부드러운 그림자를 생성하지만, 라이트 블리딩 문제가 발생할 수 있습니다.");
+			}
+
+			// RadioButton 클릭으로 int 값이 변경되었다면 RenderSettings 업데이트
+			if (techniqueInt != oldTechniqueInt)
+			{
+				RenderSettings.SetShadowAATechnique(static_cast<EShadowAATechnique>(techniqueInt));
+			}
+
+			ImGui::EndMenu();
+		}
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip("그림자 안티 에일리어싱 기술 설정");
 		}
 
 		ImGui::PopStyleColor(3);

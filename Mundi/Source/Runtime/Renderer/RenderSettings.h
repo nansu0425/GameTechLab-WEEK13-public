@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "pch.h"
 
 // Per-world render settings (view mode + show flags)
@@ -36,6 +36,10 @@ public:
     void SetTileSize(uint32 Value) { TileSize = Value; }
     uint32 GetTileSize() const { return TileSize; }
 
+    // 그림자 안티 에일리어싱
+    void SetShadowAATechnique(EShadowAATechnique In) { ShadowAATechnique = In; }
+    EShadowAATechnique GetShadowAATechnique() const { return ShadowAATechnique; }
+
 private:
     EEngineShowFlags ShowFlags = EEngineShowFlags::SF_DefaultEnabled;
     EViewModeIndex ViewModeIndex = EViewModeIndex::VMI_Lit_Phong;
@@ -48,4 +52,7 @@ private:
 
     // Tile-based light culling
     uint32 TileSize = 16;                   // 타일 크기 (픽셀, 기본값: 16)
+
+    // 그림자 안티 에일리어싱
+    EShadowAATechnique ShadowAATechnique = EShadowAATechnique::PCF; // 기본값 PCF
 };
