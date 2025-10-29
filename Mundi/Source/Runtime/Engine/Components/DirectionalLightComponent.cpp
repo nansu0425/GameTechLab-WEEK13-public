@@ -64,6 +64,7 @@ void UDirectionalLightComponent::GetShadowRenderRequests(FSceneView* View, TArra
 		{
 			float Near = CascadedSliceDepth[i];
 			float Far = CascadedSliceDepth[i + 1];
+			//Near -= Near * CascadedOverlapValue;
 			Far += Far * CascadedOverlapValue;
 			TArray<FVector> CameraFrustum = View->Camera->GetFrustumVerticesCascaded(View->Viewport, Near, Far);
 			CameraFrustum *= ViewInv;
