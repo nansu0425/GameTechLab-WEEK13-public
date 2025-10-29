@@ -785,6 +785,7 @@ void FSceneRenderer::RenderOpaquePass(EViewModeIndex InRenderViewMode)
 
 	switch (InRenderViewMode)
 	{
+	case EViewModeIndex::VMI_Lit:
 	case EViewModeIndex::VMI_Lit_Phong:
 		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" });
 		break;
@@ -801,9 +802,28 @@ void FSceneRenderer::RenderOpaquePass(EViewModeIndex InRenderViewMode)
 		ShaderMacros.push_back(FShaderMacro{ "VIEWMODE_WORLD_NORMAL", "1" });
 		break;
 	default:
-		// 기본 Lit 모드 등, 셰이더를 강제하지 않는 모드는 여기서 처리 가능
-		bNeedsShaderOverride = false; // 예시: 기본 Lit 모드는 머티리얼 셰이더 사용
+		// 셰이더를 강제하지 않는 모드는 여기서 처리 가능
+		bNeedsShaderOverride = false;
 		break;
+	}
+
+	// 그림자 AA 설정
+	URenderSettings& RenderSettings = GWorld->GetRenderSettings();
+	if (RenderSettings.IsShowFlagEnabled(EEngineShowFlags::SF_ShadowAntiAliasing))
+	{
+		EShadowAATechnique Technique = RenderSettings.GetShadowAATechnique();
+		if (Technique == EShadowAATechnique::PCF)
+		{
+			ShaderMacros.Add(FShaderMacro("SHADOW_AA_TECHNIQUE", "1")); // 1 = PCF
+		}
+		else if (Technique == EShadowAATechnique::VSM)
+		{
+			ShaderMacros.Add(FShaderMacro("SHADOW_AA_TECHNIQUE", "2")); // 2 = VSM
+		}
+	}
+	else
+	{
+		ShaderMacros.Add(FShaderMacro("SHADOW_AA_TECHNIQUE", "0")); // 0 = Hard Shadow (AA 끔)
 	}
 
 	// ViewMode에 맞는 셰이더 로드 (셰이더 오버라이드가 필요한 경우에만)
