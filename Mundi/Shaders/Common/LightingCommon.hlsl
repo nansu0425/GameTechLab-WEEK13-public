@@ -288,6 +288,27 @@ float SampleShadowVSM(float PixelDepth, float2 AtlasUV, Texture2D<float2> VShado
     return saturate(LitFactor);
 }
 
+float SampleShadowVSM(float PixelDepth, float2 Moments)
+{
+    // E(z), μ
+    float Mean = Moments.x;
+    // σ
+    float Variance = Moments.y - (Moments.x * Moments.x);
+    float MinVariance = 0.0075f;
+    Variance = max(Variance, MinVariance);
+
+    float LitFactor = 1.0f;
+    float DepthDelta = PixelDepth - Mean;
+
+    // 픽셀이 평균보다 뒤에 있을 경우 그림자 계산
+    if (DepthDelta > 0.0f)
+    {
+        LitFactor = min(Variance / (Variance + (DepthDelta * DepthDelta)), 1.0f);        
+    }
+
+    return saturate(LitFactor);
+}
+
 float CalculateSpotLightShadowFactorVSM(
     float3 WorldPos, FShadowMapData ShadowMapData, float Radius, Texture2D<float2> VShadowMap, SamplerState ShadowSampler)
 {
@@ -298,11 +319,7 @@ float CalculateSpotLightShadowFactorVSM(
     float4 ShadowTexCoord = mul(float4(WorldPos, 1.0f), ShadowMapData.ShadowViewProjMatrix);
 
     // 원근 나눗셈
-    ShadowTexCoord.xyz /= ShadowTexCoord.w;    
-
-    // float2 Moments = VShadowMap.Sample(ShadowSampler, AtlasUV).xy;
-    //
-    // return Moments.x;
+    ShadowTexCoord.xyz /= ShadowTexCoord.w;
 
     if (all(saturate(ShadowTexCoord.xyz) == ShadowTexCoord.xyz))
     {
@@ -428,7 +445,7 @@ float CalculateSpotLightShadowFactor(
         ShadowMap.GetDimensions(Width, Height);
         float2 AtlasTexelSize = float2(1.0f / Width, 1.0f / Height);
         float2 FilterRadiusUV = 1.5f * AtlasTexelSize;
-        ShadowFactor = SampleShadowPCF(PixelDepth, AtlasUV, ShadowMapData.SampleCount, FilterRadiusUV, ShadowMap, ShadowSampler);        
+        ShadowFactor = SampleShadowPCF(PixelDepth, AtlasUV, ShadowMapData.SampleCount, FilterRadiusUV, ShadowMap, ShadowSampler);
     }
 
     return ShadowFactor;
@@ -462,6 +479,28 @@ float CalculatePointLightShadowFactor(
     float filterRadiusTexel = 1.5f * texelSize;
     return SampleShadowPCF(pixelDepthForCompare, cubemapDir, LightIndex,
         SampleCount, filterRadiusTexel, ShadowMapCube, ShadowSampler);
+}
+
+float CalculatePointLightShadowFactorVSM(
+    float3 WorldPos, float3 LightPos, float FarPlane, uint LightIndex, int SampleCount,
+    TextureCubeArray<float2> ShadowMapCube, SamplerState ShadowSampler)
+{
+    float3 lightToPixel = WorldPos - LightPos;
+    float distance = length(lightToPixel);    
+    
+    // 원근 투영 Z 변환 적용
+    
+    // Bias 적용
+    float baseBias = 0.001f;
+    
+    float PixelDepth = saturate(distance / FarPlane) - baseBias;   
+    
+    // 좌표계 변환
+    float3 cubemapDir = float3(lightToPixel.y, lightToPixel.z, lightToPixel.x);
+
+    float2 Moments = ShadowMapCube.Sample(ShadowSampler, float4(cubemapDir, LightIndex)).xy;
+    
+    return SampleShadowVSM(PixelDepth, Moments);
 }
 
 float GetCascadedShadowAtt(float3 WorldPos, float3 ViewPos, Texture2D ShadowMap, SamplerComparisonState ShadowSampler)
@@ -625,14 +664,17 @@ float3 CalculateSpotLight(
     // Shadow 적용 (bCastShadows 플래그 확인) - PCF 샘플링 사용
     if (light.bCastShadows)
     {
-        // float shadowFactor = CalculateSpotLightShadowFactor(
-        //     worldPos, light.ShadowData, ShadowMap, ShadowSampler);
-        // diffuse *= shadowFactor;
-        // specular *= shadowFactor;
+#if SHADOW_AA_TECHNIQUE == 1
+        float shadowFactor = CalculateSpotLightShadowFactor(
+            worldPos, light.ShadowData, ShadowMap, ShadowSampler);
+        diffuse *= shadowFactor;
+        specular *= shadowFactor;
+#elif SHADOW_AA_TECHNIQUE == 2 
         float shadowFactor = CalculateSpotLightShadowFactorVSM(worldPos,
             light.ShadowData, light.AttenuationRadius, VShadowMap, VShadowSampler);
         diffuse *= shadowFactor;
         specular *= shadowFactor;
+#endif
     }
 
     return diffuse + specular;
@@ -726,6 +768,7 @@ float3 CalculateAllLights(
     SamplerComparisonState ShadowSampler,
     Texture2D ShadowMap2D,
     TextureCubeArray ShadowMapCube,
+    TextureCubeArray<float2> VShadowMapCube,
     Texture2D<float2> VSMShadowMap,
     SamplerState VSMSampler
     )
@@ -770,7 +813,7 @@ float3 CalculateAllLights(
                     baseColor,
                     LIGHTING_INCLUDE_SPECULAR,  // 매크로 자동 대응
                     specularPower,
-                    ShadowMapCube, ShadowSampler
+                    ShadowMapCube, ShadowSampler                    
                 );
             }
             else if (lightType == 1)  // Spot Light

@@ -304,12 +304,25 @@ void FSceneRenderer::RenderShadowMaps()
 		{
 			ID3D11ShaderResourceView* NullSRV[2] = { nullptr, nullptr };
 			RHIDevice->GetDeviceContext()->PSSetShaderResources(9, 2, NullSRV);
+			
 			float ClearColor[] = {1.0f, 1.0f, 0.0f, 0.0f};
-			// VSM
-			RHIDevice->OMSetCustomRenderTargets(1, &VSMAtlasRTV2D, AtlasDSV2D);
-			RHIDevice->GetDeviceContext()->ClearRenderTargetView(VSMAtlasRTV2D, ClearColor);
-			// 1.1. RHI 상태 설정 (2D 아틀라스)
-			//RHIDevice->OMSetCustomRenderTargets(0, nullptr, AtlasDSV2D);
+			EShadowAATechnique ShadowAAType = GWorld->GetRenderSettings().GetShadowAATechnique();
+			switch (ShadowAAType)
+			{
+			case EShadowAATechnique::PCF:
+				RHIDevice->OMSetCustomRenderTargets(0, nullptr, AtlasDSV2D);
+				break;
+			case EShadowAATechnique::VSM:
+				{
+					RHIDevice->OMSetCustomRenderTargets(1, &VSMAtlasRTV2D, AtlasDSV2D);
+					RHIDevice->GetDeviceContext()->ClearRenderTargetView(VSMAtlasRTV2D, ClearColor);
+					break;
+				}				
+			default:
+				RHIDevice->OMSetCustomRenderTargets(0, nullptr, AtlasDSV2D);
+				break;
+			}
+
 			RHIDevice->GetDeviceContext()->ClearDepthStencilView(AtlasDSV2D, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
 
 			RHIDevice->RSSetState(ERasterizerMode::Shadows);
@@ -418,9 +431,20 @@ void FSceneRenderer::RenderShadowDepthPass(FShadowRenderRequest& ShadowRequest, 
 	// 2. 파이프라인 설정
 	RHIDevice->GetDeviceContext()->IASetInputLayout(ShaderVariant->InputLayout);
 	RHIDevice->GetDeviceContext()->VSSetShader(ShaderVariant->VertexShader, nullptr, 0);
-	//RHIDevice->GetDeviceContext()->PSSetShader(nullptr, nullptr, 0); // 픽셀 셰이더 없음
-	// vsm 테스트용
-	RHIDevice->GetDeviceContext()->PSSetShader(ShaderVarianVSM->PixelShader, nullptr, 0);
+	
+	EShadowAATechnique ShadowAAType = GWorld->GetRenderSettings().GetShadowAATechnique();
+	switch (ShadowAAType)
+	{
+	case EShadowAATechnique::PCF:
+		RHIDevice->GetDeviceContext()->PSSetShader(nullptr, nullptr, 0);
+		break;
+	case EShadowAATechnique::VSM:
+		RHIDevice->GetDeviceContext()->PSSetShader(ShaderVarianVSM->PixelShader, nullptr, 0);
+		break;
+	default:
+		RHIDevice->GetDeviceContext()->PSSetShader(nullptr, nullptr, 0);
+		break;
+	}	
 
 	// 3. 라이트의 View-Projection 행렬을 메인 ViewProj 버퍼에 설정
 	FMatrix WorldLocation = {};
