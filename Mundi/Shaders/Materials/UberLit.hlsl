@@ -213,8 +213,8 @@ float GetCascadedShadowAtt(float3 WorldPos)
             float3 PrevUV = mul(float4(WorldPos, 1), DirectionalLight.Cascades[PrevIdx].ShadowViewProjMatrix).xyz;
             float2 PrevAtlasUV = PrevUV.xy * DirectionalLight.Cascades[PrevIdx].AtlasScaleOffset.xy + DirectionalLight.Cascades[PrevIdx].AtlasScaleOffset.zw;
             float PrevShadowFactor = SampleShadowPCF(PrevUV.z - 0.0025f, PrevAtlasUV, DirectionalLight.Cascades[PrevIdx].SampleCount, FilterRadiusUV, g_ShadowAtlas2D, g_ShadowSample);
-            //return LerpValue * CurShadowFactor + (1 - LerpValue) * PrevShadowFactor;
-            return min(CurShadowFactor, PrevShadowFactor);
+            return LerpValue * CurShadowFactor + (1 - LerpValue) * PrevShadowFactor;
+            //return min(CurShadowFactor, PrevShadowFactor);
         }
         else
         {
@@ -328,7 +328,7 @@ PS_INPUT mainVS(VS_INPUT Input)
 PS_OUTPUT mainPS(PS_INPUT Input)
 {
     PS_OUTPUT Output;
-    //Output.UUID = UUID;
+    Output.UUID = UUID;
     
     //CSM 구간 시각화
     float3 Color[2] =

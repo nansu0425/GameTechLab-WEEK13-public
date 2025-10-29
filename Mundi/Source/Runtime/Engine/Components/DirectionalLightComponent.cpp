@@ -88,6 +88,7 @@ void UDirectionalLightComponent::GetShadowRenderRequests(FSceneView* View, TArra
 				CameraFrustum2 *= ViewInv;
 				CameraFrustum2 *= ShadowMapView;
 				FAABB CameraFrustumAABB = FAABB(CameraFrustum2);
+				CameraFrustumAABB.Min.Z -= View->Camera->GetFarClip();
 				TArray<FVector> AABBVertices = CameraFrustumAABB.GetVertices();
 				AABBVertices *= ShadowMapView.InverseAffine();
 				for (int i = 0; i < 8; i++) 
