@@ -204,8 +204,7 @@ float GetCascadedShadowAtt(float3 WorldPos)
 //================================================================================================
 // 버텍스 셰이더 (Vertex Shader)
 //================================================================================================
-PS_INPUT
-    mainVS(VS_INPUTInput)
+PS_INPUT mainVS(VS_INPUT Input)
 {
     PS_INPUT Out;
     
