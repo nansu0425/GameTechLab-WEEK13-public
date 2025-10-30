@@ -263,11 +263,11 @@ float2 GaussianFilter(float2 AtlasUV, Texture2D<float2> VShadowMap, SamplerState
 float SampleShadowVSM(float PixelDepth, float2 AtlasUV, Texture2D<float2> VShadowMap, SamplerState ShadowSampler)
 {
     // Moments.x : E(z), 평균 | Moments.y : E(z^2), 제곱의 평균
-    //float2 Moments = VShadowMap.Sample(ShadowSampler, AtlasUV).xy;
+    float2 Moments = VShadowMap.Sample(ShadowSampler, AtlasUV).xy;
     
     //float2 Moments = BoxFilter(AtlasUV, VShadowMap, ShadowSampler, 5);
     
-    float2 Moments = GaussianFilter(AtlasUV, VShadowMap, ShadowSampler);
+    //float2 Moments = GaussianFilter(AtlasUV, VShadowMap, ShadowSampler);
 
     // E(z), μ
     float Mean = Moments.x;
