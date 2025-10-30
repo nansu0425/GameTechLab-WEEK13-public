@@ -361,10 +361,24 @@ void UStatsOverlayD2D::Draw()
 			D2D1::ColorF(D2D1::ColorF::DeepPink));
 
 		NextY += shadowPanelHeight + Space;
+
+
+		rc = D2D1::RectF(Margin, NextY, Margin + PanelWidth, NextY + 40);
+
+		// 4. DrawTextBlock 함수를 호출하여 화면에 그립니다. 색상은 구분을 위해 한색(Magenta)으로 설정합니다.
+		DrawTextBlock(
+			D2dCtx, Dwrite, FScopeCycleCounter::GetTimeProfile("ShadowMapPass").GetConstWChar_tWithKey("ShadowMapPass"), rc, 16.0f,
+			D2D1::ColorF(0, 0, 0, 0.6f),
+			D2D1::ColorF(D2D1::ColorF::DeepPink));
+
+		NextY += shadowPanelHeight + Space;
 	}
 	
 	D2dCtx->EndDraw();
 	D2dCtx->SetTarget(nullptr);
+
+	FScopeCycleCounter::TimeProfileInit();
+
 
 	SafeRelease(TargetBmp);
 	SafeRelease(Dwrite);

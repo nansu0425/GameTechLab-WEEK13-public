@@ -77,7 +77,29 @@ struct FTimeProfile
 	const char* GetConstChar() const
 	{
 		static char buffer[64]; // static으로 해야 반환 가능
-		snprintf(buffer, sizeof(buffer), " : %.3fms, Call : %d", Milliseconds, CallCount);
+		sprintf_s(buffer, sizeof(buffer), " : %.3fms, Call : %d", Milliseconds, CallCount);
+		return buffer;
+	}
+
+	const wchar_t* GetConstWChar_t() const
+	{
+		static wchar_t buffer[64];
+		swprintf_s(buffer, _countof(buffer), L" : %.3fms, Call : %d", Milliseconds, CallCount);
+		return buffer;
+	}
+
+	const char* GetConstCharWithKey(const FString& Key) const
+	{
+		static char buffer[64]; // static으로 해야 반환 가능
+		sprintf_s(buffer, sizeof(buffer), "%s : %.3fms, Call : %d", Key.c_str(), Milliseconds, CallCount);
+		return buffer;
+	}
+
+	const wchar_t* GetConstWChar_tWithKey(const FString& Key) const
+	{
+		static wchar_t buffer[64];
+
+		swprintf_s(buffer, _countof(buffer), L"%s : %.3fms, Call : %d", std::wstring(Key.begin(), Key.end()).c_str(), Milliseconds, CallCount);
 		return buffer;
 	}
 };
