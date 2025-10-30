@@ -215,8 +215,8 @@ void UPropertyRenderer::RenderAllPropertiesWithInheritance(UObject* Object)
 
 void UPropertyRenderer::CacheResources()
 {
-	// 매번 캐싱을 새로 하도록 변경, NOTE: 추후에 변경된 것만 추가하도록 변경 필요
-	ClearResourcesCache();
+	// NOTE: 추후에 변경된 것이 있으면 다시 캐싱하도록 변경 필요
+	//ClearResourcesCache();
 
 	UResourceManager& ResMgr = UResourceManager::GetInstance();
 
