@@ -24,7 +24,7 @@ END_PROPERTIES()
 
 UDirectionalLightComponent::UDirectionalLightComponent()
 {
-	ShadowResolutionScale = 8196;
+	ShadowResolutionScale = 2048;
 }
 
 UDirectionalLightComponent::~UDirectionalLightComponent()
