@@ -1,10 +1,10 @@
 function BeginPlay()
-    print("[BeginPlay] " .. Obj.UUID)
+    print("[BeginPlay] ")
     Obj:PrintLocation()
 end
 
 function EndPlay()
-    print("[EndPlay] " .. Obj.UUID)
+    print("[EndPlay] ")
     Obj:PrintLocation()
 end
 
@@ -14,5 +14,5 @@ end
 
 function Tick(dt)
     Obj.Location = Obj.Location + Obj.Velocity * dt
-    Obj:PrintLocation()
+    -- Obj:PrintLocation()
 end

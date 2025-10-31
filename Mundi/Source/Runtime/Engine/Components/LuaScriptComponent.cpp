@@ -2,6 +2,7 @@
 #include "LuaScriptComponent.h"
 #include <sol/state.hpp>
 #include <sol/coroutine.hpp>
+#include "../Scripting/LuaManager.h"
 
 IMPLEMENT_CLASS(ULuaScriptComponent)
 
@@ -10,87 +11,55 @@ BEGIN_PROPERTIES(ULuaScriptComponent)
 	ADD_PROPERTY_SCRIPT(FString, ScriptFilePath, "Script", ".lua", true, "Lua Script 파일 경로")
 END_PROPERTIES()
 
-ULuaScriptComponent::ULuaScriptComponent()
-{
-}
-
-ULuaScriptComponent::~ULuaScriptComponent()
-{
-	// Todo : 순서 강제성 주입
-	CoroutineManager.ShutdownBeforeLuaClose(); // delete Lua보다 선행 되어야 함
-	
-	if (Lua)
-	{
-		delete Lua;
-		Lua = nullptr;
-	}
-}
+ULuaScriptComponent::ULuaScriptComponent() {}
+ULuaScriptComponent::~ULuaScriptComponent() { Lua = nullptr; }
 
 void ULuaScriptComponent::BeginPlay()
 {
-	if (ScriptFilePath.empty())
+	auto LuaVM = GetWorld()->GetLuaManager();
+	Lua  = &(LuaVM->GetState());
+
+	// 독립된 환경 생성, Engine Object&Util 주입
+	Env = LuaVM->CreateEnvironment();
+	Env["Obj"] = Owner->GetGameObject();
+
+	Env["StartCoroutine"] = [LuaVM, this, L=Lua](sol::function f)
+	{
+		sol::coroutine co(*L, f);
+		LuaVM->GetScheduler().Register(std::move(co), this);
+	};
+	
+	if(ScriptFilePath.empty())
 	{
 		return;
 	}
 
-	Lua = new sol::state();
-
-	Lua->open_libraries(sol::lib::base, sol::lib::coroutine);
-
-	Lua->set_function("print", sol::overload(
-		[](const FString& msg) {
-			UE_LOG("[Lua-Str] %s\n", msg.c_str());
-		},
-		[](int num){
-			UE_LOG("[Lua] %d\n", num);
-		}
-	));
-	
-	Lua->new_usertype<FVector>("Vector",
-		sol::constructors<FVector(), FVector(float, float, float)>(),
-		"X", &FVector::X,
-		"Y", &FVector::Y,
-		"Z", &FVector::Z,
-		sol::meta_function::addition, [](const FVector& a, const FVector& b) { return FVector(a.X + b.X, a.Y + b.Y, a.Z + b.Z); },
-		sol::meta_function::multiplication, [](const FVector& v, float f) { return v * f; }
-	);
-
-	Lua->new_usertype<FGameObject>("GameObject",
-		"UUID", &FGameObject::UUID,
-		"Location", &FGameObject::Location,
-		"Velocity", &FGameObject::Velocity,
-		"PrintLocation", &FGameObject::PrintLocation
-	);
-	
-	FGameObject* Obj = Owner->GetGameObject();
-	(*Lua)["Obj"] = Obj;
-
-	try
-	{
-		Lua->script_file(ScriptFilePath);
-	}
-	catch (const sol::error& Err)
-	{
-		UE_LOG("[error] %s", Err.what());
+	if (!LuaVM->LoadScriptInto(Env, ScriptFilePath)) {
+		UE_LOG("[Lua] failed to run: %s\n", ScriptFilePath.c_str());
 		GEngine.EndPIE();
 		return;
 	}
-	
-	sol::function AI = (*Lua)["AI"].get<sol::function>();
-	if (!AI.valid()) { UE_LOG("AI not found\n"); return; }
-	
-	sol::coroutine co((*Lua), AI);
-	
-	CoroutineManager.AddCoroutine(std::move(co));
-
-	sol::function AI2 = (*Lua)["AI2"].get<sol::function>();
-	if (!AI2.valid()) { UE_LOG("AI2 not found\n"); return; }
-
-	sol::coroutine co2((*Lua), AI2);
-	
-	CoroutineManager.AddCoroutine(std::move(co2));
-	
-    (*Lua)["BeginPlay"]();
+	Env.set_function("print", sol::overload(
+	[](const FString& msg) {
+		UE_LOG("[Lua-Str] %s\n", msg.c_str());
+	},
+	[](int num){
+		UE_LOG("[Lua] %d\n", num);
+	}
+	));
+	// 함수 캐시
+	FuncBeginPlay = FLuaManager::GetFunc(Env, "BeginPlay");
+	FuncTick      = FLuaManager::GetFunc(Env, "Tick");
+	FuncOnOverlap = FLuaManager::GetFunc(Env, "OnOverlap");
+	FuncEndPlay		  =	FLuaManager::GetFunc(Env, "EndPlay");
+	if (FuncBeginPlay.valid()) {
+		auto Result = FuncBeginPlay();
+		if (!Result.valid())
+		{
+			sol::error Err = Result; UE_LOG("[Lua] %s\n", Err.what());
+			GEngine.EndPIE();
+		}
+	}
 }
 
 void ULuaScriptComponent::OnOverlap(const AActor* Other)
@@ -103,17 +72,29 @@ void ULuaScriptComponent::OnOverlap(const AActor* Other)
 
 void ULuaScriptComponent::TickComponent(float DeltaTime)
 {
-	if (Lua)
-	{
-		(*Lua)["Tick"](DeltaTime);
-		CoroutineManager.Tick(DeltaTime);
+	if (FuncTick.valid()) {
+		auto Result = FuncTick(DeltaTime);
+		if (!Result.valid()) { sol::error Err = Result; UE_LOG("[Lua] %s\n", Err.what()); }
 	}
 }
 
 void ULuaScriptComponent::EndPlay(EEndPlayReason Reason)
 {
-	if (Lua)
-	{
-		(*Lua)["EndPlay"]();
+	if (FuncEndPlay.valid()) {
+		auto Result = FuncEndPlay();
+		if (!Result.valid())
+		{
+			sol::error Err = Result; UE_LOG("[Lua] %s\n", Err.what());
+			GEngine.EndPIE();
+		}
 	}
+	
+	auto* LuaVM = GetWorld()->GetLuaManager();
+	LuaVM->GetScheduler().CancelByOwner(this);  // Coroutine 일괄 종료
+
+	FuncBeginPlay = sol::nil;
+	FuncTick      = sol::nil;
+	FuncOnOverlap = sol::nil;
+	Env           = sol::nil;
+	Lua				 = nullptr;	
 }

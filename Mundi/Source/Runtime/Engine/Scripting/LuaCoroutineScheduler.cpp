@@ -1,7 +1,7 @@
 ﻿#include "pch.h"
-#include "LuaCoroutineManager.h"
+#include "LuaCoroutineScheduler.h"
 
-void FCoroTaskManager::ShutdownBeforeLuaClose()
+void FLuaCoroutineScheduler::ShutdownBeforeLuaClose()
 {
 	for (auto& Task : Tasks)
 	{
@@ -13,7 +13,18 @@ void FCoroTaskManager::ShutdownBeforeLuaClose()
 	Tasks.Empty(); 
 }
 
-void FCoroTaskManager::Tick(double DeltaTime)
+FLuaCoroHandle FLuaCoroutineScheduler::Register(sol::coroutine&& Co, void* Owner)
+{
+	FCoroTask Task;
+	Task.Co     = std::move(Co);
+	Task.Owner  = Owner;
+	Task.Id     = ++NextId;
+	Tasks.push_back(std::move(Task));
+
+	return FLuaCoroHandle{ Task.Id };
+}
+
+void FLuaCoroutineScheduler::Tick(double DeltaTime)
 {
 	const double Clamped = std::min(DeltaTime, MaxDeltaClamp);
 	NowSeconds += Clamped;
@@ -22,7 +33,7 @@ void FCoroTaskManager::Tick(double DeltaTime)
 }
 
 
-void FCoroTaskManager::Process(double Now)
+void FLuaCoroutineScheduler::Process(double Now)
 {
 	for (auto& task : Tasks)
 	{
@@ -79,6 +90,10 @@ void FCoroTaskManager::Process(double Now)
 				task.WaitType = EWaitType::Event;
 				task.EventName = Result.get<FString>(1);
 			}
+			else
+			{
+				task.WaitType = EWaitType::None;
+			}
 		}
 		else
 		{
@@ -88,12 +103,12 @@ void FCoroTaskManager::Process(double Now)
 }
 
 
-void FCoroTaskManager::AddCoroutine(sol::coroutine&& Co)
+void FLuaCoroutineScheduler::AddCoroutine(sol::coroutine&& Co)
 {
 	Tasks.push_back({std::move(Co)});
 }
 
-void FCoroTaskManager::TriggerEvent(const FString& EventName)
+void FLuaCoroutineScheduler::TriggerEvent(const FString& EventName)
 {
 	for (auto& task : Tasks)
 	{
@@ -103,6 +118,16 @@ void FCoroTaskManager::TriggerEvent(const FString& EventName)
 		{
 			task.WaitType = EWaitType::None;
 			task.Co(); // resume
+		}
+	}
+}
+
+void FLuaCoroutineScheduler::CancelByOwner(void* Owner)
+{
+	for (auto& Task : Tasks) {
+		if (Task.Owner == Owner && !Task.Finished) {
+			Task.Finished = true;
+			Task.Co = sol::coroutine(); // 참조 해제
 		}
 	}
 }
