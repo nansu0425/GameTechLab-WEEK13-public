@@ -30,7 +30,8 @@ AActor::~AActor()
 void AActor::BeginPlay()
 {
 	LuaGameObject = new FGameObject();
-	LuaGameObject->Location = FVector(0, 0, 0);
+	LuaGameObject->Location = GetActorLocation();
+	// 그냥 테스트입니다. 수정해주세요
 	LuaGameObject->Velocity = FVector(10, 0, 0);
 	
 	// 컴포넌트들 Initialize/BeginPlay 순회
