@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "LuaScriptComponent.h"
 #include <sol/state.hpp>
 #include <sol/coroutine.hpp>
@@ -62,16 +62,25 @@ void ULuaScriptComponent::BeginPlay()
 	FGameObject* Obj = Owner->GetGameObject();
 	(*Lua)["Obj"] = Obj;
 
-	Lua->script_file(ScriptFilePath);
-	
-	(*Lua)["BeginPlay"]();
-	
+	try
+	{
+		Lua->script_file(ScriptFilePath);
+	}
+	catch (const sol::error& Err)
+	{
+		UE_LOG("[error] %s", Err.what());
+		GEngine.EndPIE();
+		return;
+	}
+
 	sol::function AI = (*Lua)["AI"].get<sol::function>();
 	if (!AI.valid()) { UE_LOG("AI not found\n"); return; }
 
 	sol::coroutine co((*Lua), AI);
 	
 	CoroutineManager.AddCoroutine(std::move(co));
+
+    (*Lua)["BeginPlay"]();
 }
 
 void ULuaScriptComponent::OnOverlap(const AActor* Other)

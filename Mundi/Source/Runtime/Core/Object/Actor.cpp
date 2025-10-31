@@ -9,6 +9,7 @@
 #include "AABB.h"
 #include "JsonSerializer.h"
 #include "World.h"
+#include "PrimitiveComponent.h"
 
 IMPLEMENT_CLASS(AActor)
 
@@ -414,6 +415,26 @@ void AActor::PostDuplicate()
 			Comp->SetRegistered(false);
 		}
 	}
+}
+
+bool AActor::IsOverlappingActor(const AActor* Other) const
+{
+    if (!Other)
+    {
+        return false;
+    }
+
+    for (UActorComponent* OwnedComp : OwnedComponents)
+    {
+        if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(OwnedComp))
+        {
+            if (PrimComp->GetOverlapInfos().Num() > 0 && PrimComp->IsOverlappingActor(Other))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 void AActor::DuplicateSubObjects()

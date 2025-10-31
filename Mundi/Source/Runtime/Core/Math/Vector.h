@@ -33,6 +33,19 @@ namespace FMath
 	template<typename T>
 	static T Max(T A, T B) { return std::max(A, B); }
 
+	template<typename T, typename...Ts>
+	constexpr T Max(T first, Ts... rest)
+	{
+		((first = std::max(first, static_cast<T>(rest))), ...);
+		return first;
+	}
+
+	template<typename T> 
+	static T Sqrt(T A)
+	{
+		return std::sqrt(A);
+	} 
+	
 	template<typename T>
 	static T Min(T A, T B) { return std::min(A, B); }
 

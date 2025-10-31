@@ -9,12 +9,19 @@ class URenderer;
 struct FMeshBatchElement;
 class FSceneView;
 
+struct FOverlapInfo
+{
+    AActor* OtherActor = nullptr;
+    UPrimitiveComponent* Other = nullptr;
+};
+
 class UPrimitiveComponent :public USceneComponent
 {
 public:
     DECLARE_CLASS(UPrimitiveComponent, USceneComponent)
+    GENERATED_REFLECTION_BODY();
 
-    UPrimitiveComponent() = default;
+    UPrimitiveComponent();
     virtual ~UPrimitiveComponent() = default;
 
     // 이 프리미티브를 렌더링하는 데 필요한 FMeshBatchElement를 수집합니다.
@@ -44,6 +51,12 @@ public:
         return bIsCulled;
     }
 
+    // ───── 충돌 관련 ──────────────────────────── 
+    bool IsOverlappingActor(const AActor* Other) const;
+    virtual const TArray<FOverlapInfo>& GetOverlapInfos() const { static TArray<FOverlapInfo> Empty; return Empty; }
+
+    //Delegate 
+    
     // ───── 복사 관련 ────────────────────────────
     void DuplicateSubObjects() override;
     DECLARE_DUPLICATE(UPrimitiveComponent)
@@ -53,4 +66,8 @@ public:
 
 protected:
     bool bIsCulled = false;
+     
+    // ───── 충돌 관련 ──────────────────────────── 
+    bool bGenerateOverlapEvents;
+    bool bBlockComponent;
 };
