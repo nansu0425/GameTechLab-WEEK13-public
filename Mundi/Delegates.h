@@ -1,6 +1,9 @@
 ﻿#pragma once
 
 #include <vector>
+#include <functional>
+#include <algorithm>
+#include <memory>
 
 using FDelegateHandle = size_t;
 
@@ -31,6 +34,16 @@ public:
 		return Handle;
 	}
 
+	void Broadcast(Args... args) 
+	{
+		for (auto& Entry : Handlers) {
+			if (Entry.Handler)
+			{
+				Entry.Handler(args...);
+			}
+		}
+	}
+
 	void Remove(FDelegateHandle Handle)
 	{
 		auto it = std::remove_if(Handlers.begin(), Handlers.end(),
@@ -41,13 +54,9 @@ public:
 		Handlers.erase(it, Handlers.end());
 	}
 
-	void Broadcast(Args... args) {
-		for (auto& Entry : Handlers) {
-			if (Entry.Handler)
-			{
-				Entry.Handler(args...);
-			}
-		}
+	void Clear()
+	{
+		Handlers.clear();
 	}
 
 private:
