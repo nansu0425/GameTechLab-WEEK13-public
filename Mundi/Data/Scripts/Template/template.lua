@@ -1,17 +1,6 @@
 function BeginPlay()
     print("[BeginPlay] " .. Obj.UUID)
-    co = coroutine.create(function ()
-           for i=1,10 do
-             print("co" .. i)
-             print(i)
-             coroutine.yield()
-           end
-         end)
-    coroutine.resume(co)
-    coroutine.resume(co)
-    coroutine.resume(co)
-    coroutine.resume(co)
-    coroutine.resume(co)
+    
     --[[Obj:PrintLocation()]]--
 end
 
