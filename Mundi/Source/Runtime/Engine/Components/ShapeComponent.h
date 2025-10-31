@@ -21,29 +21,34 @@ struct FShape
 		FSphereShape Sphere;
 		FCapsuleSphere Capsule;
 	};
-};
+}; 
+
+
 class UShapeComponent : public UPrimitiveComponent
 { 
 public:  
-    virtual void GetShape(FShape& OutShape) const = 0;
-
-	virtual void OnRegister(UWorld* InWorld) override;
-
-    // Build world-space AABB from current shape and world transform
-    FAABB GetWorldAABB() const;
-
 	UShapeComponent(); 
 
+    virtual void GetShape(FShape& OutShape) const = 0; 
+	virtual void OnRegister(UWorld* InWorld) override;
+
+	void UpdateOverlaps(); 
+
+    FAABB GetWorldAABB() const; 
+	virtual const TArray<FOverlapInfo>& GetOverlapInfos() const override { return OverlapInfos; }
+
+	// ㅡㅡㅡㅡㅡㅡㅡㅡㅡ디버깅용ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
+ 
 protected: 
 	mutable FAABB WorldAABB; //브로드 페이즈 용 
-	TSet<UShapeComponent*> OverlapPrev; // 지난 프레임에서 overlap 됐으면 Cache
-
-    FVector4 ShapeColor ;
-
-	bool bDrawOnlyIfSelected; 
-	bool bHiddenInGame;
-	bool bIsVisible;
-
+	//TSet<UShapeComponent*> OverlapNow; // 이번 프레임에서 overlap 된 Shap Comps
+	//TSet<UShapeComponent*> OverlapPrev; // 지난 프레임에서 overlap 됐으면 Cache
+	
+    
+	FVector4 ShapeColor ; 
+	bool bDrawOnlyIfSelected;  
+	TArray<FOverlapInfo> OverlapInfos; 
 	//TODO: float LineThickness;
 
+	
 };

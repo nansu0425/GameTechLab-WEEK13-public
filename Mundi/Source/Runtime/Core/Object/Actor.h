@@ -149,9 +149,11 @@ public:
     {
         return bTickInEditor;
     }
-    // ───── 충돌 관련 ───────────────────────── 
-    bool IsOverlappingActor(const AActor* Other);
-     
+    // ───── 충돌 관련 ─────────────────────────  
+    void OnBeginOverlap(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp);
+    void OnHit(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp);
+
+
     // ───── 복사 관련 ────────────────────────────
     void DuplicateSubObjects() override;
     void PostDuplicate() override;

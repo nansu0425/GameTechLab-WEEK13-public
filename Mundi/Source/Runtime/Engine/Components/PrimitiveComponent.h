@@ -9,6 +9,11 @@ class URenderer;
 struct FMeshBatchElement;
 class FSceneView;
 
+struct FOverlapInfo
+{
+    UPrimitiveComponent* Other = nullptr;
+};
+
 class UPrimitiveComponent :public USceneComponent
 {
 public:
@@ -44,6 +49,12 @@ public:
         return bIsCulled;
     }
 
+    // ───── 충돌 관련 ──────────────────────────── 
+    bool IsOverlappingActor(const AActor* Other) const;
+    virtual const TArray<FOverlapInfo>& GetOverlapInfos() const { static TArray<FOverlapInfo> Empty; return Empty; }
+
+    //Delegate 
+    
     // ───── 복사 관련 ────────────────────────────
     void DuplicateSubObjects() override;
     DECLARE_DUPLICATE(UPrimitiveComponent)
@@ -53,7 +64,8 @@ public:
 
 protected:
     bool bIsCulled = false;
-
+     
+    // ───── 충돌 관련 ──────────────────────────── 
     bool bGenerateOverlapEvents;
-    bool bBlockComponent; 
+    bool bBlockComponent;
 };
