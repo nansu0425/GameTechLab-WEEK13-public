@@ -1,5 +1,7 @@
 ﻿#pragma once
 #include "PrimitiveComponent.h"
+#include "Delegates.h"
+
 enum class EShapeKind : uint8
 {
 	Box = 0,
@@ -30,7 +32,12 @@ public:
     DECLARE_CLASS(UShapeComponent, UPrimitiveComponent) 
 	GENERATED_REFLECTION_BODY();
 
-	UShapeComponent(); 
+	DECLARE_DELEGATE(OnComponentBeginOverlap, UPrimitiveComponent*, UPrimitiveComponent*);
+
+	void DuplicateSubObjects() override;
+	DECLARE_DUPLICATE(UShapeComponent)
+
+	UShapeComponent();
 
 	virtual void GetShape(FShape& OutShape) const {};
     virtual void OnRegister(UWorld* InWorld) override;

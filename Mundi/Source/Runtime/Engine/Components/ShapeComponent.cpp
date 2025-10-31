@@ -16,7 +16,11 @@ UShapeComponent::UShapeComponent() : bShapeIsVisible(true), bShapeHiddenInGame(t
     ShapeColor = FVector4(0.2f, 0.8f, 1.0f, 1.0f); 
 }
 
- 
+void UShapeComponent::DuplicateSubObjects()
+{
+	Super::DuplicateSubObjects();
+}
+
 void UShapeComponent::OnRegister(UWorld* InWorld)
 {
     Super::OnRegister(InWorld);
@@ -24,10 +28,9 @@ void UShapeComponent::OnRegister(UWorld* InWorld)
     GetWorldAABB();
 
     // 델리게이트 등록
-    //  if(AActor* Owner = GetOwner())
-    //      OnComponentBeginOverlay.AddDynamic(Owner, AActor::OnBeginOverlap);
-
-    UpdateOverlaps();
+    if (AActor* Owner = GetOwner()) {
+        FDelegateHandle Handle = OnComponentBeginOverlap.AddDynamic(Owner, &AActor::OnBeginOverlap);
+    }
 }
 
 void UShapeComponent::OnTransformUpdated()
@@ -79,8 +82,8 @@ void UShapeComponent::UpdateOverlaps()
     } 
 
     //Begin
-    //for( UShapeComponent* Comp : Now) 
-    //OnComponentBeginOverlap.Broadcast(this, Comp);
+    for(UShapeComponent* Comp : Now) 
+        OnComponentBeginOverlap.Broadcast(this, Comp);
 
     //for( UShapeComponent* Comp : Prev)
     //OnComponentEndOverlap.Broadcast(this, Comp);
