@@ -86,6 +86,14 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 		bChanged = RenderMaterialProperty(Property, ObjectInstance);
 		break;
 
+	case EPropertyType::SRV:
+		bChanged = RenderSRVProperty(Property, ObjectInstance);
+		break;
+
+	case EPropertyType::ScriptFile:
+		bChanged = RenderScriptFileProperty(Property, ObjectInstance);
+		break;
+
 	case EPropertyType::Array:
 		switch (Property.InnerType)
 		{
@@ -94,12 +102,7 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 			break;
 		}
 		break;
-	case EPropertyType::SRV:
-		bChanged = RenderSRVProperty(Property, ObjectInstance);
-		break;
-	case EPropertyType::ScriptFile:
-		bChanged = RenderScriptFileProperty(Property, ObjectInstance);
-		break;
+
 	default:
 		ImGui::Text("%s: [Unknown Type]", Property.Name);
 		break;
@@ -553,7 +556,7 @@ bool UPropertyRenderer::RenderScriptFileProperty(const FProperty& Property, void
 	ImGui::PopID();
 
 	// 3. 스크립트 생성 UI (선택된 파일이 없을 때만 표시)
-	if (FilePath->empty())
+	if (FilePath->empty() || CurrentItem == 0)
 	{
 		ImGui::Separator();
 
@@ -575,12 +578,22 @@ bool UPropertyRenderer::RenderScriptFileProperty(const FProperty& Property, void
 			FString RelativePath = BaseDir + NewFileName + Extension;
 
 			// 템플릿 파일 경로 정의
-			const FString TemplatePath = GDataDir + "/Scripts/Template/template.lua";
+			const FString TemplatePath = GDataDir + "/Templates/template.lua";
 
 			// 2. 디렉토리 생성 (없을 경우)
 			fs::create_directories(BaseDir);
 
-			if (fs::exists(TemplatePath))
+			// 3. 템플릿 파일 존재 여부 확인
+			if (!fs::exists(TemplatePath))
+			{
+				UE_LOG("[error] 템플릿 파일(template.lua)을 찾을 수 없습니다.");
+			}
+			// 4. 생성할 파일이 이미 존재하는지 중복 체크
+			else if (fs::exists(RelativePath))
+			{
+				UE_LOG(("[error] '" + NewFileName + Extension + "' 파일이 이미 존재합니다.").c_str());
+			}
+			else
 			{
 				try
 				{
@@ -598,14 +611,11 @@ bool UPropertyRenderer::RenderScriptFileProperty(const FProperty& Property, void
 				}
 				catch (const fs::filesystem_error& e)
 				{
-					// TODO: 파일 복사 실패 알림 (예: GConsole->LogError(...))
+					UE_LOG(("[error] 파일 복사에 실패했습니다. " + FString(e.what())).c_str());
 				}
 			}
-			else
-			{
-				// TODO: 템플릿 파일 없음 알림 (예: GConsole->LogWarning(...))
-			}
 		}
+
 		ImGui::Separator();
 	}
 	// 스크립트 파일이 있을 때
