@@ -3,6 +3,7 @@
 #include "AABB.h"
 #include "OBB.h"
 #include "BoundingSphere.h"
+#include "ShapeComponent.h"
 
 namespace Collision
 {
@@ -72,4 +73,38 @@ namespace Collision
         }
         return Dist2 <= (Sphere.Radius * Sphere.Radius);
 	}
+     
+    bool OverlapSphereAndSphere(const FShape& ShapeA, const FTransform& TransformA, const FShape& ShapeB, const FTransform& TransformB)
+    {
+        FVector Dist = TransformA.Translation - TransformB.Translation;
+        float SumRadius = ShapeA.Sphere.SphereRadius + ShapeB.Sphere.SphereRadius;
+
+        return Dist.SizeSquared() <= SumRadius * SumRadius;
+    }
+
+    bool OverlapSphereAndBox(const FShape& Shape1, const FShape& Shape2)
+    {
+
+        return true;
+
+    }
+
+    OverlapFunc OverlapLUT[3][3] =
+    {
+        {&OverlapSphereAndSphere,&OverlapSphereAndSphere,&OverlapSphereAndSphere },
+        {&OverlapSphereAndSphere,&OverlapSphereAndSphere,&OverlapSphereAndSphere },
+        {&OverlapSphereAndSphere,&OverlapSphereAndSphere,&OverlapSphereAndSphere }
+    };
+
+
+    bool CheckOverlap(const UShapeComponent* A, const UShapeComponent* B)
+    {
+        FShape ShapeA, ShapeB;
+        A->GetShape(ShapeA);
+        B->GetShape(ShapeB);
+
+        return OverlapLUT[(int)ShapeA.Kind][(int)ShapeB.Kind](ShapeA, A->GetWorldTransform(), ShapeB, B->GetWorldTransform());
+    }
+
+
 }

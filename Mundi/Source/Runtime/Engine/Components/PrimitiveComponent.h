@@ -53,4 +53,7 @@ public:
 
 protected:
     bool bIsCulled = false;
+
+    bool bGenerateOverlapEvents;
+    bool bBlockComponent; 
 };
