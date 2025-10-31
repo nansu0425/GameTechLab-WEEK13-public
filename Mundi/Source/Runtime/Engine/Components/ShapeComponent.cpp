@@ -19,6 +19,10 @@ void UShapeComponent::OnRegister(UWorld* InWorld)
     
     GetWorldAABB();
 
+    // 델리게이트 등록
+    //  if(AActor* Owner = GetOwner())
+    //      OnComponentBeginOverlay.AddDynamic(Owner, AActor::OnBeginOverlap);
+
     UpdateOverlaps();
 }
 

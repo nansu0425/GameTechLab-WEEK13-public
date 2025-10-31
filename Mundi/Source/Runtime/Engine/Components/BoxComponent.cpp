@@ -18,7 +18,7 @@ void UBoxComponent::OnRegister(UWorld* InWorld)
 	Super::OnRegister(InWorld);
 
 	BoxExtent = WorldAABB.GetHalfExtent();
-
+	 
 }
 
 void UBoxComponent::GetShape(FShape& Out) const
