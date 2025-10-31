@@ -2,6 +2,7 @@
 #include "LuaScriptComponent.h"
 #include <sol/state.hpp>
 
+
 IMPLEMENT_CLASS(ULuaScriptComponent)
 
 BEGIN_PROPERTIES(ULuaScriptComponent)
@@ -31,13 +32,17 @@ void ULuaScriptComponent::BeginPlay()
 
 	Lua = new sol::state();
 
-	Lua->open_libraries(sol::lib::base);
+	Lua->open_libraries(sol::lib::base, sol::lib::coroutine);
 
-	Lua->set_function("print", [](const std::string& msg)
-	{
-		UE_LOG("[Lua] %s\n", msg.c_str());
-	});
-		
+	Lua->set_function("print", sol::overload(
+		[](const FString& msg) {
+			UE_LOG("[Lua-Str] %s\n", msg.c_str());
+		},
+		[](int num){
+			UE_LOG("[Lua] %d\n", num);
+		}
+	));
+	
 	Lua->new_usertype<FVector>("Vector",
 		sol::constructors<FVector(), FVector(float, float, float)>(),
 		"X", &FVector::X,
