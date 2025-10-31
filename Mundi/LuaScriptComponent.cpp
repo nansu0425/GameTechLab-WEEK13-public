@@ -33,6 +33,11 @@ void ULuaScriptComponent::BeginPlay()
 
 	Lua->open_libraries(sol::lib::base);
 
+	Lua->set_function("print", [](const std::string& msg)
+	{
+		UE_LOG("[Lua] %s\n", msg.c_str());
+	});
+		
 	Lua->new_usertype<FVector>("Vector",
 		sol::constructors<FVector(), FVector(float, float, float)>(),
 		"X", &FVector::X,
@@ -48,11 +53,12 @@ void ULuaScriptComponent::BeginPlay()
 		"Velocity", &FGameObject::Velocity,
 		"PrintLocation", &FGameObject::PrintLocation
 	);
-
+	
 	FGameObject* Obj = Owner->GetGameObject();
 	(*Lua)["Obj"] = Obj;
 
-	 Lua->script_file(ScriptFilePath);
+	Lua->script_file(ScriptFilePath);
+	// Lua->script_file("Data/Scripts/coroutineTest.lua");
 
 	/*Lua->script(R"(
 	  function Tick(dt)
