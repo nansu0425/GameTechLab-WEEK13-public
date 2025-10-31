@@ -163,17 +163,20 @@ namespace Collision
     // Sphere–OBB recent-closest test
     bool Overlap_Sphere_OBB(const FVector& Center, float Radius, const FOBB& B)
     {
-        const FVector d = Center - B.Center;
-        const float q0 = FVector::Dot(d, B.Axes[0]);
-        const float q1 = FVector::Dot(d, B.Axes[1]);
-        const float q2 = FVector::Dot(d, B.Axes[2]);
+        const FVector Dist = Center - B.Center;
+        const float Dist0 = FVector::Dot(Dist, B.Axes[0]);
+        const float Dist1 = FVector::Dot(Dist, B.Axes[1]);
+        const float Dist2 = FVector::Dot(Dist, B.Axes[2]);
 
-        const float cx = FMath::Clamp(q0, -B.HalfExtent[0], B.HalfExtent[0]);
-        const float cy = FMath::Clamp(q1, -B.HalfExtent[1], B.HalfExtent[1]);
-        const float cz = FMath::Clamp(q2, -B.HalfExtent[2], B.HalfExtent[2]);
+        const float CenterX = FMath::Clamp(Dist0, -B.HalfExtent[0], B.HalfExtent[0]);
+        const float CenterY = FMath::Clamp(Dist1, -B.HalfExtent[1], B.HalfExtent[1]);
+        const float CenterZ = FMath::Clamp(Dist2, -B.HalfExtent[2], B.HalfExtent[2]);
 
-        const float dx = q0 - cx, dy = q1 - cy, dz = q2 - cz;
-        return (dx * dx + dy * dy + dz * dz) <= Radius * Radius;
+        const float DiffX = Dist0 - CenterX;
+        const float DiffY = Dist1 - CenterY;
+        const float DiffZ = Dist2 - CenterZ;
+
+        return (DiffX * DiffX + DiffY * DiffY + DiffZ * DiffZ) <= Radius * Radius;
     }
 
     bool OverlapSphereAndBox(const FShape& ShapeA, const FTransform& TransformA,
