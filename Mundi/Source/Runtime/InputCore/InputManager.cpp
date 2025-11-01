@@ -115,24 +115,26 @@ void UInputManager::Update()
 
 void UInputManager::ProcessMessage(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    // ImGui 컨텍스트가 존재하는지 확인
-    bool imguiWantsMouse = false;
-    bool imguiWantsKeyboard = false;
+    bool IsUIHover = false;
+    bool IsKeyBoardCapture = false;
     
     if (ImGui::GetCurrentContext() != nullptr)
     {
         // ImGui가 입력을 사용 중인지 확인
         ImGuiIO& io = ImGui::GetIO();
+        static bool once = false;
+        if (!once) { io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; once = true; }
+        
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-        imguiWantsMouse = io.WantCaptureMouse;
-        imguiWantsKeyboard = io.WantCaptureKeyboard;
+        IsUIHover = ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) || ImGui::IsAnyItemHovered();
+        IsKeyBoardCapture = io.WantTextInput;
         
         // 디버그 출력 (마우스 클릭 시만)
         if (bEnableDebugLogging && message == WM_LBUTTONDOWN)
         {
             char debugMsg[128];
             sprintf_s(debugMsg, "ImGui State - WantMouse: %d, WantKeyboard: %d\n", 
-                      imguiWantsMouse, imguiWantsKeyboard);
+                      IsUIHover, IsKeyBoardCapture);
             UE_LOG(debugMsg);
         }
     }
@@ -144,7 +146,7 @@ void UInputManager::ProcessMessage(HWND hWnd, UINT message, WPARAM wParam, LPARA
             UE_LOG("ImGui context not initialized - allowing game input\n");
         }
     }
-    
+
     switch (message)
     {
     case WM_MOUSEMOVE:
@@ -169,7 +171,7 @@ void UInputManager::ProcessMessage(HWND hWnd, UINT message, WPARAM wParam, LPARA
         break;
         
     case WM_LBUTTONDOWN:
-        if (!imguiWantsMouse)  // ImGui가 마우스를 사용하지 않을 때만
+        if (!IsUIHover)  // ImGui가 마우스를 사용하지 않을 때만
         {
             UpdateMouseButton(LeftButton, true);
             if (bEnableDebugLogging) UE_LOG("InputManager: Left Mouse Down\n");
@@ -177,7 +179,7 @@ void UInputManager::ProcessMessage(HWND hWnd, UINT message, WPARAM wParam, LPARA
         break;
         
     case WM_LBUTTONUP:
-        if (!imguiWantsMouse)  // ImGui가 마우스를 사용하지 않을 때만
+        if (!IsUIHover)  // ImGui가 마우스를 사용하지 않을 때만
         {
             UpdateMouseButton(LeftButton, false);
             if (bEnableDebugLogging) UE_LOG("InputManager: Left Mouse UP\n");
@@ -185,7 +187,7 @@ void UInputManager::ProcessMessage(HWND hWnd, UINT message, WPARAM wParam, LPARA
         break;
         
     case WM_RBUTTONDOWN:
-        if (!imguiWantsMouse)
+        if (!IsUIHover)
         {
             UpdateMouseButton(RightButton, true);
             if (bEnableDebugLogging) UE_LOG("InputManager: Right Mouse DOWN");
@@ -197,7 +199,7 @@ void UInputManager::ProcessMessage(HWND hWnd, UINT message, WPARAM wParam, LPARA
         break;
         
     case WM_RBUTTONUP:
-        if (!imguiWantsMouse)
+        if (!IsUIHover)
         {
             UpdateMouseButton(RightButton, false);
             if (bEnableDebugLogging) UE_LOG("InputManager: Right Mouse UP");
@@ -209,21 +211,21 @@ void UInputManager::ProcessMessage(HWND hWnd, UINT message, WPARAM wParam, LPARA
         break;
         
     case WM_MBUTTONDOWN:
-        if (!imguiWantsMouse)
+        if (!IsUIHover)
         {
             UpdateMouseButton(MiddleButton, true);
         }
         break;
         
     case WM_MBUTTONUP:
-        if (!imguiWantsMouse)
+        if (!IsUIHover)
         {
             UpdateMouseButton(MiddleButton, false);
         }
         break;
         
     case WM_XBUTTONDOWN:
-        if (!imguiWantsMouse)
+        if (!IsUIHover)
         {
             // X버튼 구분 (X1, X2)
             WORD XButton = GET_XBUTTON_WPARAM(wParam);
@@ -235,7 +237,7 @@ void UInputManager::ProcessMessage(HWND hWnd, UINT message, WPARAM wParam, LPARA
         break;
         
     case WM_XBUTTONUP:
-        if (!imguiWantsMouse)
+        if (!IsUIHover)
         {
             // X버튼 구분 (X1, X2)
             WORD XButton = GET_XBUTTON_WPARAM(wParam);
@@ -247,7 +249,7 @@ void UInputManager::ProcessMessage(HWND hWnd, UINT message, WPARAM wParam, LPARA
         break;
 
     case WM_MOUSEWHEEL:
-        if (!imguiWantsMouse)
+        if (!IsUIHover)
         {
             // 휠 델타값 추출 (HIWORD에서 signed short로 캐스팅)
             short wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
@@ -264,7 +266,7 @@ void UInputManager::ProcessMessage(HWND hWnd, UINT message, WPARAM wParam, LPARA
 
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
-        if (!imguiWantsKeyboard)  // ImGui가 키보드를 사용하지 않을 때만
+        if (!IsKeyBoardCapture && !IsUIHover)  // ImGui가 키보드를 사용하지 않을 때만
         {
             // Virtual Key Code 추출
             int KeyCode = static_cast<int>(wParam);
@@ -282,7 +284,7 @@ void UInputManager::ProcessMessage(HWND hWnd, UINT message, WPARAM wParam, LPARA
         
     case WM_KEYUP:
     case WM_SYSKEYUP:
-        if (!imguiWantsKeyboard)  // ImGui가 키보드를 사용하지 않을 때만
+        if (!IsKeyBoardCapture)  // ImGui가 키보드를 사용하지 않을 때만
         {
             // Virtual Key Code 추출
             int KeyCode = static_cast<int>(wParam);
