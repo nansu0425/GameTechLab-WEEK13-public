@@ -23,7 +23,7 @@ public:
 	void TickComponent(float DeltaTime) override;       // 매 프레임
 	void EndPlay(EEndPlayReason Reason) override;       // 파괴/월드 제거 시
 	
-	void OnOverlap(const AActor* Other);
+	void OnOverlap(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp);
 
 	bool Call(const char* FuncName, sol::variadic_args VarArgs); // 다른 클래스가 날 호출할 때 씀
 protected:

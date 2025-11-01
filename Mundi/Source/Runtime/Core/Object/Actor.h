@@ -4,6 +4,7 @@
 #include "ActorComponent.h"
 #include "AABB.h"
 #include "LightManager.h"
+#include "Delegates.h"
 
 class UWorld;
 class USceneComponent;
@@ -30,6 +31,11 @@ class AActor : public UObject
 {
 public:
     DECLARE_CLASS(AActor, UObject)
+
+    DECLARE_DELEGATE(OnComponentBeginOverlap, UPrimitiveComponent*, UPrimitiveComponent*);
+    DECLARE_DELEGATE(OnComponentEndOverlap, UPrimitiveComponent*, UPrimitiveComponent*);
+    DECLARE_DELEGATE(OnComponentHit, UPrimitiveComponent*, UPrimitiveComponent*);
+
     AActor(); 
 
 protected:

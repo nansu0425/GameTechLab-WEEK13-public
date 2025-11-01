@@ -18,13 +18,6 @@ UShapeComponent::UShapeComponent() : bShapeIsVisible(true), bShapeHiddenInGame(t
 void UShapeComponent::BeginPlay()
 {
     Super::BeginPlay();
-
-    // 델리게이트 등록
-    if (AActor* Owner = GetOwner()) {
-        FDelegateHandle BeginHandle = OnComponentBeginOverlap.AddDynamic(Owner, &AActor::OnBeginOverlap);
-        FDelegateHandle EndHandle = OnComponentEndOverlap.AddDynamic(Owner, &AActor::OnEndOverlap);
-        FDelegateHandle HitHandle = OnComponentHit.AddDynamic(Owner, &AActor::OnHit);
-    }
 }
 
 void UShapeComponent::OnRegister(UWorld* InWorld)
@@ -93,14 +86,13 @@ void UShapeComponent::UpdateOverlaps()
     {
         if (!OverlapPrev.Contains(Comp))
         {
-            OnComponentBeginOverlap.Broadcast(this, Comp);
+            Owner->OnComponentBeginOverlap.Broadcast(this, Comp);
             
             if (bBlockComponent)
             {
-                OnComponentHit.Broadcast(this, Comp);
+                Owner->OnComponentHit.Broadcast(this, Comp);
             }
         }
-
     }
 
     //End
@@ -108,7 +100,7 @@ void UShapeComponent::UpdateOverlaps()
     {
         if (!OverlapNow.Contains(Comp))
         {
-            OnComponentEndOverlap.Broadcast(this, Comp);
+            Owner->OnComponentEndOverlap.Broadcast(this, Comp);
         }
     }
 
@@ -118,7 +110,6 @@ void UShapeComponent::UpdateOverlaps()
         OverlapPrev.Add(Comp);
 
     }
-
 }
 
 FAABB UShapeComponent::GetWorldAABB() const

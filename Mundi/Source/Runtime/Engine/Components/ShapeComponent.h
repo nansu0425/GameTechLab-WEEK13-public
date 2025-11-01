@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "PrimitiveComponent.h"
-#include "Delegates.h"
+
 
 enum class EShapeKind : uint8
 {
@@ -31,10 +31,6 @@ class UShapeComponent : public UPrimitiveComponent
 public:  
     DECLARE_CLASS(UShapeComponent, UPrimitiveComponent) 
 	GENERATED_REFLECTION_BODY();
-
-	DECLARE_DELEGATE(OnComponentBeginOverlap, UPrimitiveComponent*, UPrimitiveComponent*);
-	DECLARE_DELEGATE(OnComponentEndOverlap, UPrimitiveComponent*, UPrimitiveComponent*);
-	DECLARE_DELEGATE(OnComponentHit, UPrimitiveComponent*, UPrimitiveComponent*);
 
 	UShapeComponent();
 

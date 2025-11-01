@@ -1,5 +1,6 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "LuaScriptComponent.h"
+#include "PrimitiveComponent.h"
 #include <sol/state.hpp>
 #include <sol/coroutine.hpp>
 #include "../Scripting/LuaManager.h"
@@ -16,6 +17,14 @@ ULuaScriptComponent::~ULuaScriptComponent() { Lua = nullptr; }
 
 void ULuaScriptComponent::BeginPlay()
 {
+	// 델리게이트 등록
+	if (AActor* Owner = GetOwner())
+	{
+		FDelegateHandle BeginHandle = Owner->OnComponentBeginOverlap.AddDynamic(this, &ULuaScriptComponent::OnOverlap);
+		//FDelegateHandle EndHandle = Owner->OnComponentEndOverlap.AddDynamic(Owner, &AActor::OnEndOverlap);
+		//FDelegateHandle HitHandle = Owner->OnComponentHit.AddDynamic(Owner, &AActor::OnHit);
+	}
+
 	auto LuaVM = GetWorld()->GetLuaManager();
 	Lua  = &(LuaVM->GetState());
 
@@ -60,11 +69,16 @@ void ULuaScriptComponent::BeginPlay()
 	}
 }
 
-void ULuaScriptComponent::OnOverlap(const AActor* Other)
+void ULuaScriptComponent::OnOverlap(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp)
 {
-	if (Lua)
+	if (FuncOnOverlap.valid())
 	{
-		(*Lua)["OnOverlap"](Other->GetGameObject());
+		auto Result = FuncOnOverlap();
+		if (!Result.valid())
+		{
+			sol::error Err = Result; UE_LOG("[Lua] %s\n", Err.what());
+			GEngine.EndPIE();
+		}
 	}
 }
 
