@@ -17,6 +17,7 @@ enum class EWaitType
 
 struct FCoroTask
 {
+    sol::thread Thread;
     sol::coroutine Co;
     void* Owner = nullptr;          // ULuaScriptComponent*
     EWaitType WaitType  = EWaitType::None;
@@ -33,7 +34,7 @@ public:
     FLuaCoroutineScheduler();
     ~FLuaCoroutineScheduler() = default;
 
-    FLuaCoroHandle Register(sol::coroutine&& Co, void* Owner);
+    FLuaCoroHandle Register(sol::thread&& Thread, sol::coroutine&& Co, void* Owner);
         
     void Tick(double DeltaTime);
     void AddCoroutine(sol::coroutine&& Co);
