@@ -48,7 +48,7 @@ FLuaManager::FLuaManager()
         {
             FGameObject* NewObject = nullptr;
 
-            AActor* NewActor = GWorld->SpawnPrefabActor(PrefabPath);
+            AActor* NewActor = GWorld->SpawnPrefabActor(UTF8ToWide(PrefabPath));
 
             if (NewActor)
             {

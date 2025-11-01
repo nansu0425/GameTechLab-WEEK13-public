@@ -466,7 +466,7 @@ void UMainToolbarWidget::RenderLoadPrefabButton()
         if (!FilePath.empty())
         {
             // 실제 프리팹 로딩 로직 실행
-            GWorld->SpawnPrefabActor(FilePath.string());
+            GWorld->SpawnPrefabActor(FilePath);
         }
         else
         {
