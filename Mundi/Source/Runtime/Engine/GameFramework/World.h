@@ -59,9 +59,6 @@ public:
 
     bool DestroyActor(AActor* Actor);
 
-    // Partial hooks
-    void OnActorDestroyed(AActor* Actor);
-
     void CreateLevel();
 
     void SpawnDefaultActors();

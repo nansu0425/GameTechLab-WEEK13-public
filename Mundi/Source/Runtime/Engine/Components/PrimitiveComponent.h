@@ -24,6 +24,11 @@ public:
     UPrimitiveComponent();
     virtual ~UPrimitiveComponent() = default;
 
+    void OnRegister(UWorld* InWorld) override;
+    void OnUnregister() override;
+
+    virtual FAABB GetWorldAABB() const { return FAABB(); }
+
     // 이 프리미티브를 렌더링하는 데 필요한 FMeshBatchElement를 수집합니다.
     virtual void CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View) {}
 

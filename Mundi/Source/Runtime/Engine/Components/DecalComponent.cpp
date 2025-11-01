@@ -57,6 +57,8 @@ void UDecalComponent::TickComponent(float DeltaTime)
 
 void UDecalComponent::OnRegister(UWorld* InWorld)
 {
+	Super::OnRegister(InWorld);
+
 	if (!SpriteComponent && !InWorld->bPie)
 	{
 		CREATE_EDITOR_COMPONENT(SpriteComponent, UBillboardComponent);

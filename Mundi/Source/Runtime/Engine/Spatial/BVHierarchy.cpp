@@ -63,14 +63,14 @@ FBVHierarchy::~FBVHierarchy()
 void FBVHierarchy::Clear()
 {
     // NOTE: TMap, TArray를 clear로 비우면 capacity가 그대로이기 때문에 새 객체로 초기화
-    StaticMeshComponentBounds = TMap<UStaticMeshComponent*, FAABB>();
-    StaticMeshComponentArray = TArray<UStaticMeshComponent*>();
+    StaticMeshComponentBounds = TMap<UPrimitiveComponent*, FAABB>();
+    StaticMeshComponentArray = TArray<UPrimitiveComponent*>();
     Nodes = TArray<FLBVHNode>();
     Bounds = FAABB();
     bPendingRebuild = false;
 }
 
-void FBVHierarchy::BulkUpdate(const TArray<UStaticMeshComponent*>& Components)
+void FBVHierarchy::BulkUpdate(const TArray<UPrimitiveComponent*>& Components)
 {
     for (const auto& SMC : Components)
     {
@@ -86,7 +86,7 @@ void FBVHierarchy::BulkUpdate(const TArray<UStaticMeshComponent*>& Components)
     bPendingRebuild = false;
 }
 
-void FBVHierarchy::Update(UStaticMeshComponent* InComponent)
+void FBVHierarchy::Update(UPrimitiveComponent* InComponent)
 {
     if (!InComponent)
     {
@@ -97,7 +97,7 @@ void FBVHierarchy::Update(UStaticMeshComponent* InComponent)
     bPendingRebuild = true;
 }
 
-void FBVHierarchy::Remove(UStaticMeshComponent* InComponent)
+void FBVHierarchy::Remove(UPrimitiveComponent* InComponent)
 {
     if (!InComponent)
     {
@@ -119,7 +119,7 @@ void FBVHierarchy::QueryFrustum(const FFrustum& InFrustum)
     //프러스텀 내부에 바운드 존재 (교차 X)
     if (!IsAABBIntersects(InFrustum, Nodes[0].Bounds))
     {
-        for (UStaticMeshComponent* Component : StaticMeshComponentArray)
+        for (UPrimitiveComponent* Component : StaticMeshComponentArray)
         {
             if (!Component) continue;
             if (StaticMeshComponentBounds.find(Component) == StaticMeshComponentBounds.end())
@@ -144,7 +144,7 @@ void FBVHierarchy::QueryFrustum(const FFrustum& InFrustum)
         {
             for (int32 i = 0; i < node.Count; ++i)
             {
-                UStaticMeshComponent* Component = StaticMeshComponentArray[node.First + i];
+                UPrimitiveComponent* Component = StaticMeshComponentArray[node.First + i];
                 if (!Component || StaticMeshComponentBounds.find(Component) == StaticMeshComponentBounds.end())
                     continue;
                 const FAABB* Cached = StaticMeshComponentBounds.Find(Component);
@@ -245,7 +245,8 @@ void FBVHierarchy::DebugDump() const
 }
 
 // Morton helpers
-namespace {
+namespace
+{
     inline uint32 ExpandBits(uint32 v)
     {
         v = (v * 0x00010001u) & 0xFF0000FFu;
@@ -300,18 +301,18 @@ void FBVHierarchy::BuildLBVH()
 
     for (int i = 0; i < N; ++i)
     {
-        UStaticMeshComponent* Component = StaticMeshComponentArray[i];
+        UPrimitiveComponent* Component = StaticMeshComponentArray[i];
         const FAABB* Bound = StaticMeshComponentBounds.Find(Component);
         const FVector Center = Bound ? Bound->GetCenter() : Component->GetWorldAABB().GetCenter();
 
         const auto Normalize = [](float Value, float MinValue, float ExtHalf)
-        {
-            if (ExtHalf > 0.0f)
             {
-                return std::clamp((Value - MinValue) / (ExtHalf * 2.0f), 0.0f, 1.0f);
-            }
-            return 0.5f;
-        };
+                if (ExtHalf > 0.0f)
+                {
+                    return std::clamp((Value - MinValue) / (ExtHalf * 2.0f), 0.0f, 1.0f);
+                }
+                return 0.5f;
+            };
 
         const float Nx = Normalize(Center.X, Min.X, Extent.X);
         const float Ny = Normalize(Center.Y, Min.Y, Extent.Y);
@@ -324,7 +325,7 @@ void FBVHierarchy::BuildLBVH()
         Codes[i] = Morton3D(Ix, Iy, Iz);
     }
 
-    TArray<std::pair<UStaticMeshComponent*, uint32>> ComponentCodePairs;
+    TArray<std::pair<UPrimitiveComponent*, uint32>> ComponentCodePairs;
     ComponentCodePairs.resize(N);
     for (int i = 0; i < N; ++i)
     {
@@ -362,7 +363,7 @@ int FBVHierarchy::BuildRange(int s, int e)
         FAABB Accumulated;
         for (int i = s; i < e; ++i)
         {
-            UStaticMeshComponent* Component = StaticMeshComponentArray[i];
+            UPrimitiveComponent* Component = StaticMeshComponentArray[i];
             if (!Component)
             {
                 continue;
@@ -406,7 +407,8 @@ void FBVHierarchy::QueryRayClosest(const FRay& Ray, AActor*& OutActor, OUT float
     float tminRoot, tmaxRoot;
     if (!RayAABB_IntersectT(Ray, Nodes[0].Bounds, tminRoot, tmaxRoot)) return;
 
-    struct HeapItem {
+    struct HeapItem
+    {
         int Idx;
         float TMin;
         bool operator<(const HeapItem& other) const { return TMin > other.TMin; } // min-heap behavior
@@ -430,7 +432,7 @@ void FBVHierarchy::QueryRayClosest(const FRay& Ray, AActor*& OutActor, OUT float
         {
             for (int i = 0; i < node.Count; ++i)
             {
-                UStaticMeshComponent* Component = StaticMeshComponentArray[node.First + i];
+                UPrimitiveComponent* Component = StaticMeshComponentArray[node.First + i];
                 if (!Component) continue;
                 AActor* Owner = Component->GetOwner();
                 if (!Owner) continue;
@@ -494,14 +496,14 @@ void FBVHierarchy::FlushRebuild()
 }
 
 template<typename BoundType, typename NodeIntersectFunc, typename ComponentIntersectFunc>
-TArray<UStaticMeshComponent*> FBVHierarchy::QueryIntersectedComponentsGeneric(
+TArray<UPrimitiveComponent*> FBVHierarchy::QueryIntersectedComponentsGeneric(
     const BoundType& InBound,
     NodeIntersectFunc NodeIntersects,
     ComponentIntersectFunc ComponentIntersects) const
 {
-    TSet<UStaticMeshComponent*> IntersectedComponents;
+    TSet<UPrimitiveComponent*> IntersectedComponents;
     if (Nodes.empty())
-        return TArray<UStaticMeshComponent*>();
+        return TArray<UPrimitiveComponent*>();
     TArray<int32> IdxStack;
     IdxStack.push_back({ 0 });
 
@@ -516,7 +518,7 @@ TArray<UStaticMeshComponent*> FBVHierarchy::QueryIntersectedComponentsGeneric(
             {
                 for (int32 i = 0; i < Node.Count; ++i)
                 {
-                    UStaticMeshComponent* Component = StaticMeshComponentArray[Node.First + i];
+                    UPrimitiveComponent* Component = StaticMeshComponentArray[Node.First + i];
                     if (!Component || StaticMeshComponentBounds.find(Component) == StaticMeshComponentBounds.end())
                         continue;
                     const FAABB* Cached = StaticMeshComponentBounds.Find(Component);
@@ -538,7 +540,7 @@ TArray<UStaticMeshComponent*> FBVHierarchy::QueryIntersectedComponentsGeneric(
 }
 
 // FAABB 오버로드
-TArray<UStaticMeshComponent*> FBVHierarchy::QueryIntersectedComponents(const FAABB& InBound) const
+TArray<UPrimitiveComponent*> FBVHierarchy::QueryIntersectedComponents(const FAABB& InBound) const
 {
     return QueryIntersectedComponentsGeneric(
         InBound,
@@ -548,7 +550,7 @@ TArray<UStaticMeshComponent*> FBVHierarchy::QueryIntersectedComponents(const FAA
 }
 
 // FOBB 오버로드
-TArray<UStaticMeshComponent*> FBVHierarchy::QueryIntersectedComponents(const FOBB& InBound) const
+TArray<UPrimitiveComponent*> FBVHierarchy::QueryIntersectedComponents(const FOBB& InBound) const
 {
     return QueryIntersectedComponentsGeneric(
         InBound,
@@ -558,7 +560,7 @@ TArray<UStaticMeshComponent*> FBVHierarchy::QueryIntersectedComponents(const FOB
 }
 
 // FBoundingSphere 오버로드
-TArray<UStaticMeshComponent*> FBVHierarchy::QueryIntersectedComponents(const FBoundingSphere& InBound) const
+TArray<UPrimitiveComponent*> FBVHierarchy::QueryIntersectedComponents(const FBoundingSphere& InBound) const
 {
     return QueryIntersectedComponentsGeneric(
         InBound,

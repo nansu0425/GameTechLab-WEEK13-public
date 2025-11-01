@@ -362,6 +362,8 @@ void USceneComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 
 void USceneComponent::OnRegister(UWorld* InWorld)
 {
+    Super::OnRegister(InWorld);
+
     if (!std::strcmp(this->GetClass()->Name , USceneComponent::StaticClass()->Name) && !SpriteComponent && !InWorld->bPie)
     {
         CREATE_EDITOR_COMPONENT(SpriteComponent, UBillboardComponent);

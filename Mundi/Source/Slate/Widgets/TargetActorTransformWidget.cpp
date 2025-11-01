@@ -113,15 +113,6 @@ namespace
 		// AddOwnedComponent 경유 (Register/Initialize 포함)
 		Actor.AddOwnedComponent(NewComp);
 		
-		// UStaticMeshComponent라면 World Partition에 추가. (null 체크는 Register 내부에서 수행)
-		if (UWorld* ActorWorld = Actor.GetWorld())
-		{
-			if (UWorldPartitionManager* Partition = ActorWorld->GetPartitionManager())
-			{
-				Partition->Register(Cast<UStaticMeshComponent>(NewComp));
-			}
-		}
-
 		GWorld->GetSelectionManager()->SelectComponent(NewComp);
 
 		return true;

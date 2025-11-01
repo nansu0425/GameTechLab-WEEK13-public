@@ -979,12 +979,12 @@ void FSceneRenderer::RenderDecalPass()
 
 		// 1. Decal의 World AABB와 충돌한 모든 StaticMeshComponent 쿼리
 		const FOBB DecalOBB = Decal->GetWorldOBB();
-		TArray<UStaticMeshComponent*> IntersectedStaticMeshComponents = BVH->QueryIntersectedComponents(DecalOBB);
+		TArray<UPrimitiveComponent*> IntersectedStaticMeshComponents = BVH->QueryIntersectedComponents(DecalOBB);
 
 		// 2. 충돌한 모든 visible Actor의 PrimitiveComponent를 TargetPrimitives에 추가
 		// Actor에 기본으로 붙어있는 TextRenderComponent, BoundingBoxComponent는 decal 적용 안되게 하기 위해,
 		// 임시로 PrimitiveComponent가 아닌 UStaticMeshComponent를 받도록 함
-		for (UStaticMeshComponent* SMC : IntersectedStaticMeshComponents)
+		for (UPrimitiveComponent* SMC : IntersectedStaticMeshComponents)
 		{
 			// 기즈모에 데칼 입히면 안되므로 에디팅이 안되는 Component는 데칼 그리지 않음
 			if (!SMC || !SMC->IsEditable())
