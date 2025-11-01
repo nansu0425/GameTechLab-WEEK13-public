@@ -39,7 +39,7 @@ public:
 	void SetMaterialByUser(const uint32 InMaterialSlotIndex, const FString& InMaterialName);
 	const TArray<UMaterialInterface*> GetMaterialSlots() const { return MaterialSlots; }
 
-	FAABB GetWorldAABB() const;
+	FAABB GetWorldAABB() const override;
 
 	void DuplicateSubObjects() override;
 	DECLARE_DUPLICATE(UStaticMeshComponent)

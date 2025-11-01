@@ -42,7 +42,7 @@ public:
 	float GetOpacity() const { return DecalOpacity; }
 
 	// Decal Volume & Bounds API
-	FAABB GetWorldAABB() const;
+	FAABB GetWorldAABB() const override;
 	FOBB GetWorldOBB() const;
 
 	// Projection & UV Mapping API

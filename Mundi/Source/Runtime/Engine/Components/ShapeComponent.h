@@ -41,7 +41,7 @@ public:
 
     void UpdateOverlaps(); 
 
-    FAABB GetWorldAABB() const; 
+    FAABB GetWorldAABB() const override;
 	virtual const TArray<FOverlapInfo>& GetOverlapInfos() const override { return OverlapInfos; }
 
 	// Duplication

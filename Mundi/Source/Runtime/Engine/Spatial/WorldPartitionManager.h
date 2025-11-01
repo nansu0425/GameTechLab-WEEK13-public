@@ -24,16 +24,14 @@ public:
 	void Clear();
 
 	// 신규 등록 API
-	void Register(UStaticMeshComponent* Smc);         // StaticMeshComponent 하나 추가
-	void Register(AActor* Actor);			          // 액터에 부착된 StaticMeshComponent 전부 추가
+	void Register(UPrimitiveComponent* Smc);         // StaticMeshComponent 하나 추가
 	void BulkRegister(const TArray<AActor*>& Actors); // 여러 액터 한 번에 추가 (+즉시 리빌드)
 	
-	void Unregister(AActor* Actor);
-	void Unregister(USceneComponent* Component);
+	void Unregister(UPrimitiveComponent* Component);
 
 	// 업데이트 큐 등록 API
 	void MarkDirty(AActor* Actor);
-	void MarkDirty(UStaticMeshComponent* Smc);
+	void MarkDirty(UPrimitiveComponent* Smc);
 
 	void Update(float DeltaTime, const uint32 BudgetCount = 256);
 
@@ -56,8 +54,8 @@ private:
 	void ClearSceneOctree();
 	void ClearBVHierarchy();
 	
-	TQueue<UStaticMeshComponent*> ComponentDirtyQueue; // 추가 혹은 갱신이 필요한 요소의 대기 큐
-	TSet<UStaticMeshComponent*> ComponentDirtySet;     // 더티 큐 중복 추가를 막기 위한 Set
+	TQueue<UPrimitiveComponent*> ComponentDirtyQueue; // 추가 혹은 갱신이 필요한 요소의 대기 큐
+	TSet<UPrimitiveComponent*> ComponentDirtySet;     // 더티 큐 중복 추가를 막기 위한 Set
 	FOctree* SceneOctree = nullptr;
 	FBVHierarchy* BVH = nullptr;
 };

@@ -185,6 +185,8 @@ void USpotLightComponent::OnRegister(UWorld* InWorld)
 void USpotLightComponent::OnUnregister()
 {
 	GWorld->GetLightManager()->DeRegisterLight(this);
+
+	Super::OnUnregister();
 }
 
 void USpotLightComponent::UpdateDirectionGizmo()

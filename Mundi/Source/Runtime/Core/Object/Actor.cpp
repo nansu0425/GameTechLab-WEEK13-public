@@ -161,7 +161,6 @@ void AActor::RemoveOwnedComponent(UActorComponent* Component)
 		}
 
 		SceneComponents.Remove(SceneComponent);
-		GWorld->GetPartitionManager()->Unregister(SceneComponent);
 		SceneComponent->DetachFromParent(true);
 	}
 

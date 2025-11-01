@@ -2,22 +2,22 @@
 
 struct FFrustum;
 struct FRay; // forward declaration for ray type
-class UStaticMeshComponent;
+class UPrimitiveComponent;
 class AActor;
 struct FOBB;
 struct FBoundingSphere;
 
 /**
- * @brief Broad phase BVH based on UStaticMeshComponent
+ * @brief Broad phase BVH based on UPrimitiveComponent
  */
 class FBVHierarchy
 {
-/**
- * *주의사항*
- * AActor 기반에서 UStaticMeshComponent 기반으로 변경을 거친 BVH입니다.
- * - AActor를 기준으로 만들어졌다가 재활용된 로직에 의한 혼동 및 버그 주의.
- * - 일반적인 USceneComponent에 대해서는 호환성 없음.
- */
+    /**
+     * *주의사항*
+     * AActor 기반에서 UPrimitiveComponent 기반으로 변경을 거친 BVH입니다.
+     * - AActor를 기준으로 만들어졌다가 재활용된 로직에 의한 혼동 및 버그 주의.
+     * - 일반적인 USceneComponent에 대해서는 호환성 없음.
+     */
 public:
     // 생성자/소멸자
     FBVHierarchy(const FAABB& InBounds, int InDepth = 0, int InMaxDepth = 12, int InMaxObjects = 8);
@@ -26,17 +26,17 @@ public:
     // 초기화
     void Clear();
 
-    void BulkUpdate(const TArray<UStaticMeshComponent*>& Components);
-    void Update(UStaticMeshComponent* InComponent);
-    void Remove(UStaticMeshComponent* InComponent);
-    
+    void BulkUpdate(const TArray<UPrimitiveComponent*>& Components);
+    void Update(UPrimitiveComponent* InComponent);
+    void Remove(UPrimitiveComponent* InComponent);
+
     void FlushRebuild();
 
     void QueryRayClosest(const FRay& Ray, AActor*& OutActor, OUT float& OutBestT) const;
     void QueryFrustum(const FFrustum& InFrustum);
-    TArray<UStaticMeshComponent*> QueryIntersectedComponents(const FAABB& InBound) const;
-    TArray<UStaticMeshComponent*> QueryIntersectedComponents(const FOBB& InBound) const;
-    TArray<UStaticMeshComponent*> QueryIntersectedComponents(const FBoundingSphere& InBound) const;
+    TArray<UPrimitiveComponent*> QueryIntersectedComponents(const FAABB& InBound) const;
+    TArray<UPrimitiveComponent*> QueryIntersectedComponents(const FOBB& InBound) const;
+    TArray<UPrimitiveComponent*> QueryIntersectedComponents(const FBoundingSphere& InBound) const;
 
     void DebugDraw(URenderer* Renderer) const;
 
@@ -49,7 +49,7 @@ public:
 
     // 프러스텀 기준으로 오클루더(내부노드 AABB) / 오클루디(리프의 액터들) 수집
     // VP는 행벡터 기준(네 컨벤션): p' = p * VP
-    
+
 private:
     // === LBVH data ===
     struct FLBVHNode
@@ -65,7 +65,7 @@ private:
 
 private:
     template<typename BoundType, typename NodeIntersectFunc, typename ComponentIntersectFunc>
-    TArray<UStaticMeshComponent*> QueryIntersectedComponentsGeneric(const BoundType& InBound
+    TArray<UPrimitiveComponent*> QueryIntersectedComponentsGeneric(const BoundType& InBound
         , NodeIntersectFunc NodeIntersects
         , ComponentIntersectFunc ComponentIntersects) const;
 
@@ -76,8 +76,8 @@ private:
     int MaxObjects;
     FAABB Bounds;
 
-    TMap<UStaticMeshComponent*, FAABB> StaticMeshComponentBounds;
-    TArray<UStaticMeshComponent*> StaticMeshComponentArray;
+    TMap<UPrimitiveComponent*, FAABB> StaticMeshComponentBounds;
+    TArray<UPrimitiveComponent*> StaticMeshComponentArray;
 
     // LBVH nodes
     TArray<FLBVHNode> Nodes;

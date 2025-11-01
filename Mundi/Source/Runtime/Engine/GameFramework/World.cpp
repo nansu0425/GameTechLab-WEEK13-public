@@ -205,18 +205,12 @@ bool UWorld::DestroyActor(AActor* Actor)
 		}
 	}
 
-	// 월드 자료구조에서 소유한 컴포넌트 내리기
-	OnActorDestroyed(Actor);
-
 	Actor->UnregisterAllComponents(/*bCallEndPlayOnBegun=*/true);
 	Actor->DestroyAllComponents();
 
-// 레벨에서 제거 시도
+	// 레벨에서 제거 시도
 	if (Level && Level->RemoveActor(Actor))
 	{
-		// 옥트리에서 제거
-		OnActorDestroyed(Actor);
-
 		// 메모리 해제
 		ObjectFactory::DeleteObject(Actor);
 
@@ -231,14 +225,6 @@ bool UWorld::DestroyActor(AActor* Actor)
 	}
 
 	return false; // 레벨에 없는 액터
-}
-
-void UWorld::OnActorDestroyed(AActor* Actor)
-{
-	if (Actor)
-	{
-		Partition->Unregister(Actor);
-	}
 }
 
 inline FString RemoveObjExtension(const FString& FileName)
@@ -316,12 +302,11 @@ void UWorld::SetLevel(std::unique_ptr<ULevel> InLevel)
 
 void UWorld::AddActorToLevel(AActor* Actor)
 {
-	Actor->SetWorld(this);
-
 	if (Level)
 	{
 		Level->AddActor(Actor);
-		Partition->Register(Actor);
+
+		Actor->SetWorld(this);
 
 		if (this->bPie)
 		{
