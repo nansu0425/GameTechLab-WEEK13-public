@@ -308,10 +308,7 @@ void UWorld::AddActorToLevel(AActor* Actor)
 
 		Actor->SetWorld(this);
 
-		if (this->bPie)
-		{
-			Actor->BeginPlay();
-		}
+		Actor->RegisterAllComponents(this);
 	}
 }
 
@@ -337,6 +334,11 @@ AActor* UWorld::SpawnActor(UClass* Class, const FTransform& Transform)
 
 	// 현재 레벨에 액터 등록
 	AddActorToLevel(NewActor);
+
+	if (this->bPie)
+	{
+		NewActor->BeginPlay();
+	}
 
 	return NewActor;
 }
@@ -380,6 +382,12 @@ AActor* UWorld::SpawnPrefabActor(const FWideString& PrefabPath)
 			// 월드 참조 설정
 			NewActor->Serialize(true, ActorDataJson);
 			AddActorToLevel(NewActor);
+
+			if (this->bPie)
+			{
+				NewActor->BeginPlay();
+			}
+
 			return NewActor;
 		}
 	}

@@ -346,15 +346,6 @@ void UEditorEngine::StartPIE()
 {
     UE_LOG("[info] START PIE");
 
-    //UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
-
-    //UWorld* PIEWorld = UWorld::DuplicateWorldForPIE(EditorWorld, ...);
-
-    //GWorld = PIEWorld;
-
-    //// AActor::BeginPlay()
-    //PIEWorld->InitializeActorsForPlay();
-
     UWorld* EditorWorld = WorldContexts[0].World;
     UWorld* PIEWorld = UWorld::DuplicateWorldForPIE(EditorWorld);
 
@@ -363,18 +354,11 @@ void UEditorEngine::StartPIE()
 
     bPIEActive = true;
 
-    //// 슬레이트 매니저 (singleton)
-    //FRect ScreenRect(0, 0, ClientWidth, ClientHeight);
-    //SLATE.Initialize(RHIDevice.GetDevice(), PIEWorld, ScreenRect);
-
-    ////스폰을 위한 월드셋
-    //UI.SetWorld(PIEWorld);
-
-    // BeginPlay 중에 새로운 actor가 생성될 수도 있어서 복사 후 호출
+    // BeginPlay 중에 새로운 actor가 추가될 수도 있어서 복사 후 호출
     TArray<AActor*> LevelActors = GWorld->GetLevel()->GetActors();
     for (AActor* Actor : LevelActors)
     {
-        // NOTE: PIE 시작 후에는 AddActorToLevel 에서 불러줌
+        // NOTE: PIE 시작 후에는 액터 생성 시 직접 불러줘야 됨
         Actor->BeginPlay();
     }
 }
