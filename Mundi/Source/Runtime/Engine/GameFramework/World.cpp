@@ -71,6 +71,7 @@ void UWorld::InitializeGrid()
 {
 	GridActor = NewObject<AGridActor>();
 	GridActor->SetWorld(this);
+	GridActor->RegisterAllComponents(this);
 	GridActor->Initialize();
 
 	EditorActors.push_back(GridActor);
@@ -80,6 +81,7 @@ void UWorld::InitializeGizmo()
 {
 	GizmoActor = NewObject<AGizmoActor>();
 	GizmoActor->SetWorld(this);
+	GizmoActor->RegisterAllComponents(this);
 	GizmoActor->SetActorTransform(FTransform(FVector{ 0, 0, 0 }, FQuat::MakeFromEulerZYX(FVector{ 0, -90, 0 }),
 		FVector{ 1, 1, 1 }));
 
@@ -291,8 +293,11 @@ void UWorld::SetLevel(std::unique_ptr<ULevel> InLevel)
 		Partition->BulkRegister(Level->GetActors());
         for (AActor* A : Level->GetActors())
         {
-            if (!A) continue;
-            A->SetWorld(this);
+			if (A)
+			{
+				A->SetWorld(this);
+				A->RegisterAllComponents(this);
+			}
         }
     }
 
