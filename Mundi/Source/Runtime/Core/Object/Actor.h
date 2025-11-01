@@ -54,15 +54,15 @@ public:
     const FName& GetName() { return Name; }
 
     // 월드/표시
-    void SetWorld(UWorld* InWorld) { World = InWorld; this->RegisterAllComponents(InWorld); }
+    void SetWorld(UWorld* InWorld) { World = InWorld; }
     UWorld* GetWorld() const { return World; }
 
     // 루트/컴포넌트
     void SetRootComponent(USceneComponent* InRoot);
     USceneComponent* GetRootComponent() const { return RootComponent; }
    
-
     // 소유 컴포넌트(모든 타입)
+    UActorComponent* AddNewComponent(UClass* ComponentClass, USceneComponent* ParentToAttach = nullptr);
     void AddOwnedComponent(UActorComponent* Component);
     void RemoveOwnedComponent(UActorComponent* Component);
 

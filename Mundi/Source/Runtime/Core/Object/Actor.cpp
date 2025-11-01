@@ -108,6 +108,62 @@ void AActor::SetRootComponent(USceneComponent* InRoot)
 	}
 }
 
+UActorComponent* AActor::AddNewComponent(UClass* ComponentClass, USceneComponent* ParentToAttach)
+{
+	// 1. 유효성 검사
+	if (!ComponentClass || !ComponentClass->IsChildOf(UActorComponent::StaticClass()))
+	{
+		return nullptr;
+	}
+
+	// 2. 생성
+	UActorComponent* NewComp = Cast<UActorComponent>(ObjectFactory::NewObject(ComponentClass));
+	if (!NewComp)
+	{
+		return nullptr;
+	}
+
+	// 3. 소유 목록에 추가
+	AddOwnedComponent(NewComp);
+
+	// 4. 부착
+	if (USceneComponent* SceneComp = Cast<USceneComponent>(NewComp))
+	{
+		// 4-1. 부모 결정
+		USceneComponent* TargetParent = ParentToAttach;
+
+		// 4-2. 부모가 명시적으로 지정되지 않았다면, 액터의 루트 컴포넌트를 부모로 사용
+		if (!TargetParent)
+		{
+			TargetParent = GetRootComponent();
+		}
+
+		// 4-3. 부모가 유효하고, 그 부모가 '자기 자신'이 아닌 경우에만 부착
+		// (AddOwnedComponent에 의해 SceneComp가 방금 RootComponent가 되었을 수 있으므로)
+		if (TargetParent && TargetParent != SceneComp)
+		{
+			SceneComp->SetupAttachment(TargetParent, EAttachmentRule::KeepRelative);
+		}
+	}
+
+	// 5. 등록 및 초기화
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		// 5-1. 등록 (OnRegister 호출)
+		NewComp->RegisterComponent(World);
+
+		// 5-2. 월드가 PIE/게임 상태라면, 즉시 초기화/시작
+		if (World->bPie)
+		{
+			NewComp->InitializeComponent();
+			NewComp->BeginPlay();
+		}
+	}
+
+	return NewComp;
+}
+
 void AActor::AddOwnedComponent(UActorComponent* Component)
 {
 	if (!Component)
