@@ -25,19 +25,26 @@ FLuaManager::FLuaManager()
 
     SharedLib = Lua->create_table();
     
-    SharedLib.set_function("print", sol::overload(
+    Lua->set_function("print", sol::overload(
         [](const FString& msg) {
             UE_LOG("[Lua-Str] %s\n", msg.c_str());
         },
+        
         [](int num){
+            UE_LOG("[Lua] %d\n", num);
+        },
+        
+        [](double num){
             UE_LOG("[Lua] %d\n", num);
         }
     ));
+    
+    SharedLib["GlobalConfig"] = Lua->create_table();
+    // SharedLib["GlobalConfig"]["Gravity"] = 9.8;
 
-    // Shared lib의 fall back은 G
-    sol::table MetaTableShared = Lua->create_table();
-    MetaTableShared[sol::meta_function::index] = Lua->globals();
-    SharedLib[sol::metatable_key]  = MetaTableShared;
+    sol::table MetaShared = Lua->create_table();
+    MetaShared[sol::meta_function::index] = Lua->globals();
+    SharedLib[sol::metatable_key] = MetaShared;
 }
 
 FLuaManager::~FLuaManager()
