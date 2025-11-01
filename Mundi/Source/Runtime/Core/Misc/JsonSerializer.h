@@ -364,6 +364,11 @@ public:
 
 	static bool LoadJsonFromFile(JSON& OutJson, const FString& InFilePath)
 	{
+		return LoadJsonFromFile(OutJson, UTF8ToWide(InFilePath));
+	}
+
+	static bool LoadJsonFromFile(JSON& OutJson, const FWideString& InFilePath)
+	{
 		try
 		{
 			std::ifstream File(InFilePath);
@@ -384,7 +389,6 @@ public:
 			return false;
 		}
 	}
-
 
 	//====================================================================================
 	// Utility & Analysis Functions

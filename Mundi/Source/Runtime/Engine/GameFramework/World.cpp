@@ -211,7 +211,6 @@ bool UWorld::DestroyActor(AActor* Actor)
 
 	Actor->UnregisterAllComponents(/*bCallEndPlayOnBegun=*/true);
 	Actor->DestroyAllComponents();
-	Actor->ClearSceneComponentCaches();
 
 // 레벨에서 제거 시도
 	if (Level && Level->RemoveActor(Actor))
@@ -329,6 +328,11 @@ void UWorld::AddActorToLevel(AActor* Actor)
 	{
 		Level->AddActor(Actor);
 		Partition->Register(Actor);
+
+		if (GWorld->bPie)
+		{
+			Actor->BeginPlay();
+		}
 	}
 }
 
@@ -367,7 +371,7 @@ AActor* UWorld::SpawnActor(UClass* Class)
 	return SpawnActor(Class, FTransform());
 }
 
-AActor* UWorld::SpawnPrefabActor(const FString& PrefabPath)
+AActor* UWorld::SpawnPrefabActor(const FWideString& PrefabPath)
 {
 	JSON ActorDataJson;
 
@@ -397,11 +401,17 @@ AActor* UWorld::SpawnPrefabActor(const FString& PrefabPath)
 				UE_LOG("[error] SpawnActor failed: ObjectFactory could not create an instance of");
 				return nullptr;
 			}
-
-			Level->AddActor(NewActor);
-
+			// 월드 참조 설정
+			NewActor->SetWorld(this);
 			NewActor->Serialize(true, ActorDataJson);
+
+			AddActorToLevel(NewActor);
+			return NewActor;
 		}
+	}
+	else
+	{
+		UE_LOG("[error] 존재하지 않는 Prefab 경로입니다. - %s", WideToUTF8(PrefabPath).c_str());
 	}
 
 	return nullptr;

@@ -374,6 +374,7 @@ void UEditorEngine::StartPIE()
     TArray<AActor*> LevelActors = GWorld->GetLevel()->GetActors();
     for (AActor* Actor : LevelActors)
     {
+        // NOTE: PIE 시작 후에는 AddActorToLevel 에서 불러줌
         Actor->BeginPlay();
     }
 }

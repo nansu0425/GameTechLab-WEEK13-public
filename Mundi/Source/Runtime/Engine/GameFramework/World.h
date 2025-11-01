@@ -54,7 +54,7 @@ public:
 
     AActor* SpawnActor(UClass* Class, const FTransform& Transform);
     AActor* SpawnActor(UClass* Class);
-    AActor* SpawnPrefabActor(const FString& PrefabPath);
+    AActor* SpawnPrefabActor(const FWideString& PrefabPath);
 
     bool DestroyActor(AActor* Actor);
 

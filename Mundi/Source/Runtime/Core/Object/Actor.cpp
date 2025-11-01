@@ -34,6 +34,7 @@ void AActor::BeginPlay()
 	LuaGameObject->Location = GetActorLocation();
 	// 그냥 테스트입니다. 수정해주세요
 	LuaGameObject->Velocity = FVector(10, 0, 0);
+	LuaGameObject->Scale = GetActorScale();
 	
 	// 컴포넌트들 Initialize/BeginPlay 순회
 	for (UActorComponent* Comp : OwnedComponents)
@@ -82,12 +83,9 @@ void AActor::Destroy()
 	EndPlay();
 	UnregisterAllComponents(true);
 	DestroyAllComponents();
-	ClearSceneComponentCaches();
 	// 최종 delete (ObjectFactory가 소유권 관리 중이면 그 경로 사용)
 	ObjectFactory::DeleteObject(this);
 }
-
-
 
 void AActor::SetRootComponent(USceneComponent* InRoot)
 {
@@ -218,14 +216,10 @@ void AActor::DestroyAllComponents()
 		C->DestroyComponent(); // 내부에서 Owner=nullptr 등도 처리
 	}
 	OwnedComponents.clear();
-}
 
-void AActor::ClearSceneComponentCaches()
-{
 	SceneComponents.Empty();
 	RootComponent = nullptr;
 }
-
 
 // ───────────────
 // Transform API
@@ -564,6 +558,10 @@ void AActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 
 	if (bInIsLoading)
 	{
+		// 액터 생성자에서 만들어진 컴포넌트를 무시하고 저장된 컴포넌트만 다시 붙인다
+		UnregisterAllComponents();
+		DestroyAllComponents();
+
 		uint32 RootUUID;
 		FJsonSerializer::ReadUint32(InOutHandle, "RootComponentId", RootUUID);
 	
