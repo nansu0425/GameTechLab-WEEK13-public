@@ -120,7 +120,7 @@ void UStaticMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMesh
 		}
 
 		FMeshBatchElement BatchElement;
-		FShaderVariant* ShaderVariant = ShaderToUse->GetShaderVariant(MaterialToUse->GetShaderMacros());
+		FShaderVariant* ShaderVariant = ShaderToUse->GetOrCompileShaderVariant(MaterialToUse->GetShaderMacros());
 
 		if (ShaderVariant)
 		{

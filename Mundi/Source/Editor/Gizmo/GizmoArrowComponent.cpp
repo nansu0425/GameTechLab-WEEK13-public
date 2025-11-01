@@ -153,7 +153,7 @@ void UGizmoArrowComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMesh
 		// 머티리얼과 셰이더는 루프 밖에서 이미 결정되었습니다.
 		FMeshBatchElement BatchElement;
 
-		FShaderVariant* ShaderVariant = ShaderToUse->GetShaderVariant(MaterialToUse->GetShaderMacros());
+		FShaderVariant* ShaderVariant = ShaderToUse->GetOrCompileShaderVariant(MaterialToUse->GetShaderMacros());
 
 		// --- 정렬 키 ---
 		BatchElement.VertexShader = ShaderVariant->VertexShader;

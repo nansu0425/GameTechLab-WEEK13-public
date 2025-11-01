@@ -178,7 +178,7 @@ inline T* UResourceManager::Load(const FString& InFilePath, Args && ...InArgs)
 		if constexpr (std::is_same_v<T, UShader>)
 		{
 			UShader* Shader = static_cast<UShader*>((*iter).second);
-			Shader->GetOrCompileShaderVariant(Device, std::forward<Args>(InArgs)...);	// 매크로에 해당하는 셰이더를 별도로 컴파일 하기 위해
+			Shader->GetOrCompileShaderVariant(std::forward<Args>(InArgs)...);	// 매크로에 해당하는 셰이더를 별도로 컴파일 하기 위해
 			return Shader;
 		}
 
@@ -207,7 +207,7 @@ inline UShader* UResourceManager::Load(const FString& InFilePath, TArray<FShader
 	{
 		UShader* Shader = static_cast<UShader*>((*iter).second);
 
-		Shader->GetOrCompileShaderVariant(Device, InMacros);
+		Shader->GetOrCompileShaderVariant(InMacros);
 
 		return Shader;
 	}
