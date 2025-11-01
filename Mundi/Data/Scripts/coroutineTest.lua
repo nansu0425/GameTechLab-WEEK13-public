@@ -3,7 +3,7 @@ function BeginPlay()
     Obj:PrintLocation()
     
     Obj.Velocity.X = 4
-    -- Co = coroutine.create(AI)
+    Co = coroutine.create(AI)
 end
 
 function AI()
