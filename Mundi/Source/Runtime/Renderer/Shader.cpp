@@ -57,7 +57,7 @@ FString UShader::GenerateShaderKey(const TArray<FShaderMacro>& InMacros)
 	TArray<FShaderMacro> SortedMacros = InMacros;
 	SortedMacros.Sort([](const FShaderMacro& A, const FShaderMacro& B)
 		{
-			return A.Name < B.Name;
+			return A.Name.ComparisonIndex < B.Name.ComparisonIndex;
 		});
 
 	FString Key;
@@ -70,7 +70,7 @@ FString UShader::GenerateShaderKey(const TArray<FShaderMacro>& InMacros)
 		}
 
 		const FShaderMacro& Macro = SortedMacros[Index];
-		Key += Macro.Name + "=" + Macro.Definition;
+		Key += Macro.Name.ToString() + "=" + Macro.Definition.ToString();
 	}
 	return Key;
 }
@@ -175,10 +175,7 @@ bool UShader::CompileVariantInternal(ID3D11Device* InDevice, const FString& InSh
 	MacroStrings.reserve(InMacros.Num());
 	for (const FShaderMacro& Macro : InMacros)
 	{
-		MacroStrings.emplace_back(
-			FString(Macro.Name.begin(), Macro.Name.end()),
-			FString(Macro.Definition.begin(), Macro.Definition.end())
-		);
+		MacroStrings.emplace_back(Macro.Name.ToString(), Macro.Definition.ToString());
 		Defines.push_back({ MacroStrings.back().first.c_str(), MacroStrings.back().second.c_str() });
 	}
 	Defines.push_back({ NULL, NULL }); // 배열의 끝을 알리는 NULL 터미네이터

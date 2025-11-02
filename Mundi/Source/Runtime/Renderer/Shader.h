@@ -4,8 +4,8 @@
 
 struct FShaderMacro
 {
-	FString Name;
-	FString Definition;
+	FName Name;
+	FName Definition;
 
 	// TMap의 키로 사용하기 위해 비교 연산자 정의
 	bool operator==(const FShaderMacro& Other) const
