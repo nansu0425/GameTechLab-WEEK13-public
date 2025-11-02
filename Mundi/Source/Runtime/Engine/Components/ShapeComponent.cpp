@@ -3,13 +3,15 @@
 #include "OBB.h"
 #include "Collision.h"
 #include "World.h"
+#include "WorldPartitionManager.h"
+#include "BVHierarchy.h"
 #include "../Scripting/GameObject.h"
 
 IMPLEMENT_CLASS(UShapeComponent)
 
 BEGIN_PROPERTIES(UShapeComponent)
-    ADD_PROPERTY(bool, bShapeIsVisible, "Shape", true, "Shape를 가시화 변수입니다.")
-    ADD_PROPERTY(bool, bShapeHiddenInGame, "Shape", true, "Shape를 PIE 모드에서의 가시화 변수입니다.")
+    ADD_PROPERTY(bool, bShapeIsVisible, "Shape", true, "Shape�� ����ȭ �����Դϴ�.")
+    ADD_PROPERTY(bool, bShapeHiddenInGame, "Shape", true, "Shape�� PIE ��忡���� ����ȭ �����Դϴ�.")
  END_PROPERTIES()
 
 UShapeComponent::UShapeComponent() : bShapeIsVisible(true), bShapeHiddenInGame(true)
@@ -31,13 +33,23 @@ void UShapeComponent::OnRegister(UWorld* InWorld)
 void UShapeComponent::OnTransformUpdated()
 {
     GetWorldAABB();
+
+    // Keep BVH up-to-date for broad phase queries
+    if (UWorld* World = GetWorld())
+    {
+        if (UWorldPartitionManager* Partition = World->GetPartitionManager())
+        {
+            Partition->MarkDirty(this);
+        }
+    }
+
     UpdateOverlaps();
     Super::OnTransformUpdated();
 }
 
 void UShapeComponent::UpdateOverlaps()
 {
-    // 모양이 없는 UShapeComponent 자체는 충돌 검사를 수행할 수 없도록 함
+    // ����� ���� UShapeComponent ��ü�� �浹 �˻縦 ������ �� ������ ��
     if (GetClass() == UShapeComponent::StaticClass())
     {
         bGenerateOverlapEvents = false;
@@ -52,14 +64,23 @@ void UShapeComponent::UpdateOverlaps()
     UWorld* World = GetWorld();
     if (!World) return; 
       
-    //Test용 O(N^2)
     OverlapNow.clear();
 
-    for (AActor* Actor : World->GetActors())
+    // Broad Phase: use world BVH to query candidates overlapping our AABB.
+    TArray<UPrimitiveComponent*> Candidates;
+    if (UWorldPartitionManager* PM = World->GetPartitionManager())
     {
-        for (USceneComponent* Comp : Actor->GetSceneComponents())
+        if (FBVHierarchy* BVH = PM->GetBVH())
         {
-            UShapeComponent* Other = Cast<UShapeComponent>(Comp);
+            Candidates = BVH->QueryIntersectedComponents(GetWorldAABB());
+        }
+    }
+
+    if (!Candidates.IsEmpty())
+    {
+        for (UPrimitiveComponent* Prim : Candidates)
+        {
+            UShapeComponent* Other = Cast<UShapeComponent>(Prim);
             if (!Other || Other == this) continue;
             if (Other->GetOwner() == this->GetOwner()) continue;
             if (!Other->bGenerateOverlapEvents) continue;
@@ -73,19 +94,46 @@ void UShapeComponent::UpdateOverlaps()
                 continue;
             }*/
 
+            
             if (Owner && Owner->GetTag() == "Tile"
                 && OtherOwner && OtherOwner->GetTag() == "Tile")
             {
                 continue;
             }
 
-            // Collision 모듈
+            // Narrow phase check
             if (!Collision::CheckOverlap(this, Other)) continue;
 
             OverlapNow.Add(Other);
-            //UE_LOG("Collision!!");
         }
-    } 
+    }
+    else
+    {
+        // Fallback: O(N^2) scan if BVH is not available
+        for (AActor* Actor : World->GetActors())
+        {
+            for (USceneComponent* Comp : Actor->GetSceneComponents())
+            {
+                UShapeComponent* Other = Cast<UShapeComponent>(Comp);
+                if (!Other || Other == this) continue;
+                if (Other->GetOwner() == this->GetOwner()) continue;
+                if (!Other->bGenerateOverlapEvents) continue;
+
+                AActor* Owner = this->GetOwner();
+                AActor* OtherOwner = Other->GetOwner();
+
+                if (Owner && Owner->GetTag() == "Tile"
+                    && OtherOwner && OtherOwner->GetTag() == "Tile")
+                {
+                    continue;
+                }
+
+                if (!Collision::CheckOverlap(this, Other)) continue;
+
+                OverlapNow.Add(Other);
+            }
+        }
+    }
 
     // Publish current overlaps
     OverlapInfos.clear();
@@ -147,3 +195,4 @@ void UShapeComponent::DuplicateSubObjects()
 {
     Super::DuplicateSubObjects();
 }
+
