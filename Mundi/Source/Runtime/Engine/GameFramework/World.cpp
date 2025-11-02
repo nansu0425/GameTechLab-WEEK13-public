@@ -95,7 +95,9 @@ void UWorld::Tick(float DeltaSeconds)
 //순서 바꾸면 안댐
 	if (Level)
 	{
-		for (AActor* Actor : Level->GetActors())
+		// Tick 중에 새로운 actor가 추가될 수도 있어서 복사 후 호출
+		TArray<AActor*> LevelActors = Level->GetActors();
+		for (AActor* Actor : LevelActors)
 		{
 			if (Actor && (Actor->CanTickInEditor() || bPie))
 			{
@@ -148,7 +150,6 @@ UWorld* UWorld::DuplicateWorldForPIE(UWorld* InEditorWorld)
 	FWorldContext PIEWorldContext = FWorldContext(PIEWorld, EWorldType::Game);
 	GEngine.AddWorldContext(PIEWorldContext);
 	
-
 	const TArray<AActor*>& SourceActors = InEditorWorld->GetLevel()->GetActors();
 	for (AActor* SourceActor : SourceActors)
 	{
