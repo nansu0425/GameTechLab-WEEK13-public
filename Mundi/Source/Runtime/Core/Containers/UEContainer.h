@@ -18,6 +18,12 @@ typedef wchar_t WIDECHAR;
 typedef std::string FString;
 typedef std::wstring FWideString;
 
+template<typename T>
+using TWeakObjectPtr = std::weak_ptr<T>;
+
+template<typename T>
+using TUniqueObjectPtr = std::unique_ptr<T>;
+
 /** TPair 구현 */
 template<typename T1, typename T2>
 using TPair = std::pair<T1, T2>;

@@ -19,9 +19,7 @@ function GenerateGrid()
         for x = 0, gridWidth - 1 do
             local tile = SpawnPrefab("Data/Prefabs/NormalTile.prefab")
 
-            tile.Location.X = x * tileSize - offsetX
-            tile.Location.Y = y * tileSize - offsetY
-            tile.Location.Z = 0
+            tile.Location = Vector(x * tileSize - offsetX, y * tileSize - offsetY, 0)
 
             -- local randomIndex = math.random(1, #possibleRotations)
             -- local randomAngleZ = possibleRotations[randomIndex]

@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "LuaManager.h"
+#include "GameObject.h"
 
 FLuaManager::FLuaManager()
 {
@@ -11,10 +12,10 @@ FLuaManager::FLuaManager()
 
     Lua->new_usertype<FGameObject>("GameObject",
         "UUID", &FGameObject::UUID,
-        "Location", &FGameObject::Location,
-        "Rotation", &FGameObject::Rotation,
+        "Location", sol::property(&FGameObject::GetLocation, &FGameObject::SetLocation),
+        "Rotation", sol::property(&FGameObject::GetRotation, &FGameObject::SetRotation), 
+        "Scale", sol::property(&FGameObject::GetScale, &FGameObject::SetScale),
         "Velocity", &FGameObject::Velocity,
-        "Scale", &FGameObject::Scale,
         "PrintLocation", &FGameObject::PrintLocation
     );
     
