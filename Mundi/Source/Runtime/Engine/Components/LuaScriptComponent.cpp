@@ -59,7 +59,9 @@ void ULuaScriptComponent::BeginPlay()
 		GEngine.EndPIE();
 		return;
 	}
-	
+
+	// InputManger 주입
+	(*Lua)["InputManager"] = &UInputManager::GetInstance(); 
 	// 함수 캐시
 	FuncBeginPlay = FLuaManager::GetFunc(Env, "BeginPlay");
 	FuncTick      = FLuaManager::GetFunc(Env, "Tick");

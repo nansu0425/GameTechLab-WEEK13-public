@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "LuaManager.h"
 #include "GameObject.h"
 
@@ -26,25 +26,56 @@ FLuaManager::FLuaManager()
         "PrintLocation", &FGameObject::PrintLocation
     );
     
-    Lua->set_function("print", sol::overload(
-        [](const FString& msg) {
-            UE_LOG("[Lua-Str] %s\n", msg.c_str());
-        },
-        
-        [](int num){
-            UE_LOG("[Lua] %d\n", num);
-        },
-        
-        [](double num){
-            UE_LOG("[Lua] %f\n", num);
-        },
-
-        [](FVector Vector)
-        {
-            UE_LOG("[Lua] (%f, %f, %f)\n", Vector.X, Vector.Y, Vector.Z);
-        }
+    Lua->new_usertype<UInputManager>("InputManager",
+        "IsKeyDown", sol::overload(
+            &UInputManager::IsKeyDown,
+            [](UInputManager* Self, const FString& Key) {
+                if (Key.empty()) return false;
+                return Self->IsKeyDown(Key[0]);
+            }),
+        "IsKeyPressed", sol::overload(
+            &UInputManager::IsKeyPressed,
+            [](UInputManager* Self, const FString& Key) {
+                if (Key.empty()) return false;
+                return Self->IsKeyPressed(Key[0]);
+            }),
+        "IsKeyReleased", sol::overload(
+            &UInputManager::IsKeyReleased,
+            [](UInputManager* Self, const FString& Key) {
+                if (Key.empty()) return false;
+                return Self->IsKeyReleased(Key[0]);
+            }),
+    "IsMouseButtonDown", &UInputManager::IsMouseButtonDown,
+    "IsMouseButtonPressed", &UInputManager::IsMouseButtonPressed,
+    "IsMouseButtonReleased", &UInputManager::IsMouseButtonReleased
+);                
+    
+    sol::table MouseButton = Lua->create_table("MouseButton");
+    MouseButton["Left"] = EMouseButton::LeftButton;
+    MouseButton["Right"] = EMouseButton::RightButton;
+    MouseButton["Middle"] = EMouseButton::MiddleButton;
+    MouseButton["XButton1"] = EMouseButton::XButton1;
+    MouseButton["XButton2"] = EMouseButton::XButton2;
+    
+    Lua->set_function("print", sol::overload(                             
+        [](const FString& msg) {                                          
+            UE_LOG("[Lua-Str] %s\n", msg.c_str());                        
+        },                                                                
+                                                                          
+        [](int num){                                                      
+            UE_LOG("[Lua] %d\n", num);                                    
+        },                                                                
+                                                                          
+        [](double num){                                                   
+            UE_LOG("[Lua] %f\n", num);                                    
+        },                                                                
+                                                                          
+        [](FVector Vector)                                                 
+        {                                                                 
+            UE_LOG("[Lua] (%f, %f, %f)\n", Vector.X, Vector.Y, Vector.Z); 
+        }                                                                 
     ));
-
+    
     SharedLib = Lua->create_table();
     
     // GlobalConfig는 전역 table
