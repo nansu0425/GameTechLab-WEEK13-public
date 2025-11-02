@@ -3,8 +3,13 @@ local MaxFireNumber = 5
 local CurrentFireNumber = 0
 local FireballsPool = {} 
 
+local MinVelocity = 3
+local MaxVelocity = 10
+
+
 local function PushFireball(Fireball) 
     Fireball.bIsActive = false
+    Fireball.Velocity = Vector(0,0,0)
     Fireball.Location = GlobalConfig.SpawnAreaPos
 
     FireballsPool[#FireballsPool + 1] = Fireball
@@ -20,6 +25,7 @@ local function PopFireball()
 
     local Fireball = FireballsPool[Count]
     Fireball.bIsActive = true
+    Fireball.Velocity = Vector(0,0,-1) * (MinVelocity + (MaxVelocity - MinVelocity)* math.random())
     FireballsPool[Count] = nil
     
     CurrentFireNumber = CurrentFireNumber + 1
@@ -32,7 +38,7 @@ function BeginPlay()
 
     for i = 1, MaxFireNumber do 
         local Fireball = SpawnPrefab("Data/Prefabs/Fireball.prefab")
-        
+        CurrentFireNumber = CurrentFireNumber + 1
         if Fireball then
             PushFireball(Fireball) 
         end
@@ -44,11 +50,14 @@ function BeginPlay()
 
         -- 최대 개수 조절
         if CurrentFireNumber >= MaxFireNumber then
+            print("Full")
             return false
         end
         
-        NewFireball = PopFireball()
+        print(CurrentFireNumber)
 
+        NewFireball = PopFireball()
+        
         if NewFireball ~= nil then
             NewFireball.Location = Pos
         end

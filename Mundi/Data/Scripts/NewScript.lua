@@ -4,7 +4,7 @@ function BeginPlay()
     local v1 = Vector()
     local v2 = Vector(10, 10, 10)
     local v3 = Obj.Location
-    print(v3.X)
+    print(v2.X)
     Obj:PrintLocation();
     StartCoroutine(EditAfterOneSec)
 end

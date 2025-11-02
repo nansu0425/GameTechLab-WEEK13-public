@@ -8,10 +8,7 @@ function BeginPlay()
     Obj.Scale = Vector(10, 10, 1)
 
     GlobalConfig.SpawnAreaPos = Obj.Location
-
-    -- GlobalConfig.SpawnAreaPosX = Obj.Location.X
-    -- GlobalConfig.SpawnAreaPosY = Obj.Location.Y
-    -- GlobalConfig.SpawnAreaPosZ = Obj.Location.Z
+ 
     
 end
 
@@ -28,6 +25,7 @@ function RandomInRange(MinRange, MaxRange)
 end
 
 function Tick(dt)
+    
     TimeAcc = TimeAcc + dt
 
     if not GlobalConfig or not GlobalConfig.SpawnFireballAt then 
@@ -38,22 +36,19 @@ function Tick(dt)
         TimeAcc = TimeAcc - SpawnInterval
 
         local LocalPos = Obj.Location
-        local LocalScale = Obj.Scale 
-        Obj.Location * Vector(1,0,0) 
-
-        --local ScaleX, ScaleY = Obj.Scale.X, Obj.Scale.Y
-
-        --local RangeX = RandomInRange(LocalPos.X - LocalScale.X * 0.5, LocalPos.X + LocalScale.X * 0.5)
-        --local RangeY = RandomInRange(LocalPos.Y - LocalScale.Y * 0.5, LocalPos.Y + LocalScale.Y * 0.5)
+        local LocalScale = Obj.Scale
+        --local ScaleX, ScaleY = Obj.Scale.X, Obj.Scale
         
-        local PosX = RangeX
-        local PosY = RangeY
-        local PosZ = LocalZ
- 
-        local Pos = Vector(RangeX, RangeY, LocalZ)
+        local RangeX = RandomInRange(LocalPos.X - LocalScale.X * 0.5, LocalPos.X + LocalScale.X * 0.5)
+        local RangeY = RandomInRange(LocalPos.Y - LocalScale.Y * 0.5, LocalPos.Y + LocalScale.Y * 0.5)
 
-        GlobalConfig.SpawnFireballAt(Pos)
-        print("Spawn Fireball !!!!!!!")
+        local Pos = Vector(RangeX, RangeY, LocalPos.Z)
+        
+        local SpawnCheck =  GlobalConfig.SpawnFireballAt(Pos)
+        if  SpawnCheck then
+            print("Spawn Fireball !!!!!!!")
+        end
+
     end 
 
    --[[print("[Tick] ")]]--
