@@ -20,8 +20,8 @@ UDecalComponent::UDecalComponent()
 {
 	UResourceManager::GetInstance().Load<UMaterial>("Shaders/Effects/Decal.hlsl");
 	DecalTexture = UResourceManager::GetInstance().Load<UTexture>(GDataDir + "/Textures/grass.jpg");
-	SetTickEnabled(true);
-	SetCanEverTick(true);
+	bTickEnabled = true;
+	bCanEverTick = true;
 }
 
 void UDecalComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)

@@ -124,51 +124,46 @@ bool UWorld::TryLoadLastUsedLevel()
 	return true;
 }
 
+// 함수 내부 코드 순서 유지 필요
 void UWorld::Tick(float DeltaSeconds)
 {
     Partition->Update(DeltaSeconds, /*budget*/256);
 
-//순서 바꾸면 안댐
 	if (Level)
 	{
 		// Tick 중에 새로운 actor가 추가될 수도 있어서 복사 후 호출
 		TArray<AActor*> LevelActors = Level->GetActors();
 		for (AActor* Actor : LevelActors)
 		{
-			if (Actor && (Actor->CanTickInEditor() || bPie))
+			if (Actor && !Actor->IsPendingDestroy())
 			{
-				Actor->Tick(DeltaSeconds);
+				if (Actor->CanEverTick())
+				{
+					if (Actor->CanTickInEditor() || bPie)
+					{
+						Actor->Tick(DeltaSeconds);
+					}
+				}
 			}
 		}
     }
+
     for (AActor* EditorActor : EditorActors)
     {
-        if (EditorActor && !bPie) EditorActor->Tick(DeltaSeconds);
+		if (EditorActor && !bPie)
+		{
+			EditorActor->Tick(DeltaSeconds);
+		}
     }
 
+	// Lua 코루틴 전용 Tick
 	if (LuaManager && bPie)
 	{
 		LuaManager->Tick(DeltaSeconds);
 	}
 
-    // Update overlaps each tick to ensure symmetry and handle non-moving participants
-    //if (Level)
-    //{
-    //    for (AActor* Actor : Level->GetActors())
-    //    {
-    //        if (!Actor) continue;
-    //        for (USceneComponent* Comp : Actor->GetSceneComponents())
-    //        {
-    //            if (UShapeComponent* Shape = Cast<UShapeComponent>(Comp))
-    //            {
-    //                if (Shape->IsActive())
-    //                {
-    //                    Shape->UpdateOverlaps();
-    //                }
-    //            }
-    //        }
-    //    }
-    //}
+	// 지연 삭제 처리
+	ProcessPendingKillActors();
 }
 
 UWorld* UWorld::DuplicateWorldForPIE(UWorld* InEditorWorld)
@@ -217,16 +212,10 @@ FString UWorld::GenerateUniqueActorName(const FString& ActorType)
 	return UniqueName;
 }
 
-//
-// 액터 제거
-//
+// 액터 즉시 제거 (내부적으로만 호출)
 bool UWorld::DestroyActor(AActor* Actor)
 {
 	if (!Actor) return false;
-
-	// 재진입 가드
-	if (Actor->IsPendingDestroy()) return false;
-	Actor->MarkPendingDestroy();
 
 	// 선택/UI 해제
 	if (SelectionMgr) SelectionMgr->DeselectActor(Actor);
@@ -252,14 +241,6 @@ bool UWorld::DestroyActor(AActor* Actor)
 	{
 		// 메모리 해제
 		ObjectFactory::DeleteObject(Actor);
-
-		// 삭제된 액터 정리
-		if (SelectionMgr)
-		{
-			SelectionMgr->CleanupInvalidActors();
-			SelectionMgr->ClearSelection();
-		}
-
 		return true; // 성공적으로 삭제
 	}
 
@@ -351,6 +332,32 @@ void UWorld::AddActorToLevel(AActor* Actor)
 		Actor->SetWorld(this);
 
 		Actor->RegisterAllComponents(this);
+	}
+}
+
+void UWorld::AddPendingKillActor(AActor* Actor)
+{
+	PendingKillActors.Add(Actor);
+}
+
+void UWorld::ProcessPendingKillActors()
+{
+	// 1. 처리할 액터가 없으면 즉시 반환 (최적화)
+	if (PendingKillActors.IsEmpty())
+	{
+		return;
+	}
+
+	// 2. (안전성) 파괴 목록의 '사본'을 만듭니다.
+	TArray<AActor*> ActorsToKill = PendingKillActors;
+
+	// 3. 원본 목록은 즉시 비워 다음 프레임을 준비합니다.
+	PendingKillActors.Empty();
+
+	// 4. '사본'을 순회하며 실제 파괴를 수행합니다.
+	for (AActor* Actor : ActorsToKill)
+	{
+		DestroyActor(Actor);
 	}
 }
 

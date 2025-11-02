@@ -39,7 +39,7 @@ void AActor::BeginPlay()
 	// Lua Game Object 초기화
 	LuaGameObject = new FGameObject();
 	LuaGameObject ->SetOwner(this); /*순서 보장 필수!*/
-	LuaGameObject->Velocity = FVector(10, 0, 0);
+	LuaGameObject->UUID = this->UUID;
 	
 	// 컴포넌트들 Initialize/BeginPlay 순회
 	for (UActorComponent* Comp : OwnedComponents)
@@ -73,20 +73,10 @@ void AActor::Destroy()
 	{
 		return;
 	}
-	MarkPendingDestroy();
-	// 월드가 있으면 월드에 위임 (여기서 더 이상 this 만지지 않기)
-	if (World) 
-	{ 
-		World->DestroyActor(this); 
-		return; 
-	}
 
-	// 월드가 없을 때만 자체 정리
-	EndPlay();
-	UnregisterAllComponents(true);
-	DestroyAllComponents();
-	// 최종 delete (ObjectFactory가 소유권 관리 중이면 그 경로 사용)
-	ObjectFactory::DeleteObject(this);
+	MarkPendingDestroy();
+
+	World->AddPendingKillActor(this);
 }
 
 void AActor::SetRootComponent(USceneComponent* InRoot)
@@ -522,11 +512,11 @@ void AActor::OnEndOverlap(UPrimitiveComponent* MyComp, UPrimitiveComponent* Othe
 {
 	UE_LOG("On End Overlap");
 }
+
 void AActor::OnHit(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp)
 {
 	UE_LOG("On Hit");
 } 
-
 
 void AActor::DuplicateSubObjects()
 {
@@ -631,8 +621,6 @@ void AActor::DuplicateSubObjects()
 	}
 }
 
-
-
 void AActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
 	Super::Serialize(bInIsLoading, InOutHandle);
@@ -725,15 +713,6 @@ void AActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 		InOutHandle["Name"] = GetName().ToString();
 	}
 }
-
-//AActor* AActor::Duplicate()
-//{
-//	AActor* NewActor = ObjectFactory::DuplicateObject<AActor>(this); // 모든 멤버 얕은 복사
-//
-//	NewActor->DuplicateSubObjects();
-//
-//	return nullptr;
-//}
 
 void AActor::RegisterComponentTree(USceneComponent* SceneComp, UWorld* InWorld)
 {

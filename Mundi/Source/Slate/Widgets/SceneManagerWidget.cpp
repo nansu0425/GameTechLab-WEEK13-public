@@ -168,12 +168,6 @@ void USceneManagerWidget::RenderWidget()
 	ImGui::Dummy(ImVec2(0, 1.0f));
 	ImGui::Text("%zu개 액터", World->GetActors().size());
 
-	// Context menu
-	if (bShowContextMenu)
-	{
-		RenderContextMenu();
-	}
-
 	// Status bar
 	ImGui::SameLine();
 	AActor* SelectedActor = nullptr;
@@ -336,12 +330,11 @@ void USceneManagerWidget::RenderActorNode(FActorTreeNode* Node, int32 Depth)
 		ImGui::ClearActiveID();
 	}
 
-	// Handle right-click context menu
-	if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+	// BeginPopupContextItem 는 우클릭했을 때 감지됨
+	if (ImGui::BeginPopupContextItem("ActorContextMenu"))
 	{
-		ContextMenuTarget = Actor;
-		bShowContextMenu = true;
-		ImGui::OpenPopup("ActorContextMenu");
+		RenderContextMenu(Actor);
+		ImGui::EndPopup();
 	}
 
 	// Handle drag source
@@ -443,12 +436,8 @@ void USceneManagerWidget::HandleActorDelete(AActor* Actor)
 	if (!Actor)
 		return;
 
-	UWorld* World = GWorld;
-	if (World)
-	{
-		World->DestroyActor(Actor);
-		UE_LOG("SceneManager: Deleted actor %s", Actor->GetName().ToString().c_str());
-	}
+	Actor->Destroy();
+	UE_LOG("SceneManager: Deleted actor %s", Actor->GetName().ToString().c_str());
 }
 
 void USceneManagerWidget::HandleActorDuplicate(AActor* Actor)
@@ -457,79 +446,66 @@ void USceneManagerWidget::HandleActorDuplicate(AActor* Actor)
 	UE_LOG("SceneManager: Duplicate not implemented yet");
 }
 
-void USceneManagerWidget::RenderContextMenu()
+void USceneManagerWidget::RenderContextMenu(AActor* TargetActor)
 {
-	if (ImGui::BeginPopup("ActorContextMenu"))
+	ImGui::Text("%s", TargetActor->GetName().ToString().c_str()); // %s개 액터 -> %s
+	const char* ClassName = "Unknown";
+	if (TargetActor->GetClass())
 	{
-		if (ContextMenuTarget)
+		ClassName = TargetActor->GetClass()->Name;
+	}
+	ImGui::Text("Type: %s", ClassName);
+	ImGui::Separator();
+
+	// Selection actions
+	if (ImGui::MenuItem("Focus in Viewport"))
+	{
+		HandleActorSelection(TargetActor);
+	}
+
+	ImGui::Separator();
+
+	// Transform actions
+	if (ImGui::MenuItem("Reset Transform"))
+	{
+		if (TargetActor) // 혹시 모르니 방어 코드 유지
 		{
-			ImGui::Text("%s개 액터", ContextMenuTarget->GetName().ToString().c_str());
-			const char* ClassName = "Unknown";
-			if (ContextMenuTarget->GetClass())
-			{
-				ClassName = ContextMenuTarget->GetClass()->Name;
-			}
-			ImGui::Text("Type: %s", ClassName);
-			ImGui::Separator();
-
-			// Selection actions
-			if (ImGui::MenuItem("Focus in Viewport"))
-			{
-				HandleActorSelection(ContextMenuTarget);
-			}
-
-			ImGui::Separator();
-
-			// Transform actions
-			if (ImGui::MenuItem("Reset Transform"))
-			{
-				if (ContextMenuTarget)
-				{
-					ContextMenuTarget->SetActorLocation(FVector(0, 0, 0));
-					ContextMenuTarget->SetActorRotation(FQuat::Identity());
-					ContextMenuTarget->SetActorScale(FVector(1, 1, 1));
-				}
-			}
-
-			if (ImGui::MenuItem("Reset Position"))
-			{
-				if (ContextMenuTarget)
-				{
-					ContextMenuTarget->SetActorLocation(FVector(0, 0, 0));
-				}
-			}
-
-			ImGui::Separator();
-
-			// Edit actions
-			if (ImGui::MenuItem("Rename"))
-			{
-				HandleActorRename(ContextMenuTarget);
-			}
-
-			if (ImGui::MenuItem("Duplicate"))
-			{
-				HandleActorDuplicate(ContextMenuTarget);
-			}
-
-			ImGui::Separator();
-
-			// Danger zone
-			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.4f, 0.4f, 1.0f));
-			if (ImGui::MenuItem("Delete"))
-			{
-				HandleActorDelete(ContextMenuTarget);
-			}
-			ImGui::PopStyleColor();
+			TargetActor->SetActorLocation(FVector(0, 0, 0));
+			TargetActor->SetActorRotation(FQuat::Identity());
+			TargetActor->SetActorScale(FVector(1, 1, 1));
 		}
+	}
 
-		ImGui::EndPopup();
-	}
-	else
+	if (ImGui::MenuItem("Reset Position"))
 	{
-		bShowContextMenu = false;
-		ContextMenuTarget = nullptr;
+		if (TargetActor)
+		{
+			TargetActor->SetActorLocation(FVector(0, 0, 0));
+		}
 	}
+
+	ImGui::Separator();
+
+	// Edit actions
+	if (ImGui::MenuItem("Rename"))
+	{
+		HandleActorRename(TargetActor);
+	}
+
+	if (ImGui::MenuItem("Duplicate"))
+	{
+		HandleActorDuplicate(TargetActor);
+	}
+
+	ImGui::Separator();
+
+	// Danger zone
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.4f, 0.4f, 1.0f));
+	if (ImGui::MenuItem("Delete"))
+	{
+		HandleActorDelete(TargetActor);
+	}
+	ImGui::PopStyleColor();
 }
 
 void USceneManagerWidget::RenderToolbar()

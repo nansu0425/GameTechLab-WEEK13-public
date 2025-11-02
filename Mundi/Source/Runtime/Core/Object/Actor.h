@@ -148,10 +148,8 @@ public:
     bool GetActorHiddenInGame() { return bActorHiddenInGame; }
     bool IsActorVisible() const;
 
-    bool CanTickInEditor() const
-    {
-        return bTickInEditor;
-    }
+    bool CanEverTick() const { return bCanEverTick; }
+	bool CanTickInEditor() const { return bTickInEditor; }
     // ───── 충돌 관련 ─────────────────────────  
     void OnBeginOverlap(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp);
     void OnEndOverlap(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp);
@@ -191,7 +189,7 @@ protected:
     bool bPendingDestroy = false;
 
     bool bIsPicked = false;
-    bool bCanEverTick = true;
+    bool bCanEverTick = true;   // Tick을 허용하는 Actor 라는 뜻 (생성자 시점에만 변경해야 됨)
     bool bIsCulled = false;
 
 private:

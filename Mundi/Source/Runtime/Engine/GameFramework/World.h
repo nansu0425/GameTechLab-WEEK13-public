@@ -57,7 +57,8 @@ public:
     AActor* SpawnPrefabActor(const FWideString& PrefabPath);
     void AddActorToLevel(AActor* Actor);
 
-    bool DestroyActor(AActor* Actor);
+    void AddPendingKillActor(AActor* Actor);
+    void ProcessPendingKillActors();
 
     void CreateLevel();
 
@@ -104,6 +105,7 @@ public:
 
 private:
     bool TryLoadLastUsedLevel();
+    bool DestroyActor(AActor* Actor);   // 즉시 삭제
 
 private:
     /** === 에디터 특수 액터 관리 === */
@@ -114,6 +116,7 @@ private:
 
     /** === 레벨 컨테이너 === */
     std::unique_ptr<ULevel> Level;
+    TArray<AActor*> PendingKillActors;  // 지연 삭제 예정 액터 목록
 
     /** === 라이트 매니저 ===*/
     std::unique_ptr<FLightManager> LightManager;
