@@ -20,14 +20,15 @@ function Tick(dt)
     Obj.Location = Obj.Location + Obj.Velocity * dt
     MoveCamera(Obj.Location)
 
+    local MoveDelta = 0.1
     if InputManager:IsKeyDown('W') then
-        Obj.Location = Obj.Location + Vector(1, 0, 0)
+        Obj.Location = Obj.Location + Vector(MoveDelta, 0, 0)
     elseif InputManager:IsKeyDown('S') then
-        Obj.Location = Obj.Location + Vector(-1, 0, 0)
+        Obj.Location = Obj.Location + Vector(-1*MoveDelta, 0, 0)
     elseif InputManager:IsKeyDown('A') then
-        Obj.Location = Obj.Location + Vector(0, -1, 0)
+        Obj.Location = Obj.Location + Vector(0, -1*MoveDelta, 0)
     elseif InputManager:IsKeyDown('D') then
-        Obj.Location = Obj.Location + Vector(0, 1, 0)
+        Obj.Location = Obj.Location + Vector(0, MoveDelta, 0)
     end
 end
 
