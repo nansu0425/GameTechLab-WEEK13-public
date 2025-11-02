@@ -5,9 +5,13 @@ class FGameObject
 {
 public:
     uint32  UUID;
+    FString Tag;
     FVector Velocity;
     FVector Scale;
     
+    void SetTag(FString NewTag) { Owner->SetTag(NewTag); }
+    FString GetTag() { return Owner->GetTag(); }
+
     void SetLocation(FVector NewLocation) { Owner->SetActorLocation(NewLocation); }
     FVector GetLocation() { return Owner->GetActorLocation(); }
 

@@ -35,6 +35,8 @@ function EndPlay()
 end
 
 function OnOverlap(OtherActor)
+    if OtherActor.Tag == "Fire"
+        
     --[[Obj:PrintLocation()]]--
 end
 
