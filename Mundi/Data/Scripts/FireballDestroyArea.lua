@@ -14,7 +14,7 @@ function OnOverlap(OtherActor)
 end
 
 function Tick(dt)
-    Obj.Location = Obj.Location + Obj.Velocity * dt
+    --Obj.Location = Obj.Location + Obj.Velocity * dt
     --[[Obj:PrintLocation()]]--
     --[[print("[Tick] ")]]--
 end
