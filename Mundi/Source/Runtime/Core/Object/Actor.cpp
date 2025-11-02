@@ -10,6 +10,7 @@
 #include "JsonSerializer.h"
 #include "World.h"
 #include "PrimitiveComponent.h"
+#include "../Scripting/GameObject.h"
 
 IMPLEMENT_CLASS(AActor)
 
@@ -30,11 +31,14 @@ AActor::~AActor()
 
 void AActor::BeginPlay()
 {
+	// TODO : 초기화 다듬기
+	// Lua Game Object 초기화
 	LuaGameObject = new FGameObject();
-	LuaGameObject->Location = GetActorLocation();
-	// 그냥 테스트입니다. 수정해주세요
+	LuaGameObject ->SetOwner(this); /*순서 보장 필수!*/
+	LuaGameObject->GetLocation();
+	LuaGameObject->GetRotation();
+	LuaGameObject->GetScale();
 	LuaGameObject->Velocity = FVector(10, 0, 0);
-	LuaGameObject->Scale = GetActorScale();
 	
 	// 컴포넌트들 Initialize/BeginPlay 순회
 	for (UActorComponent* Comp : OwnedComponents)
@@ -54,12 +58,6 @@ void AActor::Tick(float DeltaSeconds)
 		{
 			Comp->TickComponent(DeltaSeconds /*, … 필요 인자*/);
 		}
-	}
-
-	if (LuaGameObject)
-	{
-		SetActorLocation(LuaGameObject->Location);
-		SetActorScale(LuaGameObject->Scale);
 	}
 }
 void AActor::EndPlay()
@@ -331,7 +329,11 @@ void AActor::SetActorLocation(const FVector& NewLocation)
 
 FVector AActor::GetActorLocation() const
 {
-	return RootComponent ? RootComponent->GetWorldLocation() : FVector();
+	if (!RootComponent)
+		return FVector();
+	FVector Lo = RootComponent->GetWorldLocation();
+	return Lo;
+	// return RootComponent ? RootComponent->GetWorldLocation() : FVector();
 }
 
 void AActor::MarkPartitionDirty()

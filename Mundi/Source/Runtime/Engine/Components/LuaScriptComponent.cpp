@@ -4,6 +4,7 @@
 #include <sol/state.hpp>
 #include <sol/coroutine.hpp>
 #include "../Scripting/LuaManager.h"
+#include "../Scripting/GameObject.h"
 
 IMPLEMENT_CLASS(ULuaScriptComponent)
 
@@ -32,7 +33,6 @@ void ULuaScriptComponent::BeginPlay()
 	Env = LuaVM->CreateEnvironment();
 
 	FGameObject* Obj = Owner->GetGameObject();
-	Obj->SetOwner(GetOwner());
 	Env["Obj"] = Obj;
 
 	Env["StartCoroutine"] = [LuaVM, this](sol::function f) {

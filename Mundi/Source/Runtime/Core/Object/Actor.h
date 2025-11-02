@@ -12,27 +12,7 @@ class UPrimitiveComponent;
 class UShapeComponent;
 class UTextRenderComponent;
 class UBillboardComponent;
-
-class FGameObject
-{
-public:
-    uint32  UUID;
-    FVector Location;
-    FVector Velocity;
-    FVector Scale;
-
-    void PrintLocation()
-    {
-        UE_LOG("Location %f %f %f\n", Location.X, Location.Y, Location.Z);
-    }
-
-    void SetOwner(AActor* NewOwner) { Owner = NewOwner; }
-    AActor* GetOwner() { return Owner; }
-
-private:
-    AActor* Owner;
-};
-
+class FGameObject;
 
 class AActor : public UObject
 {
