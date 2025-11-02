@@ -44,8 +44,8 @@ function BeginPlay()
         tile.Location.Z = tile.Location.Z - 10
 
         -- -- 메타테이블에서 제거
-        -- Tiles[meta.index] = nil
-        -- TileMeta[tileUUID] = nil
+        Tiles[meta.index] = nil
+        TileMeta[tileUUID] = nil
 
         print("Tile removed (UUID): " .. tileUUID)
     end

@@ -7,8 +7,10 @@ function EndPlay()
 end
 
 function OnOverlap(OtherActor)
-    if GlobalConfig and GlobalConfig.RemoveTileByUUID then
-        GlobalConfig.RemoveTileByUUID(Obj.UUID)
+    if OtherActor.Tag == "fireball" then
+        if GlobalConfig and GlobalConfig.RemoveTileByUUID then
+            GlobalConfig.RemoveTileByUUID(Obj.UUID)
+        end
     end
 end
 
