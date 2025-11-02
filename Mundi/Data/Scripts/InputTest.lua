@@ -13,9 +13,9 @@ end
 
 function Tick(dt)
     Obj.Location = Obj.Location + Obj.Velocity * dt
-    if InputManager:IsKeyDown(65) then
+    if InputManager:IsKeyDown('A') then
         print("a")
-    elseif InputManager:IsKeyDown(66) then
+    elseif InputManager:IsMouseButtonDown(MouseButton.Left) then
         print("b")
     end
 end

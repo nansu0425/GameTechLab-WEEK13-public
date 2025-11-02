@@ -27,13 +27,28 @@ FLuaManager::FLuaManager()
     );
     
     Lua->new_usertype<UInputManager>("InputManager",
-        "IsKeyDown", &UInputManager::IsKeyDown,
-        "IsKeyPressed", &UInputManager::IsKeyPressed,
-        "IsKeyReleased", &UInputManager::IsKeyReleased,
-        "IsMouseButtonDown", &UInputManager::IsMouseButtonDown,
-        "IsMouseButtonPressed", &UInputManager::IsMouseButtonPressed,
-        "IsMouseButtonReleased", &UInputManager::IsMouseButtonReleased
-    );                
+        "IsKeyDown", sol::overload(
+            &UInputManager::IsKeyDown,
+            [](UInputManager* Self, const FString& Key) {
+                if (Key.empty()) return false;
+                return Self->IsKeyDown(Key[0]);
+            }),
+        "IsKeyPressed", sol::overload(
+            &UInputManager::IsKeyPressed,
+            [](UInputManager* Self, const FString& Key) {
+                if (Key.empty()) return false;
+                return Self->IsKeyPressed(Key[0]);
+            }),
+        "IsKeyReleased", sol::overload(
+            &UInputManager::IsKeyReleased,
+            [](UInputManager* Self, const FString& Key) {
+                if (Key.empty()) return false;
+                return Self->IsKeyReleased(Key[0]);
+            }),
+    "IsMouseButtonDown", &UInputManager::IsMouseButtonDown,
+    "IsMouseButtonPressed", &UInputManager::IsMouseButtonPressed,
+    "IsMouseButtonReleased", &UInputManager::IsMouseButtonReleased
+);                
     
     sol::table MouseButton = Lua->create_table("MouseButton");
     MouseButton["Left"] = EMouseButton::LeftButton;
