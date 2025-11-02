@@ -64,7 +64,7 @@ void FLuaCoroutineScheduler::Process(double Now)
 		if (!Result.valid())
 		{
 			sol::error Err = Result;
-			UE_LOG("[Lua] Coroutine error: %s\n", Err.what());
+			UE_LOG("[Lua][error] Coroutine error: %s\n", Err.what());
 			task.Finished = true;
 			continue;
 		}

@@ -224,7 +224,7 @@ void FLuaManager::ExposeAllComponentsToLua()
         [this](sol::object Obj, const FString& ClassName)
         {
            if (!Obj.is<FGameObject&>()) {
-                UE_LOG("[Lua] Error: Expected GameObject\n");
+                UE_LOG("[Lua][error] Error: Expected GameObject\n");
                 return sol::make_object(*Lua, sol::nil);
             }
         
@@ -242,7 +242,7 @@ void FLuaManager::ExposeAllComponentsToLua()
         [this](sol::object Obj, const FString& ClassName)
         {
             if (!Obj.is<FGameObject&>()) {
-                UE_LOG("[Lua] Error: Expected GameObject\n");
+                UE_LOG("[Lua][error] Error: Expected GameObject\n");
                 return sol::make_object(*Lua, sol::nil);
             }
             
@@ -262,12 +262,12 @@ void FLuaManager::ExposeAllComponentsToLua()
 
 bool FLuaManager::LoadScriptInto(sol::environment& Env, const FString& Path) {
     auto Chunk = Lua->load_file(Path);
-    if (!Chunk.valid()) { sol::error Err = Chunk; UE_LOG("[Lua] %s", Err.what()); return false; }
+    if (!Chunk.valid()) { sol::error Err = Chunk; UE_LOG("[Lua][error] %s", Err.what()); return false; }
     
     sol::protected_function ProtectedFunc = Chunk;
     sol::set_environment(Env, ProtectedFunc);         
     auto Result = ProtectedFunc();
-    if (!Result.valid()) { sol::error Err = Result; UE_LOG("[Lua] %s", Err.what()); return false; }
+    if (!Result.valid()) { sol::error Err = Result; UE_LOG("[Lua][error] %s", Err.what()); return false; }
     return true;
 }
 

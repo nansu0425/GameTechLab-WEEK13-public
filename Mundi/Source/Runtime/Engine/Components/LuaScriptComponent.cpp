@@ -51,7 +51,7 @@ void ULuaScriptComponent::BeginPlay()
 	}
 
 	if (!LuaVM->LoadScriptInto(Env, ScriptFilePath)) {
-		UE_LOG("[Lua] failed to run: %s\n", ScriptFilePath.c_str());
+		UE_LOG("[Lua][error] failed to run: %s\n", ScriptFilePath.c_str());
 		GEngine.EndPIE();
 		return;
 	}
@@ -66,7 +66,7 @@ void ULuaScriptComponent::BeginPlay()
 		auto Result = FuncBeginPlay();
 		if (!Result.valid())
 		{
-			sol::error Err = Result; UE_LOG("[Lua] %s\n", Err.what());
+			sol::error Err = Result; UE_LOG("[Lua][error] %s\n", Err.what());
 			GEngine.EndPIE();
 		}
 	}
@@ -79,7 +79,7 @@ void ULuaScriptComponent::OnOverlap(UPrimitiveComponent* MyComp, UPrimitiveCompo
 		auto Result = FuncOnOverlap();
 		if (!Result.valid())
 		{
-			sol::error Err = Result; UE_LOG("[Lua] %s\n", Err.what());
+			sol::error Err = Result; UE_LOG("[Lua][error] %s\n", Err.what());
 			GEngine.EndPIE();
 		}
 	}
@@ -89,7 +89,7 @@ void ULuaScriptComponent::TickComponent(float DeltaTime)
 {
 	if (FuncTick.valid()) {
 		auto Result = FuncTick(DeltaTime);
-		if (!Result.valid()) { sol::error Err = Result; UE_LOG("[Lua] %s\n", Err.what()); }
+		if (!Result.valid()) { sol::error Err = Result; UE_LOG("[Lua][error] %s\n", Err.what()); }
 	}
 }
 
@@ -99,7 +99,7 @@ void ULuaScriptComponent::EndPlay()
 		auto Result = FuncEndPlay();
 		if (!Result.valid())
 		{
-			sol::error Err = Result; UE_LOG("[Lua] %s\n", Err.what());
+			sol::error Err = Result; UE_LOG("[Lua][error] %s\n", Err.what());
 			GEngine.EndPIE();
 		}
 	}
