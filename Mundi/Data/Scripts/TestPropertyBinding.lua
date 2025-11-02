@@ -4,10 +4,12 @@ function BeginPlay()
     Obj.Velocity.Y = 0.0
     Obj.Velocity.Z = 0.0
 
-    A = GetComponent(Obj, "UPointLightComponent")
-    A.Intensity = 100.0
+    local A = GetComponent(Obj, "UPointLightComponent")
+    if A then
+        A.Intensity = 100.0
+    end
 
-    A = AddComponent(Obj, "USpotLightComponent")
+    AddComponent(Obj, "USpotLightComponent")
 
     print("Yes Binding!")
 end
