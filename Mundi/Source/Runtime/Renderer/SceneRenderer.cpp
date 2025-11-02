@@ -551,6 +551,26 @@ void FSceneRenderer::PrepareView()
 
 	RHIDevice->SetAndUpdateConstantBuffer(ViewProjBufferType(ViewProjBuffer));
 	RHIDevice->SetAndUpdateConstantBuffer(CameraBufferType(CameraPos, 0.0f));
+
+	// =============[파이어볼 임시 상수 버퍼]=============
+	// 파이어볼 용으로 전용 상수 버퍼 할당
+	// Bind Fireball constant buffer (b6)
+	static auto sStart = std::chrono::high_resolution_clock::now();
+	const auto now = std::chrono::high_resolution_clock::now();
+	const float t = std::chrono::duration<float>(now - sStart).count();
+
+	FireballBufferType FireCB{};
+	FireCB.Time = t;
+	FireCB.Resolution = FVector2D(static_cast<float>(RHIDevice->GetViewportWidth()), static_cast<float>(RHIDevice->GetViewportHeight()));
+	FireCB.CameraPosition = View->ViewLocation;
+	FireCB.UVScrollSpeed = FVector2D(0.05f, 0.02f);
+	FireCB.UVRotateRad = FVector2D(0.5f, 0.0f);
+	FireCB.LayerCount = 10;
+	FireCB.LayerDivBase = 1.0f;
+	FireCB.GateK = 6.0f;
+	FireCB.IntensityScale = 1.0f;
+	RHIDevice->SetAndUpdateConstantBuffer(FireCB);
+	// =============[파이어볼 임시 상수 버퍼]=============
 }
 
 void FSceneRenderer::GatherVisibleProxies()
@@ -1310,48 +1330,10 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 						PixelConst.bHasNormalTexture = (NormalTextureSRV != nullptr);
 					}
 				}
-			}			// --- RHI 상태 업데이트 ---
-			// 1. 텍스처(SRV) 바인딩
-			// Fireball material mapping: ensure resources and constant buffer
-			{
-				bool bIsFireball = false;
-				if (Batch.Material && Batch.Material->GetShader())
-				{
-					const FString& ShaderPath = Batch.Material->GetShader()->GetFilePath();
-					bIsFireball = (ShaderPath == FString("Shaders/Materials/Fireball.hlsl"));
-				}
-				if (bIsFireball)
-				{
-					static UTexture* FireballNoiseTex = nullptr;
-					if (!FireballNoiseTex)
-					{
-						FireballNoiseTex = UResourceManager::GetInstance().Load<UTexture>(GDataDir + "/Textures/FireballNoise.jpg");
-					}
-					if (FireballNoiseTex)
-					{
-						DiffuseTextureSRV = FireballNoiseTex->GetShaderResourceView();
-						PixelConst.bHasDiffuseTexture = (DiffuseTextureSRV != nullptr);
-					}
-
-					// Bind Fireball constant buffer (b6)
-					static auto sStart = std::chrono::high_resolution_clock::now();
-					const auto now = std::chrono::high_resolution_clock::now();
-					const float t = std::chrono::duration<float>(now - sStart).count();
-
-					FireballBufferType FireCB{};
-					FireCB.Time = t;
-					FireCB.Resolution = FVector2D(static_cast<float>(RHIDevice->GetViewportWidth()), static_cast<float>(RHIDevice->GetViewportHeight()));
-					FireCB.CameraPosition = View->ViewLocation;
-					FireCB.UVScrollSpeed = FVector2D(0.05f, 0.02f);
-					FireCB.UVRotateRad = FVector2D(0.5f, 0.0f);
-					FireCB.LayerCount = 10;
-					FireCB.LayerDivBase = 1.0f;
-					FireCB.GateK = 6.0f;
-					FireCB.IntensityScale = 1.0f;
-					RHIDevice->SetAndUpdateConstantBuffer(FireCB);
-				}
 			}
-
+			
+			// --- RHI 상태 업데이트 ---
+			// 1. 텍스처(SRV) 바인딩
 			ID3D11ShaderResourceView* Srvs[2] = { DiffuseTextureSRV, NormalTextureSRV };
 			RHIDevice->GetDeviceContext()->PSSetShaderResources(0, 2, Srvs);
 
