@@ -63,7 +63,7 @@ public:
 protected:
 	// 이 머티리얼이 사용할 셰이더 프로그램 (예: UberLit.hlsl)
 	UShader* Shader = nullptr;
-	TArray<FShaderMacro> ShaderMacro;
+	TArray<FShaderMacro> ShaderMacros;
 
 	FMaterialInfo MaterialInfo;
 	// MaterialInfo 이름 기반으로 찾은 (Textures[0] = Diffuse, Textures[1] = Normal)

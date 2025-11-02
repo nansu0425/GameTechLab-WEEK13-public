@@ -2,8 +2,6 @@
 
 function BeginPlay()
     print("[BeginPlay] " .. Obj.UUID)
-    -- sdf = 6
-    -- print(GlobalConfig.Gravity2)
     Obj.Velocity.X = 6
     StartCoroutine(Gravity)
     

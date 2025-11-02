@@ -12,6 +12,7 @@
 #include "CameraComponent.h"
 #include "MeshBatchElement.h"
 #include "Material.h"
+#include "SceneView.h"
 
 IMPLEMENT_CLASS(UStaticMeshComponent)
 
@@ -120,7 +121,13 @@ void UStaticMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMesh
 		}
 
 		FMeshBatchElement BatchElement;
-		FShaderVariant* ShaderVariant = ShaderToUse->GetOrCompileShaderVariant(MaterialToUse->GetShaderMacros());
+		// View 모드 전용 매크로와 머티리얼 개인 매크로를 결합한다
+		TArray<FShaderMacro> ShaderMacros = View->ViewShaderMacros;
+		if (0 < MaterialToUse->GetShaderMacros().Num())
+		{
+			ShaderMacros.Append(MaterialToUse->GetShaderMacros());
+		}
+		FShaderVariant* ShaderVariant = ShaderToUse->GetOrCompileShaderVariant(ShaderMacros);
 
 		if (ShaderVariant)
 		{
@@ -206,12 +213,6 @@ void UStaticMeshComponent::SetMaterial(uint32 InElementIndex, UMaterialInterface
 	{
 		UE_LOG("out of range InMaterialSlotIndex: %d", InElementIndex);
 		return;
-	}
-
-	if (UMaterial* OriginMaterial = Cast<UMaterial>(InNewMaterial))
-	{
-		TArray<FShaderMacro> Macros = { FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" } };
-		OriginMaterial->SetShaderMacros(Macros);
 	}
 
 	// 1. 현재 슬롯에 할당된 머티리얼을 가져옵니다.

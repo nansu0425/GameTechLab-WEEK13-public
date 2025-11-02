@@ -63,7 +63,7 @@ private:
 	void InitializeLineBatch();
 
 	// 이전 drawCall에서 이미 썼던 RnderState면, 다시 Set 하지 않기 위해 만든 변수들
-	EViewModeIndex PreViewModeIndex = EViewModeIndex::VMI_Wireframe; // RSSetState, UpdateColorConstantBuffers
+	EViewMode PreViewModeIndex = EViewMode::VMI_Wireframe; // RSSetState, UpdateColorConstantBuffers
 	//UMaterial* PreUMaterial = nullptr; // SRV, UpdatePixelConstantBuffers
 	//UStaticMesh* PreStaticMesh = nullptr; // VertexBuffer, IndexBuffer
 	/*ID3D11Buffer* PreVertexBuffer = nullptr;

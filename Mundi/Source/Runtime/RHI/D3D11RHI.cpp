@@ -333,9 +333,9 @@ void D3D11RHI::IASetPrimitiveTopology()
     DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
-void D3D11RHI::RSSetState(ERasterizerMode ViewModeIndex)
+void D3D11RHI::RSSetState(ERasterizerMode ViewMode)
 {
-	switch (ViewModeIndex)
+	switch (ViewMode)
 	{
 	case ERasterizerMode::Solid:
 		DeviceContext->RSSetState(DefaultRasterizerState);

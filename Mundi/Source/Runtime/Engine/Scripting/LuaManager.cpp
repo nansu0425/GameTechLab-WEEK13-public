@@ -7,14 +7,7 @@ FLuaManager::FLuaManager()
 
     Lua->open_libraries(sol::lib::base, sol::lib::coroutine);
 
-    Lua->new_usertype<FVector>("Vector",
-        sol::constructors<FVector(), FVector(float, float, float)>(),
-        "X", &FVector::X,
-        "Y", &FVector::Y,
-        "Z", &FVector::Z,
-        sol::meta_function::addition, [](const FVector& a, const FVector& b) { return FVector(a.X + b.X, a.Y + b.Y, a.Z + b.Z); },
-        sol::meta_function::multiplication, [](const FVector& v, float f) { return v * f; }
-    );
+   
 
     Lua->new_usertype<FGameObject>("GameObject",
         "UUID", &FGameObject::UUID,
@@ -59,6 +52,36 @@ FLuaManager::FLuaManager()
             return NewObject;
         }
     ));
+
+    SharedLib.set_function("Vector", sol::overload(
+       []() { return FVector(0.0f, 0.0f, 0.0f); },
+       [](float x, float y, float z) { return FVector(x, y, z); }
+   ));
+    
+    // FVector usertype 등록 (메서드와 프로퍼티)
+    SharedLib.new_usertype<FVector>("FVector",
+        sol::no_constructor,  // 생성자는 위에서 Vector 함수로 등록했음
+        // Properties
+        "X", &FVector::X,
+        "Y", &FVector::Y,
+        "Z", &FVector::Z,
+        // Operators
+        sol::meta_function::addition, [](const FVector& a, const FVector& b) -> FVector {
+            return FVector(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
+        },
+        sol::meta_function::subtraction, [](const FVector& a, const FVector& b) -> FVector {
+            return FVector(a.X - b.X, a.Y - b.Y, a.Z - b.Z);
+        },
+        sol::meta_function::multiplication, sol::overload(
+            [](const FVector& v, float f) -> FVector { return v * f; },
+            [](float f, const FVector& v) -> FVector { return v * f; }
+        ),
+        // Methods
+        "Length", &FVector::Distance,
+        "Normalize", &FVector::Normalize,
+        "Dot", [](const FVector& a, const FVector& b) { return FVector::Dot(a, b); },
+        "Cross", [](const FVector& a, const FVector& b) { return FVector::Cross(a, b); }
+    );
     RegisterComponentProxy(*Lua);
     ExposeAllComponentsToLua();
 

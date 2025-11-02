@@ -237,25 +237,24 @@ void SViewportWindow::RenderToolbar()
 		const char* CurrentViewModeName = "뷰모드";
 		if (ViewportClient)
 		{
-			EViewModeIndex CurrentViewMode = ViewportClient->GetViewModeIndex();
+			EViewMode CurrentViewMode = ViewportClient->GetViewMode();
 			switch (CurrentViewMode)
 			{
-			case EViewModeIndex::VMI_Lit:
-			case EViewModeIndex::VMI_Lit_Gouraud:
-			case EViewModeIndex::VMI_Lit_Lambert:
-			case EViewModeIndex::VMI_Lit_Phong:
+			case EViewMode::VMI_Lit_Gouraud:
+			case EViewMode::VMI_Lit_Lambert:
+			case EViewMode::VMI_Lit_Phong:
 				CurrentViewModeName = "라이팅 포함";
 				break;
-			case EViewModeIndex::VMI_Unlit:
+			case EViewMode::VMI_Unlit:
 				CurrentViewModeName = "언릿";
 				break;
-			case EViewModeIndex::VMI_Wireframe:
+			case EViewMode::VMI_Wireframe:
 				CurrentViewModeName = "와이어프레임";
 				break;
-			case EViewModeIndex::VMI_WorldNormal:
+			case EViewMode::VMI_WorldNormal:
 				CurrentViewModeName = "월드 노멀";
 				break;
-			case EViewModeIndex::VMI_SceneDepth:
+			case EViewMode::VMI_SceneDepth:
 				CurrentViewModeName = "씬 뎁스";
 				break;
 			}
@@ -954,32 +953,31 @@ void SViewportWindow::RenderViewModeDropdownMenu()
 	const ImVec2 IconSize(17, 17);
 
 	// 현재 뷰모드 이름 및 아이콘 가져오기
-	EViewModeIndex CurrentViewMode = ViewportClient->GetViewModeIndex();
+	EViewMode CurrentViewMode = ViewportClient->GetViewMode();
 	const char* CurrentViewModeName = "뷰모드";
 	UTexture* CurrentViewModeIcon = nullptr;
 
 	switch (CurrentViewMode)
 	{
-	case EViewModeIndex::VMI_Lit:
-	case EViewModeIndex::VMI_Lit_Gouraud:
-	case EViewModeIndex::VMI_Lit_Lambert:
-	case EViewModeIndex::VMI_Lit_Phong:
+	case EViewMode::VMI_Lit_Gouraud:
+	case EViewMode::VMI_Lit_Lambert:
+	case EViewMode::VMI_Lit_Phong:
 		CurrentViewModeName = "라이팅 포함";
 		CurrentViewModeIcon = IconViewMode_Lit;
 		break;
-	case EViewModeIndex::VMI_Unlit:
+	case EViewMode::VMI_Unlit:
 		CurrentViewModeName = "언릿";
 		CurrentViewModeIcon = IconViewMode_Unlit;
 		break;
-	case EViewModeIndex::VMI_Wireframe:
+	case EViewMode::VMI_Wireframe:
 		CurrentViewModeName = "와이어프레임";
 		CurrentViewModeIcon = IconViewMode_Wireframe;
 		break;
-	case EViewModeIndex::VMI_WorldNormal:
+	case EViewMode::VMI_WorldNormal:
 		CurrentViewModeName = "월드 노멀";
 		CurrentViewModeIcon = IconViewMode_BufferVis;
 		break;
-	case EViewModeIndex::VMI_SceneDepth:
+	case EViewMode::VMI_SceneDepth:
 		CurrentViewModeName = "씬 뎁스";
 		CurrentViewModeIcon = IconViewMode_BufferVis;
 		break;
@@ -1049,10 +1047,9 @@ void SViewportWindow::RenderViewModeDropdownMenu()
 		ImGui::Separator();
 
 		// ===== Lit 메뉴 (서브메뉴 포함) =====
-		bool bIsLitMode = (CurrentViewMode == EViewModeIndex::VMI_Lit ||
-			CurrentViewMode == EViewModeIndex::VMI_Lit_Gouraud ||
-			CurrentViewMode == EViewModeIndex::VMI_Lit_Lambert ||
-			CurrentViewMode == EViewModeIndex::VMI_Lit_Phong);
+		bool bIsLitMode = (CurrentViewMode == EViewMode::VMI_Lit_Phong ||
+			CurrentViewMode == EViewMode::VMI_Lit_Gouraud ||
+			CurrentViewMode == EViewMode::VMI_Lit_Lambert);
 
 		const char* LitRadioIcon = bIsLitMode ? "●" : "○";
 
@@ -1082,30 +1079,14 @@ void SViewportWindow::RenderViewModeDropdownMenu()
 			ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "셰이딩 모델");
 			ImGui::Separator();
 
-			// DEFAULT
-			bool bIsDefault = (CurrentViewMode == EViewModeIndex::VMI_Lit);
-			const char* DefaultIcon = bIsDefault ? "●" : "○";
-			char DefaultLabel[32];
-			sprintf_s(DefaultLabel, "%s DEFAULT", DefaultIcon);
-			if (ImGui::MenuItem(DefaultLabel))
-			{
-				ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit);
-				CurrentLitSubMode = 0;
-				ImGui::CloseCurrentPopup();
-			}
-			if (ImGui::IsItemHovered())
-			{
-				ImGui::SetTooltip("기본 셰이딩 모델 (PHONG)\n다른 셰이더 모델과 다르게 셰이더를 덮어쓰지 않습니다.");
-			}
-
 			// PHONG
-			bool bIsPhong = (CurrentViewMode == EViewModeIndex::VMI_Lit_Phong);
+			bool bIsPhong = (CurrentViewMode == EViewMode::VMI_Lit_Phong);
 			const char* PhongIcon = bIsPhong ? "●" : "○";
 			char PhongLabel[32];
 			sprintf_s(PhongLabel, "%s PHONG", PhongIcon);
 			if (ImGui::MenuItem(PhongLabel))
 			{
-				ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Phong);
+				ViewportClient->SetViewMode(EViewMode::VMI_Lit_Phong);
 				CurrentLitSubMode = 3;
 				ImGui::CloseCurrentPopup();
 			}
@@ -1115,13 +1096,13 @@ void SViewportWindow::RenderViewModeDropdownMenu()
 			}
 
 			// GOURAUD
-			bool bIsGouraud = (CurrentViewMode == EViewModeIndex::VMI_Lit_Gouraud);
+			bool bIsGouraud = (CurrentViewMode == EViewMode::VMI_Lit_Gouraud);
 			const char* GouraudIcon = bIsGouraud ? "●" : "○";
 			char GouraudLabel[32];
 			sprintf_s(GouraudLabel, "%s GOURAUD", GouraudIcon);
 			if (ImGui::MenuItem(GouraudLabel))
 			{
-				ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Gouraud);
+				ViewportClient->SetViewMode(EViewMode::VMI_Lit_Gouraud);
 				CurrentLitSubMode = 1;
 				ImGui::CloseCurrentPopup();
 			}
@@ -1131,13 +1112,13 @@ void SViewportWindow::RenderViewModeDropdownMenu()
 			}
 
 			// LAMBERT
-			bool bIsLambert = (CurrentViewMode == EViewModeIndex::VMI_Lit_Lambert);
+			bool bIsLambert = (CurrentViewMode == EViewMode::VMI_Lit_Lambert);
 			const char* LambertIcon = bIsLambert ? "●" : "○";
 			char LambertLabel[32];
 			sprintf_s(LambertLabel, "%s LAMBERT", LambertIcon);
 			if (ImGui::MenuItem(LambertLabel))
 			{
-				ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Lit_Lambert);
+				ViewportClient->SetViewMode(EViewMode::VMI_Lit_Lambert);
 				CurrentLitSubMode = 2;
 				ImGui::CloseCurrentPopup();
 			}
@@ -1150,7 +1131,7 @@ void SViewportWindow::RenderViewModeDropdownMenu()
 		}
 
 		// ===== Unlit 메뉴 =====
-		bool bIsUnlit = (CurrentViewMode == EViewModeIndex::VMI_Unlit);
+		bool bIsUnlit = (CurrentViewMode == EViewMode::VMI_Unlit);
 		const char* UnlitRadioIcon = bIsUnlit ? "●" : "○";
 
 		// Selectable로 감싸서 전체 호버링 영역 확보
@@ -1159,7 +1140,7 @@ void SViewportWindow::RenderViewModeDropdownMenu()
 
 		if (ImGui::Selectable("##UnlitSelectableArea", false, 0, UnlitSelectableSize))
 		{
-			ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Unlit);
+			ViewportClient->SetViewMode(EViewMode::VMI_Unlit);
 			ImGui::CloseCurrentPopup();
 		}
 
@@ -1183,7 +1164,7 @@ void SViewportWindow::RenderViewModeDropdownMenu()
 		ImGui::Text("언릿");
 
 		// ===== Wireframe 메뉴 =====
-		bool bIsWireframe = (CurrentViewMode == EViewModeIndex::VMI_Wireframe);
+		bool bIsWireframe = (CurrentViewMode == EViewMode::VMI_Wireframe);
 		const char* WireframeRadioIcon = bIsWireframe ? "●" : "○";
 
 		// Selectable로 감싸서 전체 호버링 영역 확보
@@ -1192,7 +1173,7 @@ void SViewportWindow::RenderViewModeDropdownMenu()
 
 		if (ImGui::Selectable("##WireframeSelectableArea", false, 0, WireframeSelectableSize))
 		{
-			ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_Wireframe);
+			ViewportClient->SetViewMode(EViewMode::VMI_Wireframe);
 			ImGui::CloseCurrentPopup();
 		}
 
@@ -1216,8 +1197,8 @@ void SViewportWindow::RenderViewModeDropdownMenu()
 		ImGui::Text("와이어프레임");
 
 		// ===== Buffer Visualization 메뉴 (서브메뉴 포함) =====
-		bool bIsBufferVis = (CurrentViewMode == EViewModeIndex::VMI_WorldNormal ||
-			CurrentViewMode == EViewModeIndex::VMI_SceneDepth);
+		bool bIsBufferVis = (CurrentViewMode == EViewMode::VMI_WorldNormal ||
+			CurrentViewMode == EViewMode::VMI_SceneDepth);
 
 		const char* BufferVisRadioIcon = bIsBufferVis ? "●" : "○";
 
@@ -1248,13 +1229,13 @@ void SViewportWindow::RenderViewModeDropdownMenu()
 			ImGui::Separator();
 
 			// Scene Depth
-			bool bIsSceneDepth = (CurrentViewMode == EViewModeIndex::VMI_SceneDepth);
+			bool bIsSceneDepth = (CurrentViewMode == EViewMode::VMI_SceneDepth);
 			const char* SceneDepthIcon = bIsSceneDepth ? "●" : "○";
 			char SceneDepthLabel[32];
 			sprintf_s(SceneDepthLabel, "%s 씬 뎁스", SceneDepthIcon);
 			if (ImGui::MenuItem(SceneDepthLabel))
 			{
-				ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_SceneDepth);
+				ViewportClient->SetViewMode(EViewMode::VMI_SceneDepth);
 				CurrentBufferVisSubMode = 0;
 				ImGui::CloseCurrentPopup();
 			}
@@ -1264,13 +1245,13 @@ void SViewportWindow::RenderViewModeDropdownMenu()
 			}
 
 			// World Normal
-			bool bIsWorldNormal = (CurrentViewMode == EViewModeIndex::VMI_WorldNormal);
+			bool bIsWorldNormal = (CurrentViewMode == EViewMode::VMI_WorldNormal);
 			const char* WorldNormalIcon = bIsWorldNormal ? "●" : "○";
 			char WorldNormalLabel[32];
 			sprintf_s(WorldNormalLabel, "%s 월드 노멀", WorldNormalIcon);
 			if (ImGui::MenuItem(WorldNormalLabel))
 			{
-				ViewportClient->SetViewModeIndex(EViewModeIndex::VMI_WorldNormal);
+				ViewportClient->SetViewMode(EViewMode::VMI_WorldNormal);
 				CurrentBufferVisSubMode = 1;
 				ImGui::CloseCurrentPopup();
 			}

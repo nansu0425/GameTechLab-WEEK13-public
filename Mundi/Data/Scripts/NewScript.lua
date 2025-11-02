@@ -1,5 +1,10 @@
 function BeginPlay()
     print("[BeginPlay]")
+    
+    local v1 = Vector()
+    local v2 = Vector(10, 10, 10)
+    Obj.Location = Vector(10, 10, 10)
+    
     StartCoroutine(EditAfterOneSec)
 end
 
