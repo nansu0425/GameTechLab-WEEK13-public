@@ -1,5 +1,9 @@
 function BeginPlay()
-    print("[BeginPlay] " .. Obj.UUID)
+    print("[BeginPlay] ?? " .. Obj.UUID)
+    -- AddComponent(Obj, "USpotLightComponent")
+    
+    -- A = GetComponent(Obj, "USpotLightComponent")
+    -- A.Intensity = 2
 end
 
 function EndPlay()
@@ -9,11 +13,11 @@ end
 function OnOverlap(OtherActor)
     -- if (OtherActor == fireball)
     --     delete (Obj)
-    Obj.Location.Z = -5
+    print("onoverlap")
+    Obj.Location.Z = Obj.Location.Z-5
 end
 
 function Tick(dt)
     Obj.Location = Obj.Location + Obj.Velocity * dt
-    --[[Obj:PrintLocation()]]--
-    --[[print("[Tick] ")]]--
+    print("[Tick] ??")
 end

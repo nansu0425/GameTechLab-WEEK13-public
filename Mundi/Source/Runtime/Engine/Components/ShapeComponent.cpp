@@ -87,6 +87,10 @@ void UShapeComponent::UpdateOverlaps()
         if (!OverlapPrev.Contains(Comp))
         {
             Owner->OnComponentBeginOverlap.Broadcast(this, Comp);
+            if (AActor* OtherOwner = Comp->GetOwner())
+            {
+                OtherOwner->OnComponentBeginOverlap.Broadcast(Comp, this);
+            }
             
             if (bBlockComponent)
             {
