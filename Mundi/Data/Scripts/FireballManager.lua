@@ -51,7 +51,7 @@ function BeginPlay()
 
         -- 최대 개수 조절
         if CurrentFireNumber >= MaxFireNumber then
-            print("Full")
+            -- print("Full")
             return false
         end
         

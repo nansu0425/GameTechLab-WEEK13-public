@@ -4,6 +4,7 @@ function BeginPlay()
     
     -- A = GetComponent(Obj, "USpotLightComponent")
     -- A.Intensity = 2
+    print(Obj.Tag)
 end
 
 function EndPlay()
@@ -11,10 +12,20 @@ function EndPlay()
 end
 
 function OnOverlap(OtherActor)
-    -- if (OtherActor == fireball)
-    --     delete (Obj)
-    print("onoverlap")
-    Obj.Location.Z = Obj.Location.Z-5
+    if not OtherActor then
+        print("no other actor")
+        return
+    end
+    
+    if not OtherActor.Tag then
+        print("no tag actor")
+        return
+    end
+
+    if OtherActor.Tag == "fireball" then
+        print("onoverlap")
+    end
+    -- Obj.Location.Z = Obj.Location.Z-5
     -- if OtherActor.Name == "FireBallActor" then
     --     local hitPos = OtherActor.Location
     --     local tileSize = Obj.TileSize
@@ -33,6 +44,5 @@ function OnOverlap(OtherActor)
 end
 
 function Tick(dt)
-    Obj.Location = Obj.Location + Obj.Velocity * dt
-    print("[Tick] ??")
+    -- Obj.Location = Obj.Location + Obj.Velocity * dt
 end

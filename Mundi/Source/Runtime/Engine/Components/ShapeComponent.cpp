@@ -67,6 +67,12 @@ void UShapeComponent::UpdateOverlaps()
             AActor* Owner = this->GetOwner();
             AActor* OtherOwner = Other->GetOwner();
 
+            /*if (Owner && Owner->GetTag() == "fireball"
+                && OtherOwner && OtherOwner->GetTag() == "Tile")
+            {
+                continue;
+            }*/
+
             if (Owner && Owner->GetTag() == "Tile"
                 && OtherOwner && OtherOwner->GetTag() == "Tile")
             {

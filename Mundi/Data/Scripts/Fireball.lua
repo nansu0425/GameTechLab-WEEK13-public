@@ -1,6 +1,6 @@
 function BeginPlay()
     print("[BeginPlay] " .. Obj.UUID)
-
+    print(Obj.Tag)
     Obj.Velocity = Vector(0,0, -10) 
     Obj.bIsActive = true
 end

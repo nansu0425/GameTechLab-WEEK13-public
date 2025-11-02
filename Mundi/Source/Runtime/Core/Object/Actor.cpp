@@ -42,6 +42,7 @@ void AActor::BeginPlay()
 	LuaGameObject->GetLocation();
 	LuaGameObject->GetRotation();
 	LuaGameObject->GetScale();
+	LuaGameObject->GetTag();
 	LuaGameObject->Velocity = FVector(10, 0, 0);
 	
 	// 컴포넌트들 Initialize/BeginPlay 순회

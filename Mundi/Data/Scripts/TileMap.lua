@@ -5,7 +5,6 @@ function BeginPlay()
 end
 
 function GenerateGrid()
-    math.randomseed(os.time())
     local possibleRotations = {0, 90, 180, 270}
 
     local tileSize = 2
@@ -35,13 +34,13 @@ function EndPlay()
 end
 
 function OnOverlap(OtherActor)
-    if OtherActor.Tag == "Fire"
+    -- if OtherActor.Tag == "Fire"
         
     --[[Obj:PrintLocation()]]--
 end
 
 function Tick(dt)
-    Obj.Rotation = Obj.Rotation + Obj.Velocity * dt
+    -- Obj.Rotation = Obj.Rotation + Obj.Velocity * dt
     -- print("Rotation" .. Obj.Rotation.X .. Obj.Rotation.Y .. Obj.Rotation.Z)
     -- Obj.Location = Obj.Location + Obj.Velocity * dt
 end
