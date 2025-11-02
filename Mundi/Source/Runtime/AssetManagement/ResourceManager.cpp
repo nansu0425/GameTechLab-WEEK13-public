@@ -433,13 +433,10 @@ void UResourceManager::CreateDefaultMaterial()
     DefaultMaterialInstance = NewObject<UMaterial>();
     // 2. 엔진이 사용할 고유 경로(이름) 설정
     FString ShaderPath = "Shaders/Materials/UberLit.hlsl";
-    TArray<FShaderMacro> DefaultMacros;
-    DefaultMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" });
-    UShader* DefaultShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath, DefaultMacros);
-    FString NewName = ShaderPath + "_" + UShader::GenerateShaderKey(DefaultMacros);
+    UShader* DefaultShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath);
+    FString NewName = ShaderPath;
     DefaultMaterialInstance->SetMaterialName(NewName);
     DefaultMaterialInstance->SetShader(DefaultShader);
-    DefaultMaterialInstance->SetShaderMacros(DefaultMacros);
 
     // (참고: UMaterial에 SetMaterialName 같은 함수가 없다면 MaterialInfo.MaterialName을 직접 설정)
     // DefaultMaterialInstance->GetMaterialInfo().MaterialName = DefaultMaterialName;

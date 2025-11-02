@@ -8,8 +8,8 @@ public:
     ~URenderSettings() = default;
 
     // View mode
-    void SetViewModeIndex(EViewModeIndex In) { ViewModeIndex = In; }
-    EViewModeIndex GetViewModeIndex() const { return ViewModeIndex; }
+    void SetViewMode(EViewMode In) { ViewMode = In; }
+    EViewMode GetViewMode() const { return ViewMode; }
 
     // Show flags
     EEngineShowFlags GetShowFlags() const { return ShowFlags; }
@@ -42,7 +42,7 @@ public:
 
 private:
     EEngineShowFlags ShowFlags = EEngineShowFlags::SF_DefaultEnabled;
-    EViewModeIndex ViewModeIndex = EViewModeIndex::VMI_Lit_Phong;
+    EViewMode ViewMode = EViewMode::VMI_Lit_Phong;
 
     // FXAA parameters
     float FXAAEdgeThresholdMin = 0.0833f;   // 엣지 감지 최소 휘도 차이 (권장: 0.0833)

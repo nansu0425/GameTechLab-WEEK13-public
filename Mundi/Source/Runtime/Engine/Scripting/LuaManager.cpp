@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "LuaManager.h"
+#include "GameObject.h"
 
 FLuaManager::FLuaManager()
 {
@@ -25,9 +26,10 @@ FLuaManager::FLuaManager()
 
     Lua->new_usertype<FGameObject>("GameObject",
         "UUID", &FGameObject::UUID,
-        "Location", &FGameObject::Location,
+        "Location", sol::property(&FGameObject::GetLocation, &FGameObject::SetLocation),
+        "Rotation", sol::property(&FGameObject::GetRotation, &FGameObject::SetRotation), 
+        "Scale", sol::property(&FGameObject::GetScale, &FGameObject::SetScale),
         "Velocity", &FGameObject::Velocity,
-        "Scale", &FGameObject::Scale,
         "PrintLocation", &FGameObject::PrintLocation
     );
     
@@ -66,8 +68,36 @@ FLuaManager::FLuaManager()
             return NewObject;
         }
     ));
+
+    SharedLib.set_function("Vector", sol::overload(
+       []() { return FVector(0.0f, 0.0f, 0.0f); },
+       [](float x, float y, float z) { return FVector(x, y, z); }
+   ));
     
-     
+    // FVector usertype 등록 (메서드와 프로퍼티)
+    SharedLib.new_usertype<FVector>("FVector",
+        sol::no_constructor,  // 생성자는 위에서 Vector 함수로 등록했음
+        // Properties
+        "X", &FVector::X,
+        "Y", &FVector::Y,
+        "Z", &FVector::Z,
+        // Operators
+        sol::meta_function::addition, [](const FVector& a, const FVector& b) -> FVector {
+            return FVector(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
+        },
+        sol::meta_function::subtraction, [](const FVector& a, const FVector& b) -> FVector {
+            return FVector(a.X - b.X, a.Y - b.Y, a.Z - b.Z);
+        },
+        sol::meta_function::multiplication, sol::overload(
+            [](const FVector& v, float f) -> FVector { return v * f; },
+            [](float f, const FVector& v) -> FVector { return v * f; }
+        ),
+        // Methods
+        "Length", &FVector::Distance,
+        "Normalize", &FVector::Normalize,
+        "Dot", [](const FVector& a, const FVector& b) { return FVector::Dot(a, b); },
+        "Cross", [](const FVector& a, const FVector& b) { return FVector::Cross(a, b); }
+    );
     RegisterComponentProxy(*Lua);
     ExposeAllComponentsToLua();
 

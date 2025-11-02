@@ -4,6 +4,7 @@
 #include <sol/state.hpp>
 #include <sol/coroutine.hpp>
 #include "../Scripting/LuaManager.h"
+#include "../Scripting/GameObject.h"
 
 IMPLEMENT_CLASS(ULuaScriptComponent)
 
@@ -12,7 +13,11 @@ BEGIN_PROPERTIES(ULuaScriptComponent)
 	ADD_PROPERTY_SCRIPT(FString, ScriptFilePath, "Script", ".lua", true, "Lua Script 파일 경로")
 END_PROPERTIES()
 
-ULuaScriptComponent::ULuaScriptComponent() {}
+ULuaScriptComponent::ULuaScriptComponent()
+{
+	bCanEverTick = true;	// tick 지원 여부
+}
+
 ULuaScriptComponent::~ULuaScriptComponent() { Lua = nullptr; }
 
 void ULuaScriptComponent::BeginPlay()
@@ -32,7 +37,6 @@ void ULuaScriptComponent::BeginPlay()
 	Env = LuaVM->CreateEnvironment();
 
 	FGameObject* Obj = Owner->GetGameObject();
-	Obj->SetOwner(GetOwner());
 	Env["Obj"] = Obj;
 
 	Env["StartCoroutine"] = [LuaVM, this](sol::function f) {

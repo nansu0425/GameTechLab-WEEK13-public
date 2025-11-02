@@ -42,7 +42,8 @@ class UShader : public UResourceBase
 public:
 	DECLARE_CLASS(UShader, UResourceBase)
 
-	static FString GenerateShaderKey(const TArray<FShaderMacro>& InMacros);
+	static uint64 GenerateShaderKey(const TArray<FShaderMacro>& InMacros);
+	static FString GenerateMacrosToString(const TArray<FShaderMacro>& InMacros);	// UI 출력 or 디버깅용
 
 	void Load(const FString& ShaderPath, ID3D11Device* InDevice, const TArray<FShaderMacro>& InMacros = TArray<FShaderMacro>());
 
@@ -62,7 +63,7 @@ protected:
 	virtual ~UShader();
 
 private:
-	TMap<FString, FShaderVariant> ShaderVariantMap;
+	TMap<uint64, FShaderVariant> ShaderVariantMap;
 
 	// Store included files (e.g., "Shaders/Common/LightingCommon.hlsl")
 	// Used for hot reload - if any included file changes, reload this shader

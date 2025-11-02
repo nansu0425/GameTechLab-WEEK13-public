@@ -84,10 +84,9 @@ void FSceneRenderer::Render()
 	TIME_PROFILE_END(ShadowMapPass)
 	
 	// ViewMode에 따라 렌더링 경로 결정
-	if (View->ViewMode == EViewModeIndex::VMI_Lit ||
-		View->ViewMode == EViewModeIndex::VMI_Lit_Gouraud ||
-		View->ViewMode == EViewModeIndex::VMI_Lit_Lambert ||
-		View->ViewMode == EViewModeIndex::VMI_Lit_Phong)
+	if (View->RenderSettings->GetViewMode() == EViewMode::VMI_Lit_Phong ||
+		View->RenderSettings->GetViewMode() == EViewMode::VMI_Lit_Gouraud ||
+		View->RenderSettings->GetViewMode() == EViewMode::VMI_Lit_Lambert)
 	{
 		GWorld->GetLightManager()->UpdateLightBuffer(RHIDevice);	//라이트 구조체 버퍼 업데이트, 바인딩
 		PerformTileLightCulling();	// 타일 기반 라이트 컬링 수행
@@ -95,19 +94,19 @@ void FSceneRenderer::Render()
 		RenderPostProcessingPasses();	// 후처리 체인 실행
 		RenderTileCullingDebug();	// 타일 컬링 디버그 시각화 draw
 	}
-	else if (View->ViewMode == EViewModeIndex::VMI_Unlit)
+	else if (View->RenderSettings->GetViewMode() == EViewMode::VMI_Unlit)
 	{
 		RenderLitPath();	// Unlit 모드는 조명 없이 렌더링
 	}
-	else if (View->ViewMode == EViewModeIndex::VMI_WorldNormal)
+	else if (View->RenderSettings->GetViewMode() == EViewMode::VMI_WorldNormal)
 	{
 		RenderLitPath();	// World Normal 시각화 모드
 	}
-	else if (View->ViewMode == EViewModeIndex::VMI_Wireframe)
+	else if (View->RenderSettings->GetViewMode() == EViewMode::VMI_Wireframe)
 	{
 		RenderWireframePath();
 	}
-	else if (View->ViewMode == EViewModeIndex::VMI_SceneDepth)
+	else if (View->RenderSettings->GetViewMode() == EViewMode::VMI_SceneDepth)
 	{
 		RenderSceneDepthPath();
 	}
@@ -135,7 +134,7 @@ void FSceneRenderer::RenderLitPath()
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithId);
 
 	// Base Pass
-	RenderOpaquePass(View->ViewMode);
+	RenderOpaquePass(View->RenderSettings->GetViewMode());
 	RenderDecalPass();
 }
 
@@ -144,13 +143,13 @@ void FSceneRenderer::RenderWireframePath()
 	// 깊이 버퍼 초기화 후 ID만 그리기
 	RHIDevice->RSSetState(ERasterizerMode::Solid);
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneIdTarget);
-	RenderOpaquePass(EViewModeIndex::VMI_Unlit);
+	RenderOpaquePass(EViewMode::VMI_Unlit);
 
 	// Wireframe으로 그리기
 	RHIDevice->ClearDepthBuffer(1.0f, 0);
 	RHIDevice->RSSetState(ERasterizerMode::Wireframe);
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTarget);
-	RenderOpaquePass(EViewModeIndex::VMI_Unlit);
+	RenderOpaquePass(EViewMode::VMI_Unlit);
 
 	// 상태 복구
 	RHIDevice->RSSetState(ERasterizerMode::Solid);
@@ -179,7 +178,7 @@ void FSceneRenderer::RenderSceneDepthPath()
 	RHIDevice->ClearDepthBuffer(1.0f, 0);
 
 	// 2. Base Pass - Scene에 메시 그리기
-	RenderOpaquePass(EViewModeIndex::VMI_Unlit);
+	RenderOpaquePass(EViewMode::VMI_Unlit);
 
 	// ✅ 디버그: BackBuffer 전환 전 viewport 확인
 	RHIDevice->GetDeviceContext()->RSGetViewports(&numVP, &vpBefore);
@@ -825,7 +824,7 @@ void FSceneRenderer::PerformFrustumCulling()
 	//}
 }
 
-void FSceneRenderer::RenderOpaquePass(EViewModeIndex InRenderViewMode)
+void FSceneRenderer::RenderOpaquePass(EViewMode InRenderViewMode)
 {
 	// --- 1. 수집 (Collect) ---
 	MeshBatchElements.Empty();
@@ -858,7 +857,7 @@ void FSceneRenderer::RenderDecalPass()
 		return;
 
 	// WorldNormal 모드에서는 Decal 렌더링 스킵
-	if (View->ViewMode == EViewModeIndex::VMI_WorldNormal)
+	if (View->RenderSettings->GetViewMode() == EViewMode::VMI_WorldNormal)
 		return;
 
 	UWorldPartitionManager* Partition = World->GetPartitionManager();
@@ -873,36 +872,12 @@ void FSceneRenderer::RenderDecalPass()
 	FDecalStatManager::GetInstance().AddVisibleDecalCount(Proxies.Decals.Num());	// 그릴 Decal 개수 수집
 
 	// ViewMode에 따라 조명 모델 매크로 설정
-	TArray<FShaderMacro> ShaderMacros;
 	FString ShaderPath = "Shaders/Effects/Decal.hlsl";
 
-	switch (View->ViewMode)
-	{
-	case EViewModeIndex::VMI_Lit_Phong:
-		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" });
-		break;
-	case EViewModeIndex::VMI_Lit_Gouraud:
-		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_GOURAUD", "1" });
-		break;
-	case EViewModeIndex::VMI_Lit_Lambert:
-		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_LAMBERT", "1" });
-		break;
-	case EViewModeIndex::VMI_Lit:
-		// 기본 Lit 모드는 Phong 사용
-		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" });
-		break;
-	case EViewModeIndex::VMI_Unlit:
-		// 매크로 없음 (Unlit)
-		break;
-	default:
-		// 기타 ViewMode는 매크로 없음
-		break;
-	}
-
 	// ViewMode에 따른 Decal 셰이더 로드
-	UShader* DecalShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath, ShaderMacros);
-	FShaderVariant* ShaderVariant = DecalShader->GetOrCompileShaderVariant(ShaderMacros);
-	if (!DecalShader)
+	UShader* DecalShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath, View->ViewShaderMacros);
+	FShaderVariant* ShaderVariant = DecalShader->GetOrCompileShaderVariant(View->ViewShaderMacros);
+	if (!DecalShader || !ShaderVariant)
 	{
 		UE_LOG("RenderDecalPass: Failed to load Decal shader with ViewMode macros!");
 		return;
