@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "Shader.h"
 
 IMPLEMENT_CLASS(UShader)
@@ -101,7 +101,7 @@ void UShader::Load(const FString& InShaderPath, ID3D11Device* InDevice, const TA
 
 	// 2. 실제 컴파일/가져오기 로직은 GetOrCompileShaderVariant에 위임
 	// (이 함수는 InMacros에 대한 Variant가 맵에 없으면 컴파일하고 추가함)
-	GetOrCompileShaderVariant(InDevice, InMacros);
+	GetOrCompileShaderVariant(InMacros);
 }
 
 /**
@@ -114,9 +114,9 @@ void UShader::Load(const FString& InShaderPath, ID3D11Device* InDevice, const TA
  * @param InMacros 컴파일(또는 검색)할 매크로 배열
  * @return FShaderVariant 포인터 (성공 시) 또는 nullptr (실패 시)
  */
-FShaderVariant* UShader::GetOrCompileShaderVariant(ID3D11Device* InDevice, const TArray<FShaderMacro>& InMacros)
+FShaderVariant* UShader::GetOrCompileShaderVariant(const TArray<FShaderMacro>& InMacros)
 {
-	assert(InDevice);
+	ID3D11Device* InDevice = GEngine.GetRHIDevice()->GetDevice();
 
 	// 이 UShader 객체가 어떤 파일인지 알아야 컴파일 가능
 	if (FilePath.empty())
@@ -245,15 +245,15 @@ bool UShader::CompileVariantInternal(ID3D11Device* InDevice, const FString& InSh
 	return bVsCompiled || bPsCompiled;
 }
 
-FShaderVariant* UShader::GetShaderVariant(const TArray<FShaderMacro>& InMacros)
-{
-	FString Key = GenerateShaderKey(InMacros);
-	return ShaderVariantMap.Find(Key);
-}
+//FShaderVariant* UShader::GetShaderVariant(const TArray<FShaderMacro>& InMacros)
+//{
+//	FString Key = GenerateShaderKey(InMacros);
+//	return ShaderVariantMap.Find(Key);
+//}
 
 ID3D11InputLayout* UShader::GetInputLayout(const TArray<FShaderMacro>& InMacros)
 {
-	FShaderVariant* Variant = GetShaderVariant(InMacros);
+	FShaderVariant* Variant = GetOrCompileShaderVariant(InMacros);
 	if (Variant)
 	{
 		return Variant->InputLayout;
@@ -263,7 +263,7 @@ ID3D11InputLayout* UShader::GetInputLayout(const TArray<FShaderMacro>& InMacros)
 
 ID3D11VertexShader* UShader::GetVertexShader(const TArray<FShaderMacro>& InMacros)
 {
-	FShaderVariant* Variant = GetShaderVariant(InMacros);
+	FShaderVariant* Variant = GetOrCompileShaderVariant(InMacros);
 	if (Variant)
 	{
 		return Variant->VertexShader;
@@ -273,7 +273,7 @@ ID3D11VertexShader* UShader::GetVertexShader(const TArray<FShaderMacro>& InMacro
 
 ID3D11PixelShader* UShader::GetPixelShader(const TArray<FShaderMacro>& InMacros)
 {
-	FShaderVariant* Variant = GetShaderVariant(InMacros);
+	FShaderVariant* Variant = GetOrCompileShaderVariant(InMacros);
 	if (Variant)
 	{
 		return Variant->PixelShader;

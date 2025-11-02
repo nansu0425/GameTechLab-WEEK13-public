@@ -46,9 +46,9 @@ public:
 
 	void Load(const FString& ShaderPath, ID3D11Device* InDevice, const TArray<FShaderMacro>& InMacros = TArray<FShaderMacro>());
 
-	FShaderVariant* GetOrCompileShaderVariant(ID3D11Device* InDevice, const TArray<FShaderMacro>& InMacros = TArray<FShaderMacro>());
+	FShaderVariant* GetOrCompileShaderVariant(const TArray<FShaderMacro>& InMacros = TArray<FShaderMacro>());
 	bool CompileVariantInternal(ID3D11Device* InDevice, const FString& InShaderPath, const TArray<FShaderMacro>& InMacros, FShaderVariant& OutVariant);
-	FShaderVariant* GetShaderVariant(const TArray<FShaderMacro>& InMacros = TArray<FShaderMacro>());
+	//FShaderVariant* GetShaderVariant(const TArray<FShaderMacro>& InMacros = TArray<FShaderMacro>());
 	ID3D11InputLayout* GetInputLayout(const TArray<FShaderMacro>& InMacros = TArray<FShaderMacro>());
 	ID3D11VertexShader* GetVertexShader(const TArray<FShaderMacro>& InMacros = TArray<FShaderMacro>());
 	ID3D11PixelShader* GetPixelShader(const TArray<FShaderMacro>& InMacros = TArray<FShaderMacro>());

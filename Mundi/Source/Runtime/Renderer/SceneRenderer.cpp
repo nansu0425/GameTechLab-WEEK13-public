@@ -422,14 +422,14 @@ void FSceneRenderer::RenderShadowDepthPass(FShadowRenderRequest& ShadowRequest, 
 	UShader* DepthVS = UResourceManager::GetInstance().Load<UShader>("Shaders/Shadows/DepthOnly_VS.hlsl");
 	if (!DepthVS || !DepthVS->GetVertexShader()) return;
 
-	FShaderVariant* ShaderVariant = DepthVS->GetOrCompileShaderVariant(RHIDevice->GetDevice());
+	FShaderVariant* ShaderVariant = DepthVS->GetOrCompileShaderVariant();
 	if (!ShaderVariant) return;
 
 	// vsm용 픽셀 셰이더
 	UShader* DepthPs = UResourceManager::GetInstance().Load<UShader>("Shaders/Shadows/DepthOnly_PS.hlsl");
 	if (!DepthPs || !DepthPs->GetPixelShader()) return;
 
-	FShaderVariant* ShaderVarianVSM = DepthPs->GetOrCompileShaderVariant(RHIDevice->GetDevice());
+	FShaderVariant* ShaderVarianVSM = DepthPs->GetOrCompileShaderVariant();
 	if (!ShaderVarianVSM) return;
 
 	// 2. 파이프라인 설정
@@ -807,85 +807,11 @@ void FSceneRenderer::PerformFrustumCulling()
 
 void FSceneRenderer::RenderOpaquePass(EViewModeIndex InRenderViewMode)
 {
-	TArray<FShaderMacro> ShaderMacros;
-	FString ShaderPath = "Shaders/Materials/UberLit.hlsl";
-	bool bNeedsShaderOverride = false; // 뷰 모드가 셰이더를 강제하는지 여부
-
-	switch (InRenderViewMode)
-	{
-	case EViewModeIndex::VMI_Lit:
-	case EViewModeIndex::VMI_Lit_Phong:
-		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" });
-		break;
-	case EViewModeIndex::VMI_Lit_Gouraud:
-		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_GOURAUD", "1" });
-		break;
-	case EViewModeIndex::VMI_Lit_Lambert:
-		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_LAMBERT", "1" });
-		break;
-	case EViewModeIndex::VMI_Unlit:
-		// 매크로 없음 (Unlit)
-		break;
-	case EViewModeIndex::VMI_WorldNormal:
-		ShaderMacros.push_back(FShaderMacro{ "VIEWMODE_WORLD_NORMAL", "1" });
-		break;
-	default:
-		// 셰이더를 강제하지 않는 모드는 여기서 처리 가능
-		bNeedsShaderOverride = false;
-		break;
-	}
-
-	// 그림자 AA 설정
-	URenderSettings& RenderSettings = GWorld->GetRenderSettings();
-	if (RenderSettings.IsShowFlagEnabled(EEngineShowFlags::SF_ShadowAntiAliasing))
-	{
-		EShadowAATechnique Technique = RenderSettings.GetShadowAATechnique();
-		if (Technique == EShadowAATechnique::PCF)
-		{
-			ShaderMacros.Add(FShaderMacro("SHADOW_AA_TECHNIQUE", "1")); // 1 = PCF
-		}
-		else if (Technique == EShadowAATechnique::VSM)
-		{
-			ShaderMacros.Add(FShaderMacro("SHADOW_AA_TECHNIQUE", "2")); // 2 = VSM
-		}
-	}
-	else
-	{
-		ShaderMacros.Add(FShaderMacro("SHADOW_AA_TECHNIQUE", "0")); // 0 = Hard Shadow (AA 끔)
-	}
-
-	// ViewMode에 맞는 셰이더 로드 (셰이더 오버라이드가 필요한 경우에만)
-	FShaderVariant* ShaderVariant = nullptr;
-	UShader* ViewModeShader = nullptr;
-	if (bNeedsShaderOverride)
-	{
-		ViewModeShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath);
-		ShaderVariant = ViewModeShader->GetOrCompileShaderVariant(RHIDevice->GetDevice(), ShaderMacros);
-		if (!ShaderVariant)
-		{
-			// 필요시 기본 셰이더로 대체하거나 렌더링 중단
-			UE_LOG("RenderOpaquePass: Failed to load ViewMode shader: %s", ShaderPath.c_str());
-			return;
-		}
-	}
-
 	// --- 1. 수집 (Collect) ---
 	MeshBatchElements.Empty();
 	for (UMeshComponent* MeshComponent : Proxies.Meshes)
 	{
 		MeshComponent->CollectMeshBatches(MeshBatchElements, View);
-	}
-
-	// --- UMeshComponent 셰이더 오버라이드 ---
-	if (bNeedsShaderOverride && ShaderVariant)
-	{
-		// 수집된 UMeshComponent 배치 요소의 셰이더를 ViewModeShader로 강제 변경
-		for (FMeshBatchElement& BatchElement : MeshBatchElements)
-		{
-			BatchElement.VertexShader = ShaderVariant->VertexShader;
-			BatchElement.PixelShader = ShaderVariant->PixelShader;
-			BatchElement.InputLayout = ShaderVariant->InputLayout;
-		}
 	}
 
 	for (UBillboardComponent* BillboardComponent : Proxies.Billboards)
@@ -955,7 +881,7 @@ void FSceneRenderer::RenderDecalPass()
 
 	// ViewMode에 따른 Decal 셰이더 로드
 	UShader* DecalShader = UResourceManager::GetInstance().Load<UShader>(ShaderPath, ShaderMacros);
-	FShaderVariant* ShaderVariant = DecalShader->GetOrCompileShaderVariant(RHIDevice->GetDevice(), ShaderMacros);
+	FShaderVariant* ShaderVariant = DecalShader->GetOrCompileShaderVariant(ShaderMacros);
 	if (!DecalShader)
 	{
 		UE_LOG("RenderDecalPass: Failed to load Decal shader with ViewMode macros!");

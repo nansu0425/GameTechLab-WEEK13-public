@@ -25,7 +25,7 @@ public:
 	virtual UTexture* GetTexture(EMaterialTextureSlot Slot) const = 0;
 	virtual bool HasTexture(EMaterialTextureSlot Slot) const = 0;
 	virtual const FMaterialInfo& GetMaterialInfo() const = 0;
-	virtual const TArray<FShaderMacro>& GetShaderMacros() const = 0;
+	virtual const TArray<FShaderMacro> GetShaderMacros() const = 0;
 };
 
 
@@ -57,7 +57,7 @@ public:
 
 	void SetMaterialName(FString& InMaterialName) { MaterialInfo.MaterialName = InMaterialName; }
 
-	const TArray<FShaderMacro>& GetShaderMacros() const override { return ShaderMacro; };
+	const TArray<FShaderMacro> GetShaderMacros() const override;
 	void SetShaderMacros(const TArray<FShaderMacro>& InShaderMacro);
 
 protected:
@@ -91,7 +91,7 @@ public:
 	const FMaterialInfo& GetMaterialInfo() const override;
 	UMaterialInterface* GetParentMaterial() const { return ParentMaterial; }
 	
-	const TArray<FShaderMacro>& GetShaderMacros() const override;	// 이 인스턴스에 덮어쓴 매크로가 없다면 부모의 매크로를, 있다면 덮어쓴 매크로를 반환합니다.
+	const TArray<FShaderMacro> GetShaderMacros() const override;	// 이 인스턴스에 덮어쓴 매크로가 없다면 부모의 매크로를, 있다면 덮어쓴 매크로를 반환합니다.
 
 	const TMap<EMaterialTextureSlot, UTexture*>& GetOverriddenTextures() const { return OverriddenTextures; }	// 덮어쓴 텍스처 맵 반환 (저장 시 사용)
 	void SetTextureParameterValue(EMaterialTextureSlot Slot, UTexture* Value);	// 텍스처 파라미터 값을 런타임에 변경하는 함수 (실시간 수정 시 사용)

@@ -67,6 +67,61 @@ UShader* UMaterial::GetShader()
 	return Shader;
 }
 
+const TArray<FShaderMacro> UMaterial::GetShaderMacros() const
+{
+	TArray<FShaderMacro> ShaderMacros;
+
+	if (!GWorld)
+	{
+		return ShaderMacros;
+	}
+
+	URenderSettings& RenderSettings = GWorld->GetRenderSettings();
+
+	switch (RenderSettings.GetViewModeIndex())
+	{
+	case EViewModeIndex::VMI_Lit:
+	case EViewModeIndex::VMI_Lit_Phong:
+		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_PHONG", "1" });
+		break;
+	case EViewModeIndex::VMI_Lit_Gouraud:
+		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_GOURAUD", "1" });
+		break;
+	case EViewModeIndex::VMI_Lit_Lambert:
+		ShaderMacros.push_back(FShaderMacro{ "LIGHTING_MODEL_LAMBERT", "1" });
+		break;
+	case EViewModeIndex::VMI_Unlit:
+		// 매크로 없음 (Unlit)
+		break;
+	case EViewModeIndex::VMI_WorldNormal:
+		ShaderMacros.push_back(FShaderMacro{ "VIEWMODE_WORLD_NORMAL", "1" });
+		break;
+	default:
+		// 셰이더를 강제하지 않는 모드는 여기서 처리 가능
+		break;
+	}
+
+	// 그림자 AA 설정
+	if (RenderSettings.IsShowFlagEnabled(EEngineShowFlags::SF_ShadowAntiAliasing))
+	{
+		EShadowAATechnique Technique = RenderSettings.GetShadowAATechnique();
+		if (Technique == EShadowAATechnique::PCF)
+		{
+			ShaderMacros.Add(FShaderMacro("SHADOW_AA_TECHNIQUE", "1")); // 1 = PCF
+		}
+		else if (Technique == EShadowAATechnique::VSM)
+		{
+			ShaderMacros.Add(FShaderMacro("SHADOW_AA_TECHNIQUE", "2")); // 2 = VSM
+		}
+	}
+	else
+	{
+		ShaderMacros.Add(FShaderMacro("SHADOW_AA_TECHNIQUE", "0")); // 0 = Hard Shadow (AA 끔)
+	}
+
+	return ShaderMacros;
+}
+
 void UMaterial::SetShaderMacros(const TArray<FShaderMacro>& InShaderMacro)
 {
 	if (Shader)
@@ -445,7 +500,7 @@ const FMaterialInfo& UMaterialInstanceDynamic::GetMaterialInfo() const
 	return CachedMaterialInfo;
 }
 
-const TArray<FShaderMacro>& UMaterialInstanceDynamic::GetShaderMacros() const
+const TArray<FShaderMacro> UMaterialInstanceDynamic::GetShaderMacros() const
 {
 	if (ParentMaterial)
 	{
