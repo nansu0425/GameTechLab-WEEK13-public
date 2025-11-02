@@ -104,7 +104,7 @@ public:
     void UpdateUVScrollConstantBuffers(const FVector2D& Speed, float TimeSec);
 	
 	void IASetPrimitiveTopology();
-	void RSSetState(ERasterizerMode ViewModeIndex);
+	void RSSetState(ERasterizerMode ViewMode);
 	void RSSetViewport();
 
 	void OMSetBlendState(bool bIsBlendMode);

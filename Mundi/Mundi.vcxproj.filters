@@ -941,6 +941,9 @@
     <ClInclude Include="Source\Runtime\Core\Object\FireballActor.h">
       <Filter>Source\Runtime\Core\Object</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\Hash.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source">

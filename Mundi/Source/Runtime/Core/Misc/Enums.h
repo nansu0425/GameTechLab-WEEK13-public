@@ -311,14 +311,13 @@ enum class EVertexLayoutType : uint8
 };
 
 // 에디터에서 설정할 수 있는 디버깅용 뷰 모드
-enum class EViewModeIndex : uint32
+enum class EViewMode : uint32
 {
     None,
 
-    VMI_Lit,                // 기본 Phong 조명 모드
-    VMI_Lit_Gouraud,        // [Shader override] Gouraud 조명 (Per-Vertex)
-    VMI_Lit_Lambert,        // [Shader override] Lambert 조명 (Per-Pixel Diffuse)
-    VMI_Lit_Phong,          // [Shader override] Phong 조명 (Per-Pixel Full)
+    VMI_Lit_Phong,          // Phong 조명 (Per-Pixel Full)
+    VMI_Lit_Gouraud,        // Gouraud 조명 (Per-Vertex)
+    VMI_Lit_Lambert,        // Lambert 조명 (Per-Pixel Diffuse)
     VMI_Unlit,              // 조명 없음
     VMI_WorldNormal,        // World Normal 시각화
     VMI_Wireframe,          // 와이어프레임

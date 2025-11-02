@@ -103,7 +103,7 @@ void FViewportClient::Draw(FViewport* Viewport)
 	URenderer* Renderer = URenderManager::GetInstance().GetRenderer();
 	if (Renderer)
 	{
-		World->GetRenderSettings().SetViewModeIndex(ViewModeIndex);
+		World->GetRenderSettings().SetViewMode(ViewMode);
 
 		// 더 명확한 이름의 함수를 호출
 		Renderer->RenderSceneForView(World, Camera, Viewport);

@@ -44,9 +44,9 @@ public:
 
     // 뷰포트별 카메라 설정
     void SetupCameraMode();
-    void SetViewModeIndex(EViewModeIndex InViewModeIndex) { ViewModeIndex = InViewModeIndex; }
+    void SetViewMode(EViewMode InViewModeIndex) { ViewMode = InViewModeIndex; }
 
-    EViewModeIndex GetViewModeIndex() { return ViewModeIndex;}
+    EViewMode GetViewMode() { return ViewMode;}
 
 
 protected:
@@ -65,7 +65,7 @@ protected:
     uint32  OrthographicAddYPosition;
     float OrthographicZoom = 30.0f;
     //뷰모드
-    EViewModeIndex ViewModeIndex = EViewModeIndex::VMI_Lit;
+    EViewMode ViewMode = EViewMode::VMI_Lit_Phong;
 
     //원근 투영 기본값
     bool PerspectiveCameraInput = false;

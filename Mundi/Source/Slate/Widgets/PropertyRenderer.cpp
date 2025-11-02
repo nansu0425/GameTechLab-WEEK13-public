@@ -962,7 +962,7 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterialInt
 		ImGui::EndDisabled();
 
 		// --- 셰이더 매크로 (읽기 전용) ---
-		FString MacroKey = UShader::GenerateShaderKey(CurrentMaterial->GetShaderMacros());
+		FString MacroKey = UShader::GenerateMacrosToString(CurrentMaterial->GetShaderMacros());
 		char ShaderMacroBuffer[512];
 		strncpy_s(ShaderMacroBuffer, sizeof(ShaderMacroBuffer), MacroKey.c_str(), _TRUNCATE);
 		FString ShaderMacroKeyLabel = "MacroKey##" + FString(Label);

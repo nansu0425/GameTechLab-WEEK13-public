@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "Shader.h"
+#include "Hash.h"
 
 IMPLEMENT_CLASS(UShader)
 
@@ -51,7 +52,38 @@ UShader::~UShader()
 	ReleaseResources();
 }
 
-FString UShader::GenerateShaderKey(const TArray<FShaderMacro>& InMacros)
+uint64 UShader::GenerateShaderKey(const TArray<FShaderMacro>& InMacros)
+{
+	// 1. TMap을 사용해 중복 제거
+	TMap<FName, FName> UniqueMacroMap;
+	for (const FShaderMacro& Macro : InMacros)
+	{
+		UniqueMacroMap.Add(Macro.Name, Macro.Definition);
+	}
+
+	// 2. 안정적인(Stable) 해시를 위해 키를 정렬
+	TArray<FName> SortedNames;
+	SortedNames = UniqueMacroMap.GetKeys();
+	SortedNames.Sort([](const FName& A, const FName& B)
+		{
+			return A.ComparisonIndex < B.ComparisonIndex;
+		});
+
+	// 3. FName의 해시를 조합하여 최종 키 해시 생성
+	// (FName의 GetTypeHash()는 내부적으로 정수 인덱스를 사용하므로 매우 빠릅니다.)
+	size_t KeyHash = 0;
+	for (const FName& Name : SortedNames)
+	{
+		const FName& Definition = UniqueMacroMap[Name];
+
+		KeyHash = HashCombine(KeyHash, GetTypeHash(Name));
+		KeyHash = HashCombine(KeyHash, GetTypeHash(Definition));
+	}
+
+	return KeyHash;
+}
+
+FString UShader::GenerateMacrosToString(const TArray<FShaderMacro>& InMacros)
 {
 	// 매크로 순서가 달라도 동일한 키를 생성하기 위해 정렬합니다.
 	TArray<FShaderMacro> SortedMacros = InMacros;
@@ -126,7 +158,7 @@ FShaderVariant* UShader::GetOrCompileShaderVariant(const TArray<FShaderMacro>& I
 	}
 
 	// 1. 매크로 배열을 기반으로 고유 키 생성
-	FString Key = GenerateShaderKey(InMacros);
+	uint64 Key = GenerateShaderKey(InMacros);
 
 	// 2. 맵에 이미 컴파일된 Variant가 있는지 확인
 	if (FShaderVariant* Found = ShaderVariantMap.Find(Key))
@@ -148,7 +180,7 @@ FShaderVariant* UShader::GetOrCompileShaderVariant(const TArray<FShaderMacro>& I
 	}
 
 	// 5. 컴파일 실패
-	UE_LOG("GetOrCompileShaderVariant: Failed to compile variant for key '%s'", Key.c_str());
+	UE_LOG("GetOrCompileShaderVariant: Failed to compile variant for key '%s'", GenerateMacrosToString(InMacros));
 
 	// 컴파일에 실패했더라도, 향후 동일한 요청이 왔을 때
 	// 다시 컴파일을 시도하지 않도록 '비어있는' Variant를 맵에 추가할 수 있습니다.
@@ -382,14 +414,14 @@ bool UShader::Reload(ID3D11Device* InDevice)
 
 	// 2. [백업] 현재 맵을 Old 맵으로 이동시킵니다.
 	// (ShaderVariantMap은 이제 비어있습니다)
-	TMap<FString, FShaderVariant> OldShaderVariantMap = std::move(ShaderVariantMap);
+	TMap<uint64, FShaderVariant> OldShaderVariantMap = std::move(ShaderVariantMap);
 
 	bool bAllReloadsSuccessful = true;
 
 	// 3. [재시도] Old 맵에 있던 모든 Variant에 대해 Load를 다시 호출합니다.
 	for (auto& Pair : OldShaderVariantMap)
 	{
-		const FString& Key = Pair.first;
+		const uint64 Key = Pair.first;
 		const TArray<FShaderMacro>& MacrosToReload = Pair.second.SourceMacros;
 
 		// Load() 함수는 (이제 비어있는) ShaderVariantMap에
@@ -403,7 +435,7 @@ bool UShader::Reload(ID3D11Device* InDevice)
 		{
 			// 하나라도 컴파일에 실패하면 전체 핫 리로드는 실패로 간주
 			bAllReloadsSuccessful = false;
-			UE_LOG("Hot Reload Failed for variant: %s", Key.c_str());
+			UE_LOG("Hot Reload Failed for variant: %s", GenerateMacrosToString(MacrosToReload));
 		}
 	}
 

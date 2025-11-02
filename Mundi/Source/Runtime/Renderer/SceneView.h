@@ -29,11 +29,12 @@ class FSceneView
 {
 public:
     // 메인 뷰(카메라)를 위한 생성자
-    FSceneView(ACameraActor* InCamera, FViewport* InViewport, EViewModeIndex InViewMode);
+    FSceneView(ACameraActor* InCamera, FViewport* InViewport, URenderSettings* InRenderSettings);
 
-    // TODO: 섀도우 맵(광원) 등을 위한 생성자 추가
-    // FSceneView(ALightActor* InLight, FTexture* RenderTarget);
+private:
+    TArray<FShaderMacro> CreateViewShaderMacros();
 
+public:
     // 렌더링 데이터
     FMatrix ViewMatrix{};
     FMatrix ProjectionMatrix{};
@@ -43,9 +44,10 @@ public:
 
     UCameraComponent* Camera;
     FViewport* Viewport;
+    URenderSettings* RenderSettings;
 
     // 렌더링 설정
-	EViewModeIndex ViewMode = EViewModeIndex::VMI_Lit_Phong;
     ECameraProjectionMode ProjectionMode = ECameraProjectionMode::Perspective;
+    TArray<FShaderMacro> ViewShaderMacros;
     float ZNear{}, ZFar{};
 };
