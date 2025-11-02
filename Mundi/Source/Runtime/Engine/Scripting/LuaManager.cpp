@@ -5,7 +5,14 @@ FLuaManager::FLuaManager()
 {
     Lua = new sol::state();
 
-    Lua->open_libraries(sol::lib::base, sol::lib::coroutine);
+    // Open essential standard libraries for gameplay scripts
+    Lua->open_libraries(
+        sol::lib::base,
+        sol::lib::coroutine,
+        sol::lib::math,
+        sol::lib::table,
+        sol::lib::string
+    );
 
     Lua->new_usertype<FVector>("Vector",
         sol::constructors<FVector(), FVector(float, float, float)>(),
@@ -59,6 +66,8 @@ FLuaManager::FLuaManager()
             return NewObject;
         }
     ));
+    
+     
     RegisterComponentProxy(*Lua);
     ExposeAllComponentsToLua();
 
