@@ -42,7 +42,6 @@ public:
     void SetHiddenInGame(bool bInHidden) { bHiddenInGame = bInHidden; }
     bool GetHiddenInGame() const { return bHiddenInGame; }
 
-    void SetCanEverTick(bool b) { bCanEverTick = b; }
     bool CanEverTick() const { return bCanEverTick; }
 
     bool IsComponentTickEnabled() const

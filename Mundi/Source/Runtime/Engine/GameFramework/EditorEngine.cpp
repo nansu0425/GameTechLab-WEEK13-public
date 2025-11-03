@@ -361,21 +361,13 @@ void UEditorEngine::StartPIE()
         // NOTE: PIE 시작 후에는 액터 생성 시 직접 불러줘야 됨
         Actor->BeginPlay();
     }
+
+    // NOTE: BeginPlay 중에 삭제된 액터 삭제 후 Tick 시작
+    GWorld->ProcessPendingKillActors();
 }
 
 void UEditorEngine::EndPIE()
 {
+    // 지연 종료 처리 (UEditorEngine::MainLoop에서 종료 처리됨)
     bChangedPieToEditor = true;
-
-    /*if (GWorld && bPIEActive)
-    {
-        WorldContexts.pop_back();
-        ObjectFactory::DeleteObject(GWorld);
-    }
-
-    GWorld = WorldContexts[0].World;
-    SLATE.SetWorld(GWorld);
-
-    bPIEActive = false;
-    UE_LOG("END PIE CLICKED");*/
 }

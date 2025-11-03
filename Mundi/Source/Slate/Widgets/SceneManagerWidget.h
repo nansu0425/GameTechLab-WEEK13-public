@@ -98,9 +98,7 @@ private:
     void LoadIcons();
     
     // Context Menu
-    AActor* ContextMenuTarget = nullptr;
-    bool bShowContextMenu = false;
-    void RenderContextMenu();
+    void RenderContextMenu(AActor* TargetActor);
     
     // Drag & Drop (for hierarchy management)
     AActor* DragSource = nullptr;
