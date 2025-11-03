@@ -103,6 +103,11 @@ void UShapeComponent::TickComponent(float DeltaSeconds)
     //Begin
     for (UShapeComponent* Comp : OverlapNow)
     {
+        if (!Comp || Comp->IsPendingDestroy())
+        {
+            continue;
+        }
+
         if (!OverlapPrev.Contains(Comp))
         {
             AActor* Owner = this->GetOwner();
@@ -136,6 +141,11 @@ void UShapeComponent::TickComponent(float DeltaSeconds)
     //End
     for (UShapeComponent* Comp : OverlapPrev)
     {
+        if (!Comp || Comp->IsPendingDestroy())
+        {
+            continue;
+        }
+
         if (!OverlapNow.Contains(Comp))
         {
             AActor* Owner = this->GetOwner();
@@ -159,7 +169,10 @@ void UShapeComponent::TickComponent(float DeltaSeconds)
     OverlapPrev.clear();
     for (UShapeComponent* Comp : OverlapNow)
     {
-        OverlapPrev.Add(Comp);
+            if (Comp && !Comp->IsPendingDestroy())
+            {
+                OverlapPrev.Add(Comp);
+            }
     }
 }
 
