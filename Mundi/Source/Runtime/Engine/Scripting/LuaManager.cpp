@@ -148,8 +148,14 @@ FLuaManager::FLuaManager()
             return GWorld->GetCameraActor();
         }
     );
-
-
+    SharedLib.set_function("SetForward",
+        [](FGameObject& GameObject, const FVector& InForward)
+        {
+            AActor* Owner = GameObject.GetOwner();
+            Owner->GetRootComponent()->SetForward(InForward);
+            Owner = nullptr;
+        }
+    );
     SharedLib.set_function("DeleteObject", sol::overload(
         [](const FGameObject& GameObject)
         {

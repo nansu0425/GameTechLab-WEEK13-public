@@ -129,8 +129,6 @@ function ShootProjectile()
     projectile.Location = Obj.Location + (ForwardVector * forwardOffset) + (UpVector * upOffset)
     projectile.Velocity = ForwardVector * speed
     projectile.bIsActive = true
-
-    print(string.format("Projectile fired! Loc:(%.2f, %.2f, %.2f)", projectile.Location.X, projectile.Location.Y, projectile.Location.Z))
 end
 
 ------------------------------------------------------------
@@ -200,6 +198,9 @@ function Rotate()
     end
 
     ForwardVector = NormalizeCopy(Candidate)
+
+    LootAt = Vector(-ForwardVector.X, -ForwardVector.Y, 0aaa)
+    SetForward(Obj, LootAt)
 end
 
 function MoveForward(Delta)
