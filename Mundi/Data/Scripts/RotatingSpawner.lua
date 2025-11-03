@@ -16,6 +16,13 @@ function OnEndOverlap(OtherActor)
 end
 
 function Tick(dt)
+
+
+    if GlobalConfig.GameState ~= "Playing" then
+        return
+    end
+
+    
     local rc = GetComponent(Obj, "URotatingMovementComponent") 
 
     

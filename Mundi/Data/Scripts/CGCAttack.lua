@@ -28,6 +28,10 @@ function EndPlay()
 end
 
 function Tick(dt)
+    if GlobalConfig.GameState ~= "Playing" then
+        return
+    end
+
     local NewLevel = GlobalConfig.CoachLevel or 0
     if NewLevel ~= CurrentLevel then
         EnsureSpawned(NewLevel)

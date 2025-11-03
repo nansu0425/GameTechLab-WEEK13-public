@@ -58,7 +58,7 @@ function GenerateGrid()
     for y = 0, GridHeight - 1 do
         for x = 0, GridWidth - 1 do
             local tile = SpawnPrefab("Data/Prefabs/NormalTile.prefab")
-            tile.Location = Vector(x * TileSize - offsetX, y * TileSize - offsetY, 0)
+            tile.Location = Vector(x * TileSize - offsetX + 5, y * TileSize - offsetY, 0)
 
             -- tile.UUID가 없으면 직접 만들어줌
             if not tile.UUID or tile.UUID == 0 then

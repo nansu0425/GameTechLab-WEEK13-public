@@ -68,6 +68,12 @@ function EndPlay()
 end
 
 function Tick(dt)
+    
+    if GlobalConfig.GameState ~= "Playing" then
+        return
+    end
+
+    
     if not meshComp then
         return
     end

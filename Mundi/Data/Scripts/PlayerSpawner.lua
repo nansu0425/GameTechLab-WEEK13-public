@@ -25,7 +25,8 @@ function Tick(dt)
     if GlobalConfig.GameState == "Init" then
         InputManager:SetCursorVisible(true)
         GlobalConfig.GameState = "Start"
-        
+        GlobalConfig.CoachLevel = 1        
+    
     elseif GlobalConfig.GameState == "Start" then
         if InputManager:IsKeyDown("R") then
             SpawnPrefab("Data/Prefabs/Player.prefab")

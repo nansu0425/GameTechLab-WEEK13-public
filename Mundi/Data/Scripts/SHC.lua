@@ -64,7 +64,12 @@ function RandomInRange(MinRange, MaxRange)
     return MinRange + (MaxRange - MinRange) * math.random()
 end
 
-function Tick(dt)
+function Tick(dt) 
+    if GlobalConfig.GameState ~= "Playing" then
+        return
+    end
+
+
     RotTime = RotTime + dt
 
     local level = GlobalConfig.CoachLevel or 1
