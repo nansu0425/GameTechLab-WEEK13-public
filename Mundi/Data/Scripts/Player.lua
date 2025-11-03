@@ -1,9 +1,11 @@
 UpVector = Vector(0, 0, 1)
 
 local YawSensitivity        = 0.005
-local PitchSensitivity      = 0.005
+local PitchSensitivity      = 0.0025
 local PitchGuardDegrees     = 1.0
 local VerticalDotLimit      = math.cos(math.rad(90 - PitchGuardDegrees)) -- ≈ cos(89°)
+
+local MovementDelta = 0.1
 
 local ForwardVector         = Vector(1, 0, 0)
 local CameraLocation        = Vector(0, 0, 0)
@@ -49,7 +51,6 @@ function Tick(Delta)
 
     Rotate()
 
-    local MovementDelta = 0.05
     if InputManager:IsKeyDown('W') then MoveForward(MovementDelta) end
     if InputManager:IsKeyDown('S') then MoveForward(-MovementDelta) end
     if InputManager:IsKeyDown('A') then MoveRight(-MovementDelta) end
@@ -72,16 +73,25 @@ function Rotate()
     local RightVector = FVector.Cross(UpVector, ForwardVector)
     RightVector = NormalizeCopy(RightVector)
 
-    local Pitch = -MouseDeltaY * PitchSensitivity
+    local Pitch = MouseDeltaY * PitchSensitivity
     local Candidate = RotateAroundAxis(ForwardVector, RightVector, Pitch)
 
     -- 수직 잠김 방지
-    local DotUp = FVector.Dot(Candidate, UpVector)
-    if math.abs(DotUp) > VerticalDotLimit then
-        local Horizontal = Candidate - UpVector * DotUp
-        Horizontal = NormalizeCopy(Horizontal)
-        local HorizontalLength = math.sqrt(1.0 - VerticalDotLimit * VerticalDotLimit)
-        Candidate = Horizontal * HorizontalLength + UpVector * (DotUp > 0 and VerticalDotLimit or -VerticalDotLimit)
+    print("Candidate")
+    print(Candidate)
+    print(UpVector)
+    if (Candidate.Z > 0.6) then
+        Candidate.Z = 0.6
+    end
+    if (Candidate.Z < -0.6) then
+        Candidate.Z = -0.6
+    -- local DotUp = FVector.Dot(Candidate, UpVector)
+    -- if math.abs(DotUp) > 0.999 then
+    --     local Horizontal = Candidate - UpVector * DotUp
+
+    --     Horizontal = NormalizeCopy(Horizontal)
+    --     local HorizontalLength = math.sqrt(1.0 - VerticalDotLimit * VerticalDotLimit)
+    --     Candidate = Horizontal * HorizontalLength + UpVector * (DotUp > 0 and VerticalDotLimit or -VerticalDotLimit)
     end
 
     ForwardVector = NormalizeCopy(Candidate)
@@ -110,8 +120,8 @@ function Billboard()
 end
 
 function SetCamera()
-    local BackDistance = 10.0
-    local UpDistance   = 10.0
+    local BackDistance = 7.0
+    local UpDistance   = 2.0
 
     local Camera = GetCamera()
     if Camera then
