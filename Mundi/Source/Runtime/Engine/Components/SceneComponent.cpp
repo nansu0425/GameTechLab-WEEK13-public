@@ -407,7 +407,7 @@ void USceneComponent::OnRegister(UWorld* InWorld)
     if (!std::strcmp(this->GetClass()->Name , USceneComponent::StaticClass()->Name) && !SpriteComponent && !InWorld->bPie)
     {
         CREATE_EDITOR_COMPONENT(SpriteComponent, UBillboardComponent);
-        SpriteComponent->SetTextureName(GDataDir + "/UI/Icons/EmptyActor.dds");
+        SpriteComponent->SetTexture(GDataDir + "/UI/Icons/EmptyActor.dds");
     }
 
     // Notify transform update so shapes can refresh overlaps

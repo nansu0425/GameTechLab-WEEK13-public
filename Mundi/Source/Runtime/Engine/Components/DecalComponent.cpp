@@ -62,7 +62,7 @@ void UDecalComponent::OnRegister(UWorld* InWorld)
 	if (!SpriteComponent && !InWorld->bPie)
 	{
 		CREATE_EDITOR_COMPONENT(SpriteComponent, UBillboardComponent);
-		SpriteComponent->SetTextureName(GDataDir + "/UI/Icons/S_DecalActorIcon.dds");
+		SpriteComponent->SetTexture(GDataDir + "/UI/Icons/S_DecalActorIcon.dds");
 
 		CREATE_EDITOR_COMPONENT(DirectionGizmo, UGizmoArrowComponent);
 		// Set gizmo mesh (using the same mesh as GizmoActor's arrow)

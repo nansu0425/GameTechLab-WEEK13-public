@@ -5,6 +5,7 @@
 #include "CameraActor.h"
 #include "CameraComponent.h"
 #include "StaticMeshComponent.h"
+#include "BillboardComponent.h"
 #include <tuple>
 
 FLuaManager::FLuaManager()
@@ -19,6 +20,8 @@ FLuaManager::FLuaManager()
         sol::lib::table,
         sol::lib::string
     );
+
+    SharedLib = Lua->create_table();
 
     Lua->new_usertype<FGameObject>("GameObject",
         "UUID", &FGameObject::UUID,
@@ -60,6 +63,23 @@ FLuaManager::FLuaManager()
                 return;
             }
             Camera->SetForward(Direction);
+        },
+        "GetActorLocation", [](ACameraActor* Camera) -> FVector
+        {
+            if (!Camera)
+            {
+                // 유효하지 않은 경우 0 벡터 반환
+                return FVector(0.f, 0.f, 0.f);
+            }
+            return Camera->GetActorLocation();
+        },
+        "GetActorRight", [](ACameraActor* Camera) -> FVector
+        {
+            if (!Camera) return FVector(0.f, 0.f, 1.f); // 기본값 (World Forward)
+
+            // C++ ACameraActor 클래스의 실제 함수명으로 변경해야 합니다.
+            // (예: GetActorForwardVector(), GetForward() 등)
+            return Camera->GetActorRight();
         }
     );
     Lua->new_usertype<UInputManager>("InputManager",
@@ -129,8 +149,6 @@ FLuaManager::FLuaManager()
             UE_LOG("[Lua] (%f, %f, %f)\n", Vector.X, Vector.Y, Vector.Z); 
         }                                                                 
     ));
-    
-    SharedLib = Lua->create_table();
     
     // GlobalConfig는 전역 table
     SharedLib["GlobalConfig"] = Lua->create_table(); 
@@ -449,7 +467,7 @@ void FLuaManager::ExposeAllComponentsToLua()
 // 특정 컴포넌트의 함수 추가 바인딩
 void FLuaManager::ExposeComponentFunctions()
 {
-    UClass* StaticMeshCompClass = UClass::FindClass("UStaticMeshComponent");
+    UClass* StaticMeshCompClass = UStaticMeshComponent::StaticClass();
     if (StaticMeshCompClass)
     {
         // UStaticMeshComponent용 함수 테이블을 가져오거나 생성합니다.
@@ -461,7 +479,7 @@ void FLuaManager::ExposeComponentFunctions()
         FuncTable.set_function("SetColor",
             [](LuaComponentProxy& Proxy, uint32 SlotIndex, const FString& ParamName, const FLinearColor& Value)
             {
-                if (Proxy.Instance && Proxy.Class == UClass::FindClass("UStaticMeshComponent"))
+                if (Proxy.Instance && Proxy.Class == UStaticMeshComponent::StaticClass())
                 {
                     auto* Comp = static_cast<UStaticMeshComponent*>(Proxy.Instance);
                     Comp->SetMaterialColorByUser(SlotIndex, ParamName, Value);
@@ -473,7 +491,7 @@ void FLuaManager::ExposeComponentFunctions()
         FuncTable.set_function("SetScalar",
             [](LuaComponentProxy& Proxy, uint32 SlotIndex, const FString& ParamName, float Value)
             {
-                if (Proxy.Instance && Proxy.Class == UClass::FindClass("UStaticMeshComponent"))
+                if (Proxy.Instance && Proxy.Class == UStaticMeshComponent::StaticClass())
                 {
                     auto* Comp = static_cast<UStaticMeshComponent*>(Proxy.Instance);
                     Comp->SetMaterialScalarByUser(SlotIndex, ParamName, Value);
@@ -483,6 +501,34 @@ void FLuaManager::ExposeComponentFunctions()
 
         // 전역 맵에 테이블 등록 (필수)
         GComponentFunctionTables[StaticMeshCompClass] = FuncTable;
+    }
+
+    // --- UBillboardComponent 바인딩 추가 ---
+    UClass* BillboardCompClass = UBillboardComponent::StaticClass();
+    if (BillboardCompClass)
+    {
+        // UBillboardComponent용 함수 테이블을 가져오거나 생성합니다.
+        sol::table FuncTable = GComponentFunctionTables.count(BillboardCompClass)
+            ? GComponentFunctionTables[BillboardCompClass] // 이미 있다면 가져오기
+            : Lua->create_table();                         // 없다면 새로 생성
+
+        // SetTextureName 바인딩
+        // (Lua에서는 더 간단하게 SetTexture로 노출)
+        FuncTable.set_function("SetTexture",
+            [](LuaComponentProxy& Proxy, const FString& TexturePath)
+            {
+                // 타입 안정성 확인
+                if (Proxy.Instance && Proxy.Class == UBillboardComponent::StaticClass())
+                {
+                    // 실제 인스턴스로 캐스팅 후 C++ 함수 호출
+                    auto* Comp = static_cast<UBillboardComponent*>(Proxy.Instance);
+                    Comp->SetTexture(TexturePath);
+                }
+            }
+        );
+
+        // 전역 맵에 테이블 등록 (필수)
+        GComponentFunctionTables[BillboardCompClass] = FuncTable;
     }
 }
 

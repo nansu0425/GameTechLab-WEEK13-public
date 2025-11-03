@@ -16,7 +16,7 @@ AFakeSpotLightActor::AFakeSpotLightActor()
 	BillboardComponent->SetEditability(false);
 	DecalComponent = CreateDefaultSubobject<UPerspectiveDecalComponent>("DecalComponent");
 
-	BillboardComponent->SetTextureName("Editor/SpotLight_64x.png");
+	BillboardComponent->SetTexture("Editor/SpotLight_64x.png");
 	DecalComponent->SetRelativeScale((FVector(10, 5, 5)));
 	DecalComponent->SetRelativeLocation((FVector(0, 0, -5)));
 	DecalComponent->SetRelativeRotation(FQuat::MakeFromEulerZYX(FVector(0, 90, 0)));

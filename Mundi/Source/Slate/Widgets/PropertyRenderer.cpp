@@ -487,7 +487,7 @@ bool UPropertyRenderer::RenderTextureProperty(const FProperty& Prop, void* Insta
 		UObject* Obj = static_cast<UObject*>(Instance);
 		if (UBillboardComponent* Billboard = Cast<UBillboardComponent>(Obj))
 		{
-			Billboard->SetTextureName(NewPath);
+			Billboard->SetTexture(NewPath);
 		}
 		else if (UDecalComponent* Decal = Cast<UDecalComponent>(Obj))
 		{

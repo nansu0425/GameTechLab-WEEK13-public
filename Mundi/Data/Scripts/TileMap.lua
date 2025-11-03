@@ -102,7 +102,7 @@ function Tick(dt)
 end
 
 function ManageState()
-    if GlobalConfig.GameState == "Init" and not bIsGenerated then
+    if GlobalConfig.GameState == "Playing" and not bIsGenerated then
         DeleteGrid()
         GenerateGrid()
         bIsGenerated = true

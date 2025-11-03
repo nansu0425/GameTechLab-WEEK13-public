@@ -36,7 +36,7 @@ void UHeightFogComponent::OnRegister(UWorld* InWorld)
 	if (!SpriteComponent && !InWorld->bPie)
 	{
 		CREATE_EDITOR_COMPONENT(SpriteComponent, UBillboardComponent);
-		SpriteComponent->SetTextureName(GDataDir + "/UI/Icons/S_AtmosphericHeightFog.dds");
+		SpriteComponent->SetTexture(GDataDir + "/UI/Icons/S_AtmosphericHeightFog.dds");
 
 	}
 
