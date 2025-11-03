@@ -43,13 +43,12 @@ void UShapeComponent::OnTransformUpdated()
         }
     }
 
-    UpdateOverlaps();
+    //UpdateOverlaps();
     Super::OnTransformUpdated();
 }
 
 void UShapeComponent::UpdateOverlaps()
-{
-    // ����� ���� UShapeComponent ��ü�� �浹 �˻縦 ������ �� ������ ��
+{ 
     if (GetClass() == UShapeComponent::StaticClass())
     {
         bGenerateOverlapEvents = false;
@@ -58,33 +57,24 @@ void UShapeComponent::UpdateOverlaps()
     if (!bGenerateOverlapEvents)
     {
         OverlapInfos.clear();
-        return;
+
     }
-    
+
     UWorld* World = GetWorld();
-    if (!World) return; 
-      
+    if (!World) return;
+
+    //Test용 O(N^2) 
     OverlapNow.clear();
 
-    // Broad Phase: use world BVH to query candidates overlapping our AABB.
-    TArray<UPrimitiveComponent*> Candidates;
-    if (UWorldPartitionManager* PM = World->GetPartitionManager())
+    for (AActor* Actor : World->GetActors())
     {
-        if (FBVHierarchy* BVH = PM->GetBVH())
+        for (USceneComponent* Comp : Actor->GetSceneComponents())
         {
-            Candidates = BVH->QueryIntersectedComponents(GetWorldAABB());
-        }
-    }
-
-    if (!Candidates.IsEmpty())
-    {
-        for (UPrimitiveComponent* Prim : Candidates)
-        {
-            UShapeComponent* Other = Cast<UShapeComponent>(Prim);
+            UShapeComponent* Other = Cast<UShapeComponent>(Comp);
             if (!Other || Other == this) continue;
             if (Other->GetOwner() == this->GetOwner()) continue;
             if (!Other->bGenerateOverlapEvents) continue;
-            
+
             AActor* Owner = this->GetOwner();
             AActor* OtherOwner = Other->GetOwner();
 
@@ -94,44 +84,17 @@ void UShapeComponent::UpdateOverlaps()
                 continue;
             }*/
 
-            
             if (Owner && Owner->GetTag() == "Tile"
                 && OtherOwner && OtherOwner->GetTag() == "Tile")
             {
                 continue;
             }
 
-            // Narrow phase check
+            // Collision 모듈
             if (!Collision::CheckOverlap(this, Other)) continue;
 
             OverlapNow.Add(Other);
-        }
-    }
-    else
-    {
-        // Fallback: O(N^2) scan if BVH is not available
-        for (AActor* Actor : World->GetActors())
-        {
-            for (USceneComponent* Comp : Actor->GetSceneComponents())
-            {
-                UShapeComponent* Other = Cast<UShapeComponent>(Comp);
-                if (!Other || Other == this) continue;
-                if (Other->GetOwner() == this->GetOwner()) continue;
-                if (!Other->bGenerateOverlapEvents) continue;
-
-                AActor* Owner = this->GetOwner();
-                AActor* OtherOwner = Other->GetOwner();
-
-                if (Owner && Owner->GetTag() == "Tile"
-                    && OtherOwner && OtherOwner->GetTag() == "Tile")
-                {
-                    continue;
-                }
-
-                if (!Collision::CheckOverlap(this, Other)) continue;
-
-                OverlapNow.Add(Other);
-            }
+            //UE_LOG("Collision!!");
         }
     }
 
@@ -143,19 +106,29 @@ void UShapeComponent::UpdateOverlaps()
         Info.OtherActor = Other->GetOwner();
         Info.Other = Other;
         OverlapInfos.Add(Info);
-    } 
+    }
 
     //Begin
     for (UShapeComponent* Comp : OverlapNow)
     {
         if (!OverlapPrev.Contains(Comp))
         {
+            AActor* Owner = this->GetOwner();
+            AActor* OtherOwner = Comp ? Comp->GetOwner() : nullptr;
+
+            // 이전에 호출된 적이 있는 이벤트 인지 확인
+            if (!(Owner && OtherOwner && World->TryMarkOverlapPair(Owner, OtherOwner)))
+            {
+                continue;
+            }
+
+            // 양방향 호출 
             Owner->OnComponentBeginOverlap.Broadcast(this, Comp);
             if (AActor* OtherOwner = Comp->GetOwner())
             {
                 OtherOwner->OnComponentBeginOverlap.Broadcast(Comp, this);
             }
-            
+
             if (bBlockComponent)
             {
                 Owner->OnComponentHit.Broadcast(this, Comp);
@@ -168,15 +141,28 @@ void UShapeComponent::UpdateOverlaps()
     {
         if (!OverlapNow.Contains(Comp))
         {
+            AActor* Owner = this->GetOwner();
+            AActor* OtherOwner = Comp ? Comp->GetOwner() : nullptr;
+
+            // 이전에 호출된 적이 있는 이벤트 인지 확인
+            if (!(Owner && OtherOwner && World->TryMarkOverlapPair(Owner, OtherOwner)))
+            {
+                continue;
+            }
+
+            // 양방향 호출
             Owner->OnComponentEndOverlap.Broadcast(this, Comp);
+            if (AActor* OtherOwner = Comp->GetOwner())
+            {
+                OtherOwner->OnComponentEndOverlap.Broadcast(Comp, this);
+            }  
         }
     }
 
     OverlapPrev.clear();
     for (UShapeComponent* Comp : OverlapNow)
     {
-        OverlapPrev.Add(Comp);
-
+        OverlapPrev.Add(Comp); 
     }
 }
 
@@ -186,13 +172,16 @@ FAABB UShapeComponent::GetWorldAABB() const
     {
         FAABB OwnerBounds = Owner->GetBounds();
         const FVector HalfExtent = OwnerBounds.GetHalfExtent();
-        WorldAABB = OwnerBounds; 
+        WorldAABB = OwnerBounds;
     }
-    return WorldAABB; 
+    return WorldAABB;
 }
-
+  
 void UShapeComponent::DuplicateSubObjects()
 {
     Super::DuplicateSubObjects();
 }
+
+
+
 

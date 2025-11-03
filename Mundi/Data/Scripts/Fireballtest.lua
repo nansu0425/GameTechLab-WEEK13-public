@@ -19,6 +19,7 @@ end
 
 function OnOverlap(OtherActor)
     --[[Obj:PrintLocation()]]--
+    print(OnOverlap Fireballtest)
 end
 
 function Tick(dt)

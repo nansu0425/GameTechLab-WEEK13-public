@@ -1,5 +1,5 @@
 function BeginPlay()
-    print("[BeginPlay] " .. Obj.UUID)
+    print("[BeginPlay] " .. Obj.UUID) 
 end
 
 function EndPlay()
@@ -7,6 +7,7 @@ function EndPlay()
 end
 
 function OnOverlap(OtherActor)
+    print("Overlap Tile")
     if OtherActor.Tag == "fireball" then
         if GlobalConfig and GlobalConfig.RemoveTileByUUID then
             GlobalConfig.RemoveTileByUUID(Obj.UUID)
@@ -14,6 +15,6 @@ function OnOverlap(OtherActor)
     end
 end
 
-function Tick(dt)
-    -- Obj.Location = Obj.Location + Obj.Velocity * dt
+function Tick(dt) 
+    Obj.Location = Obj.Location + Obj.Velocity * dt * 0.01
 end
