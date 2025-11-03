@@ -29,7 +29,6 @@ void ULuaScriptComponent::BeginPlay()
 	{
 		FDelegateHandle BeginHandleLua = Owner->OnComponentBeginOverlap.AddDynamic(this, &ULuaScriptComponent::OnBeginOverlap);
 		FDelegateHandle EndHandleLua = Owner->OnComponentEndOverlap.AddDynamic(this, &ULuaScriptComponent::OnEndOverlap);
-		FDelegateHandle EndHandle = Owner->OnComponentEndOverlap.AddDynamic(Owner, &AActor::OnEndOverlap);
 	}
 
 	auto LuaVM = GetWorld()->GetLuaManager();
@@ -83,6 +82,7 @@ void ULuaScriptComponent::BeginPlay()
 
 void ULuaScriptComponent::OnBeginOverlap(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp)
 {
+	UE_LOG("Luascript Component OnBeginOverlap");
 	if (FuncOnBeginOverlap.valid())
 	{
 		FGameObject* OtherGameObject = nullptr;
@@ -108,6 +108,7 @@ void ULuaScriptComponent::OnBeginOverlap(UPrimitiveComponent* MyComp, UPrimitive
 
 void ULuaScriptComponent::OnEndOverlap(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp)
 {
+	UE_LOG("Luascript Component OnEndOverlap");
 	if (FuncOnEndOverlap.valid())
 	{
 		FGameObject* OtherGameObject = nullptr;
