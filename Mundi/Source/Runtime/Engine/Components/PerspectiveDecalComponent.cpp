@@ -13,8 +13,8 @@ END_PROPERTIES()
 UPerspectiveDecalComponent::UPerspectiveDecalComponent()
 {
 	// PIE에서 fade in, fade out 하지 않도록 설정
-	SetTickEnabled(false);
-	SetCanEverTick(false);
+	bTickEnabled = false;
+	bCanEverTick = false;
 }
 
 // 이 함수 전체를 복사하여 기존 함수를 대체하십시오.

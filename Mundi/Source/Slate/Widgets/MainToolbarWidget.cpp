@@ -45,6 +45,7 @@ void UMainToolbarWidget::LoadToolbarIcons()
     IconPlay = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_Play.png");
     IconStop = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_Stop.png");
     IconAddActor = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_AddActor.png");
+    IconPrefab = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_Prefab.png");
     LogoTexture = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Mundi_Logo.png");
 }
 
@@ -426,9 +427,9 @@ void UMainToolbarWidget::RenderLoadPrefabButton()
     bool bButtonClicked = false;
 
     // (변수명은 IconAddActor이지만, 프리팹 로드 아이콘이라고 가정합니다)
-    if (IconAddActor && IconAddActor->GetShaderResourceView())
+    if (IconPrefab && IconPrefab->GetShaderResourceView())
     {
-        if (ImGui::ImageButton("##LoadPrefabBtn", (void*)IconAddActor->GetShaderResourceView(), IconSizeVec))
+        if (ImGui::ImageButton("##LoadPrefabBtn", (void*)IconPrefab->GetShaderResourceView(), IconSizeVec))
         {
             bButtonClicked = true;
         }

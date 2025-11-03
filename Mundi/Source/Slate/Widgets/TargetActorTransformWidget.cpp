@@ -466,8 +466,7 @@ void UTargetActorTransformWidget::RenderComponentHierarchy(AActor* SelectedActor
 		GWorld->GetSelectionManager()->ClearSelection();
 
 		// 액터 삭제
-		if (UWorld* World = ActorPendingRemoval->GetWorld()) World->DestroyActor(ActorPendingRemoval);
-		else ActorPendingRemoval->Destroy();
+		ActorPendingRemoval->Destroy();
 
 		OnSelectedActorCleared();
 	}

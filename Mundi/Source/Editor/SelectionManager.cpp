@@ -61,14 +61,24 @@ void USelectionManager::SelectComponent(UActorComponent* Component)
 
 void USelectionManager::DeselectActor(AActor* Actor)
 {
-    if (!Actor) return;
-    
-    auto it = std::find(SelectedActors.begin(), SelectedActors.end(), Actor);
-    if (it != SelectedActors.end())
+    if (!Actor)
     {
-        SelectedActors.erase(it);
+        return;
     }
-    SelectedComponent = nullptr;
+    
+    bool bDeselected = false;
+
+    auto It = std::find(SelectedActors.begin(), SelectedActors.end(), Actor);
+    if (It != SelectedActors.end())
+    {
+        SelectedActors.erase(It);
+        bDeselected = true;
+    }
+
+    if (bDeselected)
+    {
+        SelectedComponent = nullptr;
+    }
 }
 
 void USelectionManager::ClearSelection()
@@ -103,7 +113,6 @@ AActor* USelectionManager::GetSelectedActor() const
 
 void USelectionManager::CleanupInvalidActors()
 {
-
     // null이거나 삭제된 액터들을 제거
     auto it = std::remove_if(SelectedActors.begin(), SelectedActors.end(), 
         [](AActor* Actor) { return Actor == nullptr; });

@@ -1,6 +1,7 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "LuaManager.h"
 #include "GameObject.h"
+#include "ObjectIterator.h"
 #include "CameraActor.h"
 #include "CameraComponent.h"
 #include <tuple>
@@ -146,6 +147,22 @@ FLuaManager::FLuaManager()
         }
     );
 
+
+    SharedLib.set_function("DeleteObject", sol::overload(
+        [](const FGameObject& GameObject)
+        {
+            for (TObjectIterator<AActor> It; It; ++It)
+            {
+                AActor* Actor = *It;
+
+                if (Actor->UUID == GameObject.UUID)
+                {
+                    Actor->Destroy();   // 지연 삭제 요청 (즉시 삭제하면 터짐)
+                    break;
+                }
+            }
+        }
+    ));
 
     SharedLib.set_function("Vector", sol::overload(
        []() { return FVector(0.0f, 0.0f, 0.0f); },
