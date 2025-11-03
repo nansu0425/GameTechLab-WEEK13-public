@@ -2,29 +2,32 @@ UpVector = Vector(0, 0, 1)
 
 local YawSensitivity        = 0.005
 local PitchSensitivity      = 0.0025
-local PitchGuardDegrees     = 1.0
-local VerticalDotLimit      = math.cos(math.rad(90 - PitchGuardDegrees)) -- ≈ cos(89°)
 
 local MovementDelta = 0.1
 
-local ForwardVector         = Vector(1, 0, 0)
-local CameraLocation        = Vector(0, 0, 0)
-
-local Gravity               = -1.0
-local bGravity              = false
-local bActive               = false
+local Gravity               = -50.0
+local bStart                = false
+local bDie                  = false
 
 local ActiveIDs = {}
 local IDCount = 0
 
-local PlayerInitPosition = Vector(0, 0, 3)
+local PlayerInitPosition = Vector(0, 0, 4)
 local PlayerInitVelocity = Vector(0, 0, 0)
+
+local CameraLocation     = PlayerInitPosition
+local ForwardVector      = Vector(1, 0, 0)
 
 function AddID(id)
     if not ActiveIDs[id] then
         ActiveIDs[id] = true
         IDCount = IDCount + 1
         print("Added ID:".. id .. "Count:".. IDCount)
+
+        if Gravity < 0 and not bStart then
+            Gravity = 0
+            bStart = true
+        end
     end
 end
 
@@ -32,7 +35,7 @@ function RemoveID(id)
     if ActiveIDs[id] then
         ActiveIDs[id] = nil
         IDCount = IDCount - 1
-        print("Removed ID:".. id.."Count:".. IDCount)
+        -- print("Removed ID:".. id.."Count:".. IDCount)
         
         if IDCount == 0 then
             Die()
@@ -57,8 +60,11 @@ local function RotateAroundAxis(VectorIn, Axis, Angle)
 end
 
 ------------------------------------------------------------
-function BeginPlay()
-    print("[BeginPlay] " .. Obj.UUID)
+function BeginPlay()  
+    ActiveIDs = {}
+    bDie = false
+    Gravity = -50
+
     Obj.Location = PlayerInitPosition
     Obj.Velocity = PlayerInitVelocity
 
@@ -71,15 +77,12 @@ function BeginPlay()
 end
 
 function EndPlay()
-    print("[EndPlay] " .. Obj.UUID)
+    ActiveIDs = {}
 end
 
 function OnBeginOverlap(OtherActor)
     if OtherActor.Tag == "tile" then
         AddID(OtherActor.UUID)
-        if not bActive then
-            bActive = true
-        end
     elseif OtherActor.Tag == "fireball" then
         Die()
     end
@@ -92,51 +95,91 @@ function OnEndOverlap(OtherActor)
 end
 
 function Tick(Delta)
+    PlayerMove(Delta)
+
+    if not ManageGameState() then
+        return
+    end
+
+    if InputManager:IsKeyDown('W') then MoveForward(MovementDelta) end
+    if InputManager:IsKeyDown('S') then MoveForward(-MovementDelta) end
+    if InputManager:IsKeyDown('A') then MoveRight(-MovementDelta) end
+    if InputManager:IsKeyDown('D') then MoveRight(MovementDelta) end
+    if InputManager:IsKeyPressed('Q') then Die() end -- 죽기를 선택
+    if InputManager:IsMouseButtonPressed(0) then ShootProjectile() end
+
+    CameraMove()
+    Rotate()
+end
+
+function PlayerMove(Delta)
     local GravityAccel = Vector(0, 0, Gravity)
     Obj.Velocity = GravityAccel * Delta
     Obj.Location = Obj.Location + Obj.Velocity * Delta
-
-    if not bActive then -- Not Started
-        Gravity = -30
-        MoveCamera()
-        return
-
-    elseif bGravity then -- and Active! => Die
-        Gravity = -50
-        
-        if Obj.Location.Z < -5 then
-            Rebirth()
-        end
-
-    elseif not bGravity then -- and Active!
-        Gravity = 0.0
-        MoveCamera()
-
-        if IDCount == 0 then
-            Die()
-        end
-
-        Rotate()
-
-        if InputManager:IsKeyDown('W') then MoveForward(MovementDelta) end
-        if InputManager:IsKeyDown('S') then MoveForward(-MovementDelta) end
-        if InputManager:IsKeyDown('A') then MoveRight(-MovementDelta) end
-        if InputManager:IsKeyDown('D') then MoveRight(MovementDelta) end
-        if InputManager:IsKeyDown('E') then Die() end -- 죽기를 선택
-    end
 end
 
-function Die()
-    bGravity = true
-    ActiveIDs = {}
+function ShootProjectile()
+    local projectile = SpawnPrefab("Data/Prefabs/Apple.prefab")
+    if not projectile then
+        print("[Error] Apple prefab not found!")
+        return
+    end
+
+    -- 플레이어 기준 오프셋
+    local forwardOffset = 1.5
+    local upOffset = 1.2
+
+    local UpVector = Vector(0, 0, 1)
+    local speed = 30.0
+
+    projectile.Location = Obj.Location + (ForwardVector * forwardOffset) + (UpVector * upOffset)
+    projectile.Velocity = ForwardVector * speed
+    projectile.bIsActive = true
+end
+
+------------------------------------------------------------
+function ManageGameState()
+    if GlobalConfig.GameState == "Playing" then
+        if bDie then
+            return false
+        elseif IDCount == 0 and Gravity == 0 then
+            Die()
+            return false
+        end
+        return true
+
+    elseif GlobalConfig.GameState == "End" then
+        DeleteObject(Obj) 
+    
+    elseif GlobalConfig.GameState == "Init" then
+        Rebirth()
+    end
+
+    return false
+end
+
+function Die()    
+    bDie = true
+    Gravity = -50
+    print(Gravity)
+    local ActiveIDs = {}
+    
+    StartCoroutine(EndAfter)
+end
+
+function EndAfter()
+    coroutine.yield("wait_time", 1)
+    GlobalConfig.PlayerState = "Dead"
 end
 
 function Rebirth()
-    bActive = false
-    bGravity = false
-    Obj.Location = PlayerInitPosition
-end
+    ActiveIDs = {}
+    bDie = false
+    Gravity = -50
 
+    Obj.Location = PlayerInitPosition
+    Obj.Velocity = PlayerInitVelocity
+end
 ------------------------------------------------------------
 function Rotate()
     local MouseDelta = InputManager:GetMouseDelta()
@@ -162,6 +205,9 @@ function Rotate()
     end
 
     ForwardVector = NormalizeCopy(Candidate)
+
+    LootAt = Vector(-ForwardVector.X, -ForwardVector.Y, 0)
+    SetForward(Obj, LootAt)
 end
 
 function MoveForward(Delta)
@@ -176,7 +222,7 @@ end
 
 ---------------------------------------------------------
 
-function MoveCamera()
+function CameraMove()
     SetCamera()
     Billboard()
 end
