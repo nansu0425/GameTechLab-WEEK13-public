@@ -505,12 +505,15 @@ bool AActor::IsOverlappingActor(const AActor* Other) const
 
 void AActor::OnBeginOverlap(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp)
 {
-	UE_LOG("On Begin Overlap");
+	if (OtherComp->GetOwner()->Tag == "player")
+		UE_LOG("On Begin Overlap");
+	
 }
 
 void AActor::OnEndOverlap(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp)
 {
-	UE_LOG("On End Overlap");
+	if (OtherComp->GetOwner()->Tag == "player")
+		UE_LOG("On End Overlap");
 }
 
 void AActor::OnHit(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp)
