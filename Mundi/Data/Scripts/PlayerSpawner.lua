@@ -20,6 +20,7 @@ end
 function OnEndOverlap(OtherActor)
 end
 
+CurVisibilty = true
 function Tick(dt)
     if GlobalConfig.GameState == "Init" then
         InputManager:SetCursorVisible(true)
@@ -34,17 +35,26 @@ function Tick(dt)
         end
         
     elseif GlobalConfig.GameState == "Playing" then
+        if InputManager:IsKeyPressed("C") then
+            SetCursorVisible(not CurVisibilty)
+        end
         if GlobalConfig.PlayerState == "Dead" then
-            InputManager:SetCursorVisible(true)
+            SetCursorVisible(true)
             GlobalConfig.GameState = "End"
             StartCoroutine(WaitAndInit)
         end
 
     elseif GlobalConfig.GameState == "End" then
+        InputManager:SetCursorVisible(true)
     end
 end
 
 function WaitAndInit()
     coroutine.yield("wait_time", 5.0)
     GlobalConfig.GameState = "Init"
+end
+
+function SetCursorVisible(Show)
+    InputManager:SetCursorVisible(Show)
+    CurVisibilty = Show
 end

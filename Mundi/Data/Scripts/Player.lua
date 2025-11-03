@@ -61,7 +61,13 @@ end
 
 ------------------------------------------------------------
 function BeginPlay()  
-    Rebirth()
+    ActiveIDs = {}
+    bDie = false
+    Gravity = -50
+
+    Obj.Location = PlayerInitPosition
+    Obj.Velocity = PlayerInitVelocity
+
     local Camera = GetCamera()
     if Camera then
         Camera:SetForward(ForwardVector)
@@ -99,7 +105,7 @@ function Tick(Delta)
     if InputManager:IsKeyDown('S') then MoveForward(-MovementDelta) end
     if InputManager:IsKeyDown('A') then MoveRight(-MovementDelta) end
     if InputManager:IsKeyDown('D') then MoveRight(MovementDelta) end
-    if InputManager:IsKeyDown('Q') then Die() end -- 죽기를 선택
+    if InputManager:IsKeyPressed('Q') then Die() end -- 죽기를 선택
     if InputManager:IsMouseButtonPressed(0) then ShootProjectile() end
 
     CameraMove()
@@ -156,6 +162,7 @@ function Die()
     bDie = true
     Gravity = -50
     print(Gravity)
+    local ActiveIDs = {}
     
     StartCoroutine(EndAfter)
 end

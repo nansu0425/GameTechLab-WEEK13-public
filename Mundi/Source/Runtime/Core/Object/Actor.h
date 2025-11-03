@@ -168,7 +168,12 @@ public:
     // Serialize
     void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
 
-    FGameObject* GetGameObject() const { return LuaGameObject; }
+    FGameObject* GetGameObject() const
+    {
+        if (LuaGameObject)
+            return LuaGameObject;
+        return nullptr;
+    }
 
 public:
     FName Name;
