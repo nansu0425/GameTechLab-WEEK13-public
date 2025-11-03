@@ -2,7 +2,7 @@ local maxTime = 28.0      -- 전체 색상 변화 시간 (초)
 local whiteHoldTime = 8.0 -- 하얀색 유지 시간
 local elapsedTime = 0.0
 local meshComp = nil
-local currentStage = 1 -- (1: White, 2: Yellow, 3: Orange, 4: Red)
+GlobalConfig.CoachLevel = 1 -- (1: White, 2: Yellow, 3: Orange, 4: Red)
 
 -- 시간 비율에 따라 색상 보간 (하양 → 노랑 → 주황 → 빨강)
 local function LerpColorByTime(ratio)
@@ -86,17 +86,17 @@ function Tick(dt)
     meshComp:SetColor(0, "DiffuseColor", newColor)
 
     -- 색상 구간 진입 시 데칼 스폰
-    if ratio >= 0.0 and ratio < 0.33 and currentStage < 2 then
+    if ratio >= 0.0 and ratio < 0.33 and GlobalConfig.CoachLevel < 2 then
         print("[Stage 2] Spawn CrackDecal1")
         SpawnStageDecal(2)
-        currentStage = 2
-    elseif ratio >= 0.33 and ratio < 0.66 and currentStage < 3 then
+        GlobalConfig.CoachLevel = 2
+    elseif ratio >= 0.33 and ratio < 0.66 and GlobalConfig.CoachLevel < 3 then
         print("[Stage 3] Spawn CrackDecal2")
         SpawnStageDecal(3)
-        currentStage = 3
-    elseif ratio >= 0.66 and currentStage < 4 then
+        GlobalConfig.CoachLevel = 3
+    elseif ratio >= 0.66 and GlobalConfig.CoachLevel < 4 then
         print("[Stage 4] Spawn CrackDecal3")
         SpawnStageDecal(4)
-        currentStage = 4
+        GlobalConfig.CoachLevel = 4
     end
 end
