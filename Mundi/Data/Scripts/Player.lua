@@ -199,7 +199,7 @@ function Rotate()
 
     ForwardVector = NormalizeCopy(Candidate)
 
-    LootAt = Vector(-ForwardVector.X, -ForwardVector.Y, 0aaa)
+    LootAt = Vector(-ForwardVector.X, -ForwardVector.Y, 0)
     SetForward(Obj, LootAt)
 end
 
