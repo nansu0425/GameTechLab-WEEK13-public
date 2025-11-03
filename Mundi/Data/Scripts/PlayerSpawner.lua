@@ -17,26 +17,32 @@ end
 function OnEndOverlap(OtherActor)
 end
 
+CurVisibilty = true
 function Tick(dt)
     if GlobalConfig.GameState == "Init" then
-        InputManager:SetCursorVisible(false)
+        SetCursorVisible(false)
         SpawnPrefab("Data/Prefabs/Player.prefab")
         GlobalConfig.PlayerState = "Alive"
         GlobalConfig.GameState = "Playing"
 
     elseif GlobalConfig.GameState == "Playing" then
-        if InputManager:IsKeyDown("C") then
-             InputManager:SetCursorVisible(true)
+        if InputManager:IsKeyPressed("C") then
+             SetCursorVisible(not CurVisibilty)
         end
 
         if GlobalConfig.PlayerState == "Dead" then
-            InputManager:SetCursorVisible(true)
+            SetCursorVisible(true)
             GlobalConfig.GameState = "End"
         end
 
     elseif GlobalConfig.GameState == "End" then
-        if InputManager:IsKeyDown("R") then
+        if InputManager:IsKeyPressed("R") then
             GlobalConfig.GameState = "Init"
         end
     end
+end
+
+function SetCursorVisible(Show)
+    InputManager:SetCursorVisible(Show)
+    CurVisibilty = Show
 end
