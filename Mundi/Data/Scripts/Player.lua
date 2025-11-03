@@ -55,7 +55,7 @@ end
 
 ------------------------------------------------------------
 function BeginPlay()
-    print("[BeginPlay] " .. Obj.UUID)  
+    print("[BeginPlay] " .. Obj.UUID)
     Obj.Location = Vector(0, 0, 1)
     Obj.Velocity = Vector(0, 0, 0)
 
