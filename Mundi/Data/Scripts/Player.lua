@@ -12,7 +12,7 @@ local bDie                  = false
 local ActiveIDs = {}
 local IDCount = 0
 
-local PlayerInitPosition = Vector(0, 0, 2)
+local PlayerInitPosition = Vector(0, 0, 4)
 local PlayerInitVelocity = Vector(0, 0, 0)
 
 local CameraLocation     = PlayerInitPosition

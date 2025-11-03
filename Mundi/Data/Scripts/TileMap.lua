@@ -103,6 +103,7 @@ end
 
 function ManageState()
     if GlobalConfig.GameState == "Init" and not bIsGenerated then
+        DeleteGrid()
         GenerateGrid()
         bIsGenerated = true
         -- for UUID, Meta in pairs(TileMeta) do
@@ -113,8 +114,7 @@ function ManageState()
         --         -- print("Tile activated (UUID): " .. uuid)
         --     end
         -- end
-    elseif GlobalConfig.GameState == "End" and bIsGenerated then
-        DeleteGrid()
+    elseif GlobalConfig.GameState == "End" and bIsGenerated then        
         bIsGenerated = false
     end
 end
