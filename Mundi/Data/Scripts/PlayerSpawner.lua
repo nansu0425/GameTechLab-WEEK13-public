@@ -25,9 +25,9 @@ function Tick(dt)
         GlobalConfig.GameState = "Playing"
 
     elseif GlobalConfig.GameState == "Playing" then
-        -- if InputManager:IsKeyDown("R") then
-        --     GlobalConfig.GameState = "End"
-        -- end
+        if InputManager:IsKeyDown("C") then
+             InputManager:SetCursorVisible(true)
+        end
 
         if GlobalConfig.PlayerState == "Dead" then
             InputManager:SetCursorVisible(true)
