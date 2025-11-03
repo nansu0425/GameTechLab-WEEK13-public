@@ -24,7 +24,7 @@ function AddID(id)
     if not ActiveIDs[id] then
         ActiveIDs[id] = true
         IDCount = IDCount + 1
-        print("Added ID:".. id .. "Count:".. IDCount)
+        -- print("Added ID:".. id .. "Count:".. IDCount)
     end
 end
 
@@ -32,7 +32,7 @@ function RemoveID(id)
     if ActiveIDs[id] then
         ActiveIDs[id] = nil
         IDCount = IDCount - 1
-        print("Removed ID:".. id.."Count:".. IDCount)
+        -- print("Removed ID:".. id.."Count:".. IDCount)
         
         if IDCount == 0 then
             Die()
@@ -123,7 +123,33 @@ function Tick(Delta)
         if InputManager:IsKeyDown('A') then MoveRight(-MovementDelta) end
         if InputManager:IsKeyDown('D') then MoveRight(MovementDelta) end
         if InputManager:IsKeyDown('E') then Die() end -- 죽기를 선택
+
+        if InputManager:IsMouseButtonPressed(0) then
+            print("Left button clicked")
+            ShootProjectile()
+        end
     end
+end
+
+function ShootProjectile()
+    local projectile = SpawnPrefab("Data/Prefabs/Apple.prefab")
+    if not projectile then
+        print("[Error] Apple prefab not found!")
+        return
+    end
+
+    -- 플레이어 기준 오프셋
+    local forwardOffset = 1.5
+    local upOffset = 1.2
+
+    local UpVector = Vector(0, 0, 1)
+    local speed = 30.0
+
+    projectile.Location = Obj.Location + (ForwardVector * forwardOffset) + (UpVector * upOffset)
+    projectile.Velocity = ForwardVector * speed
+    projectile.bIsActive = true
+
+    print(string.format("Projectile fired! Loc:(%.2f, %.2f, %.2f)", projectile.Location.X, projectile.Location.Y, projectile.Location.Z))
 end
 
 function Die()
