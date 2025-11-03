@@ -134,7 +134,7 @@ void UWorld::Tick(float DeltaSeconds)
 		TArray<AActor*> LevelActors = Level->GetActors();
 		for (AActor* Actor : LevelActors)
 		{
-			if (Actor && !Actor->IsPendingDestroy())
+			if (Actor && Actor->IsActorActive())
 			{
 				if (Actor->CanEverTick())
 				{
@@ -161,24 +161,6 @@ void UWorld::Tick(float DeltaSeconds)
 		LuaManager->Tick(DeltaSeconds);
 	}
 
-    // 매팅 충돌 곰사 
-    if (Level)
-    {
-        for (AActor* Actor : Level->GetActors())
-        {
-            if (!Actor) continue;
-            for (USceneComponent* Comp : Actor->GetSceneComponents())
-            {
-                if (UShapeComponent* Shape = Cast<UShapeComponent>(Comp))
-                {
-                    if (Shape->IsActive())
-                    {
-                        Shape->UpdateOverlaps();
-                    }
-                }
-            }
-        }
-    }
 	// 지연 삭제 처리
 	ProcessPendingKillActors();
 }
