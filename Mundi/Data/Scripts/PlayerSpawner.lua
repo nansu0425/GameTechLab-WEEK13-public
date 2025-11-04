@@ -32,6 +32,7 @@ function Tick(dt)
             SpawnPrefab("Data/Prefabs/Player.prefab")
             GlobalConfig.PlayerState = "Alive"
             GlobalConfig.GameState = "Playing" 
+            GlobalConfig.CoachLevel = 1  
             InputManager:SetCursorVisible(false)
         end
         
