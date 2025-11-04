@@ -1,14 +1,14 @@
 -- Fireball.lua
 
 function BeginPlay()
-    print("[BeginPlay] " .. Obj.UUID)
+     
     Obj.Tag = "fireball"
     Obj.Velocity = Vector(0,0, -10) 
     Obj.bIsActive = true
 end
 
 function EndPlay()
-    print("[EndPlay] " .. Obj.UUID)
+     
 end
 
 function OnBeginOverlap(OtherActor)

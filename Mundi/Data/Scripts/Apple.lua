@@ -8,21 +8,18 @@ local function NormalizeCopy(V)
     return Out
 end
 
-function BeginPlay()
-    print("[BeginPlay] " .. Obj.UUID)
+function BeginPlay() 
     Obj.Tag = "apple"
     Obj.Velocity = Vector(1, 0, 0)
     Obj.bIsActive = true
 
     StartCoroutine(function()
         coroutine.yield("wait_time", LifeTime)
-        DeleteObject(Obj)
-        print("[Apple] Lifetime expired, deleted.")
+        DeleteObject(Obj) 
     end)
 end
 
-function EndPlay()
-    print("[EndPlay] " .. Obj.UUID)
+function EndPlay() 
 end
 
 function OnBeginOverlap(OtherActor)

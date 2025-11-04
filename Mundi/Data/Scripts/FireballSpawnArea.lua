@@ -4,13 +4,13 @@ local SpawnInterval = 1
 local TimeAcc = 0.0
 
 function BeginPlay()
-    print("[BeginPlay] " .. Obj.UUID) 
+     
     --Obj.Scale = Vector(10, 10, 1)   
     GlobalConfig.SpawnAreaPos = Obj.Location
 end
 
 function EndPlay()
-    print("[EndPlay] " .. Obj.UUID)
+     
 end
 
 function OnBeginOverlap(OtherActor)

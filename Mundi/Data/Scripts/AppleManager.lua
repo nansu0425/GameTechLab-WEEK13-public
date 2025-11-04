@@ -26,8 +26,7 @@ function DestroyApple(apple)
     PushApple(apple)
 end
 
-function BeginPlay()
-    print("[AppleManager BeginPlay] " .. Obj.UUID)
+function BeginPlay() 
     for i = 1, MaxAppleNumber do
         local apple = SpawnPrefab("Data/Prefabs/Apple.prefab")
         CurrentAppleNumber = CurrentAppleNumber + 1

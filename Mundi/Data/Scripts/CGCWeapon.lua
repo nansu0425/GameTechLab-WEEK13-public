@@ -84,13 +84,11 @@ local function GenerateRotationSequence()
     StartNextRotation()
 end
 
-function BeginPlay()
-    print("[BeginPlay] " .. Obj.UUID)
+function BeginPlay() 
     GenerateRotationSequence()
 end
 
-function EndPlay()
-    print("[EndPlay] " .. Obj.UUID)
+function EndPlay() 
 end
 
 function Tick(dt)

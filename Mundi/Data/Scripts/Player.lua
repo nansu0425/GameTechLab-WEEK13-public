@@ -22,8 +22,7 @@ function AddID(id)
     if not ActiveIDs[id] then
         ActiveIDs[id] = true
         IDCount = IDCount + 1
-        print("Added ID:".. id .. "Count:".. IDCount)
-
+      
         if Gravity < 0 and not bStart then
             Gravity = 0
             bStart = true
@@ -123,7 +122,7 @@ end
 function ShootProjectile()
     local projectile = SpawnPrefab("Data/Prefabs/Apple.prefab")
     if not projectile then
-        print("[Error] Apple prefab not found!")
+       
         return
     end
 
@@ -163,7 +162,7 @@ end
 function Die()    
     bDie = true
     Gravity = -50
-    print(Gravity)
+    
     local ActiveIDs = {}
     
     StartCoroutine(EndAfter)

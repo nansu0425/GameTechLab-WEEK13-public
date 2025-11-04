@@ -17,14 +17,12 @@ local function EnsureSpawned(target)
     end
 end
 
-function BeginPlay()
-    print("[CGCAttak BeginPlay] " .. Obj.UUID)
+function BeginPlay() 
     CurrentLevel = GlobalConfig.CoachLevel or 0
     EnsureSpawned(CurrentLevel)
 end
 
-function EndPlay()
-    print("[CGCAttak EndPlay] " .. Obj.UUID)
+function EndPlay() 
 end
 
 function Tick(dt)

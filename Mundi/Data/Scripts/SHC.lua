@@ -36,8 +36,7 @@ local function ZRotFunction(rot)
 end
 
 function BeginPlay()
-    print("[BeginPlay] " .. Obj.UUID)
-
+     
     GlobalConfig.SpawnAreaPos = Obj.Location
     GlobalConfig.SpawnerForwardByUUID = GlobalConfig.SpawnerForwardByUUID or {}
 
@@ -53,7 +52,7 @@ function BeginPlay()
 end
 
 function EndPlay()
-    print("[EndPlay] " .. Obj.UUID)
+    
 end
 
 function OnOverlap(OtherActor)
