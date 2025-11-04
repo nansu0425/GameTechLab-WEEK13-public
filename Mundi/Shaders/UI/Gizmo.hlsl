@@ -60,6 +60,10 @@ PS_INPUT mainVS(VS_INPUT input)
 {
     PS_INPUT output;
 
+    // Calculate world position
+    float4 worldPos = mul(float4(input.position, 1.0f), WorldMatrix);
+    output.worldPos = worldPos.xyz;
+    
     // Transform vertex position: Model -> World -> View -> Clip space
     float4x4 MVP = mul(mul(WorldMatrix, ViewMatrix), ProjectionMatrix);
     output.position = mul(float4(input.position, 1.0f), MVP);
@@ -78,8 +82,13 @@ PS_OUTPUT mainPS(PS_INPUT input)
 {
     PS_OUTPUT Output;
 
+    float3 ddx_pos = ddx(input.worldPos);
+    float3 ddy_pos = ddy(input.worldPos);
+    float3 faceNormal = normalize(cross(ddy_pos, ddx_pos));
+    float3 N = faceNormal;
+    
     // Lambertian diffuse lighting calculation
-    float3 N = normalize(input.worldNormal);
+    //float3 N = normalize(input.worldNormal);
     float3 lightDir = normalize(float3(0.5f, 0.5f, -0.5f)); // Define a fixed directional light
     float NdotL = saturate(dot(N, -lightDir));
     
