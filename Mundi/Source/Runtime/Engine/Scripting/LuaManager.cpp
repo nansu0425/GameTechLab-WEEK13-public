@@ -142,7 +142,7 @@ FLuaManager::FLuaManager()
             UE_LOG("[Lua] %f\n", num);                                    
         },                                                                
                                                                           
-        [](FVector Vector)                                                 
+        [](FVector Vector)                                                    
         {                                                                 
             UE_LOG("[Lua] (%f, %f, %f)\n", Vector.X, Vector.Y, Vector.Z); 
         }                                                                 
@@ -205,6 +205,11 @@ FLuaManager::FLuaManager()
        []() { return FVector(0.0f, 0.0f, 0.0f); },
        [](float x, float y, float z) { return FVector(x, y, z); }
    ));
+
+    //@TODO(Timing)
+    SharedLib.set_function("SetSlomo", [](float Duration , float Dilation) { GWorld->RequestSlomo(Duration, Dilation); });
+
+    SharedLib.set_function("HitStop", [](float Duration, sol::optional<float> Scale) { GWorld->RequestHitStop(Duration, Scale.value_or(0.0f)); });
     
     // FVector usertype 등록 (메서드와 프로퍼티)
     SharedLib.new_usertype<FVector>("FVector",
@@ -236,6 +241,7 @@ FLuaManager::FLuaManager()
         [](float R, float G, float B) { return FLinearColor(R, G, B, 1.0f); },
         [](float R, float G, float B, float A) { return FLinearColor(R, G, B, A); }
     ));
+
 
     SharedLib.new_usertype<FLinearColor>("FLinearColor",
         sol::no_constructor,

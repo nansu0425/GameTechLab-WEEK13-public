@@ -31,6 +31,7 @@ class FOcclusionCullingManagerCPU;
 struct Frustum;
 struct FCandidateDrawable;
 
+enum EDeltaTime { Unscaled, SlomoOnly, Game };
 
 class UWorld final : public UObject
 {
@@ -102,6 +103,13 @@ public:
     // PIE용 World 생성
     static UWorld* DuplicateWorldForPIE(UWorld* InEditorWorld);
 
+    /** Timing Function */
+    float GetDeltaTime(EDeltaTime type);
+
+    // 모든게 정지
+    void RequestHitStop(float Duration ,float Dilation = 0.0f); 
+    void RequestSlomo(float Duration, float Dilation = 0.0f);
+
 private:
     bool DestroyActor(AActor* Actor);   // 즉시 삭제
 
@@ -137,8 +145,19 @@ private:
 
     // Per-frame processed overlap pairs (A,B) keyed canonically
     TSet<uint64> FrameOverlapPairs;
-};
 
+    //Timinig
+    float UnscaledDelta;
+    float SlomoOnlyDelta;
+    float GameDelta;
+
+    float TimeStopDilation; /* 얼마나 느리게 */
+    float TimeDilation;
+
+    float TimeStopDuration;  /* 얼마 동안 */
+    float TimeDuration;
+
+};
 template<class T>
 inline T* UWorld::SpawnActor()
 {

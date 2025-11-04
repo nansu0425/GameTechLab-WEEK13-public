@@ -160,7 +160,14 @@ function ManageGameState()
     return false
 end
 
-function Die()    
+function Die()
+    if bDie then 
+        return
+    end
+
+    HitStop(2, 0.01)
+    
+    print("Die")
     bDie = true
     CurGravity = GravityConst
     local ActiveIDs = {}

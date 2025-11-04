@@ -37,6 +37,16 @@ UWorld::UWorld() : Partition(new UWorldPartitionManager())
 	Level = std::make_unique<ULevel>();
 	LightManager = std::make_unique<FLightManager>();
 	LuaManager = std::make_unique<FLuaManager>();
+
+	UnscaledDelta = 0;
+	SlomoOnlyDelta = 0;
+	GameDelta = 0;
+
+	TimeStopDilation = 1.0;
+	TimeDilation = 1.0;
+	
+	TimeStopDuration = 0;
+	TimeDuration = 0;
 }
 
 UWorld::~UWorld()
@@ -124,6 +134,35 @@ bool UWorld::TryLoadLastUsedLevel()
 // 함수 내부 코드 순서 유지 필요
 void UWorld::Tick(float DeltaSeconds)
 {	
+	// GameDelat: Unscaled * finalScale  
+	float UnscaledDeltaSeconds = DeltaSeconds;
+
+	// Time Stop 
+	if (TimeStopDuration > 0 || TimeDuration > 0)
+	{
+		// Stop
+		TimeStopDuration -= UnscaledDeltaSeconds; 
+		if (TimeStopDuration <= 0)
+		{
+			TimeStopDuration = 0;
+			TimeStopDilation = 1.0f;
+		}
+
+		// Slomo
+		TimeDuration -= UnscaledDeltaSeconds; 
+
+		if (TimeDuration <= 0)
+		{
+			TimeDuration = 0;
+			TimeDilation = 1.0f;
+		} 
+	}  
+
+	// Delta Time Update
+	UnscaledDelta = UnscaledDeltaSeconds;
+	SlomoOnlyDelta = UnscaledDeltaSeconds * TimeDilation;
+	GameDelta = UnscaledDeltaSeconds * TimeDilation * TimeStopDilation;
+	 
 	// 중복충돌 방지 pair clear 
     FrameOverlapPairs.clear();
     //Partition->Update(DeltaSeconds, /*budget*/256);	// NOTE: 임시 처리
@@ -140,7 +179,7 @@ void UWorld::Tick(float DeltaSeconds)
 				{
 					if (Actor->CanTickInEditor() || bPie)
 					{
-						Actor->Tick(DeltaSeconds);
+						Actor->Tick(GetDeltaTime(EDeltaTime::Game));
 					}
 				}
 			}
@@ -151,14 +190,14 @@ void UWorld::Tick(float DeltaSeconds)
     {
 		if (EditorActor && !bPie)
 		{
-			EditorActor->Tick(DeltaSeconds);
+			EditorActor->Tick(GetDeltaTime(EDeltaTime::Unscaled));
 		}
     }
 
 	// Lua 코루틴 전용 Tick
 	if (LuaManager && bPie)
 	{
-		LuaManager->Tick(DeltaSeconds);
+		LuaManager->Tick(GetDeltaTime(EDeltaTime::Game));
 	}
 
 	// 지연 삭제 처리
@@ -200,6 +239,40 @@ UWorld* UWorld::DuplicateWorldForPIE(UWorld* InEditorWorld)
 	}
 
 	return PIEWorld;
+}
+
+float UWorld::GetDeltaTime(EDeltaTime type)
+{
+	switch (type)
+	{
+	case EDeltaTime::Unscaled:
+		return UnscaledDelta;
+		break;
+	case EDeltaTime::SlomoOnly:
+		return SlomoOnlyDelta;
+		break;
+
+	case EDeltaTime::Game:
+		return GameDelta;
+		break;
+
+	default:
+		return UnscaledDelta;
+		break;
+	}
+}
+
+void UWorld::RequestHitStop(float Duration, float Dilation)
+{
+	// Add를 할까, 덮어쓸까?
+	TimeStopDilation = FMath::Min(Dilation, TimeStopDilation);
+	TimeStopDuration = FMath::Max(Duration, TimeStopDuration);
+}
+
+void UWorld::RequestSlomo(float Duration, float Dilation)
+{
+	TimeDilation = FMath::Min(Dilation, TimeDilation);
+	TimeDuration = FMath::Max(Duration, TimeDuration);
 }
 
 void UWorld::SetCameraActor(ACameraActor* InCamera)
