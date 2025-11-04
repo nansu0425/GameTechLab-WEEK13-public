@@ -1,8 +1,8 @@
 local Tiles = {}
 local TileMeta = {}
 local TileSize = 2;
-local GridWidth = 11 * 1
-local GridHeight = 11 * 1
+local GridWidth = 9 * 1
+local GridHeight = 9 * 1
 
 local bIsGenerated = false
 
@@ -14,7 +14,7 @@ local function GenerateFakeUUID()
 end
 
 function BeginPlay()
-    print("[BeginPlay] " .. Obj.UUID)
+     
     GlobalConfig.TileMapInfo = {
         TileSize = TileSize,
         GridWidth = GridWidth,
@@ -86,7 +86,7 @@ function DeleteGrid()
 end
 
 function EndPlay()
-    print("[EndPlay] " .. Obj.UUID)
+     
     GlobalConfig.TileMapInfo = nil
     GlobalConfig.RemoveTileByUUID = nil
 end
