@@ -668,6 +668,28 @@ void FLuaManager::ExposeGlobalFunctions()
         "DeleteVignette", [](APlayerCameraManager* Self)
         {
             if (Self) Self->DeleteVignette();
+        },
+            
+        "SetViewTarget", [](APlayerCameraManager* self, LuaComponentProxy& Proxy)
+        {
+            // 타입 안정성 확인
+            if (self && Proxy.Instance && Proxy.Class == UCameraComponent::StaticClass())
+            {
+                // 프록시에서 실제 컴포넌트 포인터 추출
+                auto* CameraComp = static_cast<UCameraComponent*>(Proxy.Instance);
+                self->SetViewTarget(CameraComp);
+            }
+        },
+
+        "SetViewTargetWithBlend", [](APlayerCameraManager* self, LuaComponentProxy& Proxy, float InBlendTime)
+        {
+            // 타입 안정성 확인
+            if (self && Proxy.Instance && Proxy.Class == UCameraComponent::StaticClass())
+            {
+                // 프록시에서 실제 컴포넌트 포인터 추출
+                auto* CameraComp = static_cast<UCameraComponent*>(Proxy.Instance);
+                self->SetViewTargetWithBlend(CameraComp, InBlendTime);
+            }
         }
     );
 

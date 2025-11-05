@@ -259,6 +259,15 @@ void APlayerCameraManager::UpdateViewTarget(float DeltaTime)
 {
 	UCameraComponent* TargetCam = CurrentViewTarget ? CurrentViewTarget : GetMainCamera();
 
+	if (CachedViewport)
+	{
+		// 최종 뷰 영역 (ViewRect)
+		SceneView.ViewRect.MinX = CachedViewport->GetStartX();
+		SceneView.ViewRect.MinY = CachedViewport->GetStartY();
+		SceneView.ViewRect.MaxX = SceneView.ViewRect.MinX + CachedViewport->GetSizeX();
+		SceneView.ViewRect.MaxY = SceneView.ViewRect.MinY + CachedViewport->GetSizeY();
+	}
+
 	if (PendingViewTarget) // 1. 블렌딩 중일 때
 	{
 		float V = 1.0f;
@@ -305,15 +314,6 @@ void APlayerCameraManager::UpdateViewTarget(float DeltaTime)
 	}
 	else if (TargetCam) // 2. 블렌딩 중이 아닐 때
 	{
-		if (CachedViewport)
-		{
-			// 최종 뷰 영역 (ViewRect)
-			SceneView.ViewRect.MinX = CachedViewport->GetStartX();
-			SceneView.ViewRect.MinY = CachedViewport->GetStartY();
-			SceneView.ViewRect.MaxX = SceneView.ViewRect.MinX + CachedViewport->GetSizeX();
-			SceneView.ViewRect.MaxY = SceneView.ViewRect.MinY + CachedViewport->GetSizeY();
-		}
-
 		// SceneView의 모든 기본 값을 현재 타겟으로 설정
 		SceneView.ViewLocation = TargetCam->GetWorldLocation();
 		SceneView.ViewRotation = TargetCam->GetWorldRotation();
