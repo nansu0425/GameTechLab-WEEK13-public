@@ -49,6 +49,7 @@ public:
     void InitializeGizmo();
 
     bool TryLoadLastUsedLevel();
+    bool LoadLevelFromFile(const FWideString& Path);
 
     template<class T>
     T* SpawnActor();
