@@ -18,15 +18,15 @@ APlayerCameraManager::APlayerCameraManager()
 
 void APlayerCameraManager::BuildForFrame(float DeltaTime, FSceneView& InOutView)
 {
-	// 1) 전처리: ViewMatrix/Projection/ViewRect 수정 (Priority 순)
+	// 모든 Modifier tick Update
 	for (UCameraModifierBase* M : ActiveModifiers)
 	{
 		if (!M || !M->bEnabled || M->Weight <= 0.f) continue;
 		M->ApplyToView(DeltaTime, InOutView);
 	}
 
-	// 2) 후처리: PP 모디파이어 수집
-	InOutView.PostProcessInput.Modifiers.Reset();
+	// 2) 후처리: PP 모디파이어 초기화 + 수집
+	InOutView.PostProcessInput.Modifiers.clear();
 	for (UCameraModifierBase* M : ActiveModifiers)
 	{
 		if (!M || !M->bEnabled || M->Weight <= 0.f) continue;

@@ -4,6 +4,7 @@
 class UCameraComponent;
 class UCameraModifierBase;
 class FSceneView;
+
 class APlayerCameraManager : public AActor
 {
 	DECLARE_CLASS(APlayerCameraManager, AActor)
@@ -36,13 +37,24 @@ public:
 	//// 렌더러가 호출할 최종 뷰 정보 GETTER (매우 빠름) return 모든 효과가 적용된 최종 뷰 정보 (캐시된 값)
 	//FMinimalViewInfo GetFinalViewInfo() const;
 
-	void SetMainCamera(UCameraComponent* InCamera) { MainCamera = InCamera; };
+	void SetMainCamera(UCameraComponent* InCamera) { CurrentViewTarget = InCamera; };
 	UCameraComponent* GetMainCamera();
 
+	FSceneView* GetSceneView(FViewport* InViewport, URenderSettings* InRenderSettings);
 	
-	
+	FSceneView* GetBaseViewInfo(UCameraComponent* ViewTarget);
+	void SetViewTarget(UCameraComponent* NewViewTarget);
+	void SetViewTargetWithBlend(UCameraComponent* NewViewTarget, float InBlendTime);
+
 	DECLARE_DUPLICATE(APlayerCameraManager)
 
 private:
-	UCameraComponent* MainCamera{};
+	UCameraComponent* CurrentViewTarget{};
+	UCameraComponent* PendingViewTarget{};
+
+	FSceneView* SceneView{};
+	FSceneView* BlendStartView{};
+
+	float BlendTimeTotal;
+	float BlendTimeRemaining;
 };

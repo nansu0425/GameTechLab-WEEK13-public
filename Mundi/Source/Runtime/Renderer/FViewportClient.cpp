@@ -25,10 +25,6 @@ FViewportClient::FViewportClient()
 	SetupCameraMode();
 }
 
-FViewportClient::~FViewportClient()
-{
-}
-
 void FViewportClient::Tick(float DeltaTime)
 {
 	if (PerspectiveCameraInput)
@@ -84,6 +80,8 @@ void FViewportClient::Draw(FViewport* Viewport)
 {
 	if (!Viewport || !World) return;
 
+	FSceneView* RenderView;
+
 	UCameraComponent* RenderCamera = nullptr;
 
 	if (World->bPie)
@@ -92,11 +90,12 @@ void FViewportClient::Draw(FViewport* Viewport)
 		APlayerCameraManager* PCM = World->GetFirstPlayerCameraManager();
 		if (PCM)
 		{
-			RenderCamera = PCM->GetMainCamera();
+			RenderView = PCM->GetSceneView(Viewport, &World->GetRenderSettings());
+			// RenderCamera = PCM->GetMainCamera();
 		}
 	}
 
-	if (!RenderCamera)
+	if (!RenderView)
 	{
 		RenderCamera = Camera->GetCameraComponent();
 
@@ -115,6 +114,8 @@ void FViewportClient::Draw(FViewport* Viewport)
 			break;
 		}
 		}
+
+		RenderView = new FSceneView(RenderCamera, Viewport, &World->GetRenderSettings());
 	}
 
 	// 2. 렌더링 호출은 뷰 타입 설정이 모두 끝난 후 마지막에 한 번만 수행
@@ -124,8 +125,10 @@ void FViewportClient::Draw(FViewport* Viewport)
 		World->GetRenderSettings().SetViewMode(ViewMode);
 
 		// 더 명확한 이름의 함수를 호출
-		Renderer->RenderSceneForView(World, RenderCamera, Viewport);
+		Renderer->RenderSceneForView(World, RenderView, Viewport);
 	}
+
+	delete RenderView;
 }
 
 void FViewportClient::SetupCameraMode()

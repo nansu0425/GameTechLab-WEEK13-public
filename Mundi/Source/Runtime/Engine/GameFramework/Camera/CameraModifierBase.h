@@ -7,7 +7,7 @@ public:
     DECLARE_CLASS(UCameraModifierBase, UObject)
     GENERATED_REFLECTION_BODY()
 
-private:
+public:
     int32 Priority = 0;     // 낮을수록 먼저
     bool  bEnabled = true;
     float Weight  = 1.0f;  // 0~1, 모디파이어 내부 블렌딩 스케일
