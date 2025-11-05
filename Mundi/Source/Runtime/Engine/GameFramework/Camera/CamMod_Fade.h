@@ -17,7 +17,7 @@ public:
 
     float CurrentAlpha = 0.f; // 이번 프레임 출력 알파
     
-    virtual void ApplyToView(float DeltaTime) override
+    virtual void ApplyToView(float DeltaTime, FMinimalViewInfo* ViewInfo) override
     {
         if (!bEnabled) return;
 

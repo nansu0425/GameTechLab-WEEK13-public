@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "CamMod_Fade.h"
 
 UCamMod_Fade::UCamMod_Fade() = default;

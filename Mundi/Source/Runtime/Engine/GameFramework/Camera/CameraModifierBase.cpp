@@ -5,7 +5,7 @@ IMPLEMENT_CLASS(UCameraModifierBase);
 
 UCameraModifierBase::UCameraModifierBase() = default;
 
-void UCameraModifierBase::ApplyToView(float DeltaTime)
+void UCameraModifierBase::ApplyToView(float DeltaTime, FMinimalViewInfo* ViewInfo)
 {
 }
 

@@ -94,7 +94,7 @@ void APlayerCameraManager::BuildForFrame(float DeltaTime)
 	for (UCameraModifierBase* M : ActiveModifiers)
 	{
 		if (!M || !M->bEnabled || M->Weight <= 0.f) continue;
-		M->ApplyToView(DeltaTime);
+		M->ApplyToView(DeltaTime, &SceneView);
 	}
 
 	// 2) 후처리: PP 모디파이어 초기화 + 수집
