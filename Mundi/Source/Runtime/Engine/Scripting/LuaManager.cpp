@@ -564,18 +564,6 @@ void FLuaManager::ExposeComponentFunctions()
 
 void FLuaManager::ExposeGlobalFunctions()
 {
-    // GWorld에 접근하여 카메라 매니저 인스턴스를 가져오는 전역 함수
-    SharedLib.set_function("GetCameraManager",
-        []() -> APlayerCameraManager*
-        {
-            if (!GWorld)
-            {
-                return nullptr;
-            }
-            return GWorld->GetFirstPlayerCameraManager();
-        }
-    );
-
     // APlayerCameraManager 클래스의 멤버 함수들 바인딩
     Lua->new_usertype<APlayerCameraManager>("PlayerCameraManager",
         sol::no_constructor,
