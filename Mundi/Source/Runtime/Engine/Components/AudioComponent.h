@@ -31,7 +31,7 @@ public:
 	void Stop();
 
 	/**
-	* @brief 재생할 사운드 리소스를 할당합니다.
+	* @brief 재생할 사운드 리소스를 할당합니다.z	
 	*/
 	void SetSound(USound* NewSound) { Sound = NewSound; }
 
