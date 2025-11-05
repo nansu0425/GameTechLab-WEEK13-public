@@ -31,6 +31,7 @@ struct FViewportRect
  * @brief 단일 관점에서 씬을 렌더링하는 데 필요한 모든 데이터를 소유합니다.
  * (ViewMatrix, ProjectionMatrix, Frustum, ViewportRect 등)
  */
+
 class FSceneView
 {
 public:
@@ -39,6 +40,28 @@ public:
     FSceneView(FSceneView* SourceView) { this = SourceView; }
     FSceneView(UCameraComponent* InCamera, FViewport* InViewport, URenderSettings* InRenderSettings);
 
+    struct FViewSnapshot
+    {
+        FMatrix      ViewMatrix{};
+        FMatrix      ProjectionMatrix{};
+        FFrustum     ViewFrustum{};
+        FVector      ViewLocation{};
+        FViewportRect ViewRect{};
+        ECameraProjectionMode ProjectionMode = ECameraProjectionMode::Perspective;
+        float        ZNear = 0.f, ZFar = 0.f;
+
+        FViewSnapshot() = default;
+        explicit FViewSnapshot(const FSceneView& V)
+            : ViewMatrix(V.ViewMatrix)
+            , ProjectionMatrix(V.ProjectionMatrix)
+            , ViewFrustum(V.ViewFrustum)
+            , ViewLocation(V.ViewLocation)
+            , ViewRect(V.ViewRect)
+            , ProjectionMode(V.ProjectionMode)
+            , ZNear(V.ZNear)
+            , ZFar(V.ZFar)
+        {}
+    };
 private:
     TArray<FShaderMacro> CreateViewShaderMacros();
 
