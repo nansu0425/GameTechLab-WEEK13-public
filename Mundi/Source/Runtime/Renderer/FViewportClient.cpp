@@ -26,6 +26,10 @@ FViewportClient::FViewportClient()
 	SetupCameraMode();
 }
 
+FViewportClient::~FViewportClient()
+{
+}
+
 void FViewportClient::Tick(float DeltaTime)
 {
 	if (PerspectiveCameraInput)
