@@ -6,8 +6,6 @@
 
 #include "UEContainer.h"
 
-
-
 // 혹시 다른 헤더에서 새어 들어온 매크로 방지
 #ifdef min
 #undef min
@@ -1053,6 +1051,17 @@ struct alignas(16) FMatrix
 		inv.Rows[3] = _mm_set_ps(1.0f, Zn, 0.0f, 0.0f);
 		return inv;
 	}
+
+	// FMinimalViewInfo의 값을 기반으로 투영 행렬을 생성하는 공통 유틸리티 함수입니다.
+	static FMatrix CreateProjectionMatrix(
+		float FieldOfView,       // (Degrees)
+		float AspectRatio,
+		float ViewWidth,
+		float ViewHeight,
+		float NearClip,
+		float FarClip,
+		float ZoomFactor,
+		enum class ECameraProjectionMode ProjectionMode);
 };
 
 // ─────────────────────────────

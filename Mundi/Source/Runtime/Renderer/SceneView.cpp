@@ -4,47 +4,49 @@
 #include "FViewport.h"
 #include "Frustum.h"
 
-FSceneView::FSceneView(FMinimalViewInfo* InMinimalViewInfo, FViewport* InViewport, URenderSettings* InRenderSettings)
-	: Viewport(InViewport), RenderSettings(InRenderSettings)
+FSceneView::FSceneView(FMinimalViewInfo* InMinimalViewInfo, URenderSettings* InRenderSettings)
+	: RenderSettings(InRenderSettings)
 {
-	if (!InMinimalViewInfo || !Viewport || !RenderSettings)
+	if (!InMinimalViewInfo || !RenderSettings)
 	{
-		UE_LOG("[FSceneView::FSceneView()]: InMinimalViewInfo 또는 Viewport 또는 RenderSettings가 없습니다.");
+		UE_LOG("[error] [FSceneView::FSceneView()]: InMinimalViewInfo 또는 RenderSettings가 없습니다.");
 		return;
 	}
 
-	// --- 이 로직이 FSceneRenderer::PrepareView()에서 이동해 옴 ---
-
-	float AspectRatio = 1.0f;
-	if (Viewport->GetSizeY() > 0)
-	{
-		AspectRatio = (float)Viewport->GetSizeX() / (float)Viewport->GetSizeY();
-	}
-
-	ViewMatrix = InMinimalViewInfo->ViewMatrix;
-	ProjectionMatrix = InMinimalViewInfo->ProjectionMatrix;
-	//ViewFrustum = CreateFrustumFromCamera(*InMinimalViewInfo->RectRati;
+	// --- 1. FMinimalViewInfo의 값 복사 ---
+	ViewRect = InMinimalViewInfo->ViewRect;
 	ViewLocation = InMinimalViewInfo->ViewLocation;
 	ViewRotation = InMinimalViewInfo->ViewRotation;
 	NearClip = InMinimalViewInfo->NearClip;
 	FarClip = InMinimalViewInfo->FarClip;
 	FieldOfView = InMinimalViewInfo->FieldOfView;
+	AspectRatio = InMinimalViewInfo->AspectRatio;
 	ZoomFactor = InMinimalViewInfo->ZoomFactor;
 	ProjectionMode = InMinimalViewInfo->ProjectionMode;
 
-	ViewRect.MinX = Viewport->GetStartX();
-	ViewRect.MinY = Viewport->GetStartY();
-	ViewRect.MaxX = ViewRect.MinX + Viewport->GetSizeX();
-	ViewRect.MaxY = ViewRect.MinY + Viewport->GetSizeY();
+	// --- 2. 뷰 행렬 계산 ---
+	FMatrix WorldMatrix = InMinimalViewInfo->ViewRotation.ToMatrix() * FMatrix::MakeTranslation(InMinimalViewInfo->ViewLocation);
+	ViewMatrix = (FMatrix::YUpToZUp * WorldMatrix).InverseAffine();
 
+	// --- 3. 투영 행렬 계산 (공통 함수 호출) ---
+	ProjectionMatrix = FMatrix::CreateProjectionMatrix(
+		InMinimalViewInfo->FieldOfView,
+		InMinimalViewInfo->AspectRatio,
+		InMinimalViewInfo->ViewRect.Width(),
+		InMinimalViewInfo->ViewRect.Height(),
+		InMinimalViewInfo->NearClip,
+		InMinimalViewInfo->FarClip,
+		InMinimalViewInfo->ZoomFactor,
+		InMinimalViewInfo->ProjectionMode
+	);
 
 	ViewShaderMacros = CreateViewShaderMacros();
 }
 
 FSceneView::FSceneView(UCameraComponent* InCamera, FViewport* InViewport, URenderSettings* InRenderSettings)
-	: Viewport(InViewport), RenderSettings(InRenderSettings)
+	: RenderSettings(InRenderSettings)
 {
-	if (!InCamera || !Viewport || !RenderSettings)
+	if (!InCamera || !InViewport || !RenderSettings)
 	{
 		UE_LOG("[FSceneView::FSceneView()]: CameraActor 또는 Viewport 또는 RenderSettings가 없습니다.");
 		return;
@@ -53,13 +55,13 @@ FSceneView::FSceneView(UCameraComponent* InCamera, FViewport* InViewport, URende
 	// --- 이 로직이 FSceneRenderer::PrepareView()에서 이동해 옴 ---
 
 	float AspectRatio = 1.0f;
-	if (Viewport->GetSizeY() > 0)
+	if (InViewport->GetSizeY() > 0)
 	{
-		AspectRatio = (float)Viewport->GetSizeX() / (float)Viewport->GetSizeY();
+		AspectRatio = (float)InViewport->GetSizeX() / (float)InViewport->GetSizeY();
 	}
 
 	ViewMatrix = InCamera->GetViewMatrix();
-	ProjectionMatrix = InCamera->GetProjectionMatrix(AspectRatio, Viewport);
+	ProjectionMatrix = InCamera->GetProjectionMatrix(AspectRatio, InViewport);
 	//ViewFrustum = CreateFrustumFromCamera(*InCamera, AspectRatio);
 	ViewLocation = InCamera->GetWorldLocation();
 	ViewRotation = InCamera->GetWorldRotation();
@@ -68,10 +70,10 @@ FSceneView::FSceneView(UCameraComponent* InCamera, FViewport* InViewport, URende
 	FieldOfView = InCamera->GetFOV();
 	ZoomFactor = InCamera->GetZoomFactor();
 
-	ViewRect.MinX = Viewport->GetStartX();
-	ViewRect.MinY = Viewport->GetStartY();
-	ViewRect.MaxX = ViewRect.MinX + Viewport->GetSizeX();
-	ViewRect.MaxY = ViewRect.MinY + Viewport->GetSizeY();
+	ViewRect.MinX = InViewport->GetStartX();
+	ViewRect.MinY = InViewport->GetStartY();
+	ViewRect.MaxX = ViewRect.MinX + InViewport->GetSizeX();
+	ViewRect.MaxY = ViewRect.MinY + InViewport->GetSizeY();
 
 	ProjectionMode = InCamera->GetProjectionMode();
 

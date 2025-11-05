@@ -25,14 +25,13 @@ struct FViewportRect
 
 struct FMinimalViewInfo
 {
-    FMatrix ViewMatrix;
-    FMatrix ProjectionMatrix;
     FVector ViewLocation;
     FQuat ViewRotation;
-    float FieldOfView = 0.0f;
-    float ZoomFactor = 0.0f;
-    float NearClip = 0.0f;
-    float FarClip = 0.0f;
+    float FieldOfView = 90.0f;
+    float ZoomFactor = 1.0f;
+    float NearClip = 10.0f;
+    float FarClip = 1000.0f;
+    float AspectRatio = 1.7777f;
     FViewportRect ViewRect;
     ECameraProjectionMode ProjectionMode;
 };
@@ -47,7 +46,7 @@ class FSceneView
 {
 public:
     // 메인 뷰(카메라)를 위한 생성자
-    FSceneView(FMinimalViewInfo* InMinimalViewInfo, FViewport* InViewport, URenderSettings* InRenderSettings);
+    FSceneView(FMinimalViewInfo* InMinimalViewInfo, URenderSettings* InRenderSettings);
     FSceneView(UCameraComponent* InCamera, FViewport* InViewport, URenderSettings* InRenderSettings);
 
 private:
@@ -64,16 +63,16 @@ public:
 
     TArray<FVector> FrustumVertices;
 
-    FViewport* Viewport;
     URenderSettings* RenderSettings;
 
     // 렌더링 설정
     ECameraProjectionMode ProjectionMode = ECameraProjectionMode::Perspective;
     TArray<FShaderMacro> ViewShaderMacros;
-    float FieldOfView = 0.0f;
-    float ZoomFactor = 0.0f;
     float NearClip = 0.0f;
     float FarClip = 0.0f;
+    float FieldOfView = 0.0f;
+    float AspectRatio = 0.0f;
+    float ZoomFactor = 0.0f;
 
     TArray<FPostProcessModifier> Modifiers;
 };

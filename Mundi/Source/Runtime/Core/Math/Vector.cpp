@@ -25,7 +25,6 @@ const FMatrix FMatrix::YUpToZUp = FMatrix
 );
 
 
-
 FMatrix FMatrix::OrthoMatrix(const FAABB & AABB)
 {
 	return OrthoMatrix(AABB.Max.X, AABB.Min.X, AABB.Max.Y, AABB.Min.Y, AABB.Max.Z, AABB.Min.Z);
@@ -48,4 +47,29 @@ FMatrix FMatrix::OrthoMatrix(float R, float L, float T, float B, float F, float 
 		0, M_B, 0, 0,
 		0, 0, M_C, 0,
 		M_D, M_E, M_F, 1);
+}
+
+FMatrix FMatrix::CreateProjectionMatrix(float FieldOfView, float AspectRatio, float ViewWidth, float ViewHeight, float NearClip, float FarClip, float ZoomFactor, ECameraProjectionMode ProjectionMode)
+{
+	if (ProjectionMode == ECameraProjectionMode::Perspective)
+	{
+		return FMatrix::PerspectiveFovLH(
+			DegreesToRadians(FieldOfView),
+			AspectRatio,
+			NearClip, FarClip);
+	}
+	else // Orthographic
+	{
+		// world unit = 100 pixels (예시)
+		const float PixelsPerWorldUnit = 10.0f;
+
+		// 뷰포트 크기를 월드 단위로 변환
+		float OrthoWidth = (ViewWidth / PixelsPerWorldUnit) * ZoomFactor;
+		float OrthoHeight = (ViewHeight / PixelsPerWorldUnit) * ZoomFactor;
+
+		return FMatrix::OrthoLH(
+			OrthoWidth,
+			OrthoHeight,
+			NearClip, FarClip);
+	}
 }

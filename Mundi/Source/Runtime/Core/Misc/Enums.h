@@ -475,6 +475,12 @@ enum class EViewportType : uint8
     Orthographic_Back     // 측면 직교 뷰
 };
 
+enum class ECameraProjectionMode
+{
+    Perspective,
+    Orthographic
+};
+
 enum class EWorldType : uint8
 {
     None = 0,

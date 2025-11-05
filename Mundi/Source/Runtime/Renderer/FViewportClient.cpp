@@ -99,7 +99,7 @@ void FViewportClient::Draw(FViewport* Viewport)
 				FMinimalViewInfo* MinimalViewInfo = PlayerCameraManager->GetSceneView();
 				TArray<FPostProcessModifier> Modifiers = PlayerCameraManager->GetModifiers();
 
-				FSceneView SceneView(MinimalViewInfo, Viewport, &World->GetRenderSettings());
+				FSceneView SceneView(MinimalViewInfo, &World->GetRenderSettings());
 				SceneView.Modifiers = Modifiers;
 				World->GetRenderSettings().SetViewMode(ViewMode);
 
