@@ -20,7 +20,8 @@ public:
 	TArray<UCameraModifierBase*> ActiveModifiers;
 
 	void StartCameraShake(float InDuration, float AmpLoc, float AmpRotDeg, float Frequency, int32 InPriority = 0);
-	void StartFade(float InDuration, float FromAlpha, float ToAlpha, const FLinearColor& InColor, int32 InPriority=0);
+	void StartFade(float InDuration, float FromAlpha, float ToAlpha, const FLinearColor& InColor= FLinearColor::Zero(), int32 InPriority = 0);
+	void StartLetterBox(float InDuration, float Aspect, float BarHeight, const FLinearColor& InColor = FLinearColor::Zero(), int32 InPriority = 0);
 	
 	inline void FadeIn(float Duration, const FLinearColor& Color=FLinearColor::Zero(), int32 Priority=0)
 	{   // 검은 화면(1) → 씬(0)

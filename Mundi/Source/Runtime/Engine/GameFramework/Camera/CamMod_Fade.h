@@ -12,7 +12,6 @@ public:
     FLinearColor FadeColor = FLinearColor::Zero();
     float StartAlpha = 0.f;   // 시작 불투명도 [0..1]
     float EndAlpha   = 1.f;   // 종료 불투명도 [0..1]
-    float Duration   = 1.f;   // 총 소요 시간(초)
     float Elapsed    = 0.f;   // 진행 시간(초)
 
     float CurrentAlpha = 0.f; // 이번 프레임 출력 알파

@@ -3,6 +3,7 @@
 #include "Camera/CameraModifierBase.h"
 #include "Camera/CamMod_Fade.h"
 #include "Camera/CamMod_Shake.h"
+#include "Camera/CamMod_LetterBox.h"
 #include "SceneView.h"
 #include "CameraActor.h"
 #include "World.h"
@@ -22,7 +23,10 @@ APlayerCameraManager::APlayerCameraManager()
 
 APlayerCameraManager::~APlayerCameraManager()
 {
+	CurrentViewTarget = nullptr;
+	PendingViewTarget = nullptr;
 
+	CachedViewport = nullptr;
 }
 
 void APlayerCameraManager::StartCameraShake(float InDuration, float AmpLoc, float AmpRotDeg, float Frequency,
@@ -50,6 +54,18 @@ void APlayerCameraManager::StartFade(float InDuration, float FromAlpha, float To
 
 	ActiveModifiers.Add(FadeModifier);
 	// ActiveModifiers.Sort([](UCameraModifierBase* A, UCameraModifierBase* B){ return *A < *B; });
+}
+
+void APlayerCameraManager::StartLetterBox(float InDuration, float Aspect, float BarHeight, const FLinearColor& InColor, int32 InPriority)
+{
+	UCamMod_LetterBox* LetterBoxModifier = new UCamMod_LetterBox();
+	LetterBoxModifier->Priority = InPriority;
+	LetterBoxModifier->AspectRatio = Aspect;
+	LetterBoxModifier->HeightBarSize = BarHeight;
+	LetterBoxModifier->Duration = InDuration;
+	LetterBoxModifier->BoxColor = InColor;
+
+	ActiveModifiers.Add(LetterBoxModifier);
 }
 
 void APlayerCameraManager::Tick(float DeltaTime)

@@ -17,7 +17,6 @@ public:
 	virtual ~UCamMod_Shake() = default;
 
 	// === 최소 파라미터 ===
-	float Duration = 0.20f;   // 총 재생 시간(초). <0 이면 무한
 	float BlendIn = 0.02f;   // 인 램프
 	float BlendOut = 0.10f;   // 아웃 램프
 
