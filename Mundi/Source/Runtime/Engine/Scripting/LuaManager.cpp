@@ -64,7 +64,8 @@ FLuaManager::FLuaManager()
             {
                 return;
             }
-            Camera->SetForward(Direction);
+            ACameraActor* CameraActor = Cast<ACameraActor>(Camera->GetOwner());
+            CameraActor->SetForward(Direction);
         },
         "GetActorLocation", [](UCameraComponent* Camera) -> FVector
         {
