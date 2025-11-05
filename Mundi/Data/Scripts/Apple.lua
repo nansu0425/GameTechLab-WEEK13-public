@@ -13,6 +13,8 @@ function BeginPlay()
     Obj.Velocity = Vector(1, 0, 0)
     Obj.bIsActive = true
 
+    AudioComp = GetComponent(Obj, "UAudioComponent");
+    AudioComp:PlayOneShot(1)
     StartCoroutine(function()
         coroutine.yield("wait_time", LifeTime)
         DeleteObject(Obj) 
@@ -41,10 +43,9 @@ function OnBeginOverlap(OtherActor)
 
             OtherActor.Velocity = reflected
             
-            -- AudioComp = GetComponent(Obj, "UAudioComponent");
-            -- if AudioComp ~= nil then
-            --     AudioComp.PlayOneShot(0);
-            -- end
+            if AudioComp ~= nil then
+                AudioComp:PlayOneShot(0)
+            end 
             
         end
 
