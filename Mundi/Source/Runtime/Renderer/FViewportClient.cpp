@@ -94,7 +94,15 @@ void FViewportClient::Draw(FViewport* Viewport)
 		if (PCM)
 		{
 			RenderView = PCM->GetSceneView(Viewport, &World->GetRenderSettings());
-			// RenderCamera = PCM->GetMainCamera();
+			URenderer* Renderer = URenderManager::GetInstance().GetRenderer();
+			if (Renderer)
+			{
+				World->GetRenderSettings().SetViewMode(ViewMode);
+
+				// 더 명확한 이름의 함수를 호출
+				Renderer->RenderSceneForView(World, RenderView, Viewport);
+			}
+			return;
 		}
 	}
 
@@ -129,7 +137,10 @@ void FViewportClient::Draw(FViewport* Viewport)
 		Renderer->RenderSceneForView(World, RenderView, Viewport);
 	}
 
-	delete RenderView;
+	if (RenderView)
+	{
+		delete RenderView;
+	}
 }
 
 void FViewportClient::SetupCameraMode()
