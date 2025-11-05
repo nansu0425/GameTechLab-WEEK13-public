@@ -96,6 +96,7 @@ void APlayerCameraManager::BuildForFrame(float DeltaTime)
 	}
 	else
 	{
+		SceneView->Camera = CurrentViewTarget;
 		SceneView->ViewMatrix = CurrentViewTarget->GetViewMatrix();
 		SceneView->ViewLocation = CurrentViewTarget->GetWorldLocation();
 		SceneView->ViewRotation = CurrentViewTarget->GetWorldRotation();
@@ -164,9 +165,13 @@ FSceneView* APlayerCameraManager::GetSceneView(FViewport* InViewport, URenderSet
 		return nullptr;
 	}
 
-	SceneView->InitRenderSetting(InViewport, InRenderSettings);
+	if (SceneView->Camera)
+	{
+		SceneView->InitRenderSetting(InViewport, InRenderSettings);
+		return SceneView; 
+	}
 
-	return SceneView; 
+	return nullptr;
 }
 
 void APlayerCameraManager::SetViewTarget(UCameraComponent* NewViewTarget)
