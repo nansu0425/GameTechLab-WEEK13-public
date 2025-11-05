@@ -3,6 +3,7 @@
 #include "USlateManager.h"
 #include "SelectionManager.h"
 #include "FViewport.h"
+#include "PlayerCameraManager.h"
 #include <ObjManager.h>
 #include <sol/sol.hpp>
 
@@ -78,10 +79,6 @@ LRESULT CALLBACK UGameEngine::WndProc(HWND hWnd, UINT message, WPARAM wParam, LP
     // Input first
     INPUT.ProcessMessage(hWnd, message, wParam, lParam);
 
-    // ImGui next
-    if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
-        return true;
-
     switch (message)
     {
     case WM_SIZE:
@@ -98,15 +95,6 @@ LRESULT CALLBACK UGameEngine::WndProc(HWND hWnd, UINT message, WPARAM wParam, LP
             // Save CLIENT AREA size (will be converted back to window size on load)
             EditorINI["WindowWidth"] = std::to_string(NewWidth);
             EditorINI["WindowHeight"] = std::to_string(NewHeight);
-
-            if (ImGui::GetCurrentContext() != nullptr)
-            {
-                ImGuiIO& io = ImGui::GetIO();
-                if (io.DisplaySize.x > 0 && io.DisplaySize.y > 0)
-                {
-                    UI.RepositionImGuiWindows();
-                }
-            }
         }
     }
     break;
@@ -195,7 +183,6 @@ bool UGameEngine::Startup(HINSTANCE hInstance)
     }
 
     // 매니저 초기화
-    UI.Initialize(HWnd, RHIDevice.GetDevice(), RHIDevice.GetDeviceContext());
     INPUT.Initialize(HWnd);
 
     FObjManager::Preload();
@@ -204,6 +191,7 @@ bool UGameEngine::Startup(HINSTANCE hInstance)
     WorldContexts.Add(FWorldContext(NewObject<UWorld>(), EWorldType::Game));
     GWorld = WorldContexts[0].World;
     GWorld->Initialize();
+    GWorld->bPie = true;
     ///////////////////////////////////
 
     // 시작 scene(level)을 직접 로드 
@@ -215,19 +203,11 @@ bool UGameEngine::Startup(HINSTANCE hInstance)
     }
 
     // 로드된 월드의 모든 액터에 대해 BeginPlay() 호출
-    //TArray<AActor*> LevelActors = GWorld->GetLevel()->GetActors();
-    //for (AActor* Actor : LevelActors)
-    //{
-    //    Actor->BeginPlay();
-    //}
-
-    // 로드된 월드 안에서 카메라 액터 찾기
-    //ACameraActor* FoundCamera = nullptr;
-    //for (AActor* Actor : GWorld->GetLevel()->GetActors())
-    //{
-    //    // Find Camera !!!
-    //}
-    //GWorld->SetCameraActor(FoundCamera);
+    TArray<AActor*> LevelActors = GWorld->GetLevel()->GetActors();
+    for (AActor* Actor : LevelActors)
+    {
+        Actor->BeginPlay();
+    }
 
     bPlayActive = true;
     bRunning = true;
@@ -242,18 +222,7 @@ void UGameEngine::Tick(float DeltaSeconds)
     for (auto& WorldContext : WorldContexts)
     {
         WorldContext.World->Tick(DeltaSeconds);
-        //// 테스트용으로 분기해놨음
-        //if (WorldContext.World && bPIEActive && WorldContext.WorldType == EWorldType::Game)
-        //{
-        //    WorldContext.World->Tick(DeltaSeconds, WorldContext.WorldType);
-        //}
-        //else if (WorldContext.World && !bPIEActive && WorldContext.WorldType == EWorldType::Editor)
-        //{
-        //    WorldContext.World->Tick(DeltaSeconds, WorldContext.WorldType);
-        //}
     }
-
-    UI.Update(DeltaSeconds);
     INPUT.Update();
 }
 
@@ -261,19 +230,15 @@ void UGameEngine::Render()
 {
     Renderer->BeginFrame();
 
-    UI.Render();
-
     if (GWorld)
     {
-        ACameraActor* Camera = GWorld->GetCameraActor();
+        UCameraComponent* Camera = GWorld->GetFirstPlayerCameraManager()->GetMainCamera();
         if (Camera)
         {
             Renderer->SetCurrentViewportSize(GameViewport->GetSizeX(), GameViewport->GetSizeY());
             Renderer->RenderSceneForView(GWorld, Camera, GameViewport.get());
         }
     }
-
-    UI.EndFrame();
 
     Renderer->EndFrame();
 }
@@ -339,9 +304,6 @@ void UGameEngine::MainLoop()
 
 void UGameEngine::Shutdown()
 {
-    // Release ImGui first (it may hold D3D11 resources)
-    UUIManager::GetInstance().Release();
-
     // Delete all UObjects (Components, Actors, Resources)
     // Resource destructors will properly release D3D resources
     ObjectFactory::DeleteAll(true);
