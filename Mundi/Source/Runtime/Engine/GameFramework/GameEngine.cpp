@@ -1,12 +1,12 @@
 ﻿#include "pch.h"
-#include "EditorEngine.h"
+#include "GameEngine.h"
 #include "USlateManager.h"
 #include "SelectionManager.h"
 #include <ObjManager.h>
 
 
-float UEditorEngine::ClientWidth = 1024.0f;
-float UEditorEngine::ClientHeight = 1024.0f;
+float UGameEngine::ClientWidth = 1024.0f;
+float UGameEngine::ClientHeight = 1024.0f;
 
 static void LoadIniFile()
 {
@@ -40,12 +40,12 @@ static void SaveIniFile()
         outfile << pair.first << " = " << pair.second << std::endl;
 }
 
-UEditorEngine::UEditorEngine()
+UGameEngine::UGameEngine()
 {
 
 }
 
-UEditorEngine::~UEditorEngine()
+UGameEngine::~UGameEngine()
 {
     // Cleanup is now handled in Shutdown()
     // Do not call FObjManager::Clear() here due to static destruction order
@@ -53,7 +53,7 @@ UEditorEngine::~UEditorEngine()
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-void UEditorEngine::GetViewportSize(HWND hWnd)
+void UGameEngine::GetViewportSize(HWND hWnd)
 {
     RECT clientRect{};
     GetClientRect(hWnd, &clientRect);
@@ -67,12 +67,12 @@ void UEditorEngine::GetViewportSize(HWND hWnd)
     //레거시
     extern float CLIENTWIDTH;
     extern float CLIENTHEIGHT;
-    
+
     CLIENTWIDTH = ClientWidth;
     CLIENTHEIGHT = ClientHeight;
 }
 
-LRESULT CALLBACK UEditorEngine::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK UGameEngine::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     // Input first
     INPUT.ProcessMessage(hWnd, message, wParam, lParam);
@@ -92,16 +92,16 @@ LRESULT CALLBACK UEditorEngine::WndProc(HWND hWnd, UINT message, WPARAM wParam, 
 
             UINT NewWidth = static_cast<UINT>(ClientWidth);
             UINT NewHeight = static_cast<UINT>(ClientHeight);
-            GEngine.GetRHIDevice()-> OnResize(NewWidth, NewHeight);
+            GEngine.GetRHIDevice()->OnResize(NewWidth, NewHeight);
 
             // Save CLIENT AREA size (will be converted back to window size on load)
             EditorINI["WindowWidth"] = std::to_string(NewWidth);
             EditorINI["WindowHeight"] = std::to_string(NewHeight);
 
-            if (ImGui::GetCurrentContext() != nullptr) 
+            if (ImGui::GetCurrentContext() != nullptr)
             {
                 ImGuiIO& io = ImGui::GetIO();
-                if (io.DisplaySize.x > 0 && io.DisplaySize.y > 0) 
+                if (io.DisplaySize.x > 0 && io.DisplaySize.y > 0)
                 {
                     UI.RepositionImGuiWindows();
                 }
@@ -119,7 +119,7 @@ LRESULT CALLBACK UEditorEngine::WndProc(HWND hWnd, UINT message, WPARAM wParam, 
     return 0;
 }
 
-UWorld* UEditorEngine::GetDefaultWorld()
+UWorld* UGameEngine::GetDefaultWorld()
 {
     if (!WorldContexts.IsEmpty() && WorldContexts[0].World)
     {
@@ -128,7 +128,7 @@ UWorld* UEditorEngine::GetDefaultWorld()
     return nullptr;
 }
 
-bool UEditorEngine::CreateMainWindow(HINSTANCE hInstance)
+bool UGameEngine::CreateMainWindow(HINSTANCE hInstance)
 {
     // 윈도우 생성
     WCHAR WindowClass[] = L"JungleWindowClass";
@@ -141,11 +141,13 @@ bool UEditorEngine::CreateMainWindow(HINSTANCE hInstance)
     int clientWidth = 1620, clientHeight = 1024;
     if (EditorINI.count("WindowWidth"))
     {
-        try { clientWidth = stoi(EditorINI["WindowWidth"]); } catch (...) {}
+        try { clientWidth = stoi(EditorINI["WindowWidth"]); }
+        catch (...) {}
     }
     if (EditorINI.count("WindowHeight"))
     {
-        try { clientHeight = stoi(EditorINI["WindowHeight"]); } catch (...) {}
+        try { clientHeight = stoi(EditorINI["WindowHeight"]); }
+        catch (...) {}
     }
 
     // Validate minimum window size to prevent unusable windows
@@ -172,7 +174,7 @@ bool UEditorEngine::CreateMainWindow(HINSTANCE hInstance)
     return true;
 }
 
-bool UEditorEngine::Startup(HINSTANCE hInstance)
+bool UGameEngine::Startup(HINSTANCE hInstance)
 {
     LoadIniFile();
 
@@ -206,7 +208,7 @@ bool UEditorEngine::Startup(HINSTANCE hInstance)
     return true;
 }
 
-void UEditorEngine::Tick(float DeltaSeconds)
+void UGameEngine::Tick(float DeltaSeconds)
 {
     //@TODO UV 스크롤 입력 처리 로직 이동
     HandleUVInput(DeltaSeconds);
@@ -224,13 +226,13 @@ void UEditorEngine::Tick(float DeltaSeconds)
         //    WorldContext.World->Tick(DeltaSeconds, WorldContext.WorldType);
         //}
     }
-    
+
     SLATE.Update(DeltaSeconds);
     UI.Update(DeltaSeconds);
     INPUT.Update();
 }
 
-void UEditorEngine::Render()
+void UGameEngine::Render()
 {
     Renderer->BeginFrame();
 
@@ -241,7 +243,7 @@ void UEditorEngine::Render()
     Renderer->EndFrame();
 }
 
-void UEditorEngine::HandleUVInput(float DeltaSeconds)
+void UGameEngine::HandleUVInput(float DeltaSeconds)
 {
     UInputManager& InputMgr = UInputManager::GetInstance();
     if (InputMgr.IsKeyPressed('T'))
@@ -261,7 +263,7 @@ void UEditorEngine::HandleUVInput(float DeltaSeconds)
 
 }
 
-void UEditorEngine::MainLoop()
+void UGameEngine::MainLoop()
 {
     LARGE_INTEGER Frequency;
     QueryPerformanceFrequency(&Frequency);
@@ -312,14 +314,14 @@ void UEditorEngine::MainLoop()
 
         Tick(DeltaSeconds);
         Render();
-        
+
         // Shader Hot Reloading - Call AFTER render to avoid mid-frame resource conflicts
         // This ensures all GPU commands are submitted before we check for shader updates
         UResourceManager::GetInstance().CheckAndReloadShaders(DeltaSeconds);
     }
 }
 
-void UEditorEngine::Shutdown()
+void UGameEngine::Shutdown()
 {
     // Release ImGui first (it may hold D3D11 resources)
     UUIManager::GetInstance().Release();
@@ -329,7 +331,7 @@ void UEditorEngine::Shutdown()
     ObjectFactory::DeleteAll(true);
 
     // Clear FObjManager's static map BEFORE static destruction
-    // This must be done in Shutdown() (before main() exits) rather than ~UEditorEngine()
+    // This must be done in Shutdown() (before main() exits) rather than ~UGameEngine()
     // because ObjStaticMeshMap is a static member variable that may be destroyed
     // before the global GEngine variable's destructor runs
     FObjManager::Clear();
@@ -344,8 +346,7 @@ void UEditorEngine::Shutdown()
     SaveIniFile();
 }
 
-
-void UEditorEngine::StartPIE()
+void UGameEngine::StartPIE()
 {
     UE_LOG("[info] START PIE");
 
@@ -369,8 +370,8 @@ void UEditorEngine::StartPIE()
     GWorld->ProcessPendingKillActors();
 }
 
-void UEditorEngine::EndPIE()
+void UGameEngine::EndPIE()
 {
-    // 지연 종료 처리 (UEditorEngine::MainLoop에서 종료 처리됨)
+    // 지연 종료 처리 (UGameEngine::MainLoop에서 종료 처리됨)
     bChangedPieToEditor = true;
 }
