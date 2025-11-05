@@ -73,8 +73,8 @@ function BeginPlay()
     VelZ = 0
 
     Obj.Location = PlayerInitPosition
-    Obj.Velocity = PlayerInitVelocity
-
+    Obj.Velocity = PlayerInitVelocity 
+    
     local Camera = GetCamera()
     if Camera then
         Camera:SetForward(ForwardVector)
@@ -183,9 +183,16 @@ function Die()
         return
     end
 
+    AudioComp = GetComponent(Obj, "UAudioComponent")
+    AudioComp:PlayOneShot(0)  
+    TargetHitStop(Obj, 0.5, 0)
+    
+     
+   
+
     -- 전역 슬로모: 0.8초 동안 0.25배 속도
     -- (주: TargetHitStop은 Actor 포인터가 필요하며, 현재는 Obj(FGameObject)만 있으므로 전역으로 처리)
-    TargetHitStop(Obj, 0.5, 0)
+    --TargetHitStop(Obj, 0.5, 0)
     bDie = true
     VelZ = 0
     CurGravity = GravityConst

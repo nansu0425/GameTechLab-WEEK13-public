@@ -28,6 +28,7 @@ function OnBeginOverlap(OtherActor)
         -- print("[Apple] Hit Fireball! Resetting it.")
         local fireVel = OtherActor.Velocity
         if fireVel then
+
             -- 기본적으로 반대 방향으로 튕기기
             local reflected = Vector(-fireVel.X, -fireVel.Y, -fireVel.Z)
 
@@ -39,6 +40,12 @@ function OnBeginOverlap(OtherActor)
             reflected = reflected * 0.8
 
             OtherActor.Velocity = reflected
+            
+            -- AudioComp = GetComponent(Obj, "UAudioComponent");
+            -- if AudioComp ~= nil then
+            --     AudioComp.PlayOneShot(0);
+            -- end
+            
         end
 
         -- if GlobalConfig.ResetFireballs then

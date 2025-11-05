@@ -12,8 +12,8 @@
 IMPLEMENT_CLASS(UAudioComponent)
 
 BEGIN_PROPERTIES(UAudioComponent)
-    MARK_AS_COMPONENT("오디오 컴포넌트", "소리를 듣고 싶습니꽈?!#!!")
-    ADD_PROPERTY_AUDIO(EPropertyType::Sound, Sound, "Sound", true)
+    MARK_AS_COMPONENT("Audio Component", "3D audio playback component")
+    ADD_PROPERTY_ARRAY(EPropertyType::Sound, Sounds, "Sound", true)
     ADD_PROPERTY(float, Volume, "Audio", true, "Volume (0..1)")
     ADD_PROPERTY(float, Pitch,  "Audio", true, "Pitch (frequency ratio)")
     ADD_PROPERTY(bool,  bIsLooping, "Audio", true, "Loop playback")
@@ -72,25 +72,10 @@ void UAudioComponent::EndPlay()
 
 void UAudioComponent::Play()
 {
-    USound* Selected = Sound;
-    bIsPlaying = true;
-    if (!Selected)
-        return;
-
-    if (bIsPlaying)
-        return;
-
-    FVector CurrentLocation = GetWorldLocation();
-    SourceVoice = FAudioDevice::PlaySound3D(Selected, CurrentLocation, Volume, bIsLooping);
-
-    if (SourceVoice)
+    // default to first valid slot
+    for (uint32 i = 0; i < Sounds.Num(); ++i)
     {
-        SourceVoice->SetFrequencyRatio(Pitch);
-        bIsPlaying = true;
-    }
-    else
-    {
-        return;
+        if (Sounds[i]) { PlaySlot(i); return; }
     }
 }
 
@@ -112,3 +97,19 @@ void UAudioComponent::DuplicateSubObjects()
     Super::DuplicateSubObjects();
 }
 
+
+void UAudioComponent::PlaySlot(uint32 SlotIndex)
+{
+    if (SlotIndex >= (uint32)Sounds.Num()) return;
+    USound* Selected = Sounds[SlotIndex];
+    if (!Selected) return;
+    //if (bIsPlaying) return;
+
+    FVector CurrentLocation = GetWorldLocation();
+    SourceVoice = FAudioDevice::PlaySound3D(Selected, CurrentLocation, Volume, bIsLooping);
+    if (SourceVoice)
+    {
+        SourceVoice->SetFrequencyRatio(Pitch);
+        bIsPlaying = true;
+    }
+}

@@ -560,7 +560,8 @@ void FLuaManager::ExposeComponentFunctions()
                 if (Proxy.Instance && Proxy.Class == UAudioComponent::StaticClass())
                 {
                     auto* Comp = static_cast<UAudioComponent*>(Proxy.Instance);
-                    Comp->Play();
+                    Comp->PlaySlot(SlotIndex);
+                    UE_LOG("Sound Slot Index : %d", SlotIndex);
                 }
             }
         );
@@ -610,3 +611,4 @@ sol::protected_function FLuaManager::GetFunc(sol::environment& Env, const char* 
     
     return Func;
 }
+

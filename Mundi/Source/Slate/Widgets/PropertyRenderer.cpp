@@ -102,6 +102,30 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 		case EPropertyType::Material:
 			bChanged = RenderMaterialArrayProperty(Property, ObjectInstance);
 			break;
+		case EPropertyType::Sound:
+			// Render array of USound* via simple combo per element
+			{
+				TArray<USound*>* Arr = Property.GetValuePtr<TArray<USound*>>(ObjectInstance);
+				if (Arr)
+				{
+					if (ImGui::Button("Add Sound")) { Arr->Add(nullptr); bChanged = true; }
+					for (int i = 0; i < Arr->Num(); ++i)
+					{
+						ImGui::PushID(i);
+						USound* cur = (*Arr)[i];
+						USound* neu = nullptr;
+						FString label = FString(Property.Name) + " [" + std::to_string(i) + "]";
+						if (RenderSoundSelectionComboSimple(label.c_str(), cur, neu))
+						{
+							(*Arr)[i] = neu; bChanged = true;
+						}
+						ImGui::SameLine();
+						if (ImGui::Button("Remove")) { Arr->RemoveAt(i); --i; bChanged = true; ImGui::PopID(); continue; }
+						ImGui::PopID();
+					}
+				}
+			}
+			break;
 		}
 		break;
 
