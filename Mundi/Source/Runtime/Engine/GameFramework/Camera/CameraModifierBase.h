@@ -1,11 +1,13 @@
 ﻿#pragma once
-#include "SceneView.h"
 
+struct FPostProcessModifier;
+
+class FMinimalViewInfo;
 class UCameraModifierBase : public UObject
 {
 public:
     DECLARE_CLASS(UCameraModifierBase, UObject)
-
+    
 public:
     UCameraModifierBase();
     virtual ~UCameraModifierBase() =default;
@@ -17,10 +19,10 @@ public:
     float Elapsed = 0.f;
     
     // 전처리: 카메라 트랜스폼에 작용 (Shake, SpringArm 보정, FOV/Aspect 조정 등)
-    virtual void ApplyToView(float DeltaTime, FSceneView& InOutView);
+    virtual void ApplyToView(float DeltaTime, FMinimalViewInfo* ViewInfo);
 
     // 후처리: 이번 프레임에 필요한 PP 모디파이어 수집 (Fade/Vignette/Letterbox 등)
-    virtual void CollectPostProcess(TArray<FPostProcessModifier>& OutModifiers, const FSceneView&  View);
+    virtual void CollectPostProcess(TArray<FPostProcessModifier>& OutModifiers);
 
     // 수명/활성 관리
     virtual void TickLifetime(float DeltaTime)

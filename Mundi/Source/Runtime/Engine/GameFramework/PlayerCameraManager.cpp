@@ -1,7 +1,9 @@
 ﻿#include "pch.h"
 #include "PlayerCameraManager.h"
 #include "Camera/CameraModifierBase.h"
-#include "Camera/UCamMod_Fade.h"
+#include "Camera/CamMod_Fade.h"
+#include "Camera/CamMod_Shake.h"
+#include "Camera/CamMod_LetterBox.h"
 #include "SceneView.h"
 #include "CameraActor.h"
 #include "World.h"
@@ -17,23 +19,53 @@ END_PROPERTIES()
 APlayerCameraManager::APlayerCameraManager()
 {
 	Name = "Player Camera Manager";
-	
-	SceneView = new FSceneView();
 }
 
 APlayerCameraManager::~APlayerCameraManager()
 {
-	if (SceneView != nullptr)
-	{
-		delete SceneView;
-		SceneView = nullptr;
-	}
-	
-	if(BlendStartView)
-	{
-		delete BlendStartView;
-		BlendStartView = nullptr;
-	}
+	CurrentViewTarget = nullptr;
+	PendingViewTarget = nullptr;
+
+	CachedViewport = nullptr;
+}
+
+void APlayerCameraManager::StartCameraShake(float InDuration, float AmpLoc, float AmpRotDeg, float Frequency,
+	int32 InPriority)
+{
+	UCamMod_Shake* ShakeModifier = new UCamMod_Shake();
+	ShakeModifier->Priority = InPriority;
+	ShakeModifier->Initialize(InDuration, AmpLoc, AmpRotDeg, Frequency);
+	ActiveModifiers.Add(ShakeModifier);
+}
+
+void APlayerCameraManager::StartFade(float InDuration, float FromAlpha, float ToAlpha, const FLinearColor& InColor,
+	int32 InPriority)
+{
+	UCamMod_Fade* FadeModifier = new UCamMod_Fade();
+	FadeModifier->Priority   = InPriority;
+	FadeModifier->bEnabled   = true;
+
+	FadeModifier->FadeColor      = InColor;
+	FadeModifier->StartAlpha = FMath::Clamp(FromAlpha, 0.f, 1.f);
+	FadeModifier->EndAlpha   = FMath::Clamp(ToAlpha,   0.f, 1.f);
+	FadeModifier->Duration   = FMath::Max(0.f, InDuration);
+	FadeModifier->Elapsed    = 0.f;
+	FadeModifier->CurrentAlpha = FadeModifier->StartAlpha;
+
+	ActiveModifiers.Add(FadeModifier);
+	// ActiveModifiers.Sort([](UCameraModifierBase* A, UCameraModifierBase* B){ return *A < *B; });
+}
+
+void APlayerCameraManager::StartLetterBox(float InDuration, float Aspect, float BarHeight, const FLinearColor& InColor, int32 InPriority)
+{
+	UCamMod_LetterBox* LetterBoxModifier = new UCamMod_LetterBox();
+	LetterBoxModifier->Priority = InPriority;
+	LetterBoxModifier->AspectRatio = Aspect;
+	LetterBoxModifier->HeightBarSize = BarHeight;
+	LetterBoxModifier->Duration = InDuration;
+	LetterBoxModifier->BoxColor = InColor;
+
+	ActiveModifiers.Add(LetterBoxModifier);
 }
 
 void APlayerCameraManager::Tick(float DeltaTime)
@@ -46,22 +78,47 @@ void APlayerCameraManager::Tick(float DeltaTime)
 	BuildForFrame(DeltaTime);
 }
 
-
 void APlayerCameraManager::BuildForFrame(float DeltaTime)
 {
+	if (PendingViewTarget)
+	{
+		float V = 1.0f - (BlendTimeRemaining / BlendTimeTotal);
+		FVector StartLocation = BlendStartView.ViewLocation;
+		FQuat StartRotation = BlendStartView.ViewRotation;
+
+		FVector TargetLocation = PendingViewTarget->GetWorldLocation();
+		FQuat TargetRotation = PendingViewTarget->GetWorldRotation();
+
+		SceneView.ViewLocation = FVector::Lerp(StartLocation, TargetLocation, V);
+
+		BlendTimeRemaining -= DeltaTime;
+		if (BlendTimeRemaining <= 0)
+		{
+			PendingViewTarget = nullptr;
+		}
+	}
+	else
+	{
+		if (CurrentViewTarget)
+		{
+			SceneView.ViewLocation = CurrentViewTarget->GetWorldLocation();
+			SceneView.ViewRotation = CurrentViewTarget->GetWorldRotation();
+		}
+	}
+			
 	// 모든 Modifier tick Update
 	for (UCameraModifierBase* M : ActiveModifiers)
 	{
 		if (!M || !M->bEnabled || M->Weight <= 0.f) continue;
-		M->ApplyToView(DeltaTime, *SceneView);
+		M->ApplyToView(DeltaTime, &SceneView);
 	}
 
 	// 2) 후처리: PP 모디파이어 초기화 + 수집
-	SceneView->PostProcessInput.Modifiers.clear();
+	Modifiers.clear();
 	for (UCameraModifierBase* M : ActiveModifiers)
 	{
 		if (!M || !M->bEnabled || M->Weight <= 0.f) continue;
-		M->CollectPostProcess(SceneView->PostProcessInput.Modifiers, *SceneView);
+		M->CollectPostProcess(Modifiers);
 	}
 
 	// 3) 수명 정리
@@ -76,35 +133,23 @@ void APlayerCameraManager::BuildForFrame(float DeltaTime)
 		{ ActiveModifiers.RemoveAtSwap(i); continue; }
 	}
 
-	if (PendingViewTarget)
+	if (CurrentViewTarget && CachedViewport)
 	{
-		float V = 1.0f - (BlendTimeRemaining / BlendTimeTotal);
-		FVector StartLocation = BlendStartView->ViewLocation;
-		FQuat StartRotation = BlendStartView->ViewRotation;
-
-		FVector TargetLocation = PendingViewTarget->GetWorldLocation();
-		FQuat TargetRotation = PendingViewTarget->GetWorldRotation();
-
-		FVector CurLocation = FVector::Lerp(StartLocation, TargetLocation, V);
-
-		BlendTimeRemaining -= DeltaTime;
-		if (BlendTimeRemaining <= 0)
+		FMatrix WorldMatrix = SceneView.ViewRotation.ToMatrix() * FMatrix::MakeTranslation(SceneView.ViewLocation);
+		SceneView.ViewMatrix = (FMatrix::YUpToZUp * WorldMatrix).InverseAffine();
+		
+		float AspectRatio = 1.0f;
+		if (CachedViewport->GetSizeY() > 0)
 		{
-			PendingViewTarget = nullptr;
+			AspectRatio = (float)CachedViewport->GetSizeX() / (float)CachedViewport->GetSizeY();
 		}
-	}
-	else
-	{
-		if (CurrentViewTarget)
-		{
-			SceneView->Camera = CurrentViewTarget;
-			SceneView->ViewMatrix = CurrentViewTarget->GetViewMatrix();
-			SceneView->ViewLocation = CurrentViewTarget->GetWorldLocation();
-			SceneView->ViewRotation = CurrentViewTarget->GetWorldRotation();
-			SceneView->ZNear = CurrentViewTarget->GetNearClip();
-			SceneView->ZFar = CurrentViewTarget->GetFarClip();
-			SceneView->ProjectionMode = CurrentViewTarget->GetProjectionMode();
-		}
+		SceneView.ProjectionMatrix = CurrentViewTarget->GetProjectionMatrix(AspectRatio, CachedViewport);
+
+		SceneView.NearClip = CurrentViewTarget->GetNearClip();
+		SceneView.FarClip = CurrentViewTarget->GetFarClip();
+		SceneView.FieldOfView = CurrentViewTarget->GetFOV();
+		SceneView.ZoomFactor = CurrentViewTarget->GetZoomFactor();
+		SceneView.ProjectionMode = CurrentViewTarget->GetProjectionMode();
 	}
 }
 
@@ -149,13 +194,8 @@ UCameraComponent* APlayerCameraManager::GetMainCamera()
 	return CurrentViewTarget;
 }
 
-FSceneView* APlayerCameraManager::GetSceneView(FViewport* InViewport, URenderSettings* InRenderSettings)
+FMinimalViewInfo* APlayerCameraManager::GetSceneView()
 {
-	if (!InViewport || !InRenderSettings)
-	{
-		return nullptr;
-	}
-
 	UCameraComponent* ViewTarget = CurrentViewTarget;
 	if (!ViewTarget)
 	{
@@ -167,13 +207,7 @@ FSceneView* APlayerCameraManager::GetSceneView(FViewport* InViewport, URenderSet
 		return nullptr;
 	}
 
-	if (SceneView && SceneView->Camera == ViewTarget)
-	{
-		SceneView->InitRenderSetting(InViewport, InRenderSettings);
-		return SceneView; 
-	}
-
-	return nullptr;
+	return &SceneView; 
 }
 
 void APlayerCameraManager::SetViewTarget(UCameraComponent* NewViewTarget)
@@ -185,14 +219,8 @@ void APlayerCameraManager::SetViewTarget(UCameraComponent* NewViewTarget)
 
 void APlayerCameraManager::SetViewTargetWithBlend(UCameraComponent* NewViewTarget, float InBlendTime)
 {
-	if(BlendStartView)
-	{
-		delete BlendStartView;
-		BlendStartView = nullptr;
-	}
-
 	// "현재 뷰 타겟"의 뷰 정보를 스냅샷으로 저장해야 합니다.
-	*BlendStartView = *SceneView;
+	BlendStartView = SceneView;
 
 	// 현재 뷰를 블렌딩 시작 뷰로 저장
 	PendingViewTarget = NewViewTarget;
