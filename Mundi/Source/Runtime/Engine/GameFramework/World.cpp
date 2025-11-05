@@ -54,15 +54,18 @@ UWorld::~UWorld()
 {
 	if (Level)
 	{
-		for (AActor* Actor : Level->GetActors())
+		TArray<AActor*> TempActors =  Level->GetActors();
+		for (AActor* Actor : TempActors)
 		{
-			ObjectFactory::DeleteObject(Actor);
+			DestroyActor(Actor);
 		}
 		Level->Clear();
 	}
-	for (AActor* Actor : EditorActors)
+
+	TArray<AActor*> TempEditorActors = EditorActors;
+	for (AActor* Actor : TempEditorActors)
 	{
-		ObjectFactory::DeleteObject(Actor);
+		DestroyActor(Actor);
 	}
 	EditorActors.clear();
 

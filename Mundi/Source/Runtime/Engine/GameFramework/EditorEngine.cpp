@@ -328,6 +328,13 @@ void UEditorEngine::MainLoop()
 
 void UEditorEngine::Shutdown()
 {
+    // 월드부터 삭제해야 DeleteAll 때 문제가 없음
+    for (FWorldContext WorldContext : WorldContexts)
+    {
+        ObjectFactory::DeleteObject(WorldContext.World);
+    }
+    WorldContexts.clear();
+
     // Release ImGui first (it may hold D3D11 resources)
     UUIManager::GetInstance().Release();
 
