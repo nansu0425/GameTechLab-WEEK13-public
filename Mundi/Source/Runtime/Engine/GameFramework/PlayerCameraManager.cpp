@@ -76,6 +76,33 @@ void APlayerCameraManager::BuildForFrame(float DeltaTime)
 
 		++i;
 	}
+
+	if (PendingViewTarget)
+	{
+		float V = 1.0f - (BlendTimeRemaining / BlendTimeTotal);
+		FVector StartLocation = BlendStartView->ViewLocation;
+		FQuat StartRotation = BlendStartView->ViewRotation;
+
+		FVector TargetLocation = PendingViewTarget->GetWorldLocation();
+		FQuat TargetRotation = PendingViewTarget->GetWorldRotation();
+
+		FVector CurLocation = FVector::Lerp(StartLocation, TargetLocation, V);
+
+		BlendTimeRemaining -= DeltaTime;
+		if (BlendTimeRemaining <= 0)
+		{
+			PendingViewTarget = nullptr;
+		}
+	}
+	else
+	{
+		SceneView->ViewMatrix = CurrentViewTarget->GetViewMatrix();
+		SceneView->ViewLocation = CurrentViewTarget->GetWorldLocation();
+		SceneView->ViewRotation = CurrentViewTarget->GetWorldRotation();
+		SceneView->ZNear = CurrentViewTarget->GetNearClip();
+		SceneView->ZFar = CurrentViewTarget->GetFarClip();
+		SceneView->ProjectionMode = CurrentViewTarget->GetProjectionMode();
+	}
 }
 
 void APlayerCameraManager::Destroy()
@@ -136,7 +163,7 @@ FSceneView* APlayerCameraManager::GetSceneView(FViewport* InViewport, URenderSet
 	{
 		return nullptr;
 	}
-	
+
 	SceneView->InitRenderSetting(InViewport, InRenderSettings);
 
 	return SceneView; 

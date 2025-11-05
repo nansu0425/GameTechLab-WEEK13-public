@@ -40,29 +40,8 @@ public:
     FSceneView() = default;
     FSceneView(UCameraComponent* InCamera, FViewport* InViewport, URenderSettings* InRenderSettings);
 
-    struct FViewSnapshot
-    {
-        FMatrix      ViewMatrix{};
-        FMatrix      ProjectionMatrix{};
-        FFrustum     ViewFrustum{};
-        FVector      ViewLocation{};
-        FViewportRect ViewRect{};
-        ECameraProjectionMode ProjectionMode = ECameraProjectionMode::Perspective;
-        float        ZNear = 0.f, ZFar = 0.f;
-
-        FViewSnapshot() = default;
-        explicit FViewSnapshot(const FSceneView& V)
-            : ViewMatrix(V.ViewMatrix)
-            , ProjectionMatrix(V.ProjectionMatrix)
-            , ViewFrustum(V.ViewFrustum)
-            , ViewLocation(V.ViewLocation)
-            , ViewRect(V.ViewRect)
-            , ProjectionMode(V.ProjectionMode)
-            , ZNear(V.ZNear)
-            , ZFar(V.ZFar)
-        {}
-    };
     void InitRenderSetting(FViewport* InViewport, URenderSettings* InRenderSettings);
+
 private:
     TArray<FShaderMacro> CreateViewShaderMacros();
 
@@ -72,6 +51,7 @@ public:
     FMatrix ProjectionMatrix{};
     FFrustum ViewFrustum{};
     FVector ViewLocation{};
+    FQuat ViewRotation{};
     FViewportRect ViewRect{}; // 이 뷰가 그려질 뷰포트상의 영역
 
     UCameraComponent* Camera;
