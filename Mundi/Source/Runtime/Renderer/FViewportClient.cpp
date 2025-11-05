@@ -14,6 +14,7 @@
 #include "Clipboard/ClipboardManager.h"
 #include "InputManager.h"
 #include "PlayerCameraManager.h"
+#include "SceneView.h"
 
 FVector FViewportClient::CameraAddPosition{};
 

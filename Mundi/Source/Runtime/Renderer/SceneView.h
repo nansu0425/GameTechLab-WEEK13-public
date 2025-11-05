@@ -9,6 +9,7 @@
 class ACameraActor;
 class UCameraComponent;
 class FViewport;
+struct FPostProcessModifier;
 
 struct FPostProcessInput
 {

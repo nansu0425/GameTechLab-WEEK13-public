@@ -960,7 +960,7 @@ void FSceneRenderer::RenderDecalPass()
 
 void FSceneRenderer::RenderPostProcessingPasses()
 {
-	TArray<FPostProcessModifier>& PostProcessModifiers = View->PostProcessInput.Modifiers;
+	TArray<FPostProcessModifier> PostProcessModifiers = View->PostProcessInput.Modifiers;
 
 	// TODO : 다른 데에서 하기, 맨 앞으로 넘기기
 	// Register Height Fog Modifiers, 첫번째만 등록 된다.

@@ -4,7 +4,7 @@
 class UCamMod_Fade : public UCameraModifierBase
 {
 public:
-    FLinearColor FadeColor = FLinearColor::Black;
+    FLinearColor FadeColor = FLinearColor::Zero();
     float        TargetAmount = 1.0f; // 0~1
     float        CurrentOpacity = 0.0f;
     float        Speed = 1.0f; // 초당 변화량
@@ -12,10 +12,10 @@ public:
     virtual void ApplyToView(float DeltaTime, FSceneView& InOutView) override
     {
         // 전처리에서 타임라인 업데이트만 (뷰 행렬 수정 없음)
-        if (FMath::IsNearlyZero(DeltaTime) || FMath::IsNearlyZero(Speed))
-        {
-            return;
-        }
+        //if (FMath::IsNearlyZero(DeltaTime) || FMath::IsNearlyZero(Speed))
+        //{
+        //    return;
+        //}
 
         const float ClampedTarget = FMath::Clamp(TargetAmount, 0.f, 1.f);
         TargetAmount = ClampedTarget;
