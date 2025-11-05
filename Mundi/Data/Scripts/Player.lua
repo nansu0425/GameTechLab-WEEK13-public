@@ -1,5 +1,6 @@
 UpVector = Vector(0, 0, 1)
 
+local InitZ = 0
 local YawSensitivity        = 0.005
 local PitchSensitivity      = 0.0025
 
@@ -25,8 +26,9 @@ function AddID(id)
         IDCount = IDCount + 1
 
         if CurGravity < 0 and not bStart then
-            CurGravity = 0
+            CurGravity = 0 
             bStart = true
+            InitZ = Obj.Location.Z
         end
     end
 end
@@ -106,6 +108,7 @@ function Tick(Delta)
     if InputManager:IsKeyDown('A') then MoveRight(-MovementDelta * Delta) end
     if InputManager:IsKeyDown('D') then MoveRight(MovementDelta * Delta) end
     if InputManager:IsKeyPressed('Q') then Die() end -- 죽기를 선택
+    if InputManager:IsKeyPressed(' ') then Jump(MovementDelta * Delta) end
     if InputManager:IsMouseButtonPressed(0) then ShootProjectile() end
 
     CameraMove()
@@ -144,8 +147,8 @@ function ManageGameState()
     if GlobalConfig.GameState == "Playing" then
         if bDie then
             return false
-        elseif IDCount == 0 and CurGravity == 0 then
-            Die()
+        elseif IDCount == 0 and CurGravity == 0 and InitZ - 5 < Obj.Location.Z then
+                Die()
             return false
         end
         return true
@@ -222,6 +225,10 @@ end
 function MoveForward(Delta)
     Obj.Location = Obj.Location + Vector(ForwardVector.X,ForwardVector.Y, 0)  * Delta
 end
+
+function Jump(Delta)
+    Obj.Location = Obj.Location + UpVector * Delta
+end 
 
 function MoveRight(Delta)
     local RightVector = FVector.Cross(UpVector, ForwardVector)
