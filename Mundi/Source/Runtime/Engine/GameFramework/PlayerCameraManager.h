@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "Actor.h"
 #include "Camera/UCamMod_Fade.h"
+#include "CameraComponent.h"
 
 class UCameraComponent;
 class UCameraModifierBase;
@@ -8,6 +9,7 @@ class FSceneView;
 class FViewport;
 class URenderSettings;
 class UCamMod_Fade;
+
 
 class APlayerCameraManager : public AActor
 {
@@ -59,21 +61,23 @@ public:
 	void Destroy() override;
 	// Actor의 메인 틱 함수
 	void Tick(float DeltaTime) override;
-	void UpdateCamera(float DeltaTime);
 
+	// TODO: SetViewTarget 로 통합
 	void SetMainCamera(UCameraComponent* InCamera)
 	{
 		CurrentViewTarget = InCamera;
 	};
 	UCameraComponent* GetMainCamera();
 
-	FSceneView* GetSceneView(FViewport* InViewport, URenderSettings* InRenderSettings);
+	void CacheViewport(FViewport* InViewport) { CachedViewport = InViewport; }
+	FMinimalViewInfo* GetSceneView();
 
-	FSceneView* GetBaseViewInfo(UCameraComponent* ViewTarget);
 	void SetViewTarget(UCameraComponent* NewViewTarget);
 	void SetViewTargetWithBlend(UCameraComponent* NewViewTarget, float InBlendTime);
 
 	DECLARE_DUPLICATE(APlayerCameraManager)
+
+	TArray<FPostProcessModifier> GetModifiers() { return Modifiers; };
 
 private:
 	UCameraComponent* CurrentViewTarget{};
@@ -81,11 +85,13 @@ private:
 
 	float LastDeltaSeconds = 0.f;
 
-	FSceneView* SceneView{};
-	FSceneView* BlendStartView{};
+	FMinimalViewInfo SceneView{};
+	FMinimalViewInfo BlendStartView{};
+
+	TArray<FPostProcessModifier> Modifiers;
+
+	FViewport* CachedViewport = nullptr;
 
 	float BlendTimeTotal;
 	float BlendTimeRemaining;
 };
-
-
