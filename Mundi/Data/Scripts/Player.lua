@@ -77,7 +77,7 @@ function BeginPlay()
     
     local Camera = GetCamera()
     if Camera then
-        Camera:SetForward(ForwardVector)
+        Camera:SetCameraForward(ForwardVector)
     end
 
     ForwardVector = NormalizeCopy(ForwardVector)
@@ -234,14 +234,14 @@ function Rotate()
     if (Candidate.Z > 0.2) then -- 아래로 각도 제한
         Candidate.Z = 0.2
     end
-    if (Candidate.Z < -0.6) then -- 위로 각도 제한
-        Candidate.Z = -0.6
+    if (Candidate.Z < -0.75) then -- 위로 각도 제한
+        Candidate.Z = -0.75
     end
 
     ForwardVector = NormalizeCopy(Candidate)
 
     LootAt = Vector(-ForwardVector.X, -ForwardVector.Y, 0)
-    SetForward(Obj, LootAt)
+    SetPlayerForward(Obj, LootAt)
 end
 
 function MoveForward(Delta)
@@ -272,16 +272,6 @@ function CameraMove()
     Billboard()
 end
 
-function Billboard()
-    local Camera = GetCamera()
-    if Camera then
-        local Eye = CameraLocation
-        local At = Obj.Location
-        local Direction = Vector(At.X - Eye.X, At.Y - Eye.Y, At.Z - Eye.Z)
-        Camera:SetForward(Direction)
-    end
-end
-
 function SetCamera()
     local BackDistance = 7.0
     local UpDistance   = 2.0
@@ -290,5 +280,16 @@ function SetCamera()
     if Camera then
         CameraLocation = Obj.Location + (ForwardVector * -BackDistance) + (UpVector * UpDistance)
         Camera:SetLocation(CameraLocation)
+    end
+end
+
+function Billboard()
+    local Camera = GetCamera()
+    if Camera then
+        local Eye = CameraLocation
+        local At = Obj.Location
+        local Direction = Vector(At.X - Eye.X, At.Y - Eye.Y, At.Z - Eye.Z)
+        print(Direction)
+        Camera:SetCameraForward(Direction)
     end
 end
