@@ -277,31 +277,29 @@ void UObject::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 				SerializePrimitiveArray<FString>(ArrayPtr, bInIsLoading, ArrayJson);
 				break;
 			}
+			
 			case EPropertyType::Sound:
 			{
-				USound** Value = Prop.GetValuePtr<USound*>(this);
+				TArray<USound*>* ArrayPtr = Prop.GetValuePtr<TArray<USound*>>(this);
 				if (bInIsLoading)
 				{
-					FString SoundPath;
-					FJsonSerializer::ReadString(InOutHandle, Prop.Name, SoundPath);
-					if (!SoundPath.empty())
+					ArrayPtr->Empty();
+					for (size_t i = 0; i < ArrayJson.size(); ++i)
 					{
-						*Value = UResourceManager::GetInstance().Load<USound>(SoundPath);
-					}
-					else
-					{
-						*Value = nullptr;
+						const JSON& Elem = ArrayJson.at(i);
+						if (Elem.JSONType() == JSON::Class::String)
+						{
+							FString Path = Elem.ToString();
+							if (!Path.empty()) ArrayPtr->Add(UResourceManager::GetInstance().Load<USound>(Path));
+							else ArrayPtr->Add(nullptr);
+						}
 					}
 				}
 				else
 				{
-					if (*Value)
+					for (USound* Snd : *ArrayPtr)
 					{
-						InOutHandle[Prop.Name] = (*Value)->GetFilePath().c_str();
-					}
-					else
-					{
-						InOutHandle[Prop.Name] = "";
+						ArrayJson.append((Snd) ? Snd->GetFilePath().c_str() : "");
 					}
 				}
 
@@ -340,5 +338,8 @@ UObject* UObject::Duplicate() const
 	NewObject->PostDuplicate();
     return NewObject;
 }
+
+
+
 
 

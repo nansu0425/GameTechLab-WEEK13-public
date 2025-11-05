@@ -7,6 +7,7 @@
 #include "StaticMeshComponent.h"
 #include "BillboardComponent.h"
 #include "PlayerCameraManager.h"
+#include "AudioComponent.h"
 #include <tuple>
 
 FLuaManager::FLuaManager()
@@ -502,6 +503,7 @@ void FLuaManager::ExposeComponentFunctions()
             }
         );
 
+
         // 전역 맵에 테이블 등록 (필수)
         GComponentFunctionTables[StaticMeshCompClass] = FuncTable;
     }
@@ -533,8 +535,6 @@ void FLuaManager::ExposeComponentFunctions()
         // 전역 맵에 테이블 등록 (필수)
         GComponentFunctionTables[BillboardCompClass] = FuncTable;
     }
-
-
 }
 
 void FLuaManager::ExposeGlobalFunctions()
@@ -670,6 +670,29 @@ void FLuaManager::ExposeGlobalFunctions()
             if (Self) Self->DeleteVignette();
         }
     );
+
+    // --- UAudioComponent bindings ---
+    UClass* AudioCompClass = UAudioComponent::StaticClass();
+    if (AudioCompClass)
+    {
+        sol::table FuncTable = GComponentFunctionTables.count(AudioCompClass)
+            ? GComponentFunctionTables[AudioCompClass]
+            : Lua->create_table();
+
+        FuncTable.set_function("PlayOneShot",
+            [](LuaComponentProxy& Proxy, uint32 SlotIndex)
+            {
+                if (Proxy.Instance && Proxy.Class == UAudioComponent::StaticClass())
+                {
+                    auto* Comp = static_cast<UAudioComponent*>(Proxy.Instance);
+                    Comp->PlaySlot(SlotIndex);
+                    UE_LOG("Sound Slot Index : %d", SlotIndex);
+                }
+            }
+        );
+
+        GComponentFunctionTables[AudioCompClass] = FuncTable;
+    }
 }
 
 bool FLuaManager::LoadScriptInto(sol::environment& Env, const FString& Path) {
@@ -713,3 +736,4 @@ sol::protected_function FLuaManager::GetFunc(sol::environment& Env, const char* 
     
     return Func;
 }
+

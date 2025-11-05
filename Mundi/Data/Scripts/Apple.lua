@@ -13,6 +13,8 @@ function BeginPlay()
     Obj.Velocity = Vector(1, 0, 0)
     Obj.bIsActive = true
 
+    AudioComp = GetComponent(Obj, "UAudioComponent");
+    AudioComp:PlayOneShot(1)
     StartCoroutine(function()
         coroutine.yield("wait_time", LifeTime)
         DeleteObject(Obj) 
@@ -28,6 +30,7 @@ function OnBeginOverlap(OtherActor)
         -- print("[Apple] Hit Fireball! Resetting it.")
         local fireVel = OtherActor.Velocity
         if fireVel then
+
             -- 기본적으로 반대 방향으로 튕기기
             local reflected = Vector(-fireVel.X, -fireVel.Y, -fireVel.Z)
 
@@ -39,6 +42,11 @@ function OnBeginOverlap(OtherActor)
             reflected = reflected * 0.8
 
             OtherActor.Velocity = reflected
+            
+            if AudioComp ~= nil then
+                AudioComp:PlayOneShot(0)
+            end 
+            
         end
 
         -- if GlobalConfig.ResetFireballs then

@@ -141,11 +141,33 @@ IXAudio2SourceVoice* FAudioDevice::PlaySound3D(USound* SoundToPlay, const FVecto
     XAUDIO2_BUFFER buf{};
     buf.pAudioData = pcm;
     buf.AudioBytes = size;
-    buf.Flags = XAUDIO2_END_OF_STREAM;
     if (bIsLooping)
     {
-        // Minimal loop not implemented in MVP to avoid invalid LoopLength.
-        // Could be extended by filling LoopBegin/LoopLength in samples.
+        // Loop entire buffer. LoopBegin/LoopLength are in samples (per channel).
+        // For PCM, one frame = nBlockAlign bytes (all channels), so per-channel sample count equals frames.
+        if (fmt.nBlockAlign > 0)
+        {
+            const uint32 totalFrames = size / fmt.nBlockAlign;
+            if (totalFrames > 0)
+            {
+                buf.LoopBegin = 0;
+                buf.LoopLength = totalFrames; // per-channel samples
+                buf.LoopCount = XAUDIO2_LOOP_INFINITE;
+                buf.Flags = 0; // do not mark EOS when looping
+            }
+            else
+            {
+                buf.Flags = XAUDIO2_END_OF_STREAM;
+            }
+        }
+        else
+        {
+            buf.Flags = XAUDIO2_END_OF_STREAM;
+        }
+    }
+    else
+    {
+        buf.Flags = XAUDIO2_END_OF_STREAM;
     }
 
     hr = voice->SubmitSourceBuffer(&buf);
