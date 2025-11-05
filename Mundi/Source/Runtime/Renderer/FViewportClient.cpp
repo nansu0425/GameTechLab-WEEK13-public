@@ -127,6 +127,11 @@ void FViewportClient::Draw(FViewport* Viewport)
 		RenderView = new FSceneView(Camera->GetCameraComponent(), Viewport, &World->GetRenderSettings());
 	}
 
+	if (!RenderView || !RenderView->Viewport)
+	{
+		return;
+	}
+
 	// 2. 렌더링 호출은 뷰 타입 설정이 모두 끝난 후 마지막에 한 번만 수행
 	URenderer* Renderer = URenderManager::GetInstance().GetRenderer();
 	if (Renderer)

@@ -7,7 +7,7 @@
 FSceneView::FSceneView(UCameraComponent* InCamera, FViewport* InViewport, URenderSettings* InRenderSettings)
 : Camera(InCamera)
 {
-    if (!Camera || !Viewport || !RenderSettings)
+    if (!Camera || !InViewport || !InRenderSettings)
 	{
 		UE_LOG("[FSceneView::FSceneView()]: CameraActor 또는 Viewport 또는 RenderSettings가 없습니다.");
 		return;
