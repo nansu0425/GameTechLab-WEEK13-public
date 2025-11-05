@@ -45,6 +45,7 @@
 #include "LightStats.h"
 #include "ShadowStats.h"
 #include "PlatformTime.h"
+#include "PostProcessing/VignettePass.h"
 
 FSceneRenderer::FSceneRenderer(UWorld* InWorld, FSceneView* InView, URenderer* InOwnerRenderer)
 	: World(InWorld)
@@ -976,12 +977,39 @@ void FSceneRenderer::RenderPostProcessingPasses()
 		}
 	}
 
+	// TEST Session
+	FPostProcessModifier FadeInOut;
+	FadeInOut.Type = EPostProcessEffectType::Fade;
+	FadeInOut.bEnabled = true;
+	FadeInOut.Weight = 1.0;
+	FadeInOut.SourceObject = nullptr;
+	FFadeInOutBufferType FadeCB{ FLinearColor(1,0,0,1), 0.5f, FadeInOut.Weight, {0,0} };
+	FadeInOut.JustForTest = &FadeCB;
+	// PostProcessModifiers.Add(FadeInOut);
+
+	FPostProcessModifier Vignette;
+	Vignette.Type = EPostProcessEffectType::Vignette;
+	Vignette.bEnabled = true;
+	Vignette.Weight = 1.0;
+	Vignette.SourceObject = nullptr;
+	FVinetteBufferType VinetteCB{ FLinearColor(0.0, 1.0, 0.0, 1.0),
+		0.35f, 0.25f, 1.0f, 2.0f, FadeInOut.Weight, {0,0,0}};
+	Vignette.JustForTest = &VinetteCB;
+	// PostProcessModifiers.Add(Vignette);
+	
 	for (auto& Modifier : PostProcessModifiers)
 	{
 		switch (Modifier.Type)
 		{
 		case EPostProcessEffectType::HeightFog:
-			HeightFogPass.Execute(Modifier, View, RHIDevice);			
+			HeightFogPass.Execute(Modifier, View, RHIDevice);
+			break;
+		case EPostProcessEffectType::Fade:
+			FadeInOutPass.Execute(Modifier, View, RHIDevice);
+			break;
+		case EPostProcessEffectType::Vignette:
+			VignettePass.Execute(Modifier, View, RHIDevice);
+			break;
 		}
 	}
 }
