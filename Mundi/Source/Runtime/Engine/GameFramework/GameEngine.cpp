@@ -361,33 +361,3 @@ void UGameEngine::Shutdown()
 
     SaveIniFile();
 }
-
-void UGameEngine::StartPIE()
-{
-    UE_LOG("[info] START PIE");
-
-    UWorld* EditorWorld = WorldContexts[0].World;
-    UWorld* PIEWorld = UWorld::DuplicateWorldForPIE(EditorWorld);
-
-    GWorld = PIEWorld;
-    SLATE.SetPIEWorld(GWorld);  // SLATE의 카메라를 가져와서 설정, TODO: 추후 월드의 카메라 컴포넌트를 가져와서 설정하도록 변경 필요
-
-    bPlayActive = true;
-
-    // BeginPlay 중에 새로운 actor가 추가될 수도 있어서 복사 후 호출
-    TArray<AActor*> LevelActors = GWorld->GetLevel()->GetActors();
-    for (AActor* Actor : LevelActors)
-    {
-        // NOTE: PIE 시작 후에는 액터 생성 시 직접 불러줘야 됨
-        Actor->BeginPlay();
-    }
-
-    // NOTE: BeginPlay 중에 삭제된 액터 삭제 후 Tick 시작
-    GWorld->ProcessPendingKillActors();
-}
-
-void UGameEngine::EndPIE()
-{
-    // 지연 종료 처리 (UGameEngine::MainLoop에서 종료 처리됨)
-    bChangedPieToEditor = true;
-}

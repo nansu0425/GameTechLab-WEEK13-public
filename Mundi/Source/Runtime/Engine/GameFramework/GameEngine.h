@@ -9,8 +9,6 @@ class FViewport;
 class UGameEngine final
 {
 public:
-    bool bChangedPieToEditor = false;
-
     UGameEngine();
     ~UGameEngine();
 
@@ -18,8 +16,6 @@ public:
     void MainLoop();
     void Shutdown();
 
-    void StartPIE();
-    void EndPIE();
     bool IsPlayActive() const { return bPlayActive; }
 
     HWND GetHWND() const { return HWnd; }
