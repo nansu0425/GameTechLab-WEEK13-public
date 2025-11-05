@@ -64,12 +64,13 @@ public:
 
 	TArray<FPostProcessModifier> GetModifiers() { return Modifiers; };
 
+	void UpdateViewTarget(float DeltaTime);
+
 private:
 	UCameraComponent* CurrentViewTarget{};
 	UCameraComponent* PendingViewTarget{};
 
-	float LastDeltaSeconds = 0.f;
-
+	// TODO: 추후 CurrentMinimalViewInfo 와 비슷하게 이름 변경 필요
 	FMinimalViewInfo SceneView{};
 	FMinimalViewInfo BlendStartView{};
 

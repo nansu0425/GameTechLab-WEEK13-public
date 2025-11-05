@@ -39,7 +39,7 @@ namespace
 		return CascadedSliceDepth;
 	}
 
-	TArray<FVector> GetFrustumVertices(ECameraProjectionMode ProjectionMode, FViewport* Viewport, float FieldOfView, float Near, float Far, float ZoomFactor)
+	TArray<FVector> GetFrustumVertices(ECameraProjectionMode ProjectionMode, FViewportRect ViewRect, float FieldOfView, float AspectRatio, float Near, float Far, float ZoomFactor)
 	{
 		TArray<FVector> Vertices;
 		Vertices.reserve(8);
@@ -47,18 +47,17 @@ namespace
 		if (ProjectionMode == ECameraProjectionMode::Perspective)
 		{
 			const float Tan = tan(DegreesToRadians(FieldOfView) * 0.5f);
-			const float Aspect = Viewport->GetAspectRatio();
 			NearHalfHeight = Tan * Near;
-			NearHalfWidth = NearHalfHeight * Aspect;
+			NearHalfWidth = NearHalfHeight * AspectRatio;
 			FarHalfHeight = Tan * Far;
-			FarHalfWidth = FarHalfHeight * Aspect;
+			FarHalfWidth = FarHalfHeight * AspectRatio;
 		}
 		else
 		{
 			const float pixelsPerWorldUnit = 10.0f;
 
-			NearHalfHeight = (Viewport->GetSizeY() / pixelsPerWorldUnit) * ZoomFactor;
-			NearHalfWidth = (Viewport->GetSizeX() / pixelsPerWorldUnit) * ZoomFactor;
+			NearHalfHeight = (ViewRect.MinY / pixelsPerWorldUnit) * ZoomFactor;
+			NearHalfWidth = (ViewRect.MinX / pixelsPerWorldUnit) * ZoomFactor;
 			FarHalfHeight = NearHalfHeight;
 			FarHalfWidth = NearHalfWidth;
 		}
@@ -91,7 +90,7 @@ void UDirectionalLightComponent::GetShadowRenderRequests(FSceneView* View, TArra
 	FMatrix ViewInv = View->ViewMatrix.InverseAffine();
 	if (bCascaded == false)
 	{
-		TArray<FVector> CameraFrustum = GetFrustumVertices(View->ProjectionMode, View->Viewport, View->FieldOfView, View->NearClip, View->FarClip, View->ZoomFactor);
+		TArray<FVector> CameraFrustum = GetFrustumVertices(View->ProjectionMode, View->ViewRect, View->FieldOfView, View->AspectRatio, View->NearClip, View->FarClip, View->ZoomFactor);
 		float Near = View->NearClip;
 		float Far = View->FarClip;
 		float CenterDepth = (Far + Near) / 2;
@@ -124,7 +123,7 @@ void UDirectionalLightComponent::GetShadowRenderRequests(FSceneView* View, TArra
 			float Far = CascadedSliceDepth[i + 1];
 			//Near -= Near * CascadedOverlapValue;
 			Far += Far * CascadedOverlapValue;
-			TArray<FVector> CameraFrustum = GetFrustumVertices(View->ProjectionMode, View->Viewport, View->FieldOfView, Near, Far, View->ZoomFactor);
+			TArray<FVector> CameraFrustum = GetFrustumVertices(View->ProjectionMode, View->ViewRect, View->FieldOfView, View->AspectRatio, Near, Far, View->ZoomFactor);
 			float CenterDepth = (Far + Near) / 2;
 			FVector Center = FVector(0, 0, CenterDepth);
 			float MaxDis = FVector::Distance(Center, CameraFrustum[7]) * 2;
