@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "PlayerCameraManager.h"
 #include "Camera/CameraModifierBase.h"
 #include "Camera/UCamMod_Fade.h"
@@ -137,6 +137,8 @@ FSceneView* APlayerCameraManager::GetSceneView(FViewport* InViewport, URenderSet
 		return nullptr;
 	}
 	
+	SceneView->InitRenderSetting(InViewport, InRenderSettings);
+
 	return SceneView; 
 }
 
