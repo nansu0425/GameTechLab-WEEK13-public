@@ -155,7 +155,7 @@ void APlayerCameraManager::SetViewTargetWithBlend(UCameraComponent* NewViewTarge
 	}
 
 	// "현재 뷰 타겟"의 뷰 정보를 스냅샷으로 저장해야 합니다.
-	BlendStartView = new FSceneView(SceneView);
+	*BlendStartView = *SceneView;
 
 	// 현재 뷰를 블렌딩 시작 뷰로 저장
 	PendingViewTarget = NewViewTarget;
