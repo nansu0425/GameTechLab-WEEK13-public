@@ -57,7 +57,7 @@ FLuaManager::FLuaManager()
                 Camera->SetWorldLocation(FVector(X, Y, Z));
             }
         ),
-        "SetForward",
+        "SetCameraForward",
         [](UCameraComponent* Camera, FVector Direction)
         {
             if (!Camera)
@@ -190,8 +190,18 @@ FLuaManager::FLuaManager()
             return GWorld->GetFirstPlayerCameraManager();
         }
     );
-
-   
+    SharedLib.set_function("SetPlayerForward",
+        [](FGameObject& GameObject, FVector Direction)
+        {
+            AActor* Player = GameObject.GetOwner();
+            
+            USceneComponent* PlayerSceneComp = static_cast<USceneComponent*>(Player->GetComponent(USceneComponent::StaticClass()));
+            if (PlayerSceneComp)
+            {
+                PlayerSceneComp->SetForward(Direction);
+            }
+        }
+   );
     SharedLib.set_function("Vector", sol::overload(
        []() { return FVector(0.0f, 0.0f, 0.0f); },
        [](float x, float y, float z) { return FVector(x, y, z); }
