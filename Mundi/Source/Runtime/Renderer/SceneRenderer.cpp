@@ -997,6 +997,15 @@ void FSceneRenderer::RenderPostProcessingPasses()
 	Vignette.JustForTest = &VinetteCB;*/
 	// PostProcessModifiers.Add(Vignette);
 	
+	PostProcessModifiers.Sort([](const FPostProcessModifier& LHS, const FPostProcessModifier& RHS)
+	{
+		if (LHS.Priority == RHS.Priority)
+		{
+			return LHS.Weight > RHS.Weight;
+		}
+		return LHS.Priority < RHS.Priority;
+	});
+
 	for (auto& Modifier : PostProcessModifiers)
 	{
 		switch (Modifier.Type)

@@ -4,6 +4,9 @@
 class UCameraComponent;
 class UCameraModifierBase;
 class FSceneView;
+class FViewport;
+class URenderSettings;
+class UCamMod_Fade;
 
 class APlayerCameraManager : public AActor
 {
@@ -23,7 +26,7 @@ public:
 		ActiveModifiers.Sort([](auto A, auto B){ return *A < *B; });
 		return M;
 	}
-	void BuildForFrame(float DeltaTime, FSceneView& InOutView);
+	void BuildForFrame(float DeltaTime);
 	
 protected:
 	~APlayerCameraManager() override;
@@ -39,6 +42,7 @@ public:
 
 	void SetMainCamera(UCameraComponent* InCamera) { CurrentViewTarget = InCamera; };
 	UCameraComponent* GetMainCamera();
+	UCamMod_Fade* GetFadeModifier() const { return FadeModifier; }
 
 	FSceneView* GetSceneView(FViewport* InViewport, URenderSettings* InRenderSettings);
 	
@@ -51,6 +55,8 @@ public:
 private:
 	UCameraComponent* CurrentViewTarget{};
 	UCameraComponent* PendingViewTarget{};
+	UCamMod_Fade* FadeModifier{};
+	float LastDeltaSeconds = 0.f;
 
 	FSceneView* SceneView{};
 	FSceneView* BlendStartView{};

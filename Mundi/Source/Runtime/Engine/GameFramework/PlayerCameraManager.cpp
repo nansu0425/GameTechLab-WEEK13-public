@@ -1,9 +1,12 @@
 ﻿#include "pch.h"
 #include "PlayerCameraManager.h"
 #include "Camera/CameraModifierBase.h"
+#include "Camera/UCamMod_Fade.h"
 #include "SceneView.h"
 #include "CameraActor.h"
 #include "World.h"
+#include "FViewport.h"
+#include "RenderSettings.h"
 
 IMPLEMENT_CLASS(APlayerCameraManager)
 
@@ -14,23 +17,54 @@ END_PROPERTIES()
 APlayerCameraManager::APlayerCameraManager()
 {
 	Name = "Player Camera Manager";
+	FadeModifier = AddModifier<UCamMod_Fade>();
+	if (FadeModifier)
+	{
+		FadeModifier->Priority = 0;
+	}
+	SceneView = new FSceneView();
 }
 
-void APlayerCameraManager::BuildForFrame(float DeltaTime, FSceneView& InOutView)
+APlayerCameraManager::~APlayerCameraManager()
+{
+	if (SceneView != nullptr)
+	{
+		delete SceneView;
+		SceneView = nullptr;
+	}
+	
+	if(BlendStartView)
+	{
+		delete BlendStartView;
+		BlendStartView = nullptr;
+	}
+}
+
+void APlayerCameraManager::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	// 매 틱 모든 카메라 로직을 계산하여 CachedViewInfo를 업데이트합니다.
+	LastDeltaSeconds = DeltaTime;
+	BuildForFrame(DeltaTime);
+}
+
+
+void APlayerCameraManager::BuildForFrame(float DeltaTime)
 {
 	// 모든 Modifier tick Update
 	for (UCameraModifierBase* M : ActiveModifiers)
 	{
 		if (!M || !M->bEnabled || M->Weight <= 0.f) continue;
-		M->ApplyToView(DeltaTime, InOutView);
+		M->ApplyToView(DeltaTime, *SceneView);
 	}
 
 	// 2) 후처리: PP 모디파이어 초기화 + 수집
-	InOutView.PostProcessInput.Modifiers.clear();
+	SceneView->PostProcessInput.Modifiers.clear();
 	for (UCameraModifierBase* M : ActiveModifiers)
 	{
 		if (!M || !M->bEnabled || M->Weight <= 0.f) continue;
-		M->CollectPostProcess(InOutView.PostProcessInput.Modifiers, InOutView);
+		M->CollectPostProcess(SceneView->PostProcessInput.Modifiers, SceneView);
 	}
 
 	// 3) 수명 정리
@@ -41,11 +75,6 @@ void APlayerCameraManager::BuildForFrame(float DeltaTime, FSceneView& InOutView)
 		if (!ActiveModifiers[i]->bEnabled && ActiveModifiers[i]->Duration >= 0.f)
 			ActiveModifiers.RemoveAtSwap(i);
 	}
-}
-
-APlayerCameraManager::~APlayerCameraManager()
-{
-
 }
 
 void APlayerCameraManager::Destroy()
@@ -68,23 +97,11 @@ void APlayerCameraManager::Destroy()
 	UE_LOG("[warning] PlayerCameraManager는 삭제할 수 없습니다. (새로운 매니저를 만들고 삭제하면 가능)");
 }
 
-void APlayerCameraManager::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-	// 매 틱 모든 카메라 로직을 계산하여 CachedViewInfo를 업데이트합니다.
-	UpdateCamera(DeltaTime);
-}
-
-void APlayerCameraManager::UpdateCamera(float DeltaTime)
-{
-}
-
 UCameraComponent* APlayerCameraManager::GetMainCamera()
 {
-	if (MainCamera)
+	if (CurrentViewTarget)
 	{
-		return MainCamera;
+		return CurrentViewTarget;
 	}
 
 	// 추후 컴포넌트로 교체
@@ -95,11 +112,57 @@ UCameraComponent* APlayerCameraManager::GetMainCamera()
 		// Todo: 추후 world의 CameraActor 변경
 		GetWorld()->SetCameraActor(CameraActor);
 
-		MainCamera = CameraActor->GetCameraComponent();
+		CurrentViewTarget = CameraActor->GetCameraComponent();
 	}
 
-	return MainCamera;
+	return CurrentViewTarget;
 }
+
+FSceneView* APlayerCameraManager::GetSceneView(FViewport* InViewport, URenderSettings* InRenderSettings)
+{
+	if (!InViewport || !InRenderSettings)
+	{
+		return nullptr;
+	}
+
+	UCameraComponent* ViewTarget = CurrentViewTarget;
+	if (!ViewTarget)
+	{
+		ViewTarget = GetMainCamera();
+	}
+
+	if (!ViewTarget)
+	{
+		return nullptr;
+	}
+	
+	return SceneView; 
+}
+
+void APlayerCameraManager::SetViewTarget(UCameraComponent* NewViewTarget)
+{
+	CurrentViewTarget = NewViewTarget;
+	PendingViewTarget = nullptr; // 블렌딩 취소
+	BlendTimeRemaining = 0.0f;
+}
+
+void APlayerCameraManager::SetViewTargetWithBlend(UCameraComponent* NewViewTarget, float InBlendTime)
+{
+	if(BlendStartView)
+	{
+		delete BlendStartView;
+		BlendStartView = nullptr;
+	}
+
+	// "현재 뷰 타겟"의 뷰 정보를 스냅샷으로 저장해야 합니다.
+	BlendStartView = new FSceneView(SceneView);
+
+	// 현재 뷰를 블렌딩 시작 뷰로 저장
+	PendingViewTarget = NewViewTarget;
+	BlendTimeTotal = InBlendTime;
+	BlendTimeRemaining = InBlendTime;
+}
+
 
 //
 // void APlayerCameraManager::UpdateCamera(float DeltaTime)

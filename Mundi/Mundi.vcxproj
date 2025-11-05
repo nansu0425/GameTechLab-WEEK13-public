@@ -113,6 +113,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="UCamMod_Fade.cpp" />
     <FxCompile Include="Shaders\Materials\Fireball.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -163,7 +164,7 @@
     <ClCompile Include="Source\Runtime\Renderer\LightManager.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\PostProcessing\HeightFogPass.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\PostProcessing\FadeInOutPass.cpp" />
-    <ClCompile Include="Source\Runtime\Renderer\PostProcessing\PostProcessing.cpp"/>
+    <ClCompile Include="Source\Runtime\Renderer\PostProcessing\PostProcessing.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\PostProcessing\VignettePass.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\SceneView.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\TileLightCuller.cpp" />
@@ -561,6 +562,7 @@
     <ClInclude Include="ThirdParty\Lua\include\lua.hpp" />
     <ClInclude Include="ThirdParty\Lua\include\luaconf.h" />
     <ClInclude Include="ThirdParty\Lua\include\lualib.h" />
+    <ClInclude Include="UCamMod_Fade.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

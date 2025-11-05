@@ -12,7 +12,22 @@ public:
     virtual void ApplyToView(float DeltaTime, FSceneView& InOutView) override
     {
         // 전처리에서 타임라인 업데이트만 (뷰 행렬 수정 없음)
-        CurrentOpacity = FMath::Clamp(CurrentOpacity + Speed * DeltaTime, 0.f, TargetAmount);
+        if (FMath::IsNearlyZero(DeltaTime) || FMath::IsNearlyZero(Speed))
+        {
+            return;
+        }
+
+        const float ClampedTarget = FMath::Clamp(TargetAmount, 0.f, 1.f);
+        TargetAmount = ClampedTarget;
+
+        CurrentOpacity = FMath::Clamp(CurrentOpacity + Speed * DeltaTime, 0.f, 1.f);
+
+        const bool bReachedTarget = (Speed >= 0.f && CurrentOpacity >= TargetAmount) ||
+                                    (Speed < 0.f && CurrentOpacity <= TargetAmount);
+        if (bReachedTarget)
+        {
+            CurrentOpacity = TargetAmount;
+        }
     }
 
     virtual void CollectPostProcess(TArray<FPostProcessModifier>& Out, const FSceneView&) override

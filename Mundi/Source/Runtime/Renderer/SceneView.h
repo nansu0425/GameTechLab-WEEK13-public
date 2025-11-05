@@ -35,6 +35,8 @@ class FSceneView
 {
 public:
     // 메인 뷰(카메라)를 위한 생성자
+    FSceneView() = default;
+    FSceneView(FSceneView* SourceView) { this = SourceView; }
     FSceneView(UCameraComponent* InCamera, FViewport* InViewport, URenderSettings* InRenderSettings);
 
 private:
