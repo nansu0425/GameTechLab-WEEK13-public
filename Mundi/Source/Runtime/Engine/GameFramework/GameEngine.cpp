@@ -324,6 +324,13 @@ void UGameEngine::MainLoop()
 
 void UGameEngine::Shutdown()
 {
+    // 월드부터 삭제해야 DeleteAll 때 문제가 없음
+    for (FWorldContext WorldContext : WorldContexts)
+    {
+        ObjectFactory::DeleteObject(WorldContext.World);
+    }
+    WorldContexts.clear();
+
     // Delete all UObjects (Components, Actors, Resources)
     // Resource destructors will properly release D3D resources
     ObjectFactory::DeleteAll(true);
