@@ -52,8 +52,19 @@ UWorld::UWorld() : Partition(new UWorldPartitionManager())
 
 UWorld::~UWorld()
 {
+	bIsTearingDown = true;	// 월드 삭제 중에는 새로운 액터 생성을 방지하기 위해
+
 	if (Level)
 	{
+		if (bPie)
+		{
+			// 모든 액터가 살아있을 때 EndPlay를 먼저 호출 후 삭제 진행
+			for (AActor* Actor : Level->GetActors())
+			{
+				Actor->EndPlay();
+			}
+		}
+
 		TArray<AActor*> TempActors =  Level->GetActors();
 		for (AActor* Actor : TempActors)
 		{
@@ -98,7 +109,9 @@ void UWorld::InitializeGizmo()
 	GizmoActor = NewObject<AGizmoActor>();
 	GizmoActor->SetWorld(this);
 	GizmoActor->RegisterAllComponents(this);
-	GizmoActor->SetActorTransform(FTransform(FVector{ 0, 0, 0 }, FQuat::MakeFromEulerZYX(FVector{ 0, -90, 0 }),
+	GizmoActor->SetActorTransform(FTransform(
+		FVector{ 0, 0, 0 }, 
+		FQuat::MakeFromEulerZYX(FVector{ 0, -90, 0 }),
 		FVector{ 1, 1, 1 }));
 
 	EditorActors.push_back(GizmoActor);
@@ -366,23 +379,7 @@ bool UWorld::DestroyActor(AActor* Actor)
 	// 선택/UI 해제
 	if (SelectionMgr) SelectionMgr->DeselectActor(Actor);
 
-	if (this->bPie)
-	{
-		// 게임 수명 종료
-		Actor->EndPlay();
-	}
-
 	// 컴포넌트 정리 (등록 해제 → 파괴)
-	TArray<USceneComponent*> Components = Actor->GetSceneComponents();
-	for(USceneComponent* Comp : Components)
-	{
-		if (Comp)
-		{
-			Comp->SetOwner(nullptr); // 소유자 해제
-		}
-	}
-
-	Actor->UnregisterAllComponents(/*bCallEndPlayOnBegun=*/true);
 	Actor->DestroyAllComponents();
 
 	// 레벨에서 제거 시도
@@ -520,12 +517,30 @@ void UWorld::ProcessPendingKillActors()
 	// 4. '사본'을 순회하며 실제 파괴를 수행합니다.
 	for (AActor* Actor : ActorsToKill)
 	{
+		// 게임 수명 종료
+		if (bPie)
+		{
+			Actor->EndPlay();
+		}
+
 		DestroyActor(Actor);
 	}
 }
 
+AActor* UWorld::SpawnActor(UClass* Class)
+{
+	// 기본 Transform(원점)으로 스폰하는 메인 함수를 호출합니다.
+	return SpawnActor(Class, FTransform());
+}
+
 AActor* UWorld::SpawnActor(UClass* Class, const FTransform& Transform)
 {
+	if (bIsTearingDown)
+	{
+		UE_LOG("[warning] 월드 삭제 시 새로운 액터를 추가할 수 없습니다.");
+		return nullptr;
+	}
+
 	// 유효성 검사: Class가 유효하고 AActor를 상속했는지 확인
 	if (!Class || !Class->IsChildOf(AActor::StaticClass()))
 	{
@@ -555,14 +570,14 @@ AActor* UWorld::SpawnActor(UClass* Class, const FTransform& Transform)
 	return NewActor;
 }
 
-AActor* UWorld::SpawnActor(UClass* Class)
-{
-	// 기본 Transform(원점)으로 스폰하는 메인 함수를 호출합니다.
-	return SpawnActor(Class, FTransform());
-}
-
 AActor* UWorld::SpawnPrefabActor(const FWideString& PrefabPath)
 {
+	if (bIsTearingDown)
+	{
+		UE_LOG("[warning] 월드 삭제 시 새로운 액터를 추가할 수 없습니다.");
+		return nullptr;
+	}
+
 	JSON ActorDataJson;
 
 	if (FJsonSerializer::LoadJsonFromFile(ActorDataJson, PrefabPath))
@@ -591,8 +606,11 @@ AActor* UWorld::SpawnPrefabActor(const FWideString& PrefabPath)
 				UE_LOG("[error] SpawnActor failed: ObjectFactory could not create an instance of");
 				return nullptr;
 			}
-			// 월드 참조 설정
+			
+			// 데이터 불러오기
 			NewActor->Serialize(true, ActorDataJson);
+
+			// 현재 레벨에 액터 등록
 			AddActorToLevel(NewActor);
 
 			if (this->bPie)

@@ -78,7 +78,6 @@ public:
     void UnregisterComponentTree(USceneComponent* SceneComp);
 
     // ===== 월드가 파괴 경로에서 호출할 "좁은 공개 API" =====
-    void UnregisterAllComponents(bool bCallEndPlayOnBegun = true);
     void DestroyAllComponents();   // Unregister 이후 최종 파괴
 
     // ===== 파괴 재진입 가드 =====

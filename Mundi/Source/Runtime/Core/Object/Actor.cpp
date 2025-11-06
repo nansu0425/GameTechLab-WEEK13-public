@@ -211,6 +211,11 @@ void AActor::RemoveOwnedComponent(UActorComponent* Component)
 		return;
 	}
 
+	if (GetWorld()->bPie)
+	{
+		Component->EndPlay();
+	}
+
 	if (USceneComponent* SceneComponent = Cast<USceneComponent>(Component))
 	{
 		// 자식 컴포넌트들을 먼저 재귀적으로 삭제
@@ -233,7 +238,6 @@ void AActor::RemoveOwnedComponent(UActorComponent* Component)
 	// OwnedComponents에서 제거
 	OwnedComponents.erase(Component);
 
-	Component->UnregisterComponent();
 	Component->DestroyComponent();
 }
 
@@ -251,45 +255,32 @@ UActorComponent* AActor::GetComponent(UClass* ComponentClass)
 
 void AActor::RegisterAllComponents(UWorld* InWorld)
 {
-	for (UActorComponent* Component : OwnedComponents)
-	{
-		Component->RegisterComponent(InWorld);
-	}
+	// 액터 생성 후 아무 컴포넌트가 없으면 강제로 빈 루트 컴포넌트 할당
 	if (!RootComponent)
 	{
 		RootComponent = CreateDefaultSubobject<USceneComponent>("DefaultSceneComponent");
-		RootComponent->RegisterComponent(InWorld);
 	}
-}
 
-void AActor::UnregisterAllComponents(bool bCallEndPlayOnBegun)
-{
-	// 파괴 경로에서 안전하게 등록 해제
-	// 복사본으로 순회 (컨테이너 변형 중 안전)
-	TArray<UActorComponent*> Temp;
-	Temp.reserve(OwnedComponents.size());
-	for (UActorComponent* C : OwnedComponents) Temp.push_back(C);
-
-	for (UActorComponent* C : Temp)
+	for (UActorComponent* Component : OwnedComponents)
 	{
-		if (!C) continue;
-
-		C->UnregisterComponent(); // 내부 OnUnregister/리소스 해제
+		Component->RegisterComponent(InWorld);
 	}
 }
 
 // 소유 중인 Component 전체 삭제
 void AActor::DestroyAllComponents()
 {
-	// Unregister 이후 최종 파괴
 	TArray<UActorComponent*> Temp;
 	Temp.reserve(OwnedComponents.size());
-	for (UActorComponent* C : OwnedComponents) Temp.push_back(C);
+
+	for (UActorComponent* C : OwnedComponents) 
+		Temp.push_back(C);
 
 	for (UActorComponent* C : Temp)
 	{
-		if (!C) continue;
-		C->DestroyComponent(); // 내부에서 Owner=nullptr 등도 처리
+		if (!C) 
+			continue;
+		C->DestroyComponent(); // 내부에서 등록 해제도 처리
 	}
 	OwnedComponents.Empty();
 
@@ -536,13 +527,6 @@ void AActor::PostDuplicate()
 {
 	Super::PostDuplicate();
 
-	for (UActorComponent* Comp : OwnedComponents)
-	{
-		if (Comp)
-		{
-			Comp->SetRegistered(false);
-		}
-	}
 }
 
 bool AActor::IsOverlappingActor(const AActor* Other) const
@@ -693,7 +677,6 @@ void AActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 	if (bInIsLoading)
 	{
 		// 액터 생성자에서 만들어진 컴포넌트를 무시하고 저장된 컴포넌트만 다시 붙인다
-		UnregisterAllComponents();
 		DestroyAllComponents();
 
 		uint32 RootUUID;

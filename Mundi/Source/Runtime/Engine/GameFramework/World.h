@@ -177,6 +177,7 @@ private:
     float TimeStopDuration;  /* 얼마 동안 */
     float TimeDuration;
 
+    bool bIsTearingDown = false;    // 월드가 파괴 중임을 알리는 플래그
 };
 template<class T>
 inline T* UWorld::SpawnActor()
