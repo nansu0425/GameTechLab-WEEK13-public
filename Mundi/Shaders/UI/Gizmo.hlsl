@@ -82,27 +82,25 @@ PS_OUTPUT mainPS(PS_INPUT input)
 {
     PS_OUTPUT Output;
 
+    // Face normal calculation
     float3 ddx_pos = ddx(input.worldPos);
     float3 ddy_pos = ddy(input.worldPos);
     float3 faceNormal = normalize(cross(ddy_pos, ddx_pos));
     float3 N = faceNormal;
     
-    // Lambertian diffuse lighting calculation
-    //float3 N = normalize(input.worldNormal);
-    float3 lightDir = normalize(float3(0.5f, 0.5f, -0.5f)); // Define a fixed directional light
-    float NdotL = saturate(dot(N, -lightDir));
+    // View-based lighting calculation
+    float3 cameraPos = InverseViewMatrix[3].xyz;
+    float3 viewDir = normalize(cameraPos - input.worldPos);
+    float NdotL = abs(dot(N, -viewDir));  // lightDir = -viewDir
     
     // Define ambient and diffuse lighting
-    float ambient = 0.4f;
-    float diffuseIntensity = 0.6f;
+    float ambient = 0.22f;          // Minimum shadow brightness
+    float diffuseIntensity = 0.6f;  // Additional brightness
     float diffuse = ambient + diffuseIntensity * NdotL;
     
     // Final color is base color modulated by lighting
     Output.Color = input.color * diffuse;
     Output.UUID = UUID;
-    
-    //float3 normalColor = input.worldNormal * 0.5f + 0.5f;
-    //Output.Color = float4(normalColor, 1.0f);
 
     return Output;
 }
