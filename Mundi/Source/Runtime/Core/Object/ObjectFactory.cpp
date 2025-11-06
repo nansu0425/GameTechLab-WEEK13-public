@@ -64,14 +64,15 @@ namespace ObjectFactory
         static TMap<UClass*, int> NameCounters;
         int Count = ++NameCounters[Class];
 
-        const std::string base = Class->Name; // FName -> string
-        std::string unique;
-        unique.reserve(base.size() + 1 + 12);            // "_" + 최대 10~12자리 여유
-        unique.append(base);
-        unique.push_back('_');
-        unique.append(std::to_string(Count));
+        // NOTE: 복제 시 이름을 그대로 유지
+        //const std::string base = Class->Name; // FName -> string
+        //std::string unique;
+        //unique.reserve(base.size() + 1 + 12);            // "_" + 최대 10~12자리 여유
+        //unique.append(base);
+        //unique.push_back('_');
+        //unique.append(std::to_string(Count));
 
-        Obj->ObjectName = FName(unique);
+        //Obj->ObjectName = FName(unique);
 
         return Obj;
     }

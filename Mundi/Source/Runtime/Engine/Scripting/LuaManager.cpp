@@ -25,6 +25,9 @@ FLuaManager::FLuaManager()
 
     SharedLib = Lua->create_table();
 
+    // Lua에서 Actor와 FGameObject 가 1대1로 매칭되고
+    // Component는 그대로 Component와 1대1로 매칭된다
+    // NOTE: 그냥 FGameObject 개념을 없애고 그냥 Actor/Component 그대로 사용하는 게 좋을듯?
     Lua->new_usertype<FGameObject>("GameObject",
         "UUID", &FGameObject::UUID,
         "Tag", sol::property(&FGameObject::GetTag, &FGameObject::SetTag),
@@ -185,6 +188,50 @@ FLuaManager::FLuaManager()
             }
         }
     ));
+    SharedLib.set_function("FindObjectByName",
+        [](const FString& ActorName) -> FGameObject*
+        {
+            if (!GWorld)
+            {
+                return nullptr;
+            }
+
+            // Lua의 FString을 FName으로 변환
+            FName NameToFind(ActorName);
+
+            AActor* FoundActor = GWorld->FindActorByName(NameToFind);
+
+            // Lua 스크립트가 사용할 수 있도록 AActor*를 FGameObject*로 변환
+            if (FoundActor && !FoundActor->IsPendingDestroy())
+            {
+                return FoundActor->GetGameObject();
+            }
+
+            return nullptr; // 찾지 못함
+        }
+    );
+    SharedLib.set_function("FindComponentByName",
+        [this](const FString& ComponentName) -> UActorComponent*
+        {
+            if (!GWorld)
+            {
+                return nullptr;
+            }
+
+            // Lua의 FString을 FName으로 변환
+            FName NameToFind(ComponentName);
+
+            UActorComponent* FoundComponent = GWorld->FindComponentByName(NameToFind);
+
+            // Lua 스크립트가 사용할 수 있도록 UActorComponent*를 LuaComponentProxy로 변환
+            if (FoundComponent && !FoundComponent->IsPendingDestroy())
+            {
+                return FoundComponent;
+            }
+
+            return nullptr; // 찾지 못함
+        }
+    );
     SharedLib.set_function("GetCamera",
         []() -> UCameraComponent*
         {
@@ -195,7 +242,6 @@ FLuaManager::FLuaManager()
             return GWorld->GetPlayerCameraManager()->GetViewCamera();
         }
     );
-
     SharedLib.set_function("GetCameraManager",
         []() -> APlayerCameraManager*
         {

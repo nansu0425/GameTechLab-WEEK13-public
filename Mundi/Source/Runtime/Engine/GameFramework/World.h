@@ -59,18 +59,18 @@ public:
 
     template<class T>
     T* SpawnActor();
-
     template<class T>
     T* SpawnActor(const FTransform& Transform);
-
     template<typename T>
     T* FindActor();
-
     template<typename T>
     T* FindComponent();
-
     template<typename T>
     TArray<T*> FindActors();
+    // ObjectName으로 '첫 번째' 액터를 찾아 반환합니다.
+    AActor* FindActorByName(const FName& ActorName);
+    // 모든 액터의 모든 컴포넌트를 순회하여 ObjectName으로 '첫 번째' 컴포넌트를 찾아 반환합니다 (비용이 매우 크므로 매 프레임 호출을 권장하지 않습니다.)
+    UActorComponent* FindComponentByName(const FName& ComponentName);
 
     AActor* SpawnActor(UClass* Class, const FTransform& Transform);
     AActor* SpawnActor(UClass* Class);

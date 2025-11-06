@@ -18,12 +18,20 @@ namespace
         static TArray<FNameEntry> GEntries;
         return GEntries;
     }
+
+    // FString을 소문자로 변환하는 헬퍼 함수
+    static FString ToLower(const FString& InStr)
+    {
+        FString Result = InStr;
+        std::transform(Result.begin(), Result.end(), Result.begin(),
+            [](unsigned char c) { return std::tolower(c); });
+        return Result;
+    }
 }
 
 uint32 FNamePool::Add(const FString& InStr)
 {
-    FString Lower = InStr;
-    std::transform(Lower.begin(), Lower.end(), Lower.begin(), ::tolower);
+    FString Lower = ToLower(InStr);
 
     // 전역 변수 대신 getter를 통해 접근
     TMap<FString, uint32>& NameMap = GetNameMap();
