@@ -62,7 +62,6 @@ public:
     // 상태 쿼리
     bool IsRegistered()    const { return bRegistered; }
     void SetRegistered(bool bInRegistered) { bRegistered = bInRegistered; }
-    bool HasBegunPlay()    const { return bHasBegunPlay; }
     bool IsPendingDestroy()const { return bPendingDestroy; }
 
     // ───── 복사 관련 ────────────────────────────
@@ -82,7 +81,6 @@ protected:
     bool bTickEnabled = true;   // 현재 틱 켜짐 여부
 
     bool bRegistered = false;    // RegisterComponent가 호출됐는가
-    bool bHasBegunPlay = false;  // BeginPlay가 호출됐는가
     bool bPendingDestroy = false;// DestroyComponent 의도 플래그
     bool bIsEditable = true;    //UI에서 Edit이 가능한가
 };

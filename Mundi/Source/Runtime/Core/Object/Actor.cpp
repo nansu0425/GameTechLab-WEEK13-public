@@ -260,11 +260,6 @@ void AActor::UnregisterAllComponents(bool bCallEndPlayOnBegun)
 	{
 		if (!C) continue;
 
-		// BeginPlay가 이미 호출된 컴포넌트라면 EndPlay(RemovedFromWorld) 보장
-		if (bCallEndPlayOnBegun && C->HasBegunPlay())
-		{
-			C->EndPlay();
-		}
 		C->UnregisterComponent(); // 내부 OnUnregister/리소스 해제
 	}
 }

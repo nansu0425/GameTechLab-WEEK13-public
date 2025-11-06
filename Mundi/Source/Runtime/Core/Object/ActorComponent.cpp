@@ -49,13 +49,6 @@ void UActorComponent::UnregisterComponent()
 {
     if (!bRegistered) return;
 
-    // 게임 수명 종료가 필요하면 EndPlay 보장
-    if (bHasBegunPlay)
-    {
-        EndPlay();
-        bHasBegunPlay = false;
-    }
-
     OnUnregister();
     bRegistered = false;
 }
@@ -92,8 +85,8 @@ void UActorComponent::InitializeComponent()
 
 void UActorComponent::BeginPlay()
 {
-    // 월드 진입 시 1회
-    bHasBegunPlay = true;
+    // PIE 시작 후 월드 등록 시 1회
+    // 필요하다면 Override
 }
 
 void UActorComponent::TickComponent(float DeltaTime)
@@ -103,10 +96,8 @@ void UActorComponent::TickComponent(float DeltaTime)
 
 void UActorComponent::EndPlay()
 {
-    // 파괴 시
+    // PIE 중 파괴 시
     // 필요하다면 Override
-        // 게임 수명 종료
-    bHasBegunPlay = false;
 }
 
 void UActorComponent::DuplicateSubObjects()
