@@ -49,8 +49,7 @@ APlayerCameraManager::~APlayerCameraManager()
 	}
 	ActiveModifiers.Empty();
 
-	CurrentViewTarget = nullptr;
-	PendingViewTarget = nullptr;
+	CurrentViewCamera = nullptr;
 
 	CachedViewport = nullptr;
 }
@@ -72,7 +71,7 @@ void APlayerCameraManager::BuildForFrame(float DeltaTime)
 	for (UCameraModifierBase* M : ActiveModifiers)
 	{
 		if (!M || !M->bEnabled || M->Weight <= 0.f) continue;
-		M->ApplyToView(DeltaTime, &SceneView);
+		M->ApplyToView(DeltaTime, &CurrentViewInfo);
 	}
 
 	// 2) 후처리: PP 모디파이어 초기화 + 수집
@@ -106,21 +105,21 @@ void APlayerCameraManager::BuildForFrame(float DeltaTime)
 	if (CachedViewport)
 	{
 		// 최종 종횡비 (AspectRatio)
-		if (SceneView.ViewRect.Height() > 0)
+		if (CurrentViewInfo.ViewRect.Height() > 0)
 		{
-			SceneView.AspectRatio = (float)SceneView.ViewRect.Width() / (float)SceneView.ViewRect.Height();
+			CurrentViewInfo.AspectRatio = (float)CurrentViewInfo.ViewRect.Width() / (float)CurrentViewInfo.ViewRect.Height();
 		}
 		else
 		{
-			SceneView.AspectRatio = 1.7777f; // 16:9 폴백
+			CurrentViewInfo.AspectRatio = 1.7777f; // 16:9 폴백
 		}
 	}
 
 	else
 	{
 		// 폴백 (뷰포트가 아직 캐시 안됨)
-		SceneView.AspectRatio = 1.7777f;
-		SceneView.ViewRect = { 0, 0, 1920, 1080 };
+		CurrentViewInfo.AspectRatio = 1.7777f;
+		CurrentViewInfo.ViewRect = { 0, 0, 1920, 1080 };
 	}
 }
 
@@ -144,11 +143,11 @@ void APlayerCameraManager::Destroy()
 	UE_LOG("[warning] PlayerCameraManager는 삭제할 수 없습니다. (새로운 매니저를 만들고 삭제하면 가능)");
 }
 
-UCameraComponent* APlayerCameraManager::GetMainCamera()
+UCameraComponent* APlayerCameraManager::GetViewCamera()
 {
-	if (CurrentViewTarget)
+	if (CurrentViewCamera)
 	{
-		return CurrentViewTarget;
+		return CurrentViewCamera;
 	}
 
 	// 추후 컴포넌트로 교체
@@ -159,18 +158,18 @@ UCameraComponent* APlayerCameraManager::GetMainCamera()
 		// Todo: 추후 world의 CameraActor 변경
 		GetWorld()->SetCameraActor(CameraActor);
 
-		CurrentViewTarget = CameraActor->GetCameraComponent();
+		CurrentViewCamera = CameraActor->GetCameraComponent();
 	}
 
-	return CurrentViewTarget;
+	return CurrentViewCamera;
 }
 
 FMinimalViewInfo* APlayerCameraManager::GetSceneView()
 {
-	UCameraComponent* ViewTarget = CurrentViewTarget;
+	UCameraComponent* ViewTarget = CurrentViewCamera;
 	if (!ViewTarget)
 	{
-		ViewTarget = GetMainCamera();
+		ViewTarget = GetViewCamera();
 	}
 
 	if (!ViewTarget)
@@ -178,23 +177,22 @@ FMinimalViewInfo* APlayerCameraManager::GetSceneView()
 		return nullptr;
 	}
 
-	return &SceneView; 
+	return &CurrentViewInfo; 
 }
 
-void APlayerCameraManager::SetViewTarget(UCameraComponent* NewViewTarget)
+void APlayerCameraManager::SetViewCamera(UCameraComponent* NewViewTarget)
 {
-	CurrentViewTarget = NewViewTarget;
-	PendingViewTarget = nullptr; // 블렌딩 취소
-	BlendTimeRemaining = 0.0f;
+	CurrentViewCamera = NewViewTarget;
+	BlendTimeRemaining = 0.0f; // 블렌딩 취소
 }
 
-void APlayerCameraManager::SetViewTargetWithBlend(UCameraComponent* NewViewTarget, float InBlendTime)
+void APlayerCameraManager::SetViewCameraWithBlend(UCameraComponent* NewViewTarget, float InBlendTime)
 {
 	// "현재 뷰 타겟"의 뷰 정보를 스냅샷으로 저장해야 합니다.
-	BlendStartView = SceneView;
+	BlendStartViewInfo = CurrentViewInfo;
+	CurrentViewCamera = NewViewTarget;
 
 	// 현재 뷰를 블렌딩 시작 뷰로 저장
-	PendingViewTarget = NewViewTarget;
 	BlendTimeTotal = InBlendTime;
 	BlendTimeRemaining = InBlendTime;
 }
@@ -305,18 +303,18 @@ void APlayerCameraManager::StartGamma(float Gamma)
 
 void APlayerCameraManager::UpdateViewTarget(float DeltaTime)
 {
-	UCameraComponent* TargetCam = CurrentViewTarget ? CurrentViewTarget : GetMainCamera();
+	UCameraComponent* TargetCam = CurrentViewCamera ? CurrentViewCamera : GetViewCamera();
 
 	if (CachedViewport)
 	{
 		// 최종 뷰 영역 (ViewRect)
-		SceneView.ViewRect.MinX = CachedViewport->GetStartX();
-		SceneView.ViewRect.MinY = CachedViewport->GetStartY();
-		SceneView.ViewRect.MaxX = SceneView.ViewRect.MinX + CachedViewport->GetSizeX();
-		SceneView.ViewRect.MaxY = SceneView.ViewRect.MinY + CachedViewport->GetSizeY();
+		CurrentViewInfo.ViewRect.MinX = CachedViewport->GetStartX();
+		CurrentViewInfo.ViewRect.MinY = CachedViewport->GetStartY();
+		CurrentViewInfo.ViewRect.MaxX = CurrentViewInfo.ViewRect.MinX + CachedViewport->GetSizeX();
+		CurrentViewInfo.ViewRect.MaxY = CurrentViewInfo.ViewRect.MinY + CachedViewport->GetSizeY();
 	}
 
-	if (PendingViewTarget) // 1. 블렌딩 중일 때
+	if (0.0 < BlendTimeRemaining) // 1. 블렌딩 중일 때
 	{
 		float V = 1.0f;
 		if (BlendTimeTotal > KINDA_SMALL_NUMBER)
@@ -328,49 +326,45 @@ void APlayerCameraManager::UpdateViewTarget(float DeltaTime)
 		V = GetBezierValueY(TransitionCurve, V);
 
 		// --- 시작 값 ---
-		FVector StartLocation = BlendStartView.ViewLocation;
-		FQuat StartRotation = BlendStartView.ViewRotation;
-		float StartFOV = BlendStartView.FieldOfView;
+		FVector StartLocation = BlendStartViewInfo.ViewLocation;
+		FQuat StartRotation = BlendStartViewInfo.ViewRotation;
+		float StartFOV = BlendStartViewInfo.FieldOfView;
 
 		// --- 목표 값 ---
-		FVector TargetLocation = PendingViewTarget->GetWorldLocation();
-		FQuat TargetRotation = PendingViewTarget->GetWorldRotation();
-		float TargetFOV = PendingViewTarget->GetFOV();
+		FVector TargetLocation = CurrentViewCamera->GetWorldLocation();
+		FQuat TargetRotation = CurrentViewCamera->GetWorldRotation();
+		float TargetFOV = CurrentViewCamera->GetFOV();
 
 		// --- SceneView 보간 ---
-		SceneView.ViewLocation = FVector::Lerp(StartLocation, TargetLocation, V);
-		SceneView.ViewRotation = FQuat::Slerp(StartRotation, TargetRotation, V);
-		SceneView.FieldOfView = FMath::Lerp(StartFOV, TargetFOV, V); // FOV 보간
+		CurrentViewInfo.ViewLocation = FVector::Lerp(StartLocation, TargetLocation, V);
+		CurrentViewInfo.ViewRotation = FQuat::Slerp(StartRotation, TargetRotation, V);
+		CurrentViewInfo.FieldOfView = FMath::Lerp(StartFOV, TargetFOV, V); // FOV 보간
 
 		// Near/Far 등은 최종 타겟의 것을 즉시 따름
-		SceneView.NearClip = PendingViewTarget->GetNearClip();
-		SceneView.FarClip = PendingViewTarget->GetFarClip();
-		SceneView.ZoomFactor = PendingViewTarget->GetZoomFactor();
-		SceneView.ProjectionMode = PendingViewTarget->GetProjectionMode();
+		CurrentViewInfo.NearClip = CurrentViewCamera->GetNearClip();
+		CurrentViewInfo.FarClip = CurrentViewCamera->GetFarClip();
+		CurrentViewInfo.ZoomFactor = CurrentViewCamera->GetZoomFactor();
+		CurrentViewInfo.ProjectionMode = CurrentViewCamera->GetProjectionMode();
 
 		// 남은 시간 계산
 		BlendTimeRemaining -= DeltaTime;
 		if (BlendTimeRemaining <= 0.0f)
 		{
-			CurrentViewTarget = PendingViewTarget;
-			PendingViewTarget = nullptr;
-			TargetCam = CurrentViewTarget; // TargetCam 변수 업데이트
-
 			// 최종 값으로 고정
-			SceneView.ViewLocation = TargetLocation;
-			SceneView.ViewRotation = TargetRotation;
-			SceneView.FieldOfView = TargetFOV; // FOV 고정
+			CurrentViewInfo.ViewLocation = TargetLocation;
+			CurrentViewInfo.ViewRotation = TargetRotation;
+			CurrentViewInfo.FieldOfView = TargetFOV; // FOV 고정
 		}
 	}
 	else if (TargetCam) // 2. 블렌딩 중이 아닐 때
 	{
 		// SceneView의 모든 기본 값을 현재 타겟으로 설정
-		SceneView.ViewLocation = TargetCam->GetWorldLocation();
-		SceneView.ViewRotation = TargetCam->GetWorldRotation();
-		SceneView.NearClip = TargetCam->GetNearClip();
-		SceneView.FarClip = TargetCam->GetFarClip();
-		SceneView.FieldOfView = TargetCam->GetFOV();
-		SceneView.ZoomFactor = TargetCam->GetZoomFactor();
-		SceneView.ProjectionMode = TargetCam->GetProjectionMode();
+		CurrentViewInfo.ViewLocation = TargetCam->GetWorldLocation();
+		CurrentViewInfo.ViewRotation = TargetCam->GetWorldRotation();
+		CurrentViewInfo.NearClip = TargetCam->GetNearClip();
+		CurrentViewInfo.FarClip = TargetCam->GetFarClip();
+		CurrentViewInfo.FieldOfView = TargetCam->GetFOV();
+		CurrentViewInfo.ZoomFactor = TargetCam->GetZoomFactor();
+		CurrentViewInfo.ProjectionMode = TargetCam->GetProjectionMode();
 	}
 }

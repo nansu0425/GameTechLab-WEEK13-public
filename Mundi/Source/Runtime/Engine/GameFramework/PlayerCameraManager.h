@@ -56,18 +56,12 @@ public:
 	// Actor의 메인 틱 함수
 	void Tick(float DeltaTime) override;
 
-	// TODO: SetViewTarget 로 통합
-	void SetMainCamera(UCameraComponent* InCamera)
-	{
-		CurrentViewTarget = InCamera;
-	};
-	UCameraComponent* GetMainCamera();
-
 	void CacheViewport(FViewport* InViewport) { CachedViewport = InViewport; }
 	FMinimalViewInfo* GetSceneView();
 
-	void SetViewTarget(UCameraComponent* NewViewTarget);
-	void SetViewTargetWithBlend(UCameraComponent* NewViewTarget, float InBlendTime);
+	UCameraComponent* GetViewCamera();
+	void SetViewCamera(UCameraComponent* NewViewTarget);
+	void SetViewCameraWithBlend(UCameraComponent* NewViewTarget, float InBlendTime);
 
 	DECLARE_DUPLICATE(APlayerCameraManager)
 
@@ -76,17 +70,11 @@ public:
 	void UpdateViewTarget(float DeltaTime);
 
 private:
-	UCameraComponent* CurrentViewTarget{};
-	UCameraComponent* PendingViewTarget{};
+	//std::weak_ptr<UCameraComponent> CurrentViewCamera;
+	UCameraComponent* CurrentViewCamera;
 
-	// TODO: 추후 CurrentMinimalViewInfo 와 비슷하게 이름 변경 필요
-
-	// TODO : 감싸기 or 배열로 관리, 현재 vignette 1개만 Update 가능
-	// Vignette 연속 효과를 위한 IDX
-	int LastVignetteIdx = 0;
-
-	FMinimalViewInfo SceneView{};
-	FMinimalViewInfo BlendStartView{};
+	FMinimalViewInfo CurrentViewInfo{};
+	FMinimalViewInfo BlendStartViewInfo{};
 
 	TArray<FPostProcessModifier> Modifiers;
 
@@ -96,4 +84,8 @@ private:
 	float BlendTimeRemaining;
 
 	float TransitionCurve[4] = { 0.47f, 0.0f, 0.745f, 0.715f };
+
+	// TODO : 감싸기 or 배열로 관리, 현재 vignette 1개만 Update 가능
+	// Vignette 연속 효과를 위한 IDX
+	int LastVignetteIdx = 0;
 };

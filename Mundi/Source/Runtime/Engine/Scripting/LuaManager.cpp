@@ -192,7 +192,7 @@ FLuaManager::FLuaManager()
             {
                 return nullptr;
             }
-            return GWorld->GetFirstPlayerCameraManager()->GetMainCamera();
+            return GWorld->GetFirstPlayerCameraManager()->GetViewCamera();
         }
     );
 
@@ -698,7 +698,7 @@ void FLuaManager::ExposeGlobalFunctions()
             {
                 // 프록시에서 실제 컴포넌트 포인터 추출
                 auto* CameraComp = static_cast<UCameraComponent*>(Proxy.Instance);
-                self->SetViewTarget(CameraComp);
+                self->SetViewCamera(CameraComp);
             }
         },
 
@@ -709,7 +709,7 @@ void FLuaManager::ExposeGlobalFunctions()
             {
                 // 프록시에서 실제 컴포넌트 포인터 추출
                 auto* CameraComp = static_cast<UCameraComponent*>(Proxy.Instance);
-                self->SetViewTargetWithBlend(CameraComp, InBlendTime);
+                self->SetViewCameraWithBlend(CameraComp, InBlendTime);
             }
         },
 

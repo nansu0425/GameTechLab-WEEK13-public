@@ -253,10 +253,10 @@ void UGameEngine::Render()
             FMinimalViewInfo* MinimalViewInfo = PlayerCameraManager->GetSceneView();
             TArray<FPostProcessModifier> Modifiers = PlayerCameraManager->GetModifiers();
 
-            FSceneView SceneView(MinimalViewInfo, &GWorld->GetRenderSettings());
-            SceneView.Modifiers = Modifiers;
+            FSceneView CurrentViewInfo(MinimalViewInfo, &GWorld->GetRenderSettings());
+            CurrentViewInfo.Modifiers = Modifiers;
 
-            Renderer->RenderSceneForView(GWorld, &SceneView, GameViewport.get());
+            Renderer->RenderSceneForView(GWorld, &CurrentViewInfo, GameViewport.get());
         }
     }
 

@@ -83,30 +83,39 @@ void FViewportClient::Tick(float DeltaTime)
 
 void FViewportClient::Draw(FViewport* Viewport)
 {
-	if (!Viewport || !World) return;
+	if (!Viewport || !World)
+	{
+		return;
+	}
 
+	URenderer* Renderer = URenderManager::GetInstance().GetRenderer();
+	if (!Renderer)
+	{
+		return;
+	}
+
+	// PIE 중 렌더 호출
 	if (World->bPie)
 	{
-		// 0번 PCM을 가져옴
 		APlayerCameraManager* PlayerCameraManager = World->GetFirstPlayerCameraManager();
 		if (PlayerCameraManager)
 		{
 			PlayerCameraManager->CacheViewport(Viewport);	// 한프레임 지연 있고, 단일 뷰포트만 지원 (일단 이렇게 처리)
 
-			URenderer* Renderer = URenderManager::GetInstance().GetRenderer();
-			if (Renderer)
+			// PIE 중에도 카메라가 없으면 에디터 카메라로 fallback 처리
+			if (PlayerCameraManager->GetViewCamera())
 			{
 				FMinimalViewInfo* MinimalViewInfo = PlayerCameraManager->GetSceneView();
 				TArray<FPostProcessModifier> Modifiers = PlayerCameraManager->GetModifiers();
 
-				FSceneView SceneView(MinimalViewInfo, &World->GetRenderSettings());
-				SceneView.Modifiers = Modifiers;
+				FSceneView CurrentViewInfo(MinimalViewInfo, &World->GetRenderSettings());
+				CurrentViewInfo.Modifiers = Modifiers;
 				World->GetRenderSettings().SetViewMode(ViewMode);
 
 				// 더 명확한 이름의 함수를 호출
-				Renderer->RenderSceneForView(World, &SceneView, Viewport);
+				Renderer->RenderSceneForView(World, &CurrentViewInfo, Viewport);
+				return;
 			}
-			return;
 		}
 	}
 
@@ -129,14 +138,10 @@ void FViewportClient::Draw(FViewport* Viewport)
 	FSceneView RenderView(Camera->GetCameraComponent(), Viewport, &World->GetRenderSettings());
 
 	// 2. 렌더링 호출은 뷰 타입 설정이 모두 끝난 후 마지막에 한 번만 수행
-	URenderer* Renderer = URenderManager::GetInstance().GetRenderer();
-	if (Renderer)
-	{
-		World->GetRenderSettings().SetViewMode(ViewMode);
+	World->GetRenderSettings().SetViewMode(ViewMode);
 
-		// 더 명확한 이름의 함수를 호출
-		Renderer->RenderSceneForView(World, &RenderView, Viewport);
-	}
+	// 더 명확한 이름의 함수를 호출
+	Renderer->RenderSceneForView(World, &RenderView, Viewport);
 }
 
 void FViewportClient::SetupCameraMode()
