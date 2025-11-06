@@ -19,6 +19,7 @@ UConsoleWidget::UConsoleWidget()
 	, HistoryPos(-1)
 	, AutoScroll(true)
 	, ScrollToBottom(false)
+	, bIsWindowPinned(false)
 {
 	memset(InputBuf, 0, sizeof(InputBuf));
 }
@@ -103,6 +104,31 @@ void UConsoleWidget::RenderToolbar()
 	ImGui::SameLine();
 
 	bool copy_to_clipboard = ImGui::SmallButton("Copy");
+
+	ImGui::SameLine();
+
+	// bIsWindowPinned가 true라면 스타일을 Push합니다.
+	if (bIsWindowPinned)
+	{
+		// 활성화(고정) 상태: 눌린 것처럼 보이도록 스타일 적용
+		ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_ButtonActive]);
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.1f, 0.1f, 1.0f)); // 붉은색 텍스트
+	}
+
+	// 클릭 여부를 임시 변수에 저장합니다.
+	bool bWasClicked = ImGui::SmallButton(bIsWindowPinned ? "고정됨" : "고정");
+
+	// bIsWindowPinned가 true였다면 (Push가 되었다면) 스타일을 Pop합니다.
+	if (bIsWindowPinned)
+	{
+		ImGui::PopStyleColor(2); // 2개의 스타일 Pop
+	}
+
+	// Push/Pop 로직이 모두 끝난 후, 클릭 여부에 따라 상태를 토글합니다.
+	if (bWasClicked)
+	{
+		bIsWindowPinned = !bIsWindowPinned;
+	}
 
 	// Options menu
 	ImGui::SameLine();

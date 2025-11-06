@@ -10,6 +10,7 @@
 #include "Windows/SViewportWindow.h"
 #include "Windows/ConsoleWindow.h"
 #include "Widgets/MainToolbarWidget.h"
+#include "Widgets/ConsoleWidget.h"
 #include "FViewportClient.h"
 #include "UIManager.h"
 #include "GlobalConsole.h"
@@ -240,8 +241,16 @@ void USlateManager::Render()
         bool isWindowOpen = true;
         if (ImGui::Begin("ConsoleOverlay", &isWindowOpen, flags))
         {
-            // 콘솔이 포커스를 잃으면 닫기
-            if (!ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
+            UConsoleWidget* ConsoleWidget = ConsoleWindow->GetConsoleWidget();
+            bool bIsPinned = false;
+            if (ConsoleWidget)
+            {
+                bIsPinned = ConsoleWidget->IsWindowPinned();
+            }
+
+            // 2. '핀'이 활성화되지 않았을 때만 포커스를 잃으면 닫기
+            if (!bIsPinned &&
+                !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
                 bIsConsoleVisible &&
                 !bIsConsoleAnimating)
             {
