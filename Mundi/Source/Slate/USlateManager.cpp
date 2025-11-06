@@ -129,7 +129,7 @@ void USlateManager::Initialize(ID3D11Device* InDevice, UWorld* InWorld, const FR
         Rect.GetWidth(), Rect.GetHeight(),
         World, Device, EViewportType::Orthographic_Top);
 
-    World->SetCameraActor(MainViewport->GetViewportClient()->GetCamera());
+    World->SetEditorCameraActor(MainViewport->GetViewportClient()->GetCamera());
 
     // 뷰포트들을 2x2로 연결
     LeftTop->SideLT = Viewports[0];
@@ -462,7 +462,7 @@ void USlateManager::SetPIEWorld(UWorld* InWorld)
 {
     MainViewport->SetVClientWorld(InWorld);
     // PIE에도 Main Camera Set
-    InWorld->SetCameraActor(MainViewport->GetViewportClient()->GetCamera());
+    InWorld->SetEditorCameraActor(MainViewport->GetViewportClient()->GetCamera());
 }
 
 void USlateManager::ToggleConsole()

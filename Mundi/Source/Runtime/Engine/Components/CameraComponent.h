@@ -13,6 +13,9 @@ protected:
     ~UCameraComponent() override;
 
 public:
+    void OnRegister(UWorld* InWorld) override;
+    void OnUnregister() override;
+
     // Projection settings
     void SetFOV(float NewFOV) { FieldOfView = NewFOV; }
     void SetAspectRatio(float NewAspect) { AspectRatio = NewAspect; }

@@ -54,6 +54,79 @@ APlayerCameraManager::~APlayerCameraManager()
 	CachedViewport = nullptr;
 }
 
+void APlayerCameraManager::BeginPlay()
+{
+	Super::BeginPlay();
+
+	CurrentViewCamera = GetWorld()->FindComponent<UCameraComponent>();
+	if (!CurrentViewCamera)
+	{
+		UE_LOG("[warning] 현재 월드에 카메라가 없습니다. (Editor에서만 Editor 전용 카메라로 Fallback 처리됨)");
+	}
+}
+
+// 월드에 또 다른 APlayerCameraManager 가 있을 때만 삭제 가능
+void APlayerCameraManager::Destroy()
+{
+	// 교체할 수 있으면 해당 매니저로 교체 후 삭제 허용
+	TArray<APlayerCameraManager*> PlayerCameraManagers = GetWorld()->FindActors<APlayerCameraManager>();
+	if (1 < PlayerCameraManagers.Num())
+	{
+		for (APlayerCameraManager* PlayerCameraManager : PlayerCameraManagers)
+		{
+			if (this != PlayerCameraManager)
+			{
+				GetWorld()->SetPlayerCameraManager(PlayerCameraManager);
+				Super::Destroy();
+				return;
+			}
+		}
+	}
+
+	UE_LOG("[warning] PlayerCameraManager는 삭제할 수 없습니다. (새로운 매니저를 만들고 삭제하면 가능)");
+}
+
+// 만약 현재 월드에 카메라가 없었으면 이 카메라가 View로 등록됨
+void APlayerCameraManager::RegisterView(UCameraComponent* RegisterViewTarget)
+{
+	if (!CurrentViewCamera)
+	{
+		CurrentViewCamera = RegisterViewTarget;
+	}
+}
+
+// 만약 해당 카메라를 뷰로 사용 중이었다면 해제
+void APlayerCameraManager::UnregisterView(UCameraComponent* UnregisterViewTarget)
+{
+	if (CurrentViewCamera == UnregisterViewTarget)
+	{
+		CurrentViewCamera = nullptr;
+		CurrentViewCamera = GetWorld()->FindComponent<UCameraComponent>();	// 현재 카메라는 PendingDestroy 라서 다른 카메라가 반환됨
+
+		if (!CurrentViewCamera)
+		{
+			UE_LOG("[warning] 현재 월드에 카메라가 없습니다. (Editor에서만 Editor 전용 카메라로 Fallback 처리됨)");
+		}
+	}
+}
+
+void APlayerCameraManager::SetViewCamera(UCameraComponent* NewViewTarget)
+{
+	CurrentViewCamera = NewViewTarget;
+	BlendTimeRemaining = 0.0f; // 블렌딩 취소
+}
+
+void APlayerCameraManager::SetViewCameraWithBlend(UCameraComponent* NewViewTarget, float InBlendTime)
+{
+	// "현재 뷰 타겟"의 뷰 정보를 스냅샷으로 저장해야 합니다.
+	BlendStartViewInfo = CurrentViewInfo;
+	CurrentViewCamera = NewViewTarget;
+
+	// 현재 뷰를 블렌딩 시작 뷰로 저장
+	BlendTimeTotal = InBlendTime;
+	BlendTimeRemaining = InBlendTime;
+}
+
 void APlayerCameraManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -64,8 +137,8 @@ void APlayerCameraManager::Tick(float DeltaTime)
 
 void APlayerCameraManager::BuildForFrame(float DeltaTime)
 {
-	// 뷰 타겟 결정 (트렌지션 또는 현재 타겟)
-	UpdateViewTarget(DeltaTime);
+	// CurrentViewInfo를 현재 카메라를 기준으로 설정 (트렌지션 중에는 사이 값으로 설정)
+	UpdateViewInfo(DeltaTime);
 
 	// 모든 Modifier tick Update
 	for (UCameraModifierBase* M : ActiveModifiers)
@@ -121,80 +194,6 @@ void APlayerCameraManager::BuildForFrame(float DeltaTime)
 		CurrentViewInfo.AspectRatio = 1.7777f;
 		CurrentViewInfo.ViewRect = { 0, 0, 1920, 1080 };
 	}
-}
-
-void APlayerCameraManager::Destroy()
-{
-	// 교체할 수 있으면 해당 매니저로 교체 후 삭제 허용
-	TArray<APlayerCameraManager*> PlayerCameraManagers = GetWorld()->FindActors<APlayerCameraManager>();
-	if (1 < PlayerCameraManagers.Num())
-	{
-		for (APlayerCameraManager* PlayerCameraManager : PlayerCameraManagers)
-		{
-			if (this != PlayerCameraManager)
-			{
-				GetWorld()->SetFirstPlayerCameraManager(PlayerCameraManager);
-				Super::Destroy();
-				return;
-			}
-		}
-	}
-
-	UE_LOG("[warning] PlayerCameraManager는 삭제할 수 없습니다. (새로운 매니저를 만들고 삭제하면 가능)");
-}
-
-UCameraComponent* APlayerCameraManager::GetViewCamera()
-{
-	if (CurrentViewCamera)
-	{
-		return CurrentViewCamera;
-	}
-
-	// 추후 컴포넌트로 교체
-	ACameraActor* CameraActor = GetWorld()->FindActor<ACameraActor>();
-
-	if (CameraActor)
-	{
-		// Todo: 추후 world의 CameraActor 변경
-		GetWorld()->SetCameraActor(CameraActor);
-
-		CurrentViewCamera = CameraActor->GetCameraComponent();
-	}
-
-	return CurrentViewCamera;
-}
-
-FMinimalViewInfo* APlayerCameraManager::GetSceneView()
-{
-	UCameraComponent* ViewTarget = CurrentViewCamera;
-	if (!ViewTarget)
-	{
-		ViewTarget = GetViewCamera();
-	}
-
-	if (!ViewTarget)
-	{
-		return nullptr;
-	}
-
-	return &CurrentViewInfo; 
-}
-
-void APlayerCameraManager::SetViewCamera(UCameraComponent* NewViewTarget)
-{
-	CurrentViewCamera = NewViewTarget;
-	BlendTimeRemaining = 0.0f; // 블렌딩 취소
-}
-
-void APlayerCameraManager::SetViewCameraWithBlend(UCameraComponent* NewViewTarget, float InBlendTime)
-{
-	// "현재 뷰 타겟"의 뷰 정보를 스냅샷으로 저장해야 합니다.
-	BlendStartViewInfo = CurrentViewInfo;
-	CurrentViewCamera = NewViewTarget;
-
-	// 현재 뷰를 블렌딩 시작 뷰로 저장
-	BlendTimeTotal = InBlendTime;
-	BlendTimeRemaining = InBlendTime;
 }
 
 void APlayerCameraManager::StartCameraShake(float InDuration, float AmpLoc, float AmpRotDeg, float Frequency,
@@ -301,10 +300,9 @@ void APlayerCameraManager::StartGamma(float Gamma)
 	ActiveModifiers.Add(GammaModifier);
 }
 
-void APlayerCameraManager::UpdateViewTarget(float DeltaTime)
+// CurrentViewInfo를 현재 카메라를 기준으로 설정 (트렌지션 중에는 사이 값으로 설정)
+void APlayerCameraManager::UpdateViewInfo(float DeltaTime)
 {
-	UCameraComponent* TargetCam = CurrentViewCamera ? CurrentViewCamera : GetViewCamera();
-
 	if (CachedViewport)
 	{
 		// 최종 뷰 영역 (ViewRect)
@@ -314,7 +312,7 @@ void APlayerCameraManager::UpdateViewTarget(float DeltaTime)
 		CurrentViewInfo.ViewRect.MaxY = CurrentViewInfo.ViewRect.MinY + CachedViewport->GetSizeY();
 	}
 
-	if (0.0 < BlendTimeRemaining) // 1. 블렌딩 중일 때
+	if (0.0 < BlendTimeRemaining) // 1. 트렌지션 중일 때
 	{
 		float V = 1.0f;
 		if (BlendTimeTotal > KINDA_SMALL_NUMBER)
@@ -356,15 +354,15 @@ void APlayerCameraManager::UpdateViewTarget(float DeltaTime)
 			CurrentViewInfo.FieldOfView = TargetFOV; // FOV 고정
 		}
 	}
-	else if (TargetCam) // 2. 블렌딩 중이 아닐 때
+	else if (CurrentViewCamera) // 2. 트렌지션 중이 아닐 때
 	{
-		// SceneView의 모든 기본 값을 현재 타겟으로 설정
-		CurrentViewInfo.ViewLocation = TargetCam->GetWorldLocation();
-		CurrentViewInfo.ViewRotation = TargetCam->GetWorldRotation();
-		CurrentViewInfo.NearClip = TargetCam->GetNearClip();
-		CurrentViewInfo.FarClip = TargetCam->GetFarClip();
-		CurrentViewInfo.FieldOfView = TargetCam->GetFOV();
-		CurrentViewInfo.ZoomFactor = TargetCam->GetZoomFactor();
-		CurrentViewInfo.ProjectionMode = TargetCam->GetProjectionMode();
+		// SceneView의 모든 기본 값을 현재 뷰 카메라의 값으로 설정
+		CurrentViewInfo.ViewLocation = CurrentViewCamera->GetWorldLocation();
+		CurrentViewInfo.ViewRotation = CurrentViewCamera->GetWorldRotation();
+		CurrentViewInfo.NearClip = CurrentViewCamera->GetNearClip();
+		CurrentViewInfo.FarClip = CurrentViewCamera->GetFarClip();
+		CurrentViewInfo.FieldOfView = CurrentViewCamera->GetFOV();
+		CurrentViewInfo.ZoomFactor = CurrentViewCamera->GetZoomFactor();
+		CurrentViewInfo.ProjectionMode = CurrentViewCamera->GetProjectionMode();
 	}
 }

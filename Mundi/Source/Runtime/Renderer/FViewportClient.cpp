@@ -97,7 +97,7 @@ void FViewportClient::Draw(FViewport* Viewport)
 	// PIE 중 렌더 호출
 	if (World->bPie)
 	{
-		APlayerCameraManager* PlayerCameraManager = World->GetFirstPlayerCameraManager();
+		APlayerCameraManager* PlayerCameraManager = World->GetPlayerCameraManager();
 		if (PlayerCameraManager)
 		{
 			PlayerCameraManager->CacheViewport(Viewport);	// 한프레임 지연 있고, 단일 뷰포트만 지원 (일단 이렇게 처리)
@@ -105,7 +105,7 @@ void FViewportClient::Draw(FViewport* Viewport)
 			// PIE 중에도 카메라가 없으면 에디터 카메라로 fallback 처리
 			if (PlayerCameraManager->GetViewCamera())
 			{
-				FMinimalViewInfo* MinimalViewInfo = PlayerCameraManager->GetSceneView();
+				FMinimalViewInfo* MinimalViewInfo = PlayerCameraManager->GetCurrentViewInfo();
 				TArray<FPostProcessModifier> Modifiers = PlayerCameraManager->GetModifiers();
 
 				FSceneView CurrentViewInfo(MinimalViewInfo, &World->GetRenderSettings());

@@ -31,9 +31,9 @@ protected:
 
 public:
     // 수명
-    virtual void BeginPlay();
-    virtual void Tick(float DeltaSeconds);
-    virtual void EndPlay();
+    virtual void BeginPlay();   // Override 시 Super::BeginPlay() 권장
+    virtual void Tick(float DeltaSeconds);   // Override 시 Super::Tick() 권장
+    virtual void EndPlay();   // Override 시 Super::EndPlay() 권장
     virtual void Destroy();
 
     // 이름

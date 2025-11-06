@@ -734,9 +734,9 @@ FVector UMainToolbarWidget::GetRandomPositionInRange() const
     {
         FVector center(0, 0, 0);
 
-        if (GWorld && GWorld->GetCameraActor())
+        if (GWorld && GWorld->GetEditorCameraActor())
         {
-            ACameraActor* camera = GWorld->GetCameraActor();
+            ACameraActor* camera = GWorld->GetEditorCameraActor();
             FVector cameraPos = camera->GetActorLocation();
             FVector cameraForward = camera->GetForward();
 
@@ -840,7 +840,7 @@ void UMainToolbarWidget::ProcessPendingCommands()
                     NewActor->SetName(ActorName);
 
                     // 카메라 앞쪽에 배치
-                    ACameraActor* Camera = GWorld->GetCameraActor();
+                    ACameraActor* Camera = GWorld->GetEditorCameraActor();
                     if (Camera)
                     {
                         FVector cameraPos = Camera->GetActorLocation();

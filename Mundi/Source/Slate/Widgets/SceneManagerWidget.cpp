@@ -317,9 +317,9 @@ void USceneManagerWidget::RenderActorNode(FActorTreeNode* Node, int32 Depth)
 	}
 	if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && ImGui::IsItemHovered())
 	{
-		if (GEngine.GetDefaultWorld() && GEngine.GetDefaultWorld()->GetCameraActor())
+		if (GEngine.GetDefaultWorld() && GEngine.GetDefaultWorld()->GetEditorCameraActor())
 		{
-			ACameraActor* Cam = GEngine.GetDefaultWorld()->GetCameraActor();
+			ACameraActor* Cam = GEngine.GetDefaultWorld()->GetEditorCameraActor();
 			FVector Center = Actor->GetActorLocation();
 			float kDist = 8.0f;
 			FVector Dir = Cam->GetForward();

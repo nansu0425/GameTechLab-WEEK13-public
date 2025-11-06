@@ -67,11 +67,13 @@ void UActorComponent::UnregisterComponent()
     bRegistered = false;
 }
 
+// Override시 Super::OnRegister() 권장
 void UActorComponent::OnRegister(UWorld* InWorld)
 {
     // 리소스/핸들 생성, 메시/버퍼 생성 등(프레임 비의존)
 }
 
+// Override시 Super::OnUnregister() 권장
 void UActorComponent::OnUnregister()
 {
     // 리소스/핸들 반납
@@ -84,9 +86,10 @@ void UActorComponent::InitializeComponent()
     // BeginPlay 이전 초기화(게임 수명 관련 초기화)
 }
 
-// 외부에서 정확하게 호출해줘야 함
+// Override시 Super::BeginPlay() 권장
 void UActorComponent::BeginPlay()
 {
+    // 외부에서 정확하게 호출해줘야 함
     // PIE 시작 후 월드 등록 시 1회
     // 필요하다면 Override
 }
@@ -96,9 +99,10 @@ void UActorComponent::TickComponent(float DeltaTime)
     // 매 프레임 처리
 }
 
-// 외부에서 정확하게 호출해줘야 함
+// Override시 Super::EndPlay() 권장
 void UActorComponent::EndPlay()
 {
+    // 외부에서 정확하게 호출해줘야 함
     // PIE 종료 or PIE 중 파괴 시
     // PIE 종료 시에는 World에서 일괄적으로 호출해줌
     // 

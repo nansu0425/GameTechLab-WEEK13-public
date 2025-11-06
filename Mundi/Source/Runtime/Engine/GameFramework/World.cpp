@@ -351,15 +351,15 @@ void UWorld::RequestSlomo(float Duration, float Dilation)
 	TimeDuration = FMath::Max(Duration, TimeDuration);
 }
 
-void UWorld::SetCameraActor(ACameraActor* InCamera)
+void UWorld::SetEditorCameraActor(ACameraActor* InCamera)
 {
-	MainCameraActor = InCamera;
+	MainEditorCameraActor = InCamera;
 
-	MainCameraActor->SetWorld(this);
+	MainEditorCameraActor->SetWorld(this);
 
 	//기즈모 카메라 설정
 	if (GizmoActor)
-		GizmoActor->SetCameraActor(MainCameraActor);
+		GizmoActor->SetEditorCameraActor(MainEditorCameraActor);
 }
 
 FString UWorld::GenerateUniqueActorName(const FString& ActorType)

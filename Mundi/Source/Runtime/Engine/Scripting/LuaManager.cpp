@@ -192,7 +192,7 @@ FLuaManager::FLuaManager()
             {
                 return nullptr;
             }
-            return GWorld->GetFirstPlayerCameraManager()->GetViewCamera();
+            return GWorld->GetPlayerCameraManager()->GetViewCamera();
         }
     );
 
@@ -203,7 +203,7 @@ FLuaManager::FLuaManager()
             {
                 return nullptr;
             }
-            return GWorld->GetFirstPlayerCameraManager();
+            return GWorld->GetPlayerCameraManager();
         }
     );
     SharedLib.set_function("SetPlayerForward",

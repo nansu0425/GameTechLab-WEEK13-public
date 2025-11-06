@@ -1,6 +1,7 @@
 ﻿#include "pch.h"
 #include "CameraComponent.h"
 #include "FViewport.h"
+#include "PlayerCameraManager.h"
 
 extern float CLIENTWIDTH;
 extern float CLIENTHEIGHT;
@@ -28,6 +29,34 @@ UCameraComponent::UCameraComponent()
 }
 
 UCameraComponent::~UCameraComponent() {}
+
+void UCameraComponent::OnRegister(UWorld* InWorld)
+{
+    Super::OnRegister(InWorld);
+
+    if (InWorld)
+    {
+        if (APlayerCameraManager* PlayerCameraManager = InWorld->GetPlayerCameraManager())
+        {
+            // 만약 현재 월드에 카메라가 없었으면 이 카메라가 View로 등록됨
+            PlayerCameraManager->RegisterView(this);
+        }
+    }
+}
+
+void UCameraComponent::OnUnregister()
+{
+    if (UWorld* World = GetWorld())
+    {
+        if (APlayerCameraManager* PlayerCameraManager = World->GetPlayerCameraManager())
+        {
+            // 만약 이 카메라를 뷰로 사용 중이었다면 해제
+            PlayerCameraManager->UnregisterView(this);
+        }
+    }
+
+    Super::OnUnregister();
+}
 
 FMatrix UCameraComponent::GetViewMatrix() const
 {

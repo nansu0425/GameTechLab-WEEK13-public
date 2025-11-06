@@ -12,9 +12,24 @@ class APlayerCameraManager : public AActor
 {
 	DECLARE_CLASS(APlayerCameraManager, AActor)
 	GENERATED_REFLECTION_BODY()
+	DECLARE_DUPLICATE(APlayerCameraManager)
 
 public:
 	APlayerCameraManager() { Name = "Player Camera Manager";  };
+
+protected:
+	~APlayerCameraManager() override;
+
+public:
+	void BeginPlay() override;
+	void Destroy() override;
+	void Tick(float DeltaTime) override;
+
+	void RegisterView(UCameraComponent* RegisterViewTarget);
+	void UnregisterView(UCameraComponent* UnregisterViewTarget);
+	UCameraComponent* GetViewCamera() { return CurrentViewCamera; }
+	void SetViewCamera(UCameraComponent* NewViewTarget);
+	void SetViewCameraWithBlend(UCameraComponent* NewViewTarget, float InBlendTime);
 
 	void StartCameraShake(float InDuration, float AmpLoc, float AmpRotDeg, float Frequency, int32 InPriority = 0);
 	
@@ -29,16 +44,6 @@ public:
 	
 	void StartGamma(float Gamma); 
 
-protected:
-	~APlayerCameraManager() override;
-
-	void AddModifier(UCameraModifierBase* Modifier)
-	{
-		ActiveModifiers.Add(Modifier);
-	}
-
-	void BuildForFrame(float DeltaTime);
-
 public:
 	TArray<UCameraModifierBase*> ActiveModifiers;
 
@@ -52,26 +57,21 @@ public:
 	}
 
 public:
-	void Destroy() override;
-	// Actor의 메인 틱 함수
-	void Tick(float DeltaTime) override;
-
 	void CacheViewport(FViewport* InViewport) { CachedViewport = InViewport; }
-	FMinimalViewInfo* GetSceneView();
-
-	UCameraComponent* GetViewCamera();
-	void SetViewCamera(UCameraComponent* NewViewTarget);
-	void SetViewCameraWithBlend(UCameraComponent* NewViewTarget, float InBlendTime);
-
-	DECLARE_DUPLICATE(APlayerCameraManager)
-
+	// Tick에서 미리 계산한 ViewInfo 반환
+	FMinimalViewInfo* GetCurrentViewInfo() { return &CurrentViewInfo; }
+	void UpdateViewInfo(float DeltaTime);
 	TArray<FPostProcessModifier> GetModifiers() { return Modifiers; };
 
-	void UpdateViewTarget(float DeltaTime);
+protected:
+	void AddModifier(UCameraModifierBase* Modifier)
+	{
+		ActiveModifiers.Add(Modifier);
+	}
+	void BuildForFrame(float DeltaTime);
 
 private:
-	//std::weak_ptr<UCameraComponent> CurrentViewCamera;
-	UCameraComponent* CurrentViewCamera;
+	UCameraComponent* CurrentViewCamera{};
 
 	FMinimalViewInfo CurrentViewInfo{};
 	FMinimalViewInfo BlendStartViewInfo{};
@@ -80,8 +80,8 @@ private:
 
 	FViewport* CachedViewport = nullptr;
 
-	float BlendTimeTotal;
-	float BlendTimeRemaining;
+	float BlendTimeTotal = 0.0f;
+	float BlendTimeRemaining = 0.0f;
 
 	float TransitionCurve[4] = { 0.47f, 0.0f, 0.745f, 0.715f };
 

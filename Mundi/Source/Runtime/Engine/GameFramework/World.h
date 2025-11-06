@@ -67,6 +67,9 @@ public:
     T* FindActor();
 
     template<typename T>
+    T* FindComponent();
+
+    template<typename T>
     TArray<T*> FindActors();
 
     AActor* SpawnActor(UClass* Class, const FTransform& Transform);
@@ -87,27 +90,11 @@ public:
     FLightManager* GetLightManager() const { return LightManager.get(); }
     FLuaManager* GetLuaManager() const { return LuaManager.get(); }
 
-    ACameraActor* GetCameraActor() { return MainCameraActor; }
-    void SetCameraActor(ACameraActor* InCamera);
+    ACameraActor* GetEditorCameraActor() { return MainEditorCameraActor; }
+    void SetEditorCameraActor(ACameraActor* InCamera);
 
-    /** Generate unique name for actor based on type */
-    FString GenerateUniqueActorName(const FString& ActorType);
-
-    /** === 타임 / 틱 === */
-    
-    virtual void Tick(float DeltaSeconds);
-    // Overlap pair de-duplication (per-frame)
-    bool TryMarkOverlapPair(const AActor* A, const AActor* B);
-
-    TMap<TWeakObjectPtr<AActor>, FActorTimeState> ActorTimingMap;
-
-
-    /** === 필요한 엑터 게터 === */
-    const TArray<AActor*>& GetActors() { static TArray<AActor*> Empty; return Level ? Level->GetActors() : Empty; }
-    const TArray<AActor*>& GetEditorActors() { return EditorActors; }
-    AGizmoActor* GetGizmoActor() { return GizmoActor; }
-    AGridActor* GetGridActor() { return GridActor; }
-    UWorldPartitionManager* GetPartitionManager() { return Partition.get(); }
+    void SetPlayerCameraManager(APlayerCameraManager* InPlayerCameraManager) {  PlayerCameraManager = InPlayerCameraManager; };
+    APlayerCameraManager* GetPlayerCameraManager() { return PlayerCameraManager; };
 
     // Per-world render settings
     URenderSettings& GetRenderSettings() { return RenderSettings; }
@@ -116,8 +103,22 @@ public:
     // Per-world SelectionManager accessor
     USelectionManager* GetSelectionManager() { return SelectionMgr.get(); }
 
-    void SetFirstPlayerCameraManager(APlayerCameraManager* InPlayerCameraManager) {  PlayerCameraManager = InPlayerCameraManager; };
-    APlayerCameraManager* GetFirstPlayerCameraManager() { return PlayerCameraManager; };
+    /** Generate unique name for actor based on type */
+    FString GenerateUniqueActorName(const FString& ActorType);
+
+    /** === 타임 / 틱 === */
+    virtual void Tick(float DeltaSeconds);
+    // Overlap pair de-duplication (per-frame)
+    bool TryMarkOverlapPair(const AActor* A, const AActor* B);
+
+    TMap<TWeakObjectPtr<AActor>, FActorTimeState> ActorTimingMap;
+
+    /** === 필요한 엑터 게터 === */
+    const TArray<AActor*>& GetActors() { static TArray<AActor*> Empty; return Level ? Level->GetActors() : Empty; }
+    const TArray<AActor*>& GetEditorActors() { return EditorActors; }
+    AGizmoActor* GetGizmoActor() { return GizmoActor; }
+    AGridActor* GetGridActor() { return GridActor; }
+    UWorldPartitionManager* GetPartitionManager() { return Partition.get(); }
 
     // PIE용 World 생성
     static UWorld* DuplicateWorldForPIE(UWorld* InEditorWorld);
@@ -135,7 +136,7 @@ private:
 private:
     /** === 에디터 특수 액터 관리 === */
     TArray<AActor*> EditorActors;
-    ACameraActor* MainCameraActor = nullptr;
+    ACameraActor* MainEditorCameraActor = nullptr;  // 첫번째 뷰포트 용 에디터 카메라
     AGridActor* GridActor = nullptr;
     AGizmoActor* GizmoActor = nullptr;
     APlayerCameraManager* PlayerCameraManager;
@@ -207,9 +208,10 @@ inline T* UWorld::SpawnActor(const FTransform& Transform)
 
 // 월드에서 특정 클래스(T)의 '첫 번째' 액터를 찾아 반환합니다. 없으면 nullptr.
 template<typename T>
-T* UWorld::FindActor()
+inline T* UWorld::FindActor()
 {
-    // T::StaticClass()를 통해 템플릿 타입의 UClass를 가져옵니다.
+    static_assert(std::is_base_of_v<AActor, T>, "T must be derived from AActor.");
+
     UClass* TypeClass = T::StaticClass();
     if (!TypeClass)
     {
@@ -228,12 +230,14 @@ T* UWorld::FindActor()
     return nullptr;
 }
 
+// 월드에서 특정 클래스(T)의 '모든' 액터를 찾아 반환합니다. 없으면 nullptr.
 template<typename T>
-TArray<T*> UWorld::FindActors()
+inline TArray<T*> UWorld::FindActors()
 {
+    static_assert(std::is_base_of_v<AActor, T>, "T must be derived from AActor.");
+
     TArray<T*> FoundActors;
 
-    // T::StaticClass()를 통해 템플릿 타입의 UClass를 가져옵니다.
     UClass* TypeClass = T::StaticClass();
     if (!TypeClass)
     {
@@ -249,4 +253,33 @@ TArray<T*> UWorld::FindActors()
         }
     }
     return FoundActors;
+}
+
+// 모든 액터의 컴포넌트를 순회해서 클래스(T)의 '첫 번째' 컴포넌트를 찾아 반환합니다. 없으면 nullptr. (비용이 크기 때문에 매 프레임 호출 비권장)
+template<typename T>
+inline T* UWorld::FindComponent()
+{
+    static_assert(std::is_base_of_v<UActorComponent, T>, "T must be derived from UActorComponent.");
+
+    UClass* TypeClass = T::StaticClass();
+    if (!TypeClass)
+    {
+        return nullptr;
+    }
+
+    for (AActor* Actor : Level->GetActors())
+    {
+        if (Actor && !Actor->IsPendingDestroy())
+        {
+            for (UActorComponent* Component : Actor->GetOwnedComponents())
+            {
+                if (Component && !Component->IsPendingDestroy() && Component->IsA(TypeClass))
+                {
+                    return Cast<T>(Component);
+                }
+            }
+        }
+    }
+
+    return nullptr;
 }

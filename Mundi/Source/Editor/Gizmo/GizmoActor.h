@@ -61,8 +61,8 @@ public:
     
     // Gizmo interaction methods
    // void SetTargetActor(AActor* InTargetActor) { TargetActor = InTargetActor; Tick(0.f);  }
-    void SetCameraActor(ACameraActor* InCameraActor) { CameraActor = InCameraActor; }
-    ACameraActor* GetCameraActor() const { return CameraActor; }
+    void SetEditorCameraActor(ACameraActor* InCameraActor) { CameraActor = InCameraActor; }
+    ACameraActor* GetEditorCameraActor() const { return CameraActor; }
     
 
     void ProcessGizmoInteraction(ACameraActor* Camera, FViewport* Viewport, float MousePositionX, float MousePositionY);

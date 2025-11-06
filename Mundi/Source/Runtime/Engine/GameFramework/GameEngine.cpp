@@ -244,13 +244,13 @@ void UGameEngine::Render()
 
     if (GWorld)
     {
-        APlayerCameraManager* PlayerCameraManager = GWorld->GetFirstPlayerCameraManager();
+        APlayerCameraManager* PlayerCameraManager = GWorld->GetPlayerCameraManager();
         if (PlayerCameraManager)
         {
             PlayerCameraManager->CacheViewport(GameViewport.get());
             Renderer->SetCurrentViewportSize(GameViewport->GetSizeX(), GameViewport->GetSizeY());
 
-            FMinimalViewInfo* MinimalViewInfo = PlayerCameraManager->GetSceneView();
+            FMinimalViewInfo* MinimalViewInfo = PlayerCameraManager->GetCurrentViewInfo();
             TArray<FPostProcessModifier> Modifiers = PlayerCameraManager->GetModifiers();
 
             FSceneView CurrentViewInfo(MinimalViewInfo, &GWorld->GetRenderSettings());
