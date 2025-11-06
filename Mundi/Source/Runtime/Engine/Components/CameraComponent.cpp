@@ -2,6 +2,7 @@
 #include "CameraComponent.h"
 #include "FViewport.h"
 #include "PlayerCameraManager.h"
+#include "StaticMeshComponent.h"
 
 extern float CLIENTWIDTH;
 extern float CLIENTHEIGHT;
@@ -40,6 +41,19 @@ void UCameraComponent::OnRegister(UWorld* InWorld)
         {
             // 만약 현재 월드에 카메라가 없었으면 이 카메라가 View로 등록됨
             PlayerCameraManager->RegisterView(this);
+        }
+
+        // Create Direction Gizmo if not already created
+        if (!CameraGizmo && !InWorld->bPie)
+        {
+            CREATE_EDITOR_COMPONENT(CameraGizmo, UStaticMeshComponent);
+
+            // Set gizmo mesh (using the same mesh as GizmoActor's arrow)
+            CameraGizmo->SetStaticMesh(GDataDir + "/Gizmo/Camera.obj");
+            CameraGizmo->SetMaterialByName(0, "Shaders/UI/Gizmo.hlsl");
+
+            // Set default scale
+            CameraGizmo->SetWorldScale(FVector(2.5f, 2.5f, 2.5f));
         }
     }
 }

@@ -66,10 +66,11 @@ private:
 
     float ZoomFactor;
 
-
     ECameraProjectionMode ProjectionMode;
 
     bool bSetViewGizmo;
     TArray<FVector> ViewGizmo;
+
+    class UStaticMeshComponent* CameraGizmo = nullptr;
 };
 
