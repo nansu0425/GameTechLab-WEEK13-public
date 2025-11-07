@@ -20,5 +20,6 @@ public:
     bool IsCastShadows() { return bCastShadows; }
 
 private:
-    bool bCastShadows = true;   // TODO: 프로퍼티로 추가 필요
+    UPROPERTY(EditAnywhere, Category="Rendering", Tooltip="그림자를 드리울지 여부입니다")
+    bool bCastShadows = true;
 };

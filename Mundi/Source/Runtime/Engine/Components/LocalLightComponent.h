@@ -38,7 +38,12 @@ public:
 	DECLARE_DUPLICATE(ULocalLightComponent)
 
 protected:
+	UPROPERTY(EditAnywhere, Category="Light", Range="0.0, 100.0")
 	float AttenuationRadius = 5.0f;			// 감쇠 반경
+
+	UPROPERTY(EditAnywhere, Category="Light", Range="0.1, 10.0")
 	float FalloffExponent = 2.0f;			// 감쇠 지수 (bUseInverseSquareFalloff = false일 때 사용)
+
+	UPROPERTY(EditAnywhere, Category="Light")
 	bool bUseInverseSquareFalloff = true;	// true: Inverse Square Falloff (물리 법칙), false: Exponent Falloff (예술적 제어)
 };

@@ -13,10 +13,10 @@
 
 IMPLEMENT_CLASS(ULuaScriptComponent)
 
-BEGIN_PROPERTIES(ULuaScriptComponent)
-	MARK_AS_COMPONENT("Lua 스크립트 컴포넌트", "Lua 스크립트 컴포넌트입니다.")
-	ADD_PROPERTY_SCRIPT(FString, ScriptFilePath, "Script", ".lua", true, "Lua Script 파일 경로")
-END_PROPERTIES()
+//BEGIN_PROPERTIES(ULuaScriptComponent)
+//	MARK_AS_COMPONENT("Lua 스크립트 컴포넌트", "Lua 스크립트 컴포넌트입니다.")
+//	ADD_PROPERTY_SCRIPT(FString, ScriptFilePath, "Script", ".lua", true, "Lua Script 파일 경로")
+//END_PROPERTIES()
 
 ULuaScriptComponent::ULuaScriptComponent()
 {

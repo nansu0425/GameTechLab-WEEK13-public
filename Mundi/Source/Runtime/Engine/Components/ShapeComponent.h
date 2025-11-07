@@ -58,9 +58,13 @@ protected:
 	TSet<UShapeComponent*> OverlapPrev; // 지난 프레임에서 overlap 됐으면 Cache
 	 
 
-	FVector4 ShapeColor ; 
-	bool bDrawOnlyIfSelected;  
+	FVector4 ShapeColor ;
+	bool bDrawOnlyIfSelected;
+
+	UPROPERTY(EditAnywhere, Category="Shape")
 	bool bShapeIsVisible;
+
+	UPROPERTY(EditAnywhere, Category="Shape")
 	bool bShapeHiddenInGame;
 	TArray<FOverlapInfo> OverlapInfos; 
 	//TODO: float LineThickness;

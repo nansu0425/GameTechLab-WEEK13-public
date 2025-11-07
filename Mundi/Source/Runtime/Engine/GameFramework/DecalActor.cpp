@@ -4,9 +4,9 @@
 
 IMPLEMENT_CLASS(ADecalActor)
 
-BEGIN_PROPERTIES(ADecalActor)
-	MARK_AS_SPAWNABLE("데칼", "표면에 투영되는 데칼 액터입니다.")
-END_PROPERTIES()
+//BEGIN_PROPERTIES(ADecalActor)
+//	MARK_AS_SPAWNABLE("데칼", "표면에 투영되는 데칼 액터입니다.")
+//END_PROPERTIES()
 
 ADecalActor::ADecalActor()
 {

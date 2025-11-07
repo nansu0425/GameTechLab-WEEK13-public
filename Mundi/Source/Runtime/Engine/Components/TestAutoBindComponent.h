@@ -1,7 +1,7 @@
-#pragma once
+﻿#pragma once
 
-#include "Core/Object/Object.h"
-#include "Components/SceneComponent.h"
+#include "Object.h"
+#include "SceneComponent.h"
 
 /**
  * 자동 바인딩 테스트용 컴포넌트

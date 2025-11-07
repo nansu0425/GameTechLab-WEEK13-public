@@ -14,24 +14,9 @@
 #include "SceneView.h"
 #include "LuaBindHelpers.h"
 
-extern "C" void LuaBind_Anchor_UStaticMeshComponent() {}
-LUA_BIND_BEGIN(UStaticMeshComponent)
-{
-	AddAlias<UStaticMeshComponent, uint32, const FString&, const FLinearColor&>(
-		T, "SetColor",  &UStaticMeshComponent::SetMaterialColorByUser);
-
-	AddAlias<UStaticMeshComponent, uint32, const FString&, float>(
-		T, "SetScalar", &UStaticMeshComponent::SetMaterialScalarByUser);
-}
-LUA_BIND_END()
 
 IMPLEMENT_CLASS(UStaticMeshComponent)
 
-BEGIN_PROPERTIES(UStaticMeshComponent)
-	MARK_AS_COMPONENT("스태틱 메시 컴포넌트", "스태틱 메시를 렌더링하는 컴포넌트입니다.")
-	ADD_PROPERTY_STATICMESH(UStaticMesh*, StaticMesh, "Static Mesh", true)
-	ADD_PROPERTY_ARRAY(EPropertyType::Material, MaterialSlots, "Materials", true)
-END_PROPERTIES()
 
 UStaticMeshComponent::UStaticMeshComponent()
 {

@@ -4,9 +4,9 @@
 
 IMPLEMENT_CLASS(AHeightFogActor)
 
-BEGIN_PROPERTIES(AHeightFogActor)
-	MARK_AS_SPAWNABLE("하이트 포그 액터", "하이트 포그 액터입니다")
-END_PROPERTIES()
+//BEGIN_PROPERTIES(AHeightFogActor)
+//	MARK_AS_SPAWNABLE("하이트 포그 액터", "하이트 포그 액터입니다")
+//END_PROPERTIES()
 
 AHeightFogActor::AHeightFogActor()
 {

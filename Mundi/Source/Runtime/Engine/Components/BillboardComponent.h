@@ -19,6 +19,7 @@ public:
     void CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View) override;
 
     // Setup
+    UFUNCTION(LuaBind, DisplayName="SetTexture")
     void SetTexture(FString TexturePath);
 
     UQuad* GetStaticMesh() const { return Quad; }
@@ -36,7 +37,10 @@ public:
 
 private:
     FString TexturePath;
+
+    UPROPERTY(EditAnywhere, Category="Billboard")
     UTexture* Texture = nullptr;  // 리플렉션 시스템용 Texture 포인터
+
     UMaterialInterface* Material = nullptr;
     UQuad* Quad = nullptr;
 };

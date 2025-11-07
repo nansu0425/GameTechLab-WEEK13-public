@@ -10,9 +10,9 @@
 
 IMPLEMENT_CLASS(AFireBallActor)
 
-BEGIN_PROPERTIES(AFireBallActor)
-	MARK_AS_SPAWNABLE("파이어 볼", "파이어 볼을 렌더링하는 액터입니다.")
-END_PROPERTIES()
+//BEGIN_PROPERTIES(AFireBallActor)
+//	MARK_AS_SPAWNABLE("파이어 볼", "파이어 볼을 렌더링하는 액터입니다.")
+//END_PROPERTIES()
 
 AFireBallActor::AFireBallActor()
 {

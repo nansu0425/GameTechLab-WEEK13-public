@@ -107,10 +107,11 @@ class HeaderParser:
     """C++ 헤더 파일 파서"""
 
     # 정규식 패턴
+    # UPROPERTY는 한 줄에 있다고 가정 (여러 줄 매칭 방지)
     UPROPERTY_PATTERN = re.compile(
-        r'UPROPERTY\s*\((.*?)\)\s*'
-        r'(.*?)\s+(\w+)\s*[;=]',
-        re.DOTALL
+        r'UPROPERTY\s*\(([^)]*)\)\s*'  # 괄호 안은 ) 전까지
+        r'([^\n;=]+?)\s+(\w+)\s*[;=]',  # 타입과 이름 (한 줄 안에서만)
+        re.MULTILINE
     )
 
     UFUNCTION_PATTERN = re.compile(

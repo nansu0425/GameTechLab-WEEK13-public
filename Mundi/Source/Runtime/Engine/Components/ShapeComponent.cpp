@@ -9,10 +9,6 @@
 
 IMPLEMENT_CLASS(UShapeComponent)
 
-BEGIN_PROPERTIES(UShapeComponent)
-    ADD_PROPERTY(bool, bShapeIsVisible, "Shape", true, "Shape�� ����ȭ �����Դϴ�.")
-    ADD_PROPERTY(bool, bShapeHiddenInGame, "Shape", true, "Shape�� PIE ��忡���� ����ȭ �����Դϴ�.")
- END_PROPERTIES()
 
 UShapeComponent::UShapeComponent() : bShapeIsVisible(true), bShapeHiddenInGame(true)
 {

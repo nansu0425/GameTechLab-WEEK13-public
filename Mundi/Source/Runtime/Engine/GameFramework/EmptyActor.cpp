@@ -3,9 +3,9 @@
 
 IMPLEMENT_CLASS(AEmptyActor)
 
-BEGIN_PROPERTIES(AEmptyActor)
-	MARK_AS_SPAWNABLE("액터", "액터는 월드에 배치 또는 스폰할 수 있는 오브젝트입니다.")
-END_PROPERTIES()
+//BEGIN_PROPERTIES(AEmptyActor)
+//	MARK_AS_SPAWNABLE("액터", "액터는 월드에 배치 또는 스폰할 수 있는 오브젝트입니다.")
+//END_PROPERTIES()
 
 AEmptyActor::AEmptyActor()
 {

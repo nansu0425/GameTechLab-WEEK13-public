@@ -15,7 +15,10 @@ public:
 	DECLARE_DUPLICATE(UCapsuleComponent)
 
 protected:
+	UPROPERTY(EditAnywhere, Category="CapsuleHalfHeight")
 	float CapsuleHalfHeight;
+
+	UPROPERTY(EditAnywhere, Category="CapsuleHalfHeight")
 	float CapsuleRadius;
 
 	void GetShape(FShape& Out) const override; 

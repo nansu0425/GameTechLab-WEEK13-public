@@ -41,7 +41,11 @@ public:
 	const TArray<UMaterialInterface*> GetMaterialSlots() const { return MaterialSlots; }
 
 	void SetMaterialTextureByUser(const uint32 InMaterialSlotIndex, EMaterialTextureSlot Slot, UTexture* Texture);
+
+	UFUNCTION(LuaBind, DisplayName="SetColor", Tooltip="Set material color parameter")
 	void SetMaterialColorByUser(const uint32 InMaterialSlotIndex, const FString& ParameterName, const FLinearColor& Value);
+
+	UFUNCTION(LuaBind, DisplayName="SetScalar", Tooltip="Set material scalar parameter")
 	void SetMaterialScalarByUser(const uint32 InMaterialSlotIndex, const FString& ParameterName, float Value);
 
 	FAABB GetWorldAABB() const override;
@@ -54,7 +58,11 @@ protected:
 	void MarkWorldPartitionDirty();
 
 protected:
+	UPROPERTY(EditAnywhere, Category="Mesh", Tooltip="Static mesh asset to render")
 	UStaticMesh* StaticMesh = nullptr;
+
+	UPROPERTY(EditAnywhere, Category="Materials", Tooltip="Material slots for the mesh")
 	TArray<UMaterialInterface*> MaterialSlots;
+
 	TArray<UMaterialInstanceDynamic*> DynamicMaterialInstances;
 };

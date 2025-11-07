@@ -17,7 +17,8 @@ public:
 	DECLARE_DUPLICATE(UBoxComponent)
 
 private:
-	FVector BoxExtent; // Half Extent  
+	UPROPERTY(EditAnywhere, Category="BoxExtent")
+	FVector BoxExtent; // Half Extent
 
 	void GetShape(FShape& Out) const override;
 

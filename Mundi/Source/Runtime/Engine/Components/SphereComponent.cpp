@@ -5,10 +5,6 @@
 
 IMPLEMENT_CLASS(USphereComponent)
 
-BEGIN_PROPERTIES(USphereComponent)
-	MARK_AS_COMPONENT("구 충돌 컴포넌트", "구 크기의 충돌체를 생성하는 컴포넌트입니다.")
-	ADD_PROPERTY(float, SphereRadius, "SphereRaidus", true, "구 충돌체의 반지름입니다.")
-END_PROPERTIES()
 
 USphereComponent::USphereComponent()
 {

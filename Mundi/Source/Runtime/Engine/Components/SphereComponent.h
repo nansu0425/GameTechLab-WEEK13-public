@@ -15,6 +15,7 @@ public:
     DECLARE_DUPLICATE(USphereComponent)
 
 private:
+    UPROPERTY(EditAnywhere, Category="SphereRaidus")
     float SphereRadius = 0;
 
     void GetShape(FShape& Out) const override;
