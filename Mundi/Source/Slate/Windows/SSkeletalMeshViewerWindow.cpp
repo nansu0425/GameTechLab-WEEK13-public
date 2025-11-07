@@ -3,6 +3,7 @@
 #include "ImGui/imgui.h"
 #include "FViewport.h"
 #include "FViewportClient.h"
+#include "FSkeletalViewerViewportClient.h"
 
 SSkeletalMeshViewerWindow::SSkeletalMeshViewerWindow()
 {
@@ -39,8 +40,10 @@ bool SSkeletalMeshViewerWindow::Initialize(float StartX, float StartY, float Wid
         return false;
     }
 
-    ViewportClient = new FViewportClient();
+    ViewportClient = new FSkeletalViewerViewportClient();
     ViewportClient->SetWorld(World);
+    ViewportClient->SetViewportType(EViewportType::Perspective);
+    ViewportClient->SetViewMode(EViewMode::VMI_Lit_Phong);
     Viewport->SetViewportClient(ViewportClient);
 
     bRequestFocus = true;
