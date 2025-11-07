@@ -283,9 +283,13 @@ void USceneComponent::SetLocalLocationAndRotation(const FVector& L, const FQuat&
 
 FMatrix USceneComponent::GetWorldMatrix() const
 {
-    return GetWorldTransform().ToMatrix();
+    if (bIsTransformDirty)
+    {
+        CachedWorldMatrix = GetWorldTransform().ToMatrix();
+        bIsTransformDirty = false;
+    }
+    return CachedWorldMatrix;
 }
- 
 
 // ──────────────────────────────
 // Attach / Detach
@@ -416,6 +420,7 @@ void USceneComponent::OnRegister(UWorld* InWorld)
 
 void USceneComponent::OnTransformUpdated()
 {
+    bIsTransformDirty = true;
     for (USceneComponent* Child : GetAttachChildren())
     {
         Child->OnTransformUpdated();

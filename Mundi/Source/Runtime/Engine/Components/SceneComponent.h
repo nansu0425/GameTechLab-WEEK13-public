@@ -144,6 +144,8 @@ protected:
     // RelativeRotation과 항상 동기화됨
     FVector RelativeRotationEuler{ 0,0,0 };
 
+    mutable FMatrix CachedWorldMatrix = FMatrix::Identity();
+    mutable bool bIsTransformDirty = true;
     
     // Hierarchy
     USceneComponent* AttachParent = nullptr;
