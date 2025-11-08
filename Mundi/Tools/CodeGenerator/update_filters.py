@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-.vcxproj.filters 파일을 업데이트하여 모든 .generated.cpp 파일을
-Generate 가상 폴더에 넣습니다.
+.vcxproj.filters 파일을 업데이트하여 모든 .generated.cpp와 .generated.h 파일을
+Generated 가상 폴더에 넣습니다.
 """
 
 import re
@@ -34,7 +34,7 @@ def update_filters_file(filters_path: Path):
             return match.group(0)
 
         return f'''    <ClCompile Include="{filepath}">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClCompile>'''
 
     # Self-closing tag를 찾아서 Filter 추가

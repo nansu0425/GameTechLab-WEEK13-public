@@ -1150,121 +1150,121 @@
     <ClInclude Include="Source\Slate\Windows\SSkeletalMeshViewerWindow.h" />
     <ClInclude Include="Source\Runtime\Core\Misc\ResourceData.h" />
     <ClInclude Include="Generated\AActor.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\AAmbientLightActor.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\ACameraActor.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\ADecalActor.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\ADirectionalLightActor.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\AEmptyActor.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\AFakeSpotLightActor.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\AFireBallActor.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\AHeightFogActor.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\APlayerCameraManager.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\APointLightActor.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\ASpotLightActor.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\AStaticMeshActor.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UActorComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UAmbientLightComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UAudioComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UBillboardComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UBoxComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UCameraComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UCapsuleComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UDecalComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UDirectionalLightComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UHeightFogComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\ULightComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\ULightComponentBase.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\ULocalLightComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\ULuaScriptComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UPerspectiveDecalComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UPointLightComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UPrimitiveComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UProjectileMovementComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\URotatingMovementComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\USceneComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UShapeComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\USphereComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\USpotLightComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UStaticMeshComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UTestAutoBindComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UTextRenderComponent.generated.h">
-      <Filter>Generate</Filter>
+      <Filter>Generated</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -1403,7 +1403,7 @@
     <Filter Include="Tools">
       <UniqueIdentifier>{3cca26d2-60f7-47fe-a080-6deff27b677e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Generate">
+    <Filter Include="Generated">
       <UniqueIdentifier>{01b0aa4d-539f-4b06-821e-02d582bc9577}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
