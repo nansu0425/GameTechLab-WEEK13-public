@@ -4,7 +4,7 @@ LUA_BIND_BEGIN / LUA_BIND_END 블록을 생성합니다.
 """
 
 from jinja2 import Template
-from parser import ClassInfo, Function
+from header_parser import ClassInfo, Function
 
 
 LUA_BIND_TEMPLATE = """

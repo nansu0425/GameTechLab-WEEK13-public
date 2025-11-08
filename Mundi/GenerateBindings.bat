@@ -12,30 +12,56 @@ echo.
 REM Change to script directory
 cd /d "%~dp0"
 
-REM Check if Python is installed
-python --version >nul 2>&1
-if errorlevel 1 (
-    echo [ERROR] Python is not installed or not in PATH!
-    echo Please install Python 3.7+ and add it to PATH.
-    pause
-    exit /b 1
-)
+REM Try to find Python in the following order:
+REM 1. Embedded Python in Tools/Python/
+REM 2. System Python in PATH
 
-REM Check if jinja2 is installed
-python -c "import jinja2" >nul 2>&1
-if errorlevel 1 (
-    echo [WARNING] jinja2 is not installed!
-    echo Installing jinja2...
-    pip install jinja2
+set PYTHON_CMD=
+
+REM Check for embedded Python first
+if exist "Tools\Python\python.exe" (
+    set PYTHON_CMD=Tools\Python\python.exe
+    echo [INFO] Using embedded Python: Tools\Python\python.exe
+    echo.
+) else (
+    REM Check if system Python is available
+    python --version >nul 2>&1
     if errorlevel 1 (
-        echo [ERROR] Failed to install jinja2!
+        echo [ERROR] Python not found!
+        echo.
+        echo Please either:
+        echo   1. Install embedded Python to Tools\Python\ (see Tools\PYTHON_SETUP.md)
+        echo   2. Install Python 3.7+ and add it to PATH
+        echo.
         pause
         exit /b 1
     )
+    set PYTHON_CMD=python
+    echo [INFO] Using system Python
+    echo.
+)
+
+REM Verify Python version
+%PYTHON_CMD% --version
+echo.
+
+REM Check if jinja2 is installed
+%PYTHON_CMD% -c "import jinja2" >nul 2>&1
+if errorlevel 1 (
+    echo [WARNING] jinja2 is not installed!
+    echo Installing jinja2...
+    %PYTHON_CMD% -m pip install jinja2
+    if errorlevel 1 (
+        echo [ERROR] Failed to install jinja2!
+        echo If using embedded Python, see Tools\PYTHON_SETUP.md for pip setup
+        pause
+        exit /b 1
+    )
+    echo.
 )
 
 echo [1/3] Running code generator...
-python Tools\CodeGenerator\generate.py --source-dir Source\Runtime --output-dir Generated
+%PYTHON_CMD% Tools\CodeGenerator\generate.py --source-dir Source\Runtime --output-dir Generated
 
 if errorlevel 1 (
     echo.

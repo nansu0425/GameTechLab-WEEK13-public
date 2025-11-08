@@ -4,7 +4,7 @@ BEGIN_PROPERTIES / END_PROPERTIES 블록을 생성합니다.
 """
 
 from jinja2 import Template
-from parser import ClassInfo, Property
+from header_parser import ClassInfo, Property
 
 
 PROPERTY_TEMPLATE = """

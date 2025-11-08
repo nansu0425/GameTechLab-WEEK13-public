@@ -11,8 +11,13 @@ UPROPERTY와 UFUNCTION 매크로를 파싱하여
 
 import argparse
 import sys
+import os
 from pathlib import Path
-from parser import HeaderParser
+
+# Add current script directory to Python path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from header_parser import HeaderParser
 from property_generator import PropertyGenerator
 from lua_generator import LuaBindingGenerator
 

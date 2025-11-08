@@ -6,7 +6,7 @@ UPROPERTY와 UFUNCTION 매크로를 찾아서 파싱합니다.
 import re
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
 
 @dataclass
@@ -137,7 +137,7 @@ class HeaderParser:
     )
 
     @staticmethod
-    def _extract_balanced_parens(text: str, start_pos: int) -> tuple[str, int]:
+    def _extract_balanced_parens(text: str, start_pos: int) -> Tuple[str, int]:
         """괄호 매칭하여 내용 추출. Returns (content, end_position)"""
         depth = 1
         i = start_pos
