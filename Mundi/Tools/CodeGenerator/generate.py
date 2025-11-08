@@ -172,7 +172,7 @@ def main():
 
     # 디렉토리 존재 확인
     if not args.source_dir.exists():
-        print(f"❌ Error: Source directory not found: {args.source_dir}")
+        print(f"[ERROR] Source directory not found: {args.source_dir}")
         sys.exit(1)
 
     # 출력 디렉토리 생성
@@ -195,7 +195,7 @@ def main():
     classes = header_parser.find_reflection_classes(args.source_dir)
 
     if not classes:
-        print("⚠️  No classes with GENERATED_REFLECTION_BODY() found.")
+        print("[WARNING] No classes with GENERATED_REFLECTION_BODY() found.")
         return
 
     print(f"\n Found {len(classes)} reflection class(es)\n")

@@ -360,7 +360,7 @@ class HeaderParser:
                 class_info = self.parse_header(header)
                 if class_info:
                     classes.append(class_info)
-                    print(f"✓ Found reflection class: {class_info.name} in {header.name}")
+                    print(f"[OK] Found reflection class: {class_info.name} in {header.name}")
             except Exception as e:
                 print(f" Error parsing {header}: {e}")
 
