@@ -5,6 +5,7 @@
 #include "Source/Runtime/Engine/SkeletalViewer/SkeletalViewerBootstrap.h"
 #include "Source/Editor/PlatformProcess.h"
 #include "Source/Runtime/Engine/GameFramework/SkinnedMeshActor.h"
+#include "Source/Runtime/Engine/Components/LineComponent.h"
 
 SSkeletalMeshViewerWindow::SSkeletalMeshViewerWindow()
 {
@@ -119,6 +120,9 @@ void SSkeletalMeshViewerWindow::OnRender()
                 }
             }
 
+            // [메시 로드 UI]
+            // - 입력된 경로(또는 Browse로 선택된 경로)를 사용해 스켈레탈 메시를 로드하고
+            //   프리뷰 액터에 바로 세팅합니다. 이후 본 오버레이는 다음 프레임에 재구성됩니다.
             if (ImGui::Button("Load FBX"))
             {
                 FString Path = ActiveState->MeshPathBuffer;
@@ -129,6 +133,19 @@ void SSkeletalMeshViewerWindow::OnRender()
                     {
                         ActiveState->PreviewActor->SetSkeletalMesh(Path);
                         ActiveState->CurrentMesh = Mesh;
+                        // 메시 표시에 대한 체크박스 상태와 동기화
+                        if (auto* Skinned = ActiveState->PreviewActor->GetSkinnedMeshComponent())
+                        {
+                            Skinned->SetVisibility(ActiveState->bShowMesh);
+                        }
+                        // 새 메시 로드시 본 라인 재구축 요청
+                        ActiveState->bBoneLinesDirty = true;
+                        if (auto* LineComp = ActiveState->PreviewActor->GetBoneLineComponent())
+                        {
+                            // 기존 선 데이터를 지우고(화면 잔상 방지), 현재 토글 상태에 맞춰 가시성을 동기화합니다.
+                            LineComp->ClearLines();
+                            LineComp->SetLineVisible(ActiveState->bShowBones);
+                        }
                     }
                 }
             }
@@ -154,9 +171,28 @@ void SSkeletalMeshViewerWindow::OnRender()
         
         ImGui::Separator();
         
-        ImGui::Checkbox("Show Mesh", &ActiveState->bShowMesh);
+        if (ImGui::Checkbox("Show Mesh", &ActiveState->bShowMesh))
+        {
+            if (ActiveState->PreviewActor && ActiveState->PreviewActor->GetSkinnedMeshComponent())
+            {
+                ActiveState->PreviewActor->GetSkinnedMeshComponent()->SetVisibility(ActiveState->bShowMesh);
+            }
+        }
+        
         ImGui::SameLine();
-        ImGui::Checkbox("Show Bones", &ActiveState->bShowBones);
+        // [본 표시 토글]
+        // - 라인 컴포넌트의 Visibility를 직접 토글하여 불필요한 드로우를 줄입니다.
+        if (ImGui::Checkbox("Show Bones", &ActiveState->bShowBones))
+        {
+            if (ActiveState->PreviewActor && ActiveState->PreviewActor->GetBoneLineComponent())
+            {
+                ActiveState->PreviewActor->GetBoneLineComponent()->SetLineVisible(ActiveState->bShowBones);
+            }
+            if (ActiveState->bShowBones)
+            {
+                ActiveState->bBoneLinesDirty = true; // 표시 켜질 때 재구축
+            }
+        }
 
         ImGui::Separator();
         
@@ -205,7 +241,11 @@ void SSkeletalMeshViewerWindow::OnRender()
                     bool open = ImGui::TreeNodeEx((void*)(intptr_t)Index, flags, "%s", Label ? Label : "<noname>");
                     if (ImGui::IsItemClicked())
                     {
-                        ActiveState->SelectedBoneIndex = Index;
+                        if (ActiveState->SelectedBoneIndex != Index)
+                        {
+                            ActiveState->SelectedBoneIndex = Index;
+                            ActiveState->bBoneLinesDirty = true; // 색상 갱신 필요
+                        }
                     }
                     if (!bLeaf && open)
                     {
@@ -242,6 +282,52 @@ void SSkeletalMeshViewerWindow::OnRender()
         const uint32 NewWidth  = static_cast<uint32>(CenterRect.Right - CenterRect.Left);
         const uint32 NewHeight = static_cast<uint32>(CenterRect.Bottom - CenterRect.Top);
         ActiveState->Viewport->Resize(NewStartX, NewStartY, NewWidth, NewHeight);
+
+        // [본 오버레이 재구축]
+        // - 정확한 관절 위치 계산: FBX 로더가 저장한 BindPose 행렬을 사용해 각 본의 원점(0,0,0,1)을 변환합니다.
+        if (ActiveState->bShowBones && ActiveState->PreviewActor && ActiveState->CurrentMesh && ActiveState->bBoneLinesDirty)
+        {
+            ULineComponent* LineComp = ActiveState->PreviewActor->GetBoneLineComponent();
+            if (LineComp)
+            {
+                LineComp->SetLineVisible(true);
+                LineComp->ClearLines();
+
+                const FSkeletalMeshData* Data = ActiveState->CurrentMesh->GetSkeletalMeshData();
+                if (Data)
+                {
+                    const auto& Bones = Data->Skeleton.Bones;
+                    const int32 BoneCount = static_cast<int32>(Bones.size());
+                    if (BoneCount > 0)
+                    {
+                        // [1] BindPose 기반 관절 위치 계산 (행벡터 컨벤션: v4 * M)
+                        TArray<FVector> JointPos; JointPos.resize(BoneCount);
+                        const FVector4 Origin(0, 0, 0, 1);
+                        for (int32 i = 0; i < BoneCount; ++i)
+                        {
+                            const FMatrix& Bind = Bones[i].BindPose;
+                            const FVector4 P = Origin * Bind;
+                            JointPos[i] = FVector(P.X, P.Y, P.Z);
+                        }
+
+                        // [2] 부모-자식 뼈 쌍에 대해 선분 추가
+                        for (int32 i = 0; i < BoneCount; ++i)
+                        {
+                            int32 parent = Bones[i].ParentIndex;
+                            if (parent >= 0 && parent < BoneCount)
+                            {
+                                // 선택된 뼈(또는 그 부모)에 연결된 선은 빨간색, 그 외는 녹색으로 표시
+                                FVector4 color = (ActiveState->SelectedBoneIndex == i || ActiveState->SelectedBoneIndex == parent)
+                                    ? FVector4(1,0,0,1) : FVector4(0,1,0,1);
+                                LineComp->AddLine(JointPos[parent], JointPos[i], color);
+                            }
+                        }
+                    }
+                }
+            }
+            ActiveState->bBoneLinesDirty = false; // 한 번만 재구성
+        }
+
         ActiveState->Viewport->Render();
     }
 }

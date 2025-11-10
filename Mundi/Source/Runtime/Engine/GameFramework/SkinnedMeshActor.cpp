@@ -5,9 +5,20 @@ ASkinnedMeshActor::ASkinnedMeshActor()
 {
     ObjectName = "Skinned Mesh Actor";
 
+    // 스킨드 메시 렌더용 컴포넌트 생성 및 루트로 설정
+    // - 프리뷰 장면에서 메시를 표시하는 실제 렌더링 컴포넌트
     SkinnedMeshComponent = CreateDefaultSubobject<USkinnedMeshComponent>("SkinnedMeshComponent");
-    // Make it root
     RootComponent = SkinnedMeshComponent;
+
+    // 뼈 라인 오버레이용 컴포넌트 생성 후 루트에 부착
+    // - 이 컴포넌트는 "라인 데이터"(시작/끝점, 색상)를 모아 렌더러에 배치합니다.
+    // - 액터의 로컬 공간으로 선을 추가하면, 액터의 트랜스폼에 따라 선도 함께 변환됩니다.
+    BoneLineComponent = CreateDefaultSubobject<ULineComponent>("BoneLines");
+    if (BoneLineComponent && RootComponent)
+    {
+        // 부모 트랜스폼을 유지하면서(=로컬 좌표 유지) 루트에 붙입니다.
+        BoneLineComponent->SetupAttachment(RootComponent, EAttachmentRule::KeepRelative);
+    }
 }
 
 ASkinnedMeshActor::~ASkinnedMeshActor() = default;
@@ -48,6 +59,14 @@ void ASkinnedMeshActor::DuplicateSubObjects()
         if (auto* Comp = Cast<USkinnedMeshComponent>(Component))
         {
             SkinnedMeshComponent = Comp;
+            break;
+        }
+    }
+    for (UActorComponent* Component : OwnedComponents)
+    {
+        if (auto* Comp = Cast<ULineComponent>(Component))
+        {
+            BoneLineComponent = Comp;
             break;
         }
     }
