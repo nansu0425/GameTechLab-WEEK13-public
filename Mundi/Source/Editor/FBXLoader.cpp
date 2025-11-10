@@ -89,7 +89,7 @@ FSkeletalMeshData UFbxLoader::LoadFbxMesh(const FString& FilePath)
 	// 그룹별 정렬하게 되면 인덱스가 꼬임. 그래서 머티리얼이 없는 경우 그냥 0번 그룹을 쓰도록 하고 머티리얼 인덱스 0번을 nullptr에 할당함
 	MaterialGroupIndexList.Add(0, TArray<uint32>());
 	MaterialToIndex.Add(nullptr, 0);
-	MeshData.Materials.Add(FMaterialInfo());
+	MeshData.GroupInfos.Add(FGroupInfo());
 	if (RootNode)
 	{
 		// 2번의 패스로 나눠서 처음엔 뼈의 인덱스를 결정하고 2번째 패스에서 뼈가 영향을 미치는 정점들을 구하고 정점마다 뼈 인덱스를 할당해 줄 것임(동시에 TPose 역행렬도 구함)
@@ -104,12 +104,11 @@ FSkeletalMeshData UFbxLoader::LoadFbxMesh(const FString& FilePath)
 	}
 
 	// 머티리얼이 있는 경우 플래그 설정
-	if (MeshData.Materials.Num() > 0)
+	if (MeshData.GroupInfos.Num() > 1)
 	{
 		MeshData.bHasMaterial = true;
 	}
 	// 있든없든 항상 기본 머티리얼 포함 머티리얼 그룹별로 인덱스 저장하므로 Append 해줘야함
-	MeshData.GroupInfos.SetNum(MaterialGroupIndexList.Num());
 	uint32 Count = 0;
 	for (auto& Element : MaterialGroupIndexList)
 	{
@@ -183,10 +182,11 @@ void UFbxLoader::LoadMeshFromNode(FbxNode* InNode,
 						{
 							FMaterialInfo MaterialInfo{};
 							ParseMaterial(Material, MaterialInfo);
-							MeshData.Materials.Add(MaterialInfo);
 							// 새로운 머티리얼, 머티리얼 인덱스 설정
-							MaterialIndex = MeshData.Materials.Num() - 1;
+							MaterialIndex = MaterialToIndex.Num();
 							MaterialToIndex.Add(Material, MaterialIndex);
+							MeshData.GroupInfos.Add(FGroupInfo());
+							MeshData.GroupInfos[MaterialIndex].InitialMaterialName = MaterialInfo.MaterialName;
 						}
 						// MaterialSlot에 대응하는 전역 MaterialIndex 저장
 						MaterialSlotToIndex.Add(MaterialIndex);
@@ -206,10 +206,12 @@ void UFbxLoader::LoadMeshFromNode(FbxNode* InNode,
 					{
 						FMaterialInfo MaterialInfo{};
 						ParseMaterial(Material, MaterialInfo);
-						MeshData.Materials.Add(MaterialInfo);
-						// 새로운 머티리얼, 머티리얼 인덱스 설정(0이 시작이라서 1을 빼주지 않음
-						MaterialIndex = MeshData.Materials.Num() - 1;
+						// 새로운 머티리얼, 머티리얼 인덱스 설정
+						MaterialIndex = MaterialToIndex.Num();
+
 						MaterialToIndex.Add(Material, MaterialIndex);
+						MeshData.GroupInfos.Add(FGroupInfo());
+						MeshData.GroupInfos[MaterialIndex].InitialMaterialName = MaterialInfo.MaterialName;
 					}
 					// MaterialSlotToIndex에 추가할 필요 없음(머티리얼 하나일때 해싱 패스하고 Material Index로 바로 그룹핑 할 거라서 안 씀)
 					LoadMesh(Mesh, MeshData, MaterialGroupIndexList, BoneToIndex, MaterialSlotToIndex, MaterialIndex);
@@ -542,14 +544,14 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 					case FbxGeometryElement::eDirect:
 					{
 						const FbxVector2& UV = UVs->GetDirectArray().GetAt(ControlPointIndex);
-						SkinnedVertex.UV = FVector2D(UV.mData[0], UV.mData[1]);
+						SkinnedVertex.UV = FVector2D(UV.mData[0], 1 - UV.mData[1]);
 					}
 					break;
 					case FbxGeometryElement::eIndexToDirect:
 					{
 						int Id = UVs->GetIndexArray().GetAt(ControlPointIndex);
 						const FbxVector2& UV = UVs->GetDirectArray().GetAt(Id);
-						SkinnedVertex.UV = FVector2D(UV.mData[0], UV.mData[1]);
+						SkinnedVertex.UV = FVector2D(UV.mData[0], 1 - UV.mData[1]);
 					}
 					break;
 					default:
@@ -565,7 +567,7 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 					case FbxGeometryElement::eIndexToDirect:
 					{
 						const FbxVector2& UV = UVs->GetDirectArray().GetAt(TextureUvIndex);
-						SkinnedVertex.UV = FVector2D(UV.mData[0], UV.mData[1]);
+						SkinnedVertex.UV = FVector2D(UV.mData[0], 1 - UV.mData[1]);
 					}
 					break;
 					default:
@@ -612,6 +614,9 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 // 머티리얼 파싱해서 FMaterialInfo에 매핑
 void UFbxLoader::ParseMaterial(FbxSurfaceMaterial* Material, FMaterialInfo& MaterialInfo)
 {
+
+	UMaterial* NewMaterial = NewObject<UMaterial>();
+
 	// FbxPropertyT : 타입에 대해 애니메이션과 연결 지원(키프레임마다 타입 변경 등)
 	FbxPropertyT<FbxDouble3> Double3Prop;
 	FbxPropertyT<FbxDouble> DoubleProp;
@@ -630,11 +635,12 @@ void UFbxLoader::ParseMaterial(FbxSurfaceMaterial* Material, FMaterialInfo& Mate
 
 		// SurfacePhong->Reflection : 환경 반사, 퐁 모델에선 필요없음
 		Double3Prop = SurfacePhong->Specular;
-		DoubleProp = SurfacePhong->ReflectionFactor;
+		DoubleProp = SurfacePhong->SpecularFactor;
 		MaterialInfo.SpecularColor = FVector(Double3Prop.Get()[0], Double3Prop.Get()[1], Double3Prop.Get()[2]) * DoubleProp.Get();
 
-		Double3Prop = SurfacePhong->Emissive;
-		MaterialInfo.EmissiveColor = FVector(Double3Prop.Get()[0], Double3Prop.Get()[1], Double3Prop.Get()[2]);
+		// HDR 안 써서 의미 없음
+	/*	Double3Prop = SurfacePhong->Emissive;
+		MaterialInfo.EmissiveColor = FVector(Double3Prop.Get()[0], Double3Prop.Get()[1], Double3Prop.Get()[2]);*/
 
 		DoubleProp = SurfacePhong->Shininess;
 		MaterialInfo.SpecularExponent = DoubleProp.Get();
@@ -652,8 +658,9 @@ void UFbxLoader::ParseMaterial(FbxSurfaceMaterial* Material, FMaterialInfo& Mate
 		Double3Prop = SurfacePhong->Ambient;
 		MaterialInfo.AmbientColor = FVector(Double3Prop.Get()[0], Double3Prop.Get()[1], Double3Prop.Get()[2]);
 
-		Double3Prop = SurfacePhong->Emissive;
-		MaterialInfo.EmissiveColor = FVector(Double3Prop.Get()[0], Double3Prop.Get()[1], Double3Prop.Get()[2]);
+		// HDR 안 써서 의미 없음
+	/*	Double3Prop = SurfacePhong->Emissive;
+		MaterialInfo.EmissiveColor = FVector(Double3Prop.Get()[0], Double3Prop.Get()[1], Double3Prop.Get()[2]);*/
 
 		DoubleProp = SurfacePhong->TransparencyFactor;
 		MaterialInfo.Transparency = DoubleProp.Get();
@@ -683,6 +690,12 @@ void UFbxLoader::ParseMaterial(FbxSurfaceMaterial* Material, FMaterialInfo& Mate
 	Property = Material->FindProperty(FbxSurfaceMaterial::sShininess);
 	MaterialInfo.SpecularExponentTextureFileName = ParseTexturePath(Property);
 	
+	UMaterial* Default = UResourceManager::GetInstance().GetDefaultMaterial();
+	NewMaterial->SetMaterialInfo(MaterialInfo);
+	NewMaterial->SetShader(Default->GetShader());
+	NewMaterial->SetShaderMacros(Default->GetShaderMacros());
+
+	UResourceManager::GetInstance().Add<UMaterial>(MaterialInfo.MaterialName, NewMaterial);
 }
 
 FString UFbxLoader::ParseTexturePath(FbxProperty& Property)

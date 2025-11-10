@@ -153,8 +153,8 @@ struct FBillboardVertex
 
 struct FGroupInfo
 {
-    uint32 StartIndex;
-    uint32 IndexCount;
+    uint32 StartIndex = 0;
+    uint32 IndexCount = 0;
     FString InitialMaterialName; // obj 파일 자체에 맵핑된 material 이름
 
     friend FArchive& operator<<(FArchive& Ar, FGroupInfo& Info)
@@ -240,7 +240,6 @@ struct FSkeletalMeshData
     TArray<uint32> Indices; // 인덱스 배열
     FSkeleton Skeleton; // 스켈레톤 정보
     TArray<FGroupInfo> GroupInfos; // 머티리얼 그룹 (기존 시스템 재사용)
-    TArray<FMaterialInfo> Materials;
     bool bHasMaterial = false;
     FString CacheFilePath;
 };
