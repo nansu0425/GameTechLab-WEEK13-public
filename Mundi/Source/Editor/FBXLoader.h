@@ -10,7 +10,9 @@ public:
 	static UFbxLoader& GetInstance();
 	UFbxLoader();
 
-	FSkeletalMeshData LoadFbxMesh(const FString& FilePath);
+	static void PreLoad();
+
+	FSkeletalMeshData* LoadFbxMesh(const FString& FilePath);
 
 	
 
