@@ -3,8 +3,6 @@
 #include "Source/Runtime/Engine/SkeletalViewer/ViewerState.h"
 #include "FViewport.h"
 #include "FSkeletalViewerViewportClient.h"
-#include "World.h"
-#include "ObjectFactory.h"
 #include "Source/Runtime/Engine/GameFramework/SkinnedMeshActor.h"
 
 ViewerState* SkeletalViewerBootstrap::CreateViewerState(const char* Name, UWorld* InWorld, ID3D11Device* InDevice)
