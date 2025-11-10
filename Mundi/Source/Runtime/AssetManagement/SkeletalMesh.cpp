@@ -16,18 +16,28 @@ USkeletalMesh::~USkeletalMesh()
 
 void USkeletalMesh::Load(const FString& InFilePath, ID3D11Device* InDevice)
 {
-    FSkeletalMeshData SkeletalMeshData = UFbxLoader::GetInstance().LoadFbxMesh(InFilePath);
-    if (SkeletalMeshData.Vertices.empty() || SkeletalMeshData.Indices.empty()) { return; }
+    Data = UFbxLoader::GetInstance().LoadFbxMesh(InFilePath);
+    if (Data.Vertices.empty() || Data.Indices.empty()) { return; }
     
-    CreateVertexBuffer(&SkeletalMeshData, InDevice);
-    CreateIndexBuffer(&SkeletalMeshData, InDevice);
-    VertexCount = static_cast<uint32>(SkeletalMeshData.Vertices.size());
-    IndexCount = static_cast<uint32>(SkeletalMeshData.Indices.size());
+    CreateVertexBuffer(&Data, InDevice);
+    CreateIndexBuffer(&Data, InDevice);
+    VertexCount = static_cast<uint32>(Data.Vertices.size());
+    IndexCount = static_cast<uint32>(Data.Indices.size());
     VertexStride = sizeof(FVertexDynamic);
 }
 
 void USkeletalMesh::ReleaseResources()
 {
+    if (VertexBuffer)
+    {
+        VertexBuffer->Release();
+        VertexBuffer = nullptr;
+    }
+    if (IndexBuffer)
+    {
+        IndexBuffer->Release();
+        IndexBuffer = nullptr;
+    }
 }
 
 void USkeletalMesh::CreateVertexBuffer(FSkeletalMeshData* InSkeletalMesh, ID3D11Device* InDevice)
