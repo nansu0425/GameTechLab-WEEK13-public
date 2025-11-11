@@ -90,6 +90,20 @@ void USkeletalMeshComponent::SetBoneLocalTransform(int32 BoneIndex, const FTrans
     }
 }
 
+void USkeletalMeshComponent::SetBoneWorldTransform(int32 BoneIndex, const FTransform& NewWorldTransform)
+{
+    if (BoneIndex < 0 || BoneIndex >= CurrentLocalSpacePose.Num())
+        return;
+
+    const int32 ParentIndex = SkeletalMesh->GetSkeleton()->Bones[BoneIndex].ParentIndex;
+
+    const FTransform& ParentWorldTransform = GetBoneWorldTransform(ParentIndex);
+    FTransform DesiredLocal = ParentWorldTransform.GetRelativeTransform(NewWorldTransform);
+
+    SetBoneLocalTransform(BoneIndex, DesiredLocal);
+}
+
+
 FTransform USkeletalMeshComponent::GetBoneLocalTransform(int32 BoneIndex) const
 {
     if (CurrentLocalSpacePose.Num() > BoneIndex)
@@ -101,7 +115,7 @@ FTransform USkeletalMeshComponent::GetBoneLocalTransform(int32 BoneIndex) const
 
 FTransform USkeletalMeshComponent::GetBoneWorldTransform(int32 BoneIndex)
 {
-    if (CurrentLocalSpacePose.Num() > BoneIndex)
+    if (CurrentLocalSpacePose.Num() > BoneIndex && BoneIndex >= 0)
     {
         // 뼈의 컴포넌트 공간 트랜스폼 * 컴포넌트의 월드 트랜스폼
         return GetWorldTransform().GetWorldTransform(CurrentComponentSpacePose[BoneIndex]);

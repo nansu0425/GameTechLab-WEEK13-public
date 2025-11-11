@@ -4,8 +4,10 @@
 #include "FViewportClient.h"
 #include "Source/Runtime/Engine/SkeletalViewer/SkeletalViewerBootstrap.h"
 #include "Source/Editor/PlatformProcess.h"
-#include "Source/Runtime/Engine/GameFramework/SkinnedMeshActor.h"
+#include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 #include "Source/Runtime/Engine/Components/LineComponent.h"
+#include "SelectionManager.h"
+#include "BoneAnchorComponent.h"
 
 SSkeletalMeshViewerWindow::SSkeletalMeshViewerWindow()
 {
@@ -28,6 +30,8 @@ bool SSkeletalMeshViewerWindow::Initialize(float StartX, float StartY, float Wid
 {
     World = InWorld;
     Device = InDevice;
+
+    // World->GetGizmoActor()->SetSpace(EGizmoSpace::Local);
 
     SetRect(StartX, StartY, StartX + Width, StartY + Height);
 
@@ -58,8 +62,10 @@ void SSkeletalMeshViewerWindow::OnRender()
     {
         ImGui::SetNextWindowFocus();
     }
+    bool bViewerVisible = false;
     if (ImGui::Begin("Skeletal Mesh Viewer", nullptr, flags))
     {
+        bViewerVisible = true;
         // Render tab bar and switch active state
         if (ImGui::BeginTabBar("SkeletalViewerTabs", ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
         {
@@ -134,9 +140,9 @@ void SSkeletalMeshViewerWindow::OnRender()
                         ActiveState->PreviewActor->SetSkeletalMesh(Path);
                         ActiveState->CurrentMesh = Mesh;
                         // 메시 표시에 대한 체크박스 상태와 동기화
-                        if (auto* Skinned = ActiveState->PreviewActor->GetSkinnedMeshComponent())
+                        if (auto* Skeletal = ActiveState->PreviewActor->GetSkeletalMeshComponent())
                         {
-                            Skinned->SetVisibility(ActiveState->bShowMesh);
+                            Skeletal->SetVisibility(ActiveState->bShowMesh);
                         }
                         // 새 메시 로드시 본 라인 재구축 요청
                         ActiveState->bBoneLinesDirty = true;
@@ -173,9 +179,9 @@ void SSkeletalMeshViewerWindow::OnRender()
         
         if (ImGui::Checkbox("Show Mesh", &ActiveState->bShowMesh))
         {
-            if (ActiveState->PreviewActor && ActiveState->PreviewActor->GetSkinnedMeshComponent())
+            if (ActiveState->PreviewActor && ActiveState->PreviewActor->GetSkeletalMeshComponent())
             {
-                ActiveState->PreviewActor->GetSkinnedMeshComponent()->SetVisibility(ActiveState->bShowMesh);
+                ActiveState->PreviewActor->GetSkeletalMeshComponent()->SetVisibility(ActiveState->bShowMesh);
             }
         }
         
@@ -245,6 +251,18 @@ void SSkeletalMeshViewerWindow::OnRender()
                         {
                             ActiveState->SelectedBoneIndex = Index;
                             ActiveState->bBoneLinesDirty = true; // 색상 갱신 필요
+
+                            // Move gizmo to the selected bone and update selection
+                            if (ActiveState->PreviewActor && ActiveState->World)
+                            {
+                                ActiveState->PreviewActor->RepositionAnchorToBone(Index);
+                                if (USceneComponent* Anchor = ActiveState->PreviewActor->GetBoneGizmoAnchor())
+                                {
+                                    // Ensure actor is selected so the component selection sticks
+                                    ActiveState->World->GetSelectionManager()->SelectActor(ActiveState->PreviewActor);
+                                    ActiveState->World->GetSelectionManager()->SelectComponent(Anchor);
+                                }
+                            }
                         }
                     }
                     if (!bLeaf && open)
@@ -272,9 +290,16 @@ void SSkeletalMeshViewerWindow::OnRender()
     }
     ImGui::End();
 
+    // If collapsed or not visible, clear the center rect so we don't render a floating viewport
+    if (!bViewerVisible)
+    {
+        CenterRect = FRect(0, 0, 0, 0);
+        CenterRect.UpdateMinMax();
+    }
+
     bRequestFocus = false;
 
-    if (ActiveState && ActiveState->Viewport)
+    if (bViewerVisible && ActiveState && ActiveState->Viewport)
     {
         // Ensure viewport matches current center rect before rendering
         const uint32 NewStartX = static_cast<uint32>(CenterRect.Left);
@@ -284,7 +309,11 @@ void SSkeletalMeshViewerWindow::OnRender()
         ActiveState->Viewport->Resize(NewStartX, NewStartY, NewWidth, NewHeight);
 
         // [본 오버레이 재구축]
-        // - 엔진 레벨(액터)에서 본 라인을 재구성하도록 위임합니다.
+        // - 본 라인은 편집 중에도 매 프레임 갱신되어야 시각적으로 즉시 반영됨
+        if (ActiveState->bShowBones)
+        {
+            ActiveState->bBoneLinesDirty = true;
+        }
         if (ActiveState->bShowBones && ActiveState->PreviewActor && ActiveState->CurrentMesh && ActiveState->bBoneLinesDirty)
         {
             if (ULineComponent* LineComp = ActiveState->PreviewActor->GetBoneLineComponent())
@@ -297,12 +326,23 @@ void SSkeletalMeshViewerWindow::OnRender()
 
         ActiveState->Viewport->Render();
     }
+    else if (ActiveState && ActiveState->Viewport)
+    {
+        // When not visible, ensure the viewport doesn't keep stale content
+        ActiveState->Viewport->Resize(0, 0, 0, 0);
+    }
 }
 
 void SSkeletalMeshViewerWindow::OnUpdate(float DeltaSeconds)
 {
     if (!ActiveState || !ActiveState->Viewport)
         return;
+
+    // Tick the preview world so editor actors (e.g., gizmo) update visibility/state
+    if (ActiveState->World)
+    {
+        ActiveState->World->Tick(DeltaSeconds);
+    }
 
     if (ActiveState && ActiveState->Client)
     {
