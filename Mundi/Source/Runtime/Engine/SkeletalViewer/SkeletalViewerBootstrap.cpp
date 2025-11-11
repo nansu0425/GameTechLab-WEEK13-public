@@ -16,6 +16,8 @@ ViewerState* SkeletalViewerBootstrap::CreateViewerState(const char* Name, UWorld
     State->World = NewObject<UWorld>();
     State->World->Initialize();
 
+    State->World->GetGizmoActor()->SetSpace(EGizmoSpace::Local);
+    
     // Viewport + client per tab
     State->Viewport = new FViewport();
     // 프레임 마다 initial size가 바꿜 것이다

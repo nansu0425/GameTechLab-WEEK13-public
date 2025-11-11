@@ -30,9 +30,7 @@ bool SSkeletalMeshViewerWindow::Initialize(float StartX, float StartY, float Wid
 {
     World = InWorld;
     Device = InDevice;
-
-    // World->GetGizmoActor()->SetSpace(EGizmoSpace::Local);
-
+    
     SetRect(StartX, StartY, StartX + Width, StartY + Height);
 
     // Create first tab/state
@@ -435,6 +433,8 @@ void SSkeletalMeshViewerWindow::OnUpdate(float DeltaSeconds)
     if (ActiveState->World)
     {
         ActiveState->World->Tick(DeltaSeconds);
+        if (ActiveState->World->GetGizmoActor())
+            ActiveState->World->GetGizmoActor()->ProcessGizmoModeSwitch();
     }
 
     if (ActiveState && ActiveState->Client)
@@ -480,6 +480,7 @@ void SSkeletalMeshViewerWindow::OpenNewTab(const char* Name)
 {
     ViewerState* State = SkeletalViewerBootstrap::CreateViewerState(Name, World, Device);
     if (!State) return;
+
     Tabs.Add(State);
     ActiveTabIndex = Tabs.Num() - 1;
     ActiveState = State;
