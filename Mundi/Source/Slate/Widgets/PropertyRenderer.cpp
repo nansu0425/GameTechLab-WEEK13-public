@@ -23,7 +23,7 @@
 TArray<FString> UPropertyRenderer::CachedSkeletalMeshPaths;
 TArray<FString> UPropertyRenderer::CachedSkeletalMeshItems;
 TArray<FString> UPropertyRenderer::CachedStaticMeshPaths;
-TArray<const char*> UPropertyRenderer::CachedStaticMeshItems;
+TArray<FString> UPropertyRenderer::CachedStaticMeshItems;
 TArray<FString> UPropertyRenderer::CachedMaterialPaths;
 TArray<const char*> UPropertyRenderer::CachedMaterialItems;
 TArray<FString> UPropertyRenderer::CachedShaderPaths;
@@ -310,12 +310,11 @@ void UPropertyRenderer::CacheResources()
 	if (CachedStaticMeshPaths.IsEmpty() && CachedStaticMeshItems.IsEmpty())
 	{
 		CachedStaticMeshPaths = ResMgr.GetAllFilePaths<UStaticMesh>();
-		int Index = 0;
 		for (const FString& path : CachedStaticMeshPaths)
 		{
-			if ((Index++) > 0)
-				break;
-			CachedStaticMeshItems.push_back(path.c_str());
+			// 파일명만 추출해서 표시
+			std::filesystem::path fsPath(path);
+			CachedStaticMeshItems.push_back(fsPath.filename().string());
 		}
 		CachedStaticMeshPaths.Insert("", 0);
 		CachedStaticMeshItems.Insert("None", 0);
@@ -326,7 +325,9 @@ void UPropertyRenderer::CacheResources()
 		CachedSkeletalMeshPaths = ResMgr.GetAllFilePaths<USkeletalMesh>();
 		for (const FString& path : CachedSkeletalMeshPaths)
 		{
-			CachedSkeletalMeshItems.push_back(path);
+			// 파일명만 추출해서 표시
+			std::filesystem::path fsPath(path);
+			CachedSkeletalMeshItems.push_back(fsPath.filename().string());
 		}
 		CachedSkeletalMeshPaths.Insert("", 0);
 		CachedSkeletalMeshItems.Insert("None", 0);
@@ -1116,8 +1117,16 @@ bool UPropertyRenderer::RenderStaticMeshProperty(const FProperty& Prop, void* In
 		}
 	}
 
+	// TArray<FString>을 const char* 배열로 변환
+	TArray<const char*> ItemsPtr;
+	ItemsPtr.reserve(CachedStaticMeshItems.size());
+	for (const FString& item : CachedStaticMeshItems)
+	{
+		ItemsPtr.push_back(item.c_str());
+	}
+
 	ImGui::SetNextItemWidth(240);
-	if (ImGui::Combo(Prop.Name, &SelectedIdx, CachedStaticMeshItems.data(), static_cast<int>(CachedStaticMeshItems.size())))
+	if (ImGui::Combo(Prop.Name, &SelectedIdx, ItemsPtr.data(), static_cast<int>(ItemsPtr.size())))
 	{
 		if (SelectedIdx >= 0 && SelectedIdx < static_cast<int>(CachedStaticMeshPaths.size()))
 		{
@@ -1303,6 +1312,7 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterialInt
 		if (!StaticMeshComp)
 		{
 			ImGui::Text("UStaticMeshComponent 만 텍스처를 변경할 수 있습니다");
+			ImGui::Unindent();
 			return false;
 		}
 
