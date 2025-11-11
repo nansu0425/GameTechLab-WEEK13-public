@@ -3,6 +3,7 @@
 #include "FbxLoader.h"
 #include "fbxsdk/fileio/fbxiosettings.h"
 #include "fbxsdk/scene/geometry/fbxcluster.h"
+#include "ObjectIterator.h"
 
 IMPLEMENT_CLASS(UFbxLoader)
 
@@ -74,7 +75,30 @@ UFbxLoader& UFbxLoader::GetInstance()
 	return *FbxLoader;
 }
 
-FSkeletalMeshData* UFbxLoader::LoadFbxMesh(const FString& FilePath)
+USkeletalMesh* UFbxLoader::LoadFbxMesh(const FString& FilePath)
+{
+	// 0) 경로
+	FString NormalizedPathStr = NormalizePath(FilePath);
+
+	// 1) 이미 로드된 UStaticMesh가 있는지 전체 검색 (정규화된 경로로 비교)
+	for (TObjectIterator<USkeletalMesh> It; It; ++It)
+	{
+		USkeletalMesh* SkeletalMesh = *It;
+
+		if (SkeletalMesh->GetFilePath() == NormalizedPathStr)
+		{
+			return SkeletalMesh;
+		}
+	}
+
+	// 2) 없으면 새로 로드 (정규화된 경로 사용)
+	USkeletalMesh* SkeletalMesh = UResourceManager::GetInstance().Load<USkeletalMesh>(NormalizedPathStr);
+
+	UE_LOG("USkeletalMesh(filename: \'%s\') is successfully crated!", NormalizedPathStr.c_str());
+	return SkeletalMesh;
+}
+
+FSkeletalMeshData* UFbxLoader::LoadFbxMeshAsset(const FString& FilePath)
 {
 	// 임포트 옵션 세팅 ( 에니메이션 임포트 여부, 머티리얼 임포트 여부 등등 IO에 대한 세팅 )
 	// IOSROOT = IOSetting 객체의 기본 이름( Fbx매니저가 이름으로 관리하고 디버깅 시 매니저 내부의 객체를 이름으로 식별 가능)

@@ -58,7 +58,7 @@ private:
 private:
 	// 렌더링 중 캐시되는 리소스 목록
 	static TArray<FString> CachedSkeletalMeshPaths;
-	static TArray<const char*> CachedSkeletalMeshItems;
+	static TArray<FString> CachedSkeletalMeshItems;
 	static TArray<FString> CachedStaticMeshPaths;
 	static TArray<const char*> CachedStaticMeshItems;
 	static TArray<FString> CachedMaterialPaths;

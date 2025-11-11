@@ -21,7 +21,7 @@
 
 // 정적 멤버 변수 초기화
 TArray<FString> UPropertyRenderer::CachedSkeletalMeshPaths;
-TArray<const char*> UPropertyRenderer::CachedSkeletalMeshItems;
+TArray<FString> UPropertyRenderer::CachedSkeletalMeshItems;
 TArray<FString> UPropertyRenderer::CachedStaticMeshPaths;
 TArray<const char*> UPropertyRenderer::CachedStaticMeshItems;
 TArray<FString> UPropertyRenderer::CachedMaterialPaths;
@@ -34,6 +34,19 @@ TArray<FString> UPropertyRenderer::CachedSoundPaths;
 TArray<const char*> UPropertyRenderer::CachedSoundItems;
 TArray<FString> UPropertyRenderer::CachedScriptPaths;
 TArray<const char*> UPropertyRenderer::CachedScriptItems;
+
+static bool ItemsGetter(void* Data, int Index, const char** CItem)
+{
+	TArray<FString>* Items = (TArray<FString>*)Data;
+
+	if (Index < 0 || Index >= Items->Num())
+	{
+		return false;
+	}
+
+	*CItem = (*Items)[Index].c_str();
+	return true;
+}
 
 bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectInstance)
 {
@@ -292,27 +305,31 @@ void UPropertyRenderer::CacheResources()
 
 	UResourceManager& ResMgr = UResourceManager::GetInstance();
 
-	if (CachedSkeletalMeshPaths.IsEmpty() && CachedSkeletalMeshItems.IsEmpty())
-	{
-		CachedSkeletalMeshPaths = ResMgr.GetAllFilePaths<USkeletalMesh>();
-		for (const FString& path : CachedSkeletalMeshPaths)
-		{
-			CachedSkeletalMeshItems.push_back(path.c_str());
-		}
-		CachedSkeletalMeshPaths.Insert("", 0);
-		CachedSkeletalMeshPaths.Insert("None", 0);
-	}
 
 	// 1. 스태틱 메시
 	if (CachedStaticMeshPaths.IsEmpty() && CachedStaticMeshItems.IsEmpty())
 	{
 		CachedStaticMeshPaths = ResMgr.GetAllFilePaths<UStaticMesh>();
+		int Index = 0;
 		for (const FString& path : CachedStaticMeshPaths)
 		{
+			if ((Index++) > 0)
+				break;
 			CachedStaticMeshItems.push_back(path.c_str());
 		}
 		CachedStaticMeshPaths.Insert("", 0);
 		CachedStaticMeshItems.Insert("None", 0);
+	}
+
+	if (CachedSkeletalMeshPaths.IsEmpty() && CachedSkeletalMeshItems.IsEmpty())
+	{
+		CachedSkeletalMeshPaths = ResMgr.GetAllFilePaths<USkeletalMesh>();
+		for (const FString& path : CachedSkeletalMeshPaths)
+		{
+			CachedSkeletalMeshItems.push_back(path);
+		}
+		CachedSkeletalMeshPaths.Insert("", 0);
+		CachedSkeletalMeshItems.Insert("None", 0);
 	}
 
 	// 2. 머티리얼
@@ -392,6 +409,8 @@ void UPropertyRenderer::CacheResources()
 
 void UPropertyRenderer::ClearResourcesCache()
 {
+	CachedSkeletalMeshPaths.Empty();
+	CachedSkeletalMeshItems.Empty();
 	CachedStaticMeshPaths.Empty();
 	CachedStaticMeshItems.Empty();
 	CachedMaterialPaths.Empty();
@@ -1030,7 +1049,7 @@ bool UPropertyRenderer::RenderSkeletalMeshProperty(const FProperty& Prop, void* 
 	}
 
 	ImGui::SetNextItemWidth(240);
-	if (ImGui::Combo(Prop.Name, &SelectedIdx, CachedSkeletalMeshItems.data(), static_cast<int>(CachedSkeletalMeshItems.size())))
+	if (ImGui::Combo(Prop.Name, &SelectedIdx, &ItemsGetter, (void*)&CachedSkeletalMeshItems, static_cast<int>(CachedSkeletalMeshItems.size())))
 	{
 		if (SelectedIdx >= 0 && SelectedIdx < static_cast<int>(CachedSkeletalMeshPaths.size()))
 		{

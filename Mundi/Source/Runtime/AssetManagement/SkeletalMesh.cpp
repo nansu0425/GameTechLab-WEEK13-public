@@ -16,7 +16,7 @@ USkeletalMesh::~USkeletalMesh()
 
 void USkeletalMesh::Load(const FString& InFilePath, ID3D11Device* InDevice)
 {
-    Data = UFbxLoader::GetInstance().LoadFbxMesh(InFilePath);
+    Data = UFbxLoader::GetInstance().LoadFbxMeshAsset(InFilePath);
     if (Data->Vertices.empty() || Data->Indices.empty()) { return; }
     
     CreateVertexBuffer(Data, InDevice);

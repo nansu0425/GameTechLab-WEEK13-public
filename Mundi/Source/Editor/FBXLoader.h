@@ -12,8 +12,9 @@ public:
 
 	static void PreLoad();
 
-	FSkeletalMeshData* LoadFbxMesh(const FString& FilePath);
+	USkeletalMesh* LoadFbxMesh(const FString& FilePath);
 
+	FSkeletalMeshData* LoadFbxMeshAsset(const FString& FilePath);
 	
 
 protected:
