@@ -5,9 +5,7 @@
 #include <limits>
 
 #include "UEContainer.h"
-
-// Forward declaration for serialization
-class FArchive;
+#include "Archive.h"
 
 // 혹시 다른 헤더에서 새어 들어온 매크로 방지
 #ifdef min
