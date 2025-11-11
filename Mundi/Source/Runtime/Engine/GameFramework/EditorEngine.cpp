@@ -246,6 +246,7 @@ void UEditorEngine::Render()
     UI.Render();
     SLATE.Render();
     UI.EndFrame();
+    SLATE.RenderAfterUI();
 
     Renderer->EndFrame();
 }

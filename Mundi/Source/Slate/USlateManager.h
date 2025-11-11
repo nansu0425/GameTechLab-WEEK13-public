@@ -39,6 +39,7 @@ public:
 
     // 렌더/업데이트/입력 전달
     void Render();
+    void RenderAfterUI();
     void Update(float deltaSecond);
     void ProcessInput();
 

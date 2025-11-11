@@ -244,12 +244,6 @@ void USlateManager::Render()
         TopPanel->OnRender();
     }
 
-    // Render detached viewer on top
-    if (SkeletalViewerWindow)
-    {
-        SkeletalViewerWindow->OnRender();
-    }
-
     // Content Browser 오버레이 렌더링 (하단에서 슬라이드 업)
     if (ContentBrowserWindow && ContentBrowserAnimationProgress > 0.0f)
     {
@@ -404,6 +398,20 @@ void USlateManager::Render()
         // 스타일 변수 및 색상 복원
         ImGui::PopStyleColor(1);
         ImGui::PopStyleVar(3);
+    }
+    
+    // Render detached viewer on top
+    if (SkeletalViewerWindow)
+    {
+        SkeletalViewerWindow->OnRender();
+    }
+}
+
+void USlateManager::RenderAfterUI()
+{
+    if (SkeletalViewerWindow)
+    {
+        SkeletalViewerWindow->OnRenderViewport();
     }
 }
 

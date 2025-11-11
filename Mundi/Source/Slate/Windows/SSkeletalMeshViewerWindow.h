@@ -22,6 +22,8 @@ public:
     virtual void OnMouseDown(FVector2D MousePos, uint32 Button) override;
     virtual void OnMouseUp(FVector2D MousePos, uint32 Button) override;
 
+    void OnRenderViewport();
+
     // Accessors (active tab)
     FViewport* GetViewport() const { return ActiveState ? ActiveState->Viewport : nullptr; }
     FViewportClient* GetViewportClient() const { return ActiveState ? ActiveState->Client : nullptr; }

@@ -389,39 +389,6 @@ void SSkeletalMeshViewerWindow::OnRender()
     }
 
     bRequestFocus = false;
-
-    if (bViewerVisible && ActiveState && ActiveState->Viewport)
-    {
-        // Ensure viewport matches current center rect before rendering
-        const uint32 NewStartX = static_cast<uint32>(CenterRect.Left);
-        const uint32 NewStartY = static_cast<uint32>(CenterRect.Top);
-        const uint32 NewWidth  = static_cast<uint32>(CenterRect.Right - CenterRect.Left);
-        const uint32 NewHeight = static_cast<uint32>(CenterRect.Bottom - CenterRect.Top);
-        ActiveState->Viewport->Resize(NewStartX, NewStartY, NewWidth, NewHeight);
-
-        // [본 오버레이 재구축]
-        // - 본 라인은 편집 중에도 매 프레임 갱신되어야 시각적으로 즉시 반영됨
-        if (ActiveState->bShowBones)
-        {
-            ActiveState->bBoneLinesDirty = true;
-        }
-        if (ActiveState->bShowBones && ActiveState->PreviewActor && ActiveState->CurrentMesh && ActiveState->bBoneLinesDirty)
-        {
-            if (ULineComponent* LineComp = ActiveState->PreviewActor->GetBoneLineComponent())
-            {
-                LineComp->SetLineVisible(true);
-            }
-            ActiveState->PreviewActor->RebuildBoneLines(ActiveState->SelectedBoneIndex);
-            ActiveState->bBoneLinesDirty = false; // 한 번만 재구성
-        }
-
-        ActiveState->Viewport->Render();
-    }
-    else if (ActiveState && ActiveState->Viewport)
-    {
-        // When not visible, ensure the viewport doesn't keep stale content
-        ActiveState->Viewport->Resize(0, 0, 0, 0);
-    }
 }
 
 void SSkeletalMeshViewerWindow::OnUpdate(float DeltaSeconds)
@@ -473,6 +440,36 @@ void SSkeletalMeshViewerWindow::OnMouseUp(FVector2D MousePos, uint32 Button)
     {
         FVector2D LocalPos = MousePos - FVector2D(CenterRect.Left, CenterRect.Top);
         ActiveState->Viewport->ProcessMouseButtonUp((int32)LocalPos.X, (int32)LocalPos.Y, (int32)Button);
+    }
+}
+
+void SSkeletalMeshViewerWindow::OnRenderViewport()
+{
+    if (ActiveState && ActiveState->Viewport && CenterRect.GetWidth() > 0 && CenterRect.GetHeight() > 0)
+    {
+        const uint32 NewStartX = static_cast<uint32>(CenterRect.Left);
+        const uint32 NewStartY = static_cast<uint32>(CenterRect.Top);
+        const uint32 NewWidth  = static_cast<uint32>(CenterRect.Right - CenterRect.Left);
+        const uint32 NewHeight = static_cast<uint32>(CenterRect.Bottom - CenterRect.Top);
+        ActiveState->Viewport->Resize(NewStartX, NewStartY, NewWidth, NewHeight);
+
+        // 본 오버레이 재구축
+        if (ActiveState->bShowBones)
+        {
+            ActiveState->bBoneLinesDirty = true;
+        }
+        if (ActiveState->bShowBones && ActiveState->PreviewActor && ActiveState->CurrentMesh && ActiveState->bBoneLinesDirty)
+        {
+            if (ULineComponent* LineComp = ActiveState->PreviewActor->GetBoneLineComponent())
+            {
+                LineComp->SetLineVisible(true);
+            }
+            ActiveState->PreviewActor->RebuildBoneLines(ActiveState->SelectedBoneIndex);
+            ActiveState->bBoneLinesDirty = false;
+        }
+
+        // 뷰포트 렌더링 (ImGui보다 먼저)
+        ActiveState->Viewport->Render();
     }
 }
 
