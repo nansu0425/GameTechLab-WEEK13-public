@@ -156,6 +156,12 @@ void SSkeletalMeshViewerWindow::OnRender()
                 }
             }
         }
+        else
+        {
+            ImGui::EndChild();
+            ImGui::End();
+            return;
+        }
         ImGui::EndChild();
 
         ImGui::SameLine();
