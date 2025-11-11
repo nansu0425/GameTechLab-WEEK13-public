@@ -1,15 +1,15 @@
 #include "pch.h"
-#include "SkinnedMeshActor.h"
+#include "SkeletalMeshActor.h"
 #include "BoneAnchorComponent.h"
 
-ASkinnedMeshActor::ASkinnedMeshActor()
+ASkeletalMeshActor::ASkeletalMeshActor()
 {
-    ObjectName = "Skinned Mesh Actor";
+    ObjectName = "Skeletal Mesh Actor";
 
     // 스킨드 메시 렌더용 컴포넌트 생성 및 루트로 설정
     // - 프리뷰 장면에서 메시를 표시하는 실제 렌더링 컴포넌트
-    SkinnedMeshComponent = CreateDefaultSubobject<USkinnedMeshComponent>("SkinnedMeshComponent");
-    RootComponent = SkinnedMeshComponent;
+    SkeletalMeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>("SkeletalMeshComponent");
+    RootComponent = SkeletalMeshComponent;
 
     // 뼈 라인 오버레이용 컴포넌트 생성 후 루트에 부착
     // - 이 컴포넌트는 "라인 데이터"(시작/끝점, 색상)를 모아 렌더러에 배치합니다.
@@ -32,44 +32,44 @@ ASkinnedMeshActor::ASkinnedMeshActor()
     }
 }
 
-ASkinnedMeshActor::~ASkinnedMeshActor() = default;
+ASkeletalMeshActor::~ASkeletalMeshActor() = default;
 
-void ASkinnedMeshActor::Tick(float DeltaTime)
+void ASkeletalMeshActor::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 }
 
-FAABB ASkinnedMeshActor::GetBounds() const
+FAABB ASkeletalMeshActor::GetBounds() const
 {
     // Be robust to component replacement: query current root
-    if (auto* Current = Cast<USkinnedMeshComponent>(RootComponent))
+    if (auto* Current = Cast<USkeletalMeshComponent>(RootComponent))
     {
         return Current->GetWorldAABB();
     }
     return FAABB();
 }
 
-void ASkinnedMeshActor::SetSkinnedMeshComponent(USkinnedMeshComponent* InComp)
+void ASkeletalMeshActor::SetSkeletalMeshComponent(USkeletalMeshComponent* InComp)
 {
-    SkinnedMeshComponent = InComp;
+    SkeletalMeshComponent = InComp;
 }
 
-void ASkinnedMeshActor::SetSkeletalMesh(const FString& PathFileName)
+void ASkeletalMeshActor::SetSkeletalMesh(const FString& PathFileName)
 {
-    if (SkinnedMeshComponent)
+    if (SkeletalMeshComponent)
     {
-        SkinnedMeshComponent->SetSkeletalMesh(PathFileName);
+        SkeletalMeshComponent->SetSkeletalMesh(PathFileName);
     }
 }
 
-void ASkinnedMeshActor::RebuildBoneLines(int32 SelectedBoneIndex)
+void ASkeletalMeshActor::RebuildBoneLines(int32 SelectedBoneIndex)
 {
-    if (!BoneLineComponent || !SkinnedMeshComponent)
+    if (!BoneLineComponent || !SkeletalMeshComponent)
     {
         return;
     }
 
-    USkeletalMesh* SkeletalMesh = SkinnedMeshComponent->GetSkeletalMesh();
+    USkeletalMesh* SkeletalMesh = SkeletalMeshComponent->GetSkeletalMesh();
     if (!SkeletalMesh)
     {
         return;
@@ -111,12 +111,12 @@ void ASkinnedMeshActor::RebuildBoneLines(int32 SelectedBoneIndex)
     }
 }
 
-void ASkinnedMeshActor::MoveGizmoToBone(int32 BoneIndex)
+void ASkeletalMeshActor::MoveGizmoToBone(int32 BoneIndex)
 {
-    if (!SkinnedMeshComponent || !BoneAnchor)
+    if (!SkeletalMeshComponent || !BoneAnchor)
         return;
 
-    USkeletalMesh* SkeletalMesh = SkinnedMeshComponent->GetSkeletalMesh();
+    USkeletalMesh* SkeletalMesh = SkeletalMeshComponent->GetSkeletalMesh();
     if (!SkeletalMesh)
         return;
 
@@ -129,12 +129,12 @@ void ASkinnedMeshActor::MoveGizmoToBone(int32 BoneIndex)
         return;
 
     // Use current editable pose to compute bone world matrix (row-major, LH)
-    const FMatrix BoneWorld = SkinnedMeshComponent->ComputeBoneWorldMatrix(BoneIndex);
+    const FTransform BoneWorld = SkeletalMeshComponent->GetBoneWorldTransform(BoneIndex);
 
     // Wire target/index first, then place anchor without writeback
     BoneAnchor->BeginSuppressWriteback();
-    BoneAnchor->SetTarget(SkinnedMeshComponent, BoneIndex);
-    const FVector WorldTranslation(BoneWorld.M[3][0], BoneWorld.M[3][1], BoneWorld.M[3][2]);
+    BoneAnchor->SetTarget(SkeletalMeshComponent, BoneIndex);
+    const FVector WorldTranslation(BoneWorld.Translation);
     BoneAnchor->SetWorldLocation(WorldTranslation);
     BoneAnchor->EndSuppressWriteback();
 
@@ -142,14 +142,14 @@ void ASkinnedMeshActor::MoveGizmoToBone(int32 BoneIndex)
     BoneAnchor->SetVisibility(true);
 }
 
-void ASkinnedMeshActor::DuplicateSubObjects()
+void ASkeletalMeshActor::DuplicateSubObjects()
 {
     Super::DuplicateSubObjects();
     for (UActorComponent* Component : OwnedComponents)
     {
-        if (auto* Comp = Cast<USkinnedMeshComponent>(Component))
+        if (auto* Comp = Cast<USkeletalMeshComponent>(Component))
         {
-            SkinnedMeshComponent = Comp;
+            SkeletalMeshComponent = Comp;
             break;
         }
     }
@@ -163,24 +163,24 @@ void ASkinnedMeshActor::DuplicateSubObjects()
     }
 }
 
-void ASkinnedMeshActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
+void ASkeletalMeshActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
     Super::Serialize(bInIsLoading, InOutHandle);
 
     if (bInIsLoading)
     {
-        SkinnedMeshComponent = Cast<USkinnedMeshComponent>(RootComponent);
+        SkeletalMeshComponent = Cast<USkeletalMeshComponent>(RootComponent);
     }
 }
 
-void ASkinnedMeshActor::BuildBoneLinesCache()
+void ASkeletalMeshActor::BuildBoneLinesCache()
 {
-    if (!SkinnedMeshComponent || !BoneLineComponent)
+    if (!SkeletalMeshComponent || !BoneLineComponent)
     {
         return;
     }
     
-    USkeletalMesh* SkeletalMesh = SkinnedMeshComponent->GetSkeletalMesh();
+    USkeletalMesh* SkeletalMesh = SkeletalMeshComponent->GetSkeletalMesh();
     if (!SkeletalMesh)
     {
         return;
@@ -256,14 +256,14 @@ void ASkinnedMeshActor::BuildBoneLinesCache()
     }
 }
 
-void ASkinnedMeshActor::UpdateBoneSelectionHighlight(int32 SelectedBoneIndex)
+void ASkeletalMeshActor::UpdateBoneSelectionHighlight(int32 SelectedBoneIndex)
 {
-    if (!SkinnedMeshComponent)
+    if (!SkeletalMeshComponent)
     {
         return;
     }
     
-    USkeletalMesh* SkeletalMesh = SkinnedMeshComponent->GetSkeletalMesh();
+    USkeletalMesh* SkeletalMesh = SkeletalMeshComponent->GetSkeletalMesh();
     if (!SkeletalMesh)
     {
         return;
@@ -301,14 +301,14 @@ void ASkinnedMeshActor::UpdateBoneSelectionHighlight(int32 SelectedBoneIndex)
     }
 }
 
-void ASkinnedMeshActor::UpdateBoneSubtreeTransforms(int32 BoneIndex)
+void ASkeletalMeshActor::UpdateBoneSubtreeTransforms(int32 BoneIndex)
 {
-    if (!SkinnedMeshComponent)
+    if (!SkeletalMeshComponent)
     {
         return;
     }
     
-    USkeletalMesh* SkeletalMesh = SkinnedMeshComponent->GetSkeletalMesh();
+    USkeletalMesh* SkeletalMesh = SkeletalMeshComponent->GetSkeletalMesh();
     if (!SkeletalMesh)
     {
         return;
@@ -341,7 +341,7 @@ void ASkinnedMeshActor::UpdateBoneSubtreeTransforms(int32 BoneIndex)
     
     for (int32 b : ToUpdate)
     {
-        const FMatrix W = SkinnedMeshComponent->ComputeBoneWorldMatrix(b);
+        const FMatrix W = SkeletalMeshComponent->GetBoneWorldTransform(b).ToMatrix();
         const FMatrix O = W * WorldInv;
         Centers[b] = FVector(O.M[3][0], O.M[3][1], O.M[3][2]);
     }
@@ -355,7 +355,10 @@ void ASkinnedMeshActor::UpdateBoneSubtreeTransforms(int32 BoneIndex)
         
         if (parent >= 0 && BL.ParentLine)
         {
-            BL.ParentLine->SetLine(Centers[parent], Centers[b]);
+            const FMatrix ParentW = SkeletalMeshComponent->GetBoneWorldTransform(parent).ToMatrix();
+            const FMatrix ParentO = ParentW * WorldInv;
+            const FVector ParentCenter(ParentO.M[3][0], ParentO.M[3][1], ParentO.M[3][2]);
+            BL.ParentLine->SetLine(ParentCenter, Centers[b]);
         }
         
         const FVector Center = Centers[b];

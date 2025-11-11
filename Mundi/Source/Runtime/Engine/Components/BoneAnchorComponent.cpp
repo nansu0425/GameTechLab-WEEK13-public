@@ -6,7 +6,7 @@
 
 IMPLEMENT_CLASS(UBoneAnchorComponent)
 
-void UBoneAnchorComponent::SetTarget(USkinnedMeshComponent* InTarget, int32 InBoneIndex)
+void UBoneAnchorComponent::SetTarget(USkeletalMeshComponent* InTarget, int32 InBoneIndex)
 {
     Target = InTarget;
     BoneIndex = InBoneIndex;
@@ -18,11 +18,8 @@ void UBoneAnchorComponent::UpdateAnchorFromBone()
     if (!Target || BoneIndex < 0)
         return;
 
-    const FMatrix WorldM = Target->ComputeBoneWorldMatrix(BoneIndex);
-    // Extract translation (row-vector convention)
-    const FVector WorldT(WorldM.M[3][0], WorldM.M[3][1], WorldM.M[3][2]);
-    // For now keep anchor rotation/scale identity; future: extract from WorldM if needed
-    SetWorldLocation(WorldT);
+    const FTransform WorldT = Target->GetBoneWorldTransform(BoneIndex);
+    SetWorldLocation(WorldT.Translation);
 }
 
 void UBoneAnchorComponent::OnTransformUpdated()
@@ -35,6 +32,6 @@ void UBoneAnchorComponent::OnTransformUpdated()
     if (!Target || BoneIndex < 0)
         return;
 
-    const FMatrix AnchorWorld = GetWorldTransform().ToMatrix();
-    Target->SetBoneWorldMatrix(BoneIndex, AnchorWorld);
+    const FTransform AnchorWorld = GetWorldTransform();
+    Target->SetBoneWorldTransform(BoneIndex, AnchorWorld);
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-class UWorld; class FViewport; class FViewportClient; class ASkinnedMeshActor; class USkeletalMesh;
+class UWorld; class FViewport; class FViewportClient; class ASkeletalMeshActor; class USkeletalMesh;
 
 class ViewerState
 {
@@ -11,7 +11,7 @@ public:
     FViewportClient* Client = nullptr;
     
     // Have a pointer to the currently selected mesh to render in the viewer
-    ASkinnedMeshActor* PreviewActor = nullptr;
+    ASkeletalMeshActor* PreviewActor = nullptr;
     USkeletalMesh* CurrentMesh = nullptr;
     int32 SelectedBoneIndex = -1;
     bool bShowMesh = true;

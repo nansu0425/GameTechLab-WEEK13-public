@@ -4,7 +4,7 @@
 #include "FViewportClient.h"
 #include "Source/Runtime/Engine/SkeletalViewer/SkeletalViewerBootstrap.h"
 #include "Source/Editor/PlatformProcess.h"
-#include "Source/Runtime/Engine/GameFramework/SkinnedMeshActor.h"
+#include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 #include "Source/Runtime/Engine/Components/LineComponent.h"
 #include "SelectionManager.h"
 #include "BoneAnchorComponent.h"
@@ -138,9 +138,9 @@ void SSkeletalMeshViewerWindow::OnRender()
                         ActiveState->PreviewActor->SetSkeletalMesh(Path);
                         ActiveState->CurrentMesh = Mesh;
                         // 메시 표시에 대한 체크박스 상태와 동기화
-                        if (auto* Skinned = ActiveState->PreviewActor->GetSkinnedMeshComponent())
+                        if (auto* Skeletal = ActiveState->PreviewActor->GetSkeletalMeshComponent())
                         {
-                            Skinned->SetVisibility(ActiveState->bShowMesh);
+                            Skeletal->SetVisibility(ActiveState->bShowMesh);
                         }
                         // 새 메시 로드시 본 라인 재구축 요청
                         ActiveState->bBoneLinesDirty = true;
@@ -177,9 +177,9 @@ void SSkeletalMeshViewerWindow::OnRender()
         
         if (ImGui::Checkbox("Show Mesh", &ActiveState->bShowMesh))
         {
-            if (ActiveState->PreviewActor && ActiveState->PreviewActor->GetSkinnedMeshComponent())
+            if (ActiveState->PreviewActor && ActiveState->PreviewActor->GetSkeletalMeshComponent())
             {
-                ActiveState->PreviewActor->GetSkinnedMeshComponent()->SetVisibility(ActiveState->bShowMesh);
+                ActiveState->PreviewActor->GetSkeletalMeshComponent()->SetVisibility(ActiveState->bShowMesh);
             }
         }
         

@@ -3,7 +3,7 @@
 #include "Source/Runtime/Engine/SkeletalViewer/ViewerState.h"
 #include "FViewport.h"
 #include "FSkeletalViewerViewportClient.h"
-#include "Source/Runtime/Engine/GameFramework/SkinnedMeshActor.h"
+#include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 
 ViewerState* SkeletalViewerBootstrap::CreateViewerState(const char* Name, UWorld* InWorld, ID3D11Device* InDevice)
 {
@@ -34,7 +34,7 @@ ViewerState* SkeletalViewerBootstrap::CreateViewerState(const char* Name, UWorld
     // Spawn a persistent preview actor (mesh can be set later from UI)
     if (State->World)
     {
-        ASkinnedMeshActor* Preview = State->World->SpawnActor<ASkinnedMeshActor>();
+        ASkeletalMeshActor* Preview = State->World->SpawnActor<ASkeletalMeshActor>();
         State->PreviewActor = Preview;
     }
 

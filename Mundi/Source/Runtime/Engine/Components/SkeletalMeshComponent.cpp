@@ -90,6 +90,34 @@ void USkeletalMeshComponent::SetBoneLocalTransform(int32 BoneIndex, const FTrans
     }
 }
 
+void USkeletalMeshComponent::SetBoneWorldTransform(int32 BoneIndex, const FTransform& NewWorldTransform)
+{
+    if (BoneIndex < 0 || BoneIndex >= CurrentLocalSpacePose.Num())
+        return;
+
+    // 2) Component space → Local (relative to parent)
+    FTransform DesiredLocal;
+    const int32 ParentIndex = SkeletalMesh->GetSkeleton()->Bones[BoneIndex].ParentIndex;
+
+    if (ParentIndex == -1)
+    {
+        // Root bone: local == component-space (relative to the component)
+        DesiredLocal = NewWorldTransform;
+    }
+    else
+    {
+        // Make sure parent CS pose is valid before using it.
+        // If you don't guarantee this elsewhere, recompute here or ensure a prior build.
+        const FTransform& ParentWorldLocation = GetBoneWorldTransform(ParentIndex);
+        DesiredLocal = ParentWorldLocation.Inverse().GetWorldTransform(NewWorldTransform);
+    }
+
+    // 3) Write local pose and rebuild CS (or at least from this bone down)
+    CurrentLocalSpacePose[BoneIndex] = DesiredLocal;
+    ForceRecomputePose();
+}
+
+
 FTransform USkeletalMeshComponent::GetBoneLocalTransform(int32 BoneIndex) const
 {
     if (CurrentLocalSpacePose.Num() > BoneIndex)

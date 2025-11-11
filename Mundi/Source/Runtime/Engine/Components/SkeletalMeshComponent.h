@@ -23,11 +23,13 @@ public:
      */
     void SetBoneLocalTransform(int32 BoneIndex, const FTransform& NewLocalTransform);
 
+    void SetBoneWorldTransform(int32 BoneIndex, const FTransform& NewWorldTransform);
+    
     /**
      * @brief 특정 뼈의 현재 로컬 트랜스폼을 반환
      */
     FTransform GetBoneLocalTransform(int32 BoneIndex) const;
-
+    
     /**
      * @brief 기즈모를 렌더링하기 위해 특정 뼈의 월드 트랜스폼을 계산
      */
