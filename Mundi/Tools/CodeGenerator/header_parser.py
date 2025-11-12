@@ -10,26 +10,37 @@ from typing import List, Dict, Optional, Tuple
 from macro_parser import MacroParser, create_macro_parser
 
 
-@dataclass
 class Property:
     """프로퍼티 정보"""
-    name: str
-    type: str
-    category: str = ""
-    editable: bool = True
-    tooltip: str = ""
-    min_value: float = 0.0
-    max_value: float = 0.0
-    has_range: bool = False
-    metadata: Dict[str, str] = field(default_factory=dict)
-
-    # MacroParser 인스턴스 (클래스 변수)
+    # MacroParser 인스턴스 (클래스 변수 - dataclass 밖에서 선언)
     _macro_parser: Optional['MacroParser'] = None
 
     @classmethod
     def set_macro_parser(cls, parser: 'MacroParser'):
         """MacroParser 인스턴스 설정 (전역)"""
         cls._macro_parser = parser
+
+    def __init__(
+        self,
+        name: str,
+        type: str,
+        category: str = "",
+        editable: bool = True,
+        tooltip: str = "",
+        min_value: float = 0.0,
+        max_value: float = 0.0,
+        has_range: bool = False,
+        metadata: Optional[Dict[str, str]] = None
+    ):
+        self.name = name
+        self.type = type
+        self.category = category
+        self.editable = editable
+        self.tooltip = tooltip
+        self.min_value = min_value
+        self.max_value = max_value
+        self.has_range = has_range
+        self.metadata = metadata or {}
 
     def get_property_type_macro(self) -> str:
         """타입에 맞는 ADD_PROPERTY 매크로 결정 (동적 감지)"""
