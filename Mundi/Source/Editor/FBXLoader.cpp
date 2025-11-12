@@ -880,6 +880,104 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 			VertexId++;
 		} // for PolygonSize
 	} // for PolygonCount
+
+	if (InMesh->GetElementTangentCount() == 0)
+	{
+        // 1. 계산된 탄젠트와 바이탄젠트(Bitangent)를 누적할 임시 저장소를 만듭니다.
+        // MeshData.Vertices에 이미 중복 제거된 유일한 정점들이 들어있습니다.
+        TArray<FVector> TempTangents(MeshData.Vertices.Num());
+        TArray<FVector> TempBitangents(MeshData.Vertices.Num());
+
+        // 2. 모든 머티리얼 그룹의 인덱스 리스트를 순회합니다.
+        for (auto& Elem : MaterialGroupIndexList)
+        {
+            TArray<uint32>& GroupIndexList = Elem.second;
+
+            // 인덱스 리스트를 3개씩(트라이앵글 단위로) 순회합니다.
+            for (int32 i = 0; i < GroupIndexList.Num(); i += 3)
+            {
+                uint32 i0 = GroupIndexList[i];
+                uint32 i1 = GroupIndexList[i + 1];
+                uint32 i2 = GroupIndexList[i + 2];
+
+                // 트라이앵글을 구성하는 3개의 정점 데이터를 가져옵니다.
+                // 이 정점들은 MeshData.Vertices에 있는 *유일한* 정점입니다.
+                const FSkinnedVertex& v0 = MeshData.Vertices[i0];
+                const FSkinnedVertex& v1 = MeshData.Vertices[i1];
+                const FSkinnedVertex& v2 = MeshData.Vertices[i2];
+
+                // 위치(P)와 UV(W)를 가져옵니다.
+                const FVector& P0 = v0.Position;
+                const FVector& P1 = v1.Position;
+                const FVector& P2 = v2.Position;
+
+                const FVector2D& W0 = v0.UV;
+                const FVector2D& W1 = v1.UV;
+                const FVector2D& W2 = v2.UV;
+
+                // 트라이앵글의 엣지(Edge)와 델타(Delta) UV를 계산합니다.
+                FVector Edge1 = P1 - P0;
+                FVector Edge2 = P2 - P0;
+                FVector2D DeltaUV1 = W1 - W0;
+                FVector2D DeltaUV2 = W2 - W0;
+
+                // Lengyel's MikkTSpace/Schwarze Formula (분모)
+                float r = 1.0f / (DeltaUV1.X * DeltaUV2.Y - DeltaUV1.Y * DeltaUV2.X);
+                
+                // r이 무한대(inf)나 NaN이 아닌지 확인 (UV가 겹치는 경우)
+                if (isinf(r) || isnan(r))
+                {
+                    r = 0.0f; // 이 트라이앵글은 계산에서 제외
+                }
+
+                // (정규화되지 않은) 탄젠트(T)와 바이탄젠트(B) 계산
+                FVector T = (Edge1 * DeltaUV2.Y - Edge2 * DeltaUV1.Y) * r;
+                FVector B = (Edge2 * DeltaUV1.X - Edge1 * DeltaUV2.X) * r;
+
+                // 3개의 정점에 T와 B를 (정규화 없이) 누적합니다.
+                // 이렇게 하면 동일한 정점을 공유하는 모든 트라이앵글의 T/B가 합산됩니다.
+                TempTangents[i0] += T;
+                TempTangents[i1] += T;
+                TempTangents[i2] += T;
+
+                TempBitangents[i0] += B;
+                TempBitangents[i1] += B;
+                TempBitangents[i2] += B;
+            }
+        }
+
+        // 3. 모든 정점을 순회하며 누적된 T/B를 직교화(Gram-Schmidt)하고 저장합니다.
+        for (int32 i = 0; i < MeshData.Vertices.Num(); ++i)
+        {
+            FSkinnedVertex& V = MeshData.Vertices[i]; // 실제 정점 데이터에 접근
+            const FVector& N = V.Normal;
+            const FVector& T_accum = TempTangents[i];
+            const FVector& B_accum = TempBitangents[i];
+
+            if (T_accum.IsZero() || N.IsZero())
+            {
+                // T 또는 N이 0이면 계산 불가. 유효한 기본값 설정
+                FVector T_fallback = FVector(1.0f, 0.0f, 0.0f);
+                if (FMath::Abs(FVector::Dot(N, T_fallback)) > 0.99f) // N이 X축과 거의 평행하면
+                {
+                    T_fallback = FVector(0.0f, 1.0f, 0.0f); // Y축을 T로 사용
+                }
+                V.Tangent = FVector4(T_fallback.X, T_fallback.Y, T_fallback.Z, 1.0f);
+                continue;
+            }
+
+            // Gram-Schmidt 직교화: T = T - (T dot N) * N
+            // (T를 N에 투영한 성분을 T에서 빼서, N과 수직인 벡터를 만듭니다)
+        	FVector Tangent = (T_accum - N * (FVector::Dot(T_accum, N))).GetSafeNormal();
+
+            // Handedness (W 컴포넌트) 계산:
+            // 외적으로 구한 B(N x T)와 누적된 B(B_accum)의 방향을 비교합니다.
+            float Handedness = (FVector::Dot((FVector::Cross(Tangent, N)), B_accum) > 0.0f ) ? 1.0f : -1.0f;
+
+            // 최종 탄젠트(T)와 Handedness(W)를 저장합니다.
+            V.Tangent = FVector4(Tangent.X, Tangent.Y, Tangent.Z, Handedness);
+        }
+    }
 }
 
 
