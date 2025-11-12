@@ -3,8 +3,8 @@
 
 USkeletalMeshComponent::USkeletalMeshComponent()
 {
-    // 테스트용 기본 메시 설정 (경로는 실제 스켈레탈 메시 캐시 파일로 변경)
-   // SetSkeletalMesh(GDataDir + "/Test.fbx"); 
+    // 테스트용 기본 메시 설정
+    SetSkeletalMesh(GDataDir + "/Test.fbx"); 
 }
 
 
