@@ -7,8 +7,10 @@
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 #include "Source/Runtime/Engine/Components/LineComponent.h"
 #include "SelectionManager.h"
-#include"USlateManager.h"
+#include "USlateManager.h"
 #include "BoneAnchorComponent.h"
+#include "Source/Runtime/Engine/Collision/Picking.h"
+#include "Source/Runtime/Engine/GameFramework/CameraActor.h"
 
 SSkeletalMeshViewerWindow::SSkeletalMeshViewerWindow()
 {
@@ -640,6 +642,81 @@ void SSkeletalMeshViewerWindow::OnMouseDown(FVector2D MousePos, uint32 Button)
     if (CenterRect.Contains(MousePos))
     {
         FVector2D LocalPos = MousePos - FVector2D(CenterRect.Left, CenterRect.Top);
+
+        // Left click: try bone picking first
+        if (Button == 0 && ActiveState->PreviewActor && ActiveState->CurrentMesh && ActiveState->Client)
+        {
+            // Get camera from viewport client
+            ACameraActor* Camera = ActiveState->Client->GetCamera();
+            if (Camera)
+            {
+                // Get camera vectors
+                FVector CameraPos = Camera->GetActorLocation();
+                FVector CameraRight = Camera->GetRight();
+                FVector CameraUp = Camera->GetUp();
+                FVector CameraForward = Camera->GetForward();
+
+                // Calculate viewport-relative mouse position
+                FVector2D ViewportMousePos(MousePos.X - CenterRect.Left, MousePos.Y - CenterRect.Top);
+                FVector2D ViewportSize(CenterRect.GetWidth(), CenterRect.GetHeight());
+
+                // Generate ray from mouse position
+                FRay Ray = MakeRayFromViewport(
+                    Camera->GetViewMatrix(),
+                    Camera->GetProjectionMatrix(CenterRect.GetWidth() / CenterRect.GetHeight(), ActiveState->Viewport),
+                    CameraPos,
+                    CameraRight,
+                    CameraUp,
+                    CameraForward,
+                    ViewportMousePos,
+                    ViewportSize
+                );
+
+                // Try to pick a bone
+                float HitDistance;
+                int32 PickedBoneIndex = ActiveState->PreviewActor->PickBone(Ray, HitDistance);
+
+                if (PickedBoneIndex >= 0)
+                {
+                    // Bone was picked
+                    ActiveState->SelectedBoneIndex = PickedBoneIndex;
+                    ActiveState->bBoneLinesDirty = true;
+
+                    // Move gizmo to the selected bone
+                    if (ActiveState->World)
+                    {
+                        ActiveState->PreviewActor->RepositionAnchorToBone(PickedBoneIndex);
+                        if (USceneComponent* Anchor = ActiveState->PreviewActor->GetBoneGizmoAnchor())
+                        {
+                            ActiveState->World->GetSelectionManager()->SelectActor(ActiveState->PreviewActor);
+                            ActiveState->World->GetSelectionManager()->SelectComponent(Anchor);
+                        }
+                    }
+                }
+                else
+                {
+                    // No bone was picked - clear selection
+                    ActiveState->SelectedBoneIndex = -1;
+                    ActiveState->bBoneLinesDirty = true;
+
+                    // Hide gizmo and clear selection
+                    if (ActiveState->World)
+                    {
+                        if (UBoneAnchorComponent* Anchor = ActiveState->PreviewActor->GetBoneGizmoAnchor())
+                        {
+                            Anchor->SetVisibility(false);
+                            Anchor->SetEditability(false);
+                        }
+                        ActiveState->World->GetSelectionManager()->ClearSelection();
+                    }
+                }
+
+                // Don't pass to viewport - we handle all clicks in bone picking mode
+                return;
+            }
+        }
+
+        // Fall through to normal viewport processing only if not in bone picking mode
         ActiveState->Viewport->ProcessMouseButtonDown((int32)LocalPos.X, (int32)LocalPos.Y, (int32)Button);
     }
 }
