@@ -5,6 +5,9 @@
 #include <filesystem>
 #include <vector>
 
+// Forward declarations
+class FThumbnailManager;
+
 /**
  * @brief 파일 엔트리 구조체
  * 컨텐츠 브라우저에서 표시할 파일/폴더 정보
@@ -72,8 +75,11 @@ private:
 private:
 	/**
 	 * @brief 개별 파일 아이템 렌더링
+	 * @param Entry 파일 엔트리
+	 * @param Index 인덱스
+	 * @param bUseThumbnails 썸네일 사용 여부
 	 */
-	void RenderFileItem(FFileEntry& Entry, int Index);
+	void RenderFileItem(FFileEntry& Entry, int Index, bool bUseThumbnails = true);
 
 	/**
 	 * @brief 드래그 소스 처리
@@ -130,4 +136,7 @@ private:
 	bool bShowFolders;                        // 폴더 표시 여부
 	bool bShowFiles;                          // 파일 표시 여부
 	FString SearchFilter;                     // 검색 필터
+
+	// 썸네일 옵션
+	bool bUseThumbnails;                      // 썸네일 사용 여부
 };

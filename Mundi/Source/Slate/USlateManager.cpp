@@ -16,6 +16,7 @@
 #include "FViewportClient.h"
 #include "UIManager.h"
 #include "GlobalConsole.h"
+#include "ThumbnailManager.h"
 
 IMPLEMENT_CLASS(USlateManager)
 
@@ -156,6 +157,10 @@ void USlateManager::Initialize(ID3D11Device* InDevice, UWorld* InWorld, const FR
     {
         UE_LOG("ERROR: Failed to create ConsoleWindow");
     }
+
+    // === Thumbnail Manager 초기화 ===
+    FThumbnailManager::GetInstance().Initialize(Device, nullptr);
+    UE_LOG("USlateManager: ThumbnailManager initialized");
 
     // === Content Browser 생성 ===
     ContentBrowserWindow = new UContentBrowserWindow();
@@ -678,6 +683,10 @@ void USlateManager::Shutdown()
         ContentBrowserWindow = nullptr;
         UE_LOG("USlateManager: ContentBrowserWindow destroyed");
     }
+
+    // Thumbnail Manager 종료
+    FThumbnailManager::GetInstance().Shutdown();
+    UE_LOG("USlateManager: ThumbnailManager shutdown");
 
     // D3D 컨텍스트를 해제하기 위해 UI 패널과 뷰포트를 명시적으로 삭제
     if (TopPanel) { delete TopPanel; TopPanel = nullptr; }

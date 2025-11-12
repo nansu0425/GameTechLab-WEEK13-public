@@ -1,10 +1,11 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+﻿// Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "pch.h"
 #include "ContentBrowserWindow.h"
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_internal.h"
 #include "USlateManager.h"
+#include "ThumbnailManager.h"
 #include <algorithm>
 
 IMPLEMENT_CLASS(UContentBrowserWindow)
@@ -21,6 +22,7 @@ UContentBrowserWindow::UContentBrowserWindow()
 	, bIsDraggingSplitter(false)
 	, bShowFolders(true)
 	, bShowFiles(true)
+	, bUseThumbnails(true)
 {
 	FUIWindowConfig Config;
 	Config.WindowTitle = "Content Browser";
@@ -317,14 +319,14 @@ void UContentBrowserWindow::RenderContentGrid()
 			}
 		}
 
-		RenderFileItem(entry, i);
+		RenderFileItem(entry, i, bUseThumbnails);
 		ImGui::PopID();
 	}
 
 	ImGui::EndChild();
 }
 
-void UContentBrowserWindow::RenderFileItem(FFileEntry& Entry, int Index)
+void UContentBrowserWindow::RenderFileItem(FFileEntry& Entry, int Index, bool bUseThumbnails)
 {
 	ImGuiStyle& style = ImGui::GetStyle();
 	ImVec2 buttonSize(ThumbnailSize, ThumbnailSize);
@@ -337,13 +339,43 @@ void UContentBrowserWindow::RenderFileItem(FFileEntry& Entry, int Index)
 	if (isSelected)
 	{
 		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.5f, 0.8f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.6f, 0.9f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.5f, 0.8f, 1.0f));
 	}
 
-	// 아이콘 버튼
-	const char* icon = GetIconForFile(Entry);
-	if (ImGui::Button(icon, buttonSize))
+	bool clicked = false;
+
+	// 썸네일 사용 여부에 따라 다른 방식으로 렌더링
+	if (bUseThumbnails)
 	{
-		// 클릭 처리
+		// 썸네일 가져오기
+		std::string pathStr = Entry.Path.string();
+		ID3D11ShaderResourceView* thumbnailSRV = FThumbnailManager::GetInstance().GetThumbnail(pathStr);
+
+		if (thumbnailSRV)
+		{
+			// ImGui::ImageButton으로 썸네일 표시
+			char buttonID[32];
+			sprintf_s(buttonID, "##thumbnail_%d", Index);
+			clicked = ImGui::ImageButton(buttonID, (void*)thumbnailSRV, buttonSize);
+		}
+		else
+		{
+			// 썸네일이 없으면 텍스트 버튼으로 대체
+			const char* icon = GetIconForFile(Entry);
+			clicked = ImGui::Button(icon, buttonSize);
+		}
+	}
+	else
+	{
+		// 텍스트 아이콘으로 표시
+		const char* icon = GetIconForFile(Entry);
+		clicked = ImGui::Button(icon, buttonSize);
+	}
+
+	// 클릭 처리
+	if (clicked)
+	{
 		SelectedIndex = Index;
 		SelectedFile = &Entry;
 
@@ -363,7 +395,7 @@ void UContentBrowserWindow::RenderFileItem(FFileEntry& Entry, int Index)
 
 	if (isSelected)
 	{
-		ImGui::PopStyleColor();
+		ImGui::PopStyleColor(3);
 	}
 
 	// 파일 이름 표시 (텍스트 줄바꿈)
