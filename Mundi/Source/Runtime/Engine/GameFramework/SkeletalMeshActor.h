@@ -55,7 +55,7 @@ protected:
     // Anchor component used for gizmo selection/transform at a bone
     UBoneAnchorComponent* BoneAnchor = nullptr;
 
-    // Incremental bone line overlay cache (avoid ClearLines every frame)
+    // Incremental bone line overlay cache (avoid ClearLines every frame)   
     struct FBoneDebugLines
     {
         TArray<ULine*> ConeEdges;         // NumSegments lines from base circle to tip (child joint)
@@ -64,15 +64,18 @@ protected:
     };
 
     bool bBoneLinesInitialized = false;
-    int32 CachedSegments = 8;
+    int32 CachedSegments = 4;
     int32 CachedSelected = -1;
     TArray<FBoneDebugLines> BoneLinesCache; // size == BoneCount
     TArray<TArray<int32>> BoneChildren;     // adjacency for subtree updates
 
-    float BoneJointRadius = 0.1f;
-    float BoneBaseRadius = 0.2f;
+    float BoneJointRadius = 0.05f;
+    float BoneBaseRadius = 0.1f;
 
     void BuildBoneLinesCache();
     void UpdateBoneSubtreeTransforms(int32 BoneIndex);
     void UpdateBoneSelectionHighlight(int32 SelectedBoneIndex);
+
+    // Lazily create viewer-only components (BoneLineComponent, BoneAnchor) if in preview world
+    void EnsureViewerComponents();
 };

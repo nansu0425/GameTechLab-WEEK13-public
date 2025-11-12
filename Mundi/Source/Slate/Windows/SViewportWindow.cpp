@@ -77,6 +77,7 @@ SViewportWindow::~SViewportWindow()
 	IconDecal = nullptr;
 	IconStaticMesh = nullptr;
 	IconBillboard = nullptr;
+	IconEditorIcon = nullptr;
 	IconFog = nullptr;
 	IconCollision = nullptr;
 	IconAntiAliasing = nullptr;
@@ -413,8 +414,14 @@ void SViewportWindow::LoadToolbarIcons(ID3D11Device* Device)
 	IconStaticMesh = NewObject<UTexture>();
 	IconStaticMesh->Load(GDataDir + "/Icon/Viewport_StaticMesh.png", Device);
 
+	IconSkeletalMesh = NewObject<UTexture>();
+	IconSkeletalMesh->Load(GDataDir + "/Icon/Viewport_SkeletalMesh.png", Device);
+
 	IconBillboard = NewObject<UTexture>();
 	IconBillboard->Load(GDataDir + "/Icon/Viewport_Billboard.png", Device);
+
+	IconEditorIcon = NewObject<UTexture>();
+	IconEditorIcon->Load(GDataDir + "/Icon/Viewport_EditorIcon.png", Device);
 
 	IconFog = NewObject<UTexture>();
 	IconFog->Load(GDataDir + "/Icon/Viewport_Fog.png", Device);
@@ -1569,6 +1576,24 @@ void SViewportWindow::RenderShowFlagDropdownMenu()
 			ImGui::SetTooltip("스태틱 메시 렌더링을 표시합니다.");
 		}
 
+		// Skeletal Mesh
+		bool bSkeletalMesh = RenderSettings.IsShowFlagEnabled(EEngineShowFlags::SF_SkeletalMeshes);
+		if (ImGui::Checkbox("##SkeletalMesh", &bSkeletalMesh))
+		{
+			RenderSettings.ToggleShowFlag(EEngineShowFlags::SF_SkeletalMeshes);
+		}
+		ImGui::SameLine();
+		if (IconSkeletalMesh && IconSkeletalMesh->GetShaderResourceView())
+		{
+			ImGui::Image((void*)IconSkeletalMesh->GetShaderResourceView(), IconSize);
+			ImGui::SameLine(0, 4);
+		}
+		ImGui::Text(" 스켈레탈 메시");
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip("스텔레탈 메시 렌더링을 표시합니다.");
+		}
+
 		// Billboard
 		bool bBillboard = RenderSettings.IsShowFlagEnabled(EEngineShowFlags::SF_Billboard);
 		if (ImGui::Checkbox("##Billboard", &bBillboard))
@@ -1585,6 +1610,24 @@ void SViewportWindow::RenderShowFlagDropdownMenu()
 		if (ImGui::IsItemHovered())
 		{
 			ImGui::SetTooltip("빌보드 텍스트를 표시합니다.");
+		}
+		
+		// EditorIcon
+		bool bIcon = RenderSettings.IsShowFlagEnabled(EEngineShowFlags::SF_EditorIcon);
+		if (ImGui::Checkbox("##Icon", &bIcon))
+		{
+			RenderSettings.ToggleShowFlag(EEngineShowFlags::SF_EditorIcon);
+		}
+		ImGui::SameLine();
+		if (IconEditorIcon && IconEditorIcon->GetShaderResourceView())
+		{
+			ImGui::Image((void*)IconEditorIcon->GetShaderResourceView(), IconSize);
+			ImGui::SameLine(0, 4);
+		}
+		ImGui::Text(" 아이콘");
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip("에디터 전용 아이콘을 표시합니다.");
 		}
 
 		// Fog

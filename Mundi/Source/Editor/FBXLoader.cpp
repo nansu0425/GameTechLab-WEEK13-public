@@ -104,7 +104,6 @@ USkeletalMesh* UFbxLoader::LoadFbxMesh(const FString& FilePath)
 
 FSkeletalMeshData* UFbxLoader::LoadFbxMeshAsset(const FString& FilePath)
 {
-
 	MaterialInfos.clear();
 	FString NormalizedPath = NormalizePath(FilePath);
 	FSkeletalMeshData* MeshData = nullptr;
@@ -152,6 +151,8 @@ FSkeletalMeshData* UFbxLoader::LoadFbxMeshAsset(const FString& FilePath)
 		try
 		{
 			MeshData = new FSkeletalMeshData();
+			MeshData->PathFileName = NormalizedPath;
+
 			FWindowsBinReader Reader(BinPathFileName);
 			if (!Reader.IsOpen())
 			{
@@ -238,6 +239,7 @@ FSkeletalMeshData* UFbxLoader::LoadFbxMeshAsset(const FString& FilePath)
 	FbxAxisSystem UnrealImportAxis(FbxAxisSystem::eZAxis, FbxAxisSystem::eParityEven, FbxAxisSystem::eLeftHanded);
 	FbxAxisSystem SourceSetup = Scene->GetGlobalSettings().GetAxisSystem();
 
+	FbxSystemUnit::m.ConvertScene(Scene);
 	
 	if (SourceSetup != UnrealImportAxis)
 	{
@@ -256,7 +258,9 @@ FSkeletalMeshData* UFbxLoader::LoadFbxMeshAsset(const FString& FilePath)
 		UE_LOG("Fbx 씬 삼각화가 실패했습니다, 매시가 깨질 수 있습니다\n");
 	}
 
-	MeshData = new FSkeletalMeshData(); 
+	MeshData = new FSkeletalMeshData();
+	MeshData->PathFileName = NormalizedPath;
+
 	// Fbx파일에 씬은 하나만 존재하고 씬에 매쉬, 라이트, 카메라 등등의 element들이 트리 구조로 저장되어 있음.
 	// 씬 Export 시에 루트 노드 말고 Child 노드만 저장됨. 노드 하나가 여러 Element를 저장할 수 있고 Element는 FbxNodeAttribute 클래스로 정의되어 있음.
 	// 루트 노드 얻어옴
@@ -290,6 +294,9 @@ FSkeletalMeshData* UFbxLoader::LoadFbxMeshAsset(const FString& FilePath)
 		{
 			LoadMeshFromNode(RootNode->GetChild(Index), *MeshData, MaterialGroupIndexList, BoneToIndex, MaterialToIndex);
 		}
+		
+		// 여러 루트 본이 있으면 가상 루트 생성
+		EnsureSingleRootBone(*MeshData);
 	}
 
 	// 머티리얼이 있는 경우 플래그 설정
@@ -515,6 +522,10 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 	// ControlPoint에 대응하는 뼈 인덱스, 가중치를 저장하는 맵
 	// ControlPoint에 대응하는 뼈가 여러개일 수 있으므로 TArray로 저장
 	TMap<int32, TArray<IndexWeight>> ControlPointToBoneWeight;
+	// 메시 로컬 좌표계를 Fbx Scene World 좌표계로 바꿔주는 행렬
+	FbxAMatrix FbxSceneWorld{};
+	// 역전치(노말용)
+	FbxAMatrix FbxSceneWorldInverseTranspose{};
 
 	// Deformer: 매시의 모양을 변형시키는 모든 기능, ex) skin, blendShape(모프 타겟, 두 표정 미리 만들고 블랜딩해서 서서히 변화시킴)
 	// 99.9퍼센트는 스킨이 하나만 있고 완전 복잡한 얼굴 표정을 표현하기 위해서 2개 이상을 쓰기도 하는데 0번만 쓰도록 해도 문제 없음(AAA급 게임에서 2개 이상을 처리함)
@@ -526,11 +537,18 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 		{
 			FbxCluster* Cluster = ((FbxSkin*)InMesh->GetDeformer(0, FbxDeformer::eSkin))->GetCluster(Index);
 
+			if (Index == 0)
+			{
+				// 클러스터를 담고 있는 Node의(Mesh) Fbx Scene World Transform, 한 번만 구해도 되고 
+				// 정점을 Fbx Scene World 좌표계로 저장하기 위해 사용(아티스트 의도를 그대로 반영 가능, 서브메시를 단일메시로 처리 가능)
+				// 모든 SkeletalMesh는 Scene World 원점을 기준으로 제작되어야함
+				Cluster->GetTransformMatrix(FbxSceneWorld);
+				FbxSceneWorldInverseTranspose = FbxSceneWorld.Inverse().Transpose();
+			}
 			int IndexCount = Cluster->GetControlPointIndicesCount();
 			// 클러스터가 영향을 주는 ControlPointIndex를 구함.
 			int* Indices = Cluster->GetControlPointIndices();
 			double* Weights = Cluster->GetControlPointWeights();
-
             // Bind Pose, Inverse Bind Pose 저장.
             // Fbx 스킨 규약:
             //  - TransformLinkMatrix: 본의 글로벌 바인드 행렬
@@ -538,18 +556,14 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
             // 엔진 로컬(메시 기준) 바인드 행렬 = Inv(TransformMatrix) * TransformLinkMatrix
             FbxAMatrix BoneBindGlobal;
             Cluster->GetTransformLinkMatrix(BoneBindGlobal);
-            FbxAMatrix MeshBindGlobal;
-            Cluster->GetTransformMatrix(MeshBindGlobal);
-            FbxAMatrix MeshBindInv = MeshBindGlobal.Inverse();
-            FbxAMatrix BoneBindLocal = MeshBindInv * BoneBindGlobal;
-            FbxAMatrix BoneBindLocalInv = BoneBindLocal.Inverse();
+            FbxAMatrix BoneBindGlobalInv = BoneBindGlobal.Inverse();
             // FbxMatrix는 128바이트, FMatrix는 64바이트라서 memcpy쓰면 안 됨. 원소 단위로 복사합니다.
             for (int Row = 0; Row < 4; Row++)
             {
                 for (int Col = 0; Col < 4; Col++)
                 {
-                    MeshData.Skeleton.Bones[BoneToIndex[Cluster->GetLink()]].BindPose.M[Row][Col] = static_cast<float>(BoneBindLocal[Row][Col]);
-                    MeshData.Skeleton.Bones[BoneToIndex[Cluster->GetLink()]].InverseBindPose.M[Row][Col] = static_cast<float>(BoneBindLocalInv[Row][Col]);
+                    MeshData.Skeleton.Bones[BoneToIndex[Cluster->GetLink()]].BindPose.M[Row][Col] = static_cast<float>(BoneBindGlobal[Row][Col]);
+                    MeshData.Skeleton.Bones[BoneToIndex[Cluster->GetLink()]].InverseBindPose.M[Row][Col] = static_cast<float>(BoneBindGlobalInv[Row][Col]);
                 }
             }
 
@@ -563,6 +577,12 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 			}
 		}
 	}
+
+	bool bIsUniformScale = false;
+	const FbxVector4& ScaleOfSceneWorld = FbxSceneWorld.GetS();
+	// 비균등 스케일일 경우 그람슈미트 이용해서 탄젠트 재계산
+	bIsUniformScale = ((FMath::Abs(ScaleOfSceneWorld[0] - ScaleOfSceneWorld[1]) < 0.001f) &&
+		(FMath::Abs(ScaleOfSceneWorld[0] - ScaleOfSceneWorld[2]) < 0.001f));
 
 
 	// 로드는 TriangleList를 가정하고 할 것임. 
@@ -606,7 +626,8 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 			// 폴리곤 인덱스와 폴리곤 내에서의 vertexIndex로 ControlPointIndex 얻어냄
 			int ControlPointIndex = InMesh->GetPolygonVertex(PolygonIndex, VertexIndex);
 
-			const FbxVector4& Position = ControlPoints[ControlPointIndex];
+			const FbxVector4& Position = FbxSceneWorld.MultT(ControlPoints[ControlPointIndex]);
+			//const FbxVector4& Position = ControlPoints[ControlPointIndex];
 			SkinnedVertex.Position = FVector(Position.mData[0], Position.mData[1], Position.mData[2]);
 
 
@@ -683,45 +704,6 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 				}
 			}
 
-			if (InMesh->GetElementTangentCount() > 0)
-			{
-				FbxGeometryElementTangent* Tangents = InMesh->GetElementTangent(0);
-
-				// 왜 Color에서 계산한 Mapping Index를 안 쓰지? -> 컬러, 탄젠트, 노말, UV 모두 다 다른 매핑 방식을 사용 가능함.
-				int MappingIndex;
-
-				switch (Tangents->GetMappingMode())
-				{
-				case FbxGeometryElement::eByControlPoint:
-					MappingIndex = ControlPointIndex;
-					break;
-				case FbxGeometryElement::eByPolygonVertex:
-					MappingIndex = VertexId;
-					break;
-				default:
-					break;
-				}
-
-				switch (Tangents->GetReferenceMode())
-				{
-				case FbxGeometryElement::eDirect:
-				{
-					const FbxVector4& Tangent = Tangents->GetDirectArray().GetAt(MappingIndex);
-					SkinnedVertex.Tangent = FVector4(Tangent.mData[0], Tangent.mData[1], Tangent.mData[2], Tangent.mData[3]);
-				}
-				break;
-				case FbxGeometryElement::eIndexToDirect:
-				{
-					int Id = Tangents->GetIndexArray().GetAt(MappingIndex);
-					const FbxVector4& Tangent = Tangents->GetDirectArray().GetAt(Id);
-					SkinnedVertex.Tangent = FVector4(Tangent.mData[0], Tangent.mData[1], Tangent.mData[2], Tangent.mData[3]);
-				}
-				break;
-				default:
-					break;
-				}
-			}
-
 			if (InMesh->GetElementNormalCount() > 0)
 			{
 				FbxGeometryElementNormal* Normals = InMesh->GetElementNormal(0);
@@ -747,19 +729,77 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 				case FbxGeometryElement::eDirect:
 				{
 					const FbxVector4& Normal = Normals->GetDirectArray().GetAt(MappingIndex);
-					SkinnedVertex.Normal = FVector(Normal.mData[0], Normal.mData[1], Normal.mData[2]);
+					FbxVector4 NormalWorld = FbxSceneWorldInverseTranspose.MultT(FbxVector4(Normal.mData[0], Normal.mData[1], Normal.mData[2], 0.0f));
+					SkinnedVertex.Normal = FVector(NormalWorld.mData[0], NormalWorld.mData[1], NormalWorld.mData[2]);
 				}
 				break;
 				case FbxGeometryElement::eIndexToDirect:
 				{
 					int Id = Normals->GetIndexArray().GetAt(MappingIndex);
 					const FbxVector4& Normal = Normals->GetDirectArray().GetAt(Id);
-					SkinnedVertex.Normal = FVector(Normal.mData[0], Normal.mData[1], Normal.mData[2]);
+					FbxVector4 NormalWorld = FbxSceneWorldInverseTranspose.MultT(FbxVector4(Normal.mData[0], Normal.mData[1], Normal.mData[2], 0.0f));
+					SkinnedVertex.Normal = FVector(NormalWorld.mData[0], NormalWorld.mData[1], NormalWorld.mData[2]);
 				}
 				break;
 				default:
 					break;
 				}
+			}
+
+			if (InMesh->GetElementTangentCount() > 0)
+			{
+				FbxGeometryElementTangent* Tangents = InMesh->GetElementTangent(0);
+
+				// 왜 Color에서 계산한 Mapping Index를 안 쓰지? -> 컬러, 탄젠트, 노말, UV 모두 다 다른 매핑 방식을 사용 가능함.
+				int MappingIndex;
+
+				switch (Tangents->GetMappingMode())
+				{
+				case FbxGeometryElement::eByControlPoint:
+					MappingIndex = ControlPointIndex;
+					break;
+				case FbxGeometryElement::eByPolygonVertex:
+					MappingIndex = VertexId;
+					break;
+				default:
+					break;
+				}
+
+				switch (Tangents->GetReferenceMode())
+				{
+				case FbxGeometryElement::eDirect:
+				{
+					const FbxVector4& Tangent = Tangents->GetDirectArray().GetAt(MappingIndex);
+					FbxVector4 TangentWorld = FbxSceneWorld.MultT(FbxVector4(Tangent.mData[0], Tangent.mData[1], Tangent.mData[2], 0.0f));
+					SkinnedVertex.Tangent = FVector4(TangentWorld.mData[0], TangentWorld.mData[1], TangentWorld.mData[2], Tangent.mData[3]);
+				}
+				break;
+				case FbxGeometryElement::eIndexToDirect:
+				{
+					int Id = Tangents->GetIndexArray().GetAt(MappingIndex);
+					const FbxVector4& Tangent = Tangents->GetDirectArray().GetAt(Id);
+					FbxVector4 TangentWorld = FbxSceneWorld.MultT(FbxVector4(Tangent.mData[0], Tangent.mData[1], Tangent.mData[2], 0.0f));
+					SkinnedVertex.Tangent = FVector4(TangentWorld.mData[0], TangentWorld.mData[1], TangentWorld.mData[2], Tangent.mData[3]);
+				}
+				break;
+				default:
+					break;
+				}
+
+				// 유니폼 스케일이 아니므로 그람슈미트, 노말이 필요하므로 노말 이후에 탄젠트 계산해야함
+				if (!bIsUniformScale)
+				{
+					FVector Tangent = FVector(SkinnedVertex.Tangent.X, SkinnedVertex.Tangent.Y, SkinnedVertex.Tangent.Z);
+					float Handedness = SkinnedVertex.Tangent.W;
+					const FVector& Normal = SkinnedVertex.Normal;
+
+					float TangentToNormalDir = FVector::Dot(Tangent, Normal);
+
+					Tangent = Tangent - Normal * TangentToNormalDir;
+					Tangent.Normalize();
+					SkinnedVertex.Tangent = FVector4(Tangent.X, Tangent.Y, Tangent.Z, Handedness);
+				}
+
 			}
 
 			// UV는 매핑 방식이 위와 다름(eByPolygonVertex에서 VertexId를 안 쓰고 TextureUvIndex를 씀, 참조방식도 위와 다름.)
@@ -843,6 +883,107 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 			VertexId++;
 		} // for PolygonSize
 	} // for PolygonCount
+
+	
+
+	// FBX에 정점의 탄젠트 벡터가 존재하지 않을 시
+	if (InMesh->GetElementTangentCount() == 0)
+	{
+        // 1. 계산된 탄젠트와 바이탄젠트(Bitangent)를 누적할 임시 저장소를 만듭니다.
+        // MeshData.Vertices에 이미 중복 제거된 유일한 정점들이 들어있습니다.
+        TArray<FVector> TempTangents(MeshData.Vertices.Num());
+        TArray<FVector> TempBitangents(MeshData.Vertices.Num());
+
+        // 2. 모든 머티리얼 그룹의 인덱스 리스트를 순회합니다.
+        for (auto& Elem : MaterialGroupIndexList)
+        {
+            TArray<uint32>& GroupIndexList = Elem.second;
+
+            // 인덱스 리스트를 3개씩(트라이앵글 단위로) 순회합니다.
+            for (int32 i = 0; i < GroupIndexList.Num(); i += 3)
+            {
+                uint32 i0 = GroupIndexList[i];
+                uint32 i1 = GroupIndexList[i + 1];
+                uint32 i2 = GroupIndexList[i + 2];
+
+                // 트라이앵글을 구성하는 3개의 정점 데이터를 가져옵니다.
+                // 이 정점들은 MeshData.Vertices에 있는 *유일한* 정점입니다.
+                const FSkinnedVertex& v0 = MeshData.Vertices[i0];
+                const FSkinnedVertex& v1 = MeshData.Vertices[i1];
+                const FSkinnedVertex& v2 = MeshData.Vertices[i2];
+
+                // 위치(P)와 UV(W)를 가져옵니다.
+                const FVector& P0 = v0.Position;
+                const FVector& P1 = v1.Position;
+                const FVector& P2 = v2.Position;
+
+                const FVector2D& W0 = v0.UV;
+                const FVector2D& W1 = v1.UV;
+                const FVector2D& W2 = v2.UV;
+
+                // 트라이앵글의 엣지(Edge)와 델타(Delta) UV를 계산합니다.
+                FVector Edge1 = P1 - P0;
+                FVector Edge2 = P2 - P0;
+                FVector2D DeltaUV1 = W1 - W0;
+                FVector2D DeltaUV2 = W2 - W0;
+
+                // Lengyel's MikkTSpace/Schwarze Formula (분모)
+                float r = 1.0f / (DeltaUV1.X * DeltaUV2.Y - DeltaUV1.Y * DeltaUV2.X);
+                
+                // r이 무한대(inf)나 NaN이 아닌지 확인 (UV가 겹치는 경우)
+                if (isinf(r) || isnan(r))
+                {
+                    r = 0.0f; // 이 트라이앵글은 계산에서 제외
+                }
+
+                // (정규화되지 않은) 탄젠트(T)와 바이탄젠트(B) 계산
+                FVector T = (Edge1 * DeltaUV2.Y - Edge2 * DeltaUV1.Y) * r;
+                FVector B = (Edge2 * DeltaUV1.X - Edge1 * DeltaUV2.X) * r;
+
+                // 3개의 정점에 T와 B를 (정규화 없이) 누적합니다.
+                // 이렇게 하면 동일한 정점을 공유하는 모든 트라이앵글의 T/B가 합산됩니다.
+                TempTangents[i0] += T;
+                TempTangents[i1] += T;
+                TempTangents[i2] += T;
+
+                TempBitangents[i0] += B;
+                TempBitangents[i1] += B;
+                TempBitangents[i2] += B;
+            }
+        }
+
+        // 3. 모든 정점을 순회하며 누적된 T/B를 직교화(Gram-Schmidt)하고 저장합니다.
+        for (int32 i = 0; i < MeshData.Vertices.Num(); ++i)
+        {
+            FSkinnedVertex& V = MeshData.Vertices[i]; // 실제 정점 데이터에 접근
+            const FVector& N = V.Normal;
+            const FVector& T_accum = TempTangents[i];
+            const FVector& B_accum = TempBitangents[i];
+
+            if (T_accum.IsZero() || N.IsZero())
+            {
+                // T 또는 N이 0이면 계산 불가. 유효한 기본값 설정
+                FVector T_fallback = FVector(1.0f, 0.0f, 0.0f);
+                if (FMath::Abs(FVector::Dot(N, T_fallback)) > 0.99f) // N이 X축과 거의 평행하면
+                {
+                    T_fallback = FVector(0.0f, 1.0f, 0.0f); // Y축을 T로 사용
+                }
+                V.Tangent = FVector4(T_fallback.X, T_fallback.Y, T_fallback.Z, 1.0f);
+                continue;
+            }
+
+            // Gram-Schmidt 직교화: T = T - (T dot N) * N
+            // (T를 N에 투영한 성분을 T에서 빼서, N과 수직인 벡터를 만듭니다)
+        	FVector Tangent = (T_accum - N * (FVector::Dot(T_accum, N))).GetSafeNormal();
+
+            // Handedness (W 컴포넌트) 계산:
+            // 외적으로 구한 B(N x T)와 누적된 B(B_accum)의 방향을 비교합니다.
+            float Handedness = (FVector::Dot((FVector::Cross(Tangent, N)), B_accum) > 0.0f ) ? 1.0f : -1.0f;
+
+            // 최종 탄젠트(T)와 Handedness(W)를 저장합니다.
+            V.Tangent = FVector4(Tangent.X, Tangent.Y, Tangent.Z, Handedness);
+        }
+    }
 }
 
 
@@ -979,5 +1120,62 @@ FbxString UFbxLoader::GetAttributeTypeName(FbxNodeAttribute* InAttribute)
 	default: return "unknown";
 	}*/
 	return "test";
+}
+
+void UFbxLoader::EnsureSingleRootBone(FSkeletalMeshData& MeshData)
+{
+	if (MeshData.Skeleton.Bones.IsEmpty())
+		return;
+    
+	// 루트 본 개수 세기
+	TArray<int32> RootBoneIndices;
+	for (int32 i = 0; i < MeshData.Skeleton.Bones.size(); ++i)
+	{
+		if (MeshData.Skeleton.Bones[i].ParentIndex == -1)
+		{
+			RootBoneIndices.Add(i);
+		}
+	}
+    
+	// 루트 본이 2개 이상이면 가상 루트 생성
+	if (RootBoneIndices.Num() > 1)
+	{
+		// 가상 루트 본 생성
+		FBone VirtualRoot;
+		VirtualRoot.Name = "VirtualRoot";
+		VirtualRoot.ParentIndex = -1;
+        
+		// 항등 행렬로 초기화 (원점에 위치, 회전/스케일 없음)
+		VirtualRoot.BindPose = FMatrix::Identity();
+		VirtualRoot.InverseBindPose = FMatrix::Identity();
+        
+		// 가상 루트를 배열 맨 앞에 삽입
+		MeshData.Skeleton.Bones.Insert(VirtualRoot, 0);
+        
+		// 기존 본들의 인덱스가 모두 +1 씩 밀림
+		// 모든 본의 ParentIndex 업데이트
+		for (int32 i = 1; i < MeshData.Skeleton.Bones.size(); ++i)
+		{
+			if (MeshData.Skeleton.Bones[i].ParentIndex >= 0)
+			{
+				MeshData.Skeleton.Bones[i].ParentIndex += 1;
+			}
+			else // 원래 루트 본들
+			{
+				MeshData.Skeleton.Bones[i].ParentIndex = 0; // 가상 루트를 부모로 설정
+			}
+		}
+        
+		// Vertex의 BoneIndex도 모두 +1 해줘야 함
+		for (auto& Vertex : MeshData.Vertices)
+		{
+			for (int32 i = 0; i < 4; ++i)
+			{
+				Vertex.BoneIndices[i] += 1;
+			}
+		}
+        
+		UE_LOG("UFbxLoader: Created virtual root bone. Found %d root bones.", RootBoneIndices.Num());
+	}
 }
 
