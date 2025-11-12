@@ -1192,6 +1192,9 @@ void FSceneRenderer::RenderDebugPass()
 	}
 	OwnerRenderer->EndLineBatchAlwaysOnTop(FMatrix::Identity());
 
+	// Start a new batch for debug volumes (lights, shapes, etc.)
+	OwnerRenderer->BeginLineBatch();
+
 	// 선택된 액터의 디버그 볼륨 렌더링
 	for (AActor* SelectedActor : World->GetSelectionManager()->GetSelectedActors())
 	{
