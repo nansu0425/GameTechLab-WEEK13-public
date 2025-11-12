@@ -210,7 +210,7 @@ void USkinnedMeshComponent::SetSkeletalMesh(const FString& PathFileName)
       SkeletalMesh->CreateVertexBuffer(&VertexBuffer);
 
       const TArray<FMatrix> IdentityMatrices(SkeletalMesh->GetBoneCount(), FMatrix::Identity());
-      UpdateSkinningMatrices(IdentityMatrices);
+      UpdateSkinningMatrices(IdentityMatrices, IdentityMatrices);
       PerformSkinning();
       
       const TArray<FGroupInfo>& GroupInfos = SkeletalMesh->GetMeshGroupInfo();
@@ -225,7 +225,7 @@ void USkinnedMeshComponent::SetSkeletalMesh(const FString& PathFileName)
    else
    {
       SkeletalMesh = nullptr;
-      UpdateSkinningMatrices(TArray<FMatrix>());
+      UpdateSkinningMatrices(TArray<FMatrix>(), TArray<FMatrix>());
       PerformSkinning();
    }
 }
@@ -251,9 +251,10 @@ void USkinnedMeshComponent::PerformSkinning()
    }
 }
 
-void USkinnedMeshComponent::UpdateSkinningMatrices(const TArray<FMatrix>& InSkinningMatrices)
+void USkinnedMeshComponent::UpdateSkinningMatrices(const TArray<FMatrix>& InSkinningMatrices, const TArray<FMatrix>& InSkinningNormalMatrices)
 {
    FinalSkinningMatrices = InSkinningMatrices;
+   FinalSkinningNormalMatrices = InSkinningNormalMatrices;
    bSkinningMatricesDirty = true;
 }
 
@@ -288,7 +289,7 @@ FVector USkinnedMeshComponent::SkinVertexNormal(const FSkinnedVertex& InVertex) 
 
       if (Weight > 0.f)
       {
-         const FMatrix& SkinMatrix = FinalSkinningMatrices[BoneIndex];
+         const FMatrix& SkinMatrix = FinalSkinningNormalMatrices[BoneIndex];
          FVector TransformedNormal = SkinMatrix.TransformVector(InVertex.Normal);
          BlendedNormal += TransformedNormal * Weight;
       }

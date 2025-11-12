@@ -66,4 +66,15 @@ protected:
      * @brief 부모에게 보낼 최종 스키닝 행렬 (임시 계산용)
      */
     TArray<FMatrix> TempFinalSkinningMatrices;
+    /**
+     * @brief CPU 스키닝에 전달할 최종 노말 스키닝 행렬
+     */
+    TArray<FMatrix> TempFinalSkinningNormalMatrices;
+
+
+// FOR TEST!!!
+private:
+    float TestTime = 0;
+    bool bIsInitialized = false;
+    FTransform TestBoneBasePose;
 };

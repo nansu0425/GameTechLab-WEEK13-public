@@ -32,7 +32,6 @@ public:
      * @param PathFileName 새 스켈레탈 메시 에셋 경로
      */
     virtual void SetSkeletalMesh(const FString& PathFileName);
-
     /**
      * @brief 이 컴포넌트의 USkeletalMesh 에셋을 반환
      */
@@ -41,10 +40,10 @@ public:
 protected:
     void PerformSkinning();
     /**
-     * @brief 자식에게서 원본 메시를 받아 CPU 스키닝을 수행 (핵심!)
-     * @param InSkinningMatrices 원본 정점 데이터가 포함된 메시 에셋
+     * @brief 자식에게서 원본 메시를 받아 CPU 스키닝을 수행
+     * @param InSkinningMatrices 스키닝 매트릭스
      */
-    void UpdateSkinningMatrices(const TArray<FMatrix>& InSkinningMatrices);
+    void UpdateSkinningMatrices(const TArray<FMatrix>& InSkinningMatrices, const TArray<FMatrix>& InSkinningNormalMatrices);
     
     UPROPERTY(EditAnywhere, Category = "Skeletal Mesh", Tooltip = "Skeletal mesh asset to render")
     USkeletalMesh* SkeletalMesh;
@@ -53,6 +52,10 @@ protected:
      * @brief CPU 스키닝 최종 결과물. 렌더러가 이 데이터를 사용합니다.
      */
     TArray<FNormalVertex> SkinnedVertices;
+    /**
+     * @brief CPU 스키닝 최종 결과물. 렌더러가 이 데이터를 사용합니다.
+     */
+    TArray<FNormalVertex> NormalSkinnedVertices;
 
 private:
     FVector SkinVertexPosition(const FSkinnedVertex& InVertex) const;
@@ -63,6 +66,7 @@ private:
      * @brief 자식이 계산해 준, 현재 프레임의 최종 스키닝 행렬
     */
     TArray<FMatrix> FinalSkinningMatrices;
+    TArray<FMatrix> FinalSkinningNormalMatrices;
     bool bSkinningMatricesDirty = true;
     
     /**
