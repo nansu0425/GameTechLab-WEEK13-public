@@ -71,7 +71,7 @@ void SSkeletalMeshViewerWindow::OnRender()
             {
                 ViewerState* State = Tabs[i];
                 bool open = true;
-                if (ImGui::BeginTabItem(State->Name.c_str(), &open))
+                if (ImGui::BeginTabItem(State->Name.ToString().c_str(), &open))
                 {
                     ActiveTabIndex = i;
                     ActiveState = State;
@@ -137,6 +137,7 @@ void SSkeletalMeshViewerWindow::OnRender()
                     {
                         ActiveState->PreviewActor->SetSkeletalMesh(Path);
                         ActiveState->CurrentMesh = Mesh;
+                        ActiveState->LoadedMeshPath = Path;  // Track for resource unloading
                         // 메시 표시에 대한 체크박스 상태와 동기화
                         if (auto* Skeletal = ActiveState->PreviewActor->GetSkeletalMeshComponent())
                         {
@@ -505,6 +506,7 @@ void SSkeletalMeshViewerWindow::LoadSkeletalMesh(const FString& Path)
         // Set the mesh on the preview actor
         ActiveState->PreviewActor->SetSkeletalMesh(Path);
         ActiveState->CurrentMesh = Mesh;
+        ActiveState->LoadedMeshPath = Path;  // Track for resource unloading
 
         // Update mesh path buffer for display in UI
         strncpy_s(ActiveState->MeshPathBuffer, Path.c_str(), sizeof(ActiveState->MeshPathBuffer) - 1);
