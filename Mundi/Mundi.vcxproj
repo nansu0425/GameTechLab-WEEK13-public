@@ -112,7 +112,7 @@
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
     </Link>
     <PreBuildEvent>
-      <Command>"$(ProjectDir)Tools\CodeGenerator\RunCodeGen.bat" --source-dir "$(ProjectDir)Source\Runtime" --output-dir "$(ProjectDir)Generated" --vcxproj "$(ProjectDir)Mundi.vcxproj"</Command>
+      <Command>"$(ProjectDir)BuildTools\CodeGenerator\RunCodeGen.bat" --source-dir "$(ProjectDir)Source\Runtime" --output-dir "$(ProjectDir)Generated" --vcxproj "$(ProjectDir)Mundi.vcxproj"</Command>
       <Message>[CodeGen] Generating Lua binding code...</Message>
     </PreBuildEvent>
     <PostBuildEvent>
@@ -140,7 +140,7 @@
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
     </Link>
     <PreBuildEvent>
-      <Command>"$(ProjectDir)Tools\CodeGenerator\RunCodeGen.bat" --source-dir "$(ProjectDir)Source\Runtime" --output-dir "$(ProjectDir)Generated" --vcxproj "$(ProjectDir)Mundi.vcxproj"</Command>
+      <Command>"$(ProjectDir)BuildTools\CodeGenerator\RunCodeGen.bat" --source-dir "$(ProjectDir)Source\Runtime" --output-dir "$(ProjectDir)Generated" --vcxproj "$(ProjectDir)Mundi.vcxproj"</Command>
       <Message>[CodeGen] Generating Lua binding code...</Message>
     </PreBuildEvent>
     <PostBuildEvent>
@@ -171,7 +171,7 @@
       <AdditionalOptions>/IGNORE:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreBuildEvent>
-      <Command>"$(ProjectDir)Tools\CodeGenerator\RunCodeGen.bat" --source-dir "$(ProjectDir)Source\Runtime" --output-dir "$(ProjectDir)Generated" --vcxproj "$(ProjectDir)Mundi.vcxproj"</Command>
+      <Command>"$(ProjectDir)BuildTools\CodeGenerator\RunCodeGen.bat" --source-dir "$(ProjectDir)Source\Runtime" --output-dir "$(ProjectDir)Generated" --vcxproj "$(ProjectDir)Mundi.vcxproj"</Command>
       <Message>[CodeGen] Generating Lua binding code...</Message>
     </PreBuildEvent>
     <PostBuildEvent>
@@ -202,7 +202,7 @@
       <AdditionalOptions>/IGNORE:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreBuildEvent>
-      <Command>"$(ProjectDir)Tools\CodeGenerator\RunCodeGen.bat" --source-dir "$(ProjectDir)Source\Runtime" --output-dir "$(ProjectDir)Generated" --vcxproj "$(ProjectDir)Mundi.vcxproj"</Command>
+      <Command>"$(ProjectDir)BuildTools\CodeGenerator\RunCodeGen.bat" --source-dir "$(ProjectDir)Source\Runtime" --output-dir "$(ProjectDir)Generated" --vcxproj "$(ProjectDir)Mundi.vcxproj"</Command>
       <Message>[CodeGen] Generating Lua binding code...</Message>
     </PreBuildEvent>
     <PostBuildEvent>
@@ -867,13 +867,13 @@
     <ClInclude Include="Generated\ASkinnedMeshActor.generated.h" />
   <ClInclude Include="Generated\ASkeletalMeshActor.generated.h" /></ItemGroup>
   <ItemGroup>
-    <None Include="Tools\CodeGenerator\generate.py" />
-    <None Include="Tools\CodeGenerator\lua_generator.py" />
-    <None Include="Tools\CodeGenerator\parser.py" />
-    <None Include="Tools\CodeGenerator\property_generator.py" />
+    <None Include="BuildTools\CodeGenerator\generate.py" />
+    <None Include="BuildTools\CodeGenerator\lua_generator.py" />
+    <None Include="BuildTools\CodeGenerator\parser.py" />
+    <None Include="BuildTools\CodeGenerator\property_generator.py" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Tools\CodeGenerator\requirements.txt" />
+    <Text Include="BuildTools\CodeGenerator\requirements.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

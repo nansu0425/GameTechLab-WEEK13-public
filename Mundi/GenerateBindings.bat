@@ -19,9 +19,9 @@ REM 2. System Python in PATH
 set PYTHON_CMD=
 
 REM Check for embedded Python first
-if exist "Tools\Python\python.exe" (
-    set PYTHON_CMD=Tools\Python\python.exe
-    echo [INFO] Using embedded Python: Tools\Python\python.exe
+if exist "BuildTools\Python\python.exe" (
+    set PYTHON_CMD=BuildTools\Python\python.exe
+    echo [INFO] Using embedded Python: BuildTools\Python\python.exe
     echo.
 ) else (
     REM Check if system Python is available
@@ -30,7 +30,7 @@ if exist "Tools\Python\python.exe" (
         echo [ERROR] Python not found!
         echo.
         echo Please either:
-        echo   1. Install embedded Python to Tools\Python\ (see Tools\PYTHON_SETUP.md)
+        echo   1. Install embedded Python to BuildTools\Python\ (see BuildTools\PYTHON_SETUP.md)
         echo   2. Install Python 3.7+ and add it to PATH
         echo.
         pause
@@ -53,7 +53,7 @@ if errorlevel 1 (
     %PYTHON_CMD% -m pip install jinja2
     if errorlevel 1 (
         echo [ERROR] Failed to install jinja2!
-        echo If using embedded Python, see Tools\PYTHON_SETUP.md for pip setup
+        echo If using embedded Python, see BuildTools\PYTHON_SETUP.md for pip setup
         pause
         exit /b 1
     )
@@ -61,7 +61,7 @@ if errorlevel 1 (
 )
 
 echo [1/3] Running code generator...
-%PYTHON_CMD% Tools\CodeGenerator\generate.py --source-dir Source\Runtime --output-dir Generated
+%PYTHON_CMD% BuildTools\CodeGenerator\generate.py --source-dir Source\Runtime --output-dir Generated
 
 if errorlevel 1 (
     echo.
