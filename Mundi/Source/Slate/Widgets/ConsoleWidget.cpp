@@ -4,6 +4,7 @@
 #include "GlobalConsole.h"
 #include "StatsOverlayD2D.h"
 #include "USlateManager.h"
+#include "SkinnedMeshComponent.h"
 #include <windows.h>
 #include <cstdarg>
 #include <cctype>
@@ -48,6 +49,9 @@ void UConsoleWidget::Initialize()
 	HelpCommandList.Add("STAT MEMORY");
 	HelpCommandList.Add("STAT PICKING");
 	HelpCommandList.Add("STAT DECAL");
+	HelpCommandList.Add("STAT SKINNING");
+	HelpCommandList.Add("SKINNING GPU");
+	HelpCommandList.Add("SKINNING CPU");
 	HelpCommandList.Add("STAT ALL");
 	HelpCommandList.Add("STAT NONE");
 	HelpCommandList.Add("STAT LIGHT");
@@ -311,6 +315,7 @@ void UConsoleWidget::ExecCommand(const char* command_line)
 		AddLog("- STAT MEMORY");
 		AddLog("- STAT PICKING");
 		AddLog("- STAT DECAL");
+		AddLog("- STAT SKINNING");
 		AddLog("- STAT ALL");
 		AddLog("- STAT LIGHT");
 		AddLog("- STAT NONE");
@@ -349,6 +354,11 @@ void UConsoleWidget::ExecCommand(const char* command_line)
 		UStatsOverlayD2D::Get().SetShowTileCulling(true);
 		AddLog("STAT: ON");
 	}
+	else if (Stricmp(command_line, "STAT SKINNING") == 0)
+	{
+		UStatsOverlayD2D::Get().ToggleSkinning();
+		AddLog("STAT SKINNING TOGGLED");
+	}
 	else if (Stricmp(command_line, "STAT NONE") == 0)
 	{
 		UStatsOverlayD2D::Get().SetShowFPS(false);
@@ -356,7 +366,80 @@ void UConsoleWidget::ExecCommand(const char* command_line)
 		UStatsOverlayD2D::Get().SetShowPicking(false);
 		UStatsOverlayD2D::Get().SetShowDecal(false);
 		UStatsOverlayD2D::Get().SetShowTileCulling(false);
+		UStatsOverlayD2D::Get().SetShowSkinning(false);
 		AddLog("STAT: OFF");
+	}
+	else if (Strnicmp(command_line, "SKINNING GPU", 12) == 0)
+	{
+		// 모든 스켈레탈 메시를 GPU 스키닝으로 전환
+		UWorld* World = GEngine.GetDefaultWorld();
+		if (World)
+		{
+			int32 Count = 0;
+			int32 TotalActors = 0;
+			int32 TotalComponents = 0;
+			for (AActor* Actor : World->GetActors())
+			{
+				TotalActors++;
+				const TSet<UActorComponent*>& Components = Actor->GetOwnedComponents();
+				TotalComponents += Components.size();
+
+				for (UActorComponent* Comp : Components)
+				{
+					if (Comp)
+					{
+						USkinnedMeshComponent* SkinnedMesh = dynamic_cast<USkinnedMeshComponent*>(Comp);
+						if (SkinnedMesh)
+						{
+							SkinnedMesh->SetUseGPUSkinning(true);
+							Count++;
+						}
+					}
+				}
+			}
+			AddLog("GPU Skinning enabled for %d skeletal mesh components (searched %d actors, %d components)",
+				Count, TotalActors, TotalComponents);
+		}
+		else
+		{
+			AddLog("ERROR: Could not find World");
+		}
+	}
+	else if (Strnicmp(command_line, "SKINNING CPU", 12) == 0)
+	{
+		// 모든 스켈레탈 메시를 CPU 스키닝으로 전환
+		UWorld* World = GEngine.GetDefaultWorld();
+		if (World)
+		{
+			int32 Count = 0;
+			int32 TotalActors = 0;
+			int32 TotalComponents = 0;
+			for (AActor* Actor : World->GetActors())
+			{
+				TotalActors++;
+				const TSet<UActorComponent*>& Components = Actor->GetOwnedComponents();
+				TotalComponents += Components.size();
+
+				for (UActorComponent* Comp : Components)
+				{
+					if (Comp)
+					{
+						USkinnedMeshComponent* SkinnedMesh = dynamic_cast<USkinnedMeshComponent*>(Comp);
+						if (SkinnedMesh)
+						{
+							SkinnedMesh->SetUseGPUSkinning(false);
+							Count++;
+						}
+					}
+				}
+			}
+			AddLog("CPU Skinning enabled for %d skeletal mesh components (searched %d actors, %d components)",
+				Count, TotalActors, TotalComponents);
+		}
+		else
+		{
+			AddLog("ERROR: Could not find World");
+		}
 	}
 	else
 	{

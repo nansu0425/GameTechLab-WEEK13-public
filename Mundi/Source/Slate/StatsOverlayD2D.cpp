@@ -13,6 +13,7 @@
 #include "TileCullingStats.h"
 #include "LightStats.h"
 #include "ShadowStats.h"
+#include "SkinnedMeshComponent.h"
 
 #pragma comment(lib, "d2d1")
 #pragma comment(lib, "dwrite")
@@ -98,7 +99,7 @@ static void DrawTextBlock(
 
 void UStatsOverlayD2D::Draw()
 {
-	if (!bInitialized || (!bShowFPS && !bShowMemory && !bShowPicking && !bShowDecal && !bShowTileCulling && !bShowLights && !bShowShadow) || !SwapChain)
+	if (!bInitialized || (!bShowFPS && !bShowMemory && !bShowPicking && !bShowDecal && !bShowTileCulling && !bShowLights && !bShowShadow && !bShowSkinning) || !SwapChain)
 		return;
 
 	ID2D1Factory1* D2dFactory = nullptr;
@@ -373,7 +374,64 @@ void UStatsOverlayD2D::Draw()
 
 		NextY += shadowPanelHeight + Space;
 	}
-	
+
+	if (bShowSkinning)
+	{
+		// 월드에서 스켈레탈 메시 컴포넌트 통계 수집
+		UWorld* World = GEngine.GetDefaultWorld();
+		int32 TotalSkeletalMeshes = 0;
+		int32 GPUSkinnedMeshes = 0;
+		int32 CPUSkinnedMeshes = 0;
+		int32 TotalBones = 0;
+		int32 TotalVertices = 0;
+
+		if (World)
+		{
+			for (AActor* Actor : World->GetActors())
+			{
+				for (UActorComponent* Comp : Actor->GetOwnedComponents())
+				{
+					USkinnedMeshComponent* SkinnedMesh = dynamic_cast<USkinnedMeshComponent*>(Comp);
+					if (SkinnedMesh && SkinnedMesh->GetSkeletalMesh())
+					{
+						TotalSkeletalMeshes++;
+						if (SkinnedMesh->IsUsingGPUSkinning())
+						{
+							GPUSkinnedMeshes++;
+						}
+						else
+						{
+							CPUSkinnedMeshes++;
+						}
+
+						USkeletalMesh* Mesh = SkinnedMesh->GetSkeletalMesh();
+						TotalBones += Mesh->GetBoneCount();
+						TotalVertices += Mesh->GetVertexCount();
+					}
+				}
+			}
+		}
+
+		// 출력할 문자열 버퍼
+		wchar_t Buf[512];
+		swprintf_s(Buf, L"[Skinning Stats]\nTotal Skeletal Meshes: %d\n  GPU Skinning: %d\n  CPU Skinning: %d\n\nTotal Bones: %d\nTotal Vertices: %d",
+			TotalSkeletalMeshes,
+			GPUSkinnedMeshes,
+			CPUSkinnedMeshes,
+			TotalBones,
+			TotalVertices);
+
+		const float skinningPanelHeight = 150.0f;
+		D2D1_RECT_F rc = D2D1::RectF(Margin, NextY, Margin + PanelWidth, NextY + skinningPanelHeight);
+
+		DrawTextBlock(
+			D2dCtx, Dwrite, Buf, rc, 16.0f,
+			D2D1::ColorF(0, 0, 0, 0.6f),
+			D2D1::ColorF(D2D1::ColorF::Cyan));
+
+		NextY += skinningPanelHeight + Space;
+	}
+
 	D2dCtx->EndDraw();
 	D2dCtx->SetTarget(nullptr);
 
@@ -457,4 +515,14 @@ void UStatsOverlayD2D::SetShowShadow(bool b)
 void UStatsOverlayD2D::ToggleShadow()
 {
 	bShowShadow = !bShowShadow;
+}
+
+void UStatsOverlayD2D::SetShowSkinning(bool b)
+{
+	bShowSkinning = b;
+}
+
+void UStatsOverlayD2D::ToggleSkinning()
+{
+	bShowSkinning = !bShowSkinning;
 }

@@ -446,6 +446,15 @@ void FSceneRenderer::RenderShadowMaps()
 	
 	// ViewProjBufferType 복구 (라이트 시점 Override 일 경우 마지막 라이트 시점으로 설정됨)
 	RHIDevice->SetAndUpdateConstantBuffer(ViewProjBufferType(OriginViewProjBuffer));
+
+	// Release GPU skinning bone buffers
+	for (const FMeshBatchElement& Batch : ShadowMeshBatches)
+	{
+		if (Batch.BoneMatricesBuffer)
+		{
+			Batch.BoneMatricesBuffer->Release();
+		}
+	}
 }
 
 void FSceneRenderer::RenderShadowDepthPass(FShadowRenderRequest& ShadowRequest, const TArray<FMeshBatchElement>& InShadowBatches)
@@ -869,6 +878,14 @@ void FSceneRenderer::PerformFrustumCulling()
 void FSceneRenderer::RenderOpaquePass(EViewMode InRenderViewMode)
 {
 	// --- 1. 수집 (Collect) ---
+	// Release any GPU skinning bone buffers from previous frame
+	for (const FMeshBatchElement& Batch : MeshBatchElements)
+	{
+		if (Batch.BoneMatricesBuffer)
+		{
+			Batch.BoneMatricesBuffer->Release();
+		}
+	}
 	MeshBatchElements.Empty();
 	for (UMeshComponent* MeshComponent : Proxies.Meshes)
 	{
@@ -1416,6 +1433,11 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 		// 4. 오브젝트별 상수 버퍼 설정 (매번 변경)
 		RHIDevice->SetAndUpdateConstantBuffer(ModelBufferType(Batch.WorldMatrix, Batch.WorldMatrix.InverseAffine().Transpose()));
 		RHIDevice->SetAndUpdateConstantBuffer(ColorBufferType(Batch.InstanceColor, Batch.ObjectID));
+
+		// GPU 스키닝: 본 행렬 상수 버퍼 바인딩 (b6)
+		// nullptr를 전달하면 해당 슬롯을 언바인드합니다
+		ID3D11Buffer* BoneBuffer = Batch.BoneMatricesBuffer;
+		RHIDevice->GetDeviceContext()->VSSetConstantBuffers(6, 1, &BoneBuffer);
 
 		// 5. 드로우 콜 실행
 		RHIDevice->GetDeviceContext()->DrawIndexed(Batch.IndexCount, Batch.StartIndex, Batch.BaseVertexIndex);

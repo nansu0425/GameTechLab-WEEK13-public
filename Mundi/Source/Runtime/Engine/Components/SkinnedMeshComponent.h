@@ -37,6 +37,15 @@ public:
      */
     USkeletalMesh* GetSkeletalMesh() const { return SkeletalMesh; }
 
+    /**
+     * @brief GPU 스키닝 사용 여부 설정
+     */
+    void SetUseGPUSkinning(bool bInUseGPU);
+    /**
+     * @brief GPU 스키닝 사용 여부 반환
+     */
+    bool IsUsingGPUSkinning() const { return bUseGPUSkinning; }
+
 protected:
     void PerformSkinning();
     /**
@@ -44,6 +53,11 @@ protected:
      * @param InSkinningMatrices 스키닝 매트릭스
      */
     void UpdateSkinningMatrices(const TArray<FMatrix>& InSkinningMatrices, const TArray<FMatrix>& InSkinningNormalMatrices);
+
+    /**
+     * @brief GPU 스키닝을 위해 본 행렬을 GPU 버퍼로 업로드
+     */
+    void UpdateBoneMatrixBuffer();
     
     UPROPERTY(EditAnywhere, Category = "Skeletal Mesh", Tooltip = "Skeletal mesh asset to render")
     USkeletalMesh* SkeletalMesh;
@@ -73,4 +87,22 @@ private:
      * @brief CPU 스키닝에서 진행하기 때문에, Component별로 VertexBuffer를 가지고 스키닝 업데이트를 진행해야함
     */
     ID3D11Buffer* VertexBuffer = nullptr;
+
+    // GPU Skinning
+    /**
+     * @brief GPU 스키닝 사용 여부 플래그
+     */
+    bool bUseGPUSkinning = false;
+    /**
+     * @brief GPU 스키닝용 버텍스 버퍼 (FSkinnedVertex, 변경되지 않음)
+     */
+    ID3D11Buffer* GPUSkinnedVertexBuffer = nullptr;
+    /**
+     * @brief GPU 스키닝용 본 행렬 상수 버퍼
+     */
+    ID3D11Buffer* BoneMatricesBuffer = nullptr;
+    /**
+     * @brief GPU 스키닝용 본 노멀 행렬 상수 버퍼 (현재는 하나의 버퍼에 통합됨)
+     */
+    ID3D11Buffer* BoneNormalMatricesBuffer = nullptr;
 };
