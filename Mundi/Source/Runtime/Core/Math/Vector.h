@@ -62,12 +62,6 @@ namespace FMath
 	{
 		return A + (B - A) * Alpha;
 	}
-
-	// 소수부만 반환 (예: Frac(3.7) = 0.7)
-	static float Frac(float Value)
-	{
-		return Value - std::floor(Value);
-	}
 }
 // 각도를 -180 ~ 180 범위로 정규화 (모듈러 연산)
 inline float NormalizeAngleDeg(float angleDeg)
@@ -1508,16 +1502,16 @@ inline FTransform FTransform::Inverse() const
 
 inline void operator*= (TArray<FVector>& Vectors, const FMatrix& Mat)
 {
-	size_t VectorCount = Vectors.size();
-	for (size_t i = 0; i < VectorCount; i++)
+	uint32 VectorCount = Vectors.size();
+	for (int i = 0; i < VectorCount; i++)
 	{
 		Vectors[i] = Vectors[i] * Mat;
 	}
 }
 inline void operator*= (TArray<FVector4>& Vectors, const FMatrix& Mat)
 {
-	size_t VectorCount = Vectors.size();
-	for (size_t i = 0; i < VectorCount; i++)
+	uint32 VectorCount = Vectors.size();
+	for (int i = 0; i < VectorCount; i++)
 	{
 		Vectors[i] = Vectors[i] * Mat;
 	}
