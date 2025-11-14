@@ -412,74 +412,54 @@ void UConsoleWidget::ExecCommand(const char* command_line)
 	}
 	else if (Strnicmp(command_line, "SKINNING GPU", 12) == 0)
 	{
-		// 모든 스켈레탈 메시를 GPU 스키닝으로 전환
-		UWorld* World = GEngine.GetDefaultWorld();
-		if (World)
-		{
-			int32 Count = 0;
-			int32 TotalActors = 0;
-			int32 TotalComponents = 0;
-			for (AActor* Actor : World->GetActors())
-			{
-				TotalActors++;
-				const TSet<UActorComponent*>& Components = Actor->GetOwnedComponents();
-				TotalComponents += Components.size();
+		// 전역 스키닝 모드를 GPU로 설정 (언리얼 엔진 방식)
+		// 모든 월드에 적용하여 PIE 종료 후에도 설정 유지
+		const TArray<FWorldContext>& WorldContexts = GEngine.GetWorldContexts();
+		int32 WorldsUpdated = 0;
 
-				for (UActorComponent* Comp : Components)
-				{
-					if (Comp)
-					{
-						USkinnedMeshComponent* SkinnedMesh = dynamic_cast<USkinnedMeshComponent*>(Comp);
-						if (SkinnedMesh)
-						{
-							SkinnedMesh->SetUseGPUSkinning(true);
-							Count++;
-						}
-					}
-				}
+		for (const FWorldContext& Context : WorldContexts)
+		{
+			UWorld* World = Context.World;
+			if (World)
+			{
+				World->GetRenderSettings().SetGlobalSkinningMode(ESkinningMode::ForceGPU);
+				WorldsUpdated++;
 			}
-			AddLog("GPU Skinning enabled for %d skeletal mesh components (searched %d actors, %d components)",
-				Count, TotalActors, TotalComponents);
+		}
+
+		if (WorldsUpdated > 0)
+		{
+			AddLog("Global GPU Skinning mode enabled (applied to %d world(s))", WorldsUpdated);
 		}
 		else
 		{
-			AddLog("ERROR: Could not find World");
+			AddLog("ERROR: Could not find any World");
 		}
 	}
 	else if (Strnicmp(command_line, "SKINNING CPU", 12) == 0)
 	{
-		// 모든 스켈레탈 메시를 CPU 스키닝으로 전환
-		UWorld* World = GEngine.GetDefaultWorld();
-		if (World)
-		{
-			int32 Count = 0;
-			int32 TotalActors = 0;
-			int32 TotalComponents = 0;
-			for (AActor* Actor : World->GetActors())
-			{
-				TotalActors++;
-				const TSet<UActorComponent*>& Components = Actor->GetOwnedComponents();
-				TotalComponents += Components.size();
+		// 전역 스키닝 모드를 CPU로 설정 (언리얼 엔진 방식)
+		// 모든 월드에 적용하여 PIE 종료 후에도 설정 유지
+		const TArray<FWorldContext>& WorldContexts = GEngine.GetWorldContexts();
+		int32 WorldsUpdated = 0;
 
-				for (UActorComponent* Comp : Components)
-				{
-					if (Comp)
-					{
-						USkinnedMeshComponent* SkinnedMesh = dynamic_cast<USkinnedMeshComponent*>(Comp);
-						if (SkinnedMesh)
-						{
-							SkinnedMesh->SetUseGPUSkinning(false);
-							Count++;
-						}
-					}
-				}
+		for (const FWorldContext& Context : WorldContexts)
+		{
+			UWorld* World = Context.World;
+			if (World)
+			{
+				World->GetRenderSettings().SetGlobalSkinningMode(ESkinningMode::ForceCPU);
+				WorldsUpdated++;
 			}
-			AddLog("CPU Skinning enabled for %d skeletal mesh components (searched %d actors, %d components)",
-				Count, TotalActors, TotalComponents);
+		}
+
+		if (WorldsUpdated > 0)
+		{
+			AddLog("Global CPU Skinning mode enabled (applied to %d world(s))", WorldsUpdated);
 		}
 		else
 		{
-			AddLog("ERROR: Could not find World");
+			AddLog("ERROR: Could not find any World");
 		}
 	}
 	else

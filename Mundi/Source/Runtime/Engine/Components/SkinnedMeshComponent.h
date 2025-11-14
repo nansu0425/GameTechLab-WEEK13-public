@@ -37,17 +37,12 @@ public:
      */
     USkeletalMesh* GetSkeletalMesh() const { return SkeletalMesh; }
 
-    /**
-     * @brief GPU 스키닝 사용 여부 설정
-     */
-    void SetUseGPUSkinning(bool bInUseGPU);
-    /**
-     * @brief GPU 스키닝 사용 여부 반환
-     */
-    bool IsUsingGPUSkinning() const { return bUseGPUSkinning; }
-
 protected:
-    void PerformSkinning();
+    /**
+     * @brief GPU/CPU 스키닝을 수행 (전역 모드 적용)
+     * @param bUseGPU true면 GPU 스키닝, false면 CPU 스키닝
+     */
+    void PerformSkinning(bool bUseGPU);
     /**
      * @brief 자식에게서 원본 메시를 받아 CPU 스키닝을 수행
      * @param InSkinningMatrices 스키닝 매트릭스
@@ -66,10 +61,6 @@ protected:
      * @brief CPU 스키닝 최종 결과물. 렌더러가 이 데이터를 사용합니다.
      */
     TArray<FNormalVertex> SkinnedVertices;
-    /**
-     * @brief CPU 스키닝 최종 결과물. 렌더러가 이 데이터를 사용합니다.
-     */
-    TArray<FNormalVertex> NormalSkinnedVertices;
 
 private:
     FVector SkinVertexPosition(const FSkinnedVertex& InVertex) const;
@@ -82,6 +73,11 @@ private:
     TArray<FMatrix> FinalSkinningMatrices;
     TArray<FMatrix> FinalSkinningNormalMatrices;
     bool bSkinningMatricesDirty = true;
+
+    /**
+     * @brief 이전 프레임의 스키닝 모드 (모드 변경 감지용)
+     */
+    bool bLastFrameUsedGPU = true;
     
     /**
      * @brief CPU 스키닝에서 진행하기 때문에, Component별로 VertexBuffer를 가지고 스키닝 업데이트를 진행해야함
@@ -90,10 +86,6 @@ private:
 
     // GPU Skinning
     /**
-     * @brief GPU 스키닝 사용 여부 플래그
-     */
-    bool bUseGPUSkinning = false;
-    /**
      * @brief GPU 스키닝용 버텍스 버퍼 (FSkinnedVertex, 변경되지 않음)
      */
     ID3D11Buffer* GPUSkinnedVertexBuffer = nullptr;
@@ -101,8 +93,4 @@ private:
      * @brief GPU 스키닝용 본 행렬 상수 버퍼
      */
     ID3D11Buffer* BoneMatricesBuffer = nullptr;
-    /**
-     * @brief GPU 스키닝용 본 노멀 행렬 상수 버퍼 (현재는 하나의 버퍼에 통합됨)
-     */
-    ID3D11Buffer* BoneNormalMatricesBuffer = nullptr;
 };

@@ -387,6 +387,10 @@ void UStatsOverlayD2D::Draw()
 
 		if (World)
 		{
+			// 전역 스키닝 모드 확인
+			ESkinningMode GlobalMode = World->GetRenderSettings().GetGlobalSkinningMode();
+			bool bUseGPU = (GlobalMode == ESkinningMode::ForceGPU);
+
 			for (AActor* Actor : World->GetActors())
 			{
 				for (UActorComponent* Comp : Actor->GetOwnedComponents())
@@ -395,7 +399,8 @@ void UStatsOverlayD2D::Draw()
 					if (SkinnedMesh && SkinnedMesh->GetSkeletalMesh())
 					{
 						TotalSkeletalMeshes++;
-						if (SkinnedMesh->IsUsingGPUSkinning())
+						// 전역 모드에 따라 GPU/CPU 카운트
+						if (bUseGPU)
 						{
 							GPUSkinnedMeshes++;
 						}

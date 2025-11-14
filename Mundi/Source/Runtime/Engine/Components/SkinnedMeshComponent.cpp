@@ -27,11 +27,6 @@ USkinnedMeshComponent::~USkinnedMeshComponent()
       BoneMatricesBuffer->Release();
       BoneMatricesBuffer = nullptr;
    }
-   if (BoneNormalMatricesBuffer)
-   {
-      BoneNormalMatricesBuffer->Release();
-      BoneNormalMatricesBuffer = nullptr;
-   }
 }
 
 void USkinnedMeshComponent::BeginPlay()
@@ -59,17 +54,10 @@ void USkinnedMeshComponent::DuplicateSubObjects()
 {
    Super::DuplicateSubObjects();
 
-   // GPU/CPU 모드에 따라 적절한 버텍스 버퍼 생성
-   if (bUseGPUSkinning)
-   {
-      SkeletalMesh->CreateGPUSkinnedVertexBuffer(&GPUSkinnedVertexBuffer);
-      // PIE 종료 후 본 버퍼를 다시 생성해야 하므로 dirty 플래그 설정
-      BoneMatricesBuffer = nullptr;
-   }
-   else
-   {
-      SkeletalMesh->CreateVertexBuffer(&VertexBuffer);
-   }
+   // 버퍼는 필요할 때 PerformSkinning()에서 생성되므로 여기서는 리셋만
+   VertexBuffer = nullptr;
+   GPUSkinnedVertexBuffer = nullptr;
+   BoneMatricesBuffer = nullptr;
 
    // PIE 종료 후 스키닝 데이터를 다시 계산하도록 플래그 설정
    bSkinningMatricesDirty = true;
@@ -79,20 +67,44 @@ void USkinnedMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMes
 {
     if (!SkeletalMesh || !SkeletalMesh->GetSkeletalMeshData()) { return; }
 
-   // 스키닝 데이터가 변경되었으면 업데이트
-   if (bSkinningMatricesDirty)
+   // 전역 스키닝 모드 체크 (언리얼 엔진 방식)
+   ESkinningMode GlobalMode = View->RenderSettings->GetGlobalSkinningMode();
+   const bool bUseGPU = (GlobalMode == ESkinningMode::ForceGPU);
+
+   // 스키닝 모드가 바뀌었으면 기존 버퍼 정리
+   if (bUseGPU != bLastFrameUsedGPU)
    {
-      if (bUseGPUSkinning)
+      if (bUseGPU)
       {
-         // GPU 스키닝: 본 행렬 버퍼만 업데이트
-         UpdateBoneMatrixBuffer();
+         // CPU -> GPU 전환: CPU 버퍼 해제
+         if (VertexBuffer)
+         {
+            VertexBuffer->Release();
+            VertexBuffer = nullptr;
+         }
       }
       else
       {
-         // CPU 스키닝: 버텍스 버퍼 업데이트
-         SkeletalMesh->UpdateVertexBuffer(SkinnedVertices, VertexBuffer);
+         // GPU -> CPU 전환: GPU 버퍼 해제
+         if (GPUSkinnedVertexBuffer)
+         {
+            GPUSkinnedVertexBuffer->Release();
+            GPUSkinnedVertexBuffer = nullptr;
+         }
+         if (BoneMatricesBuffer)
+         {
+            BoneMatricesBuffer->Release();
+            BoneMatricesBuffer = nullptr;
+         }
       }
-      bSkinningMatricesDirty = false;
+      bSkinningMatricesDirty = true;  // 모드 변경 시 강제 업데이트
+      bLastFrameUsedGPU = bUseGPU;
+   }
+
+   // 스키닝 데이터가 변경되었으면 업데이트
+   if (bSkinningMatricesDirty)
+   {
+      PerformSkinning(bUseGPU);  // 전역 모드 적용하여 GPU/CPU 처리
    }
 
     const TArray<FGroupInfo>& MeshGroupInfos = SkeletalMesh->GetMeshGroupInfo();
@@ -160,8 +172,8 @@ void USkinnedMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMes
           ShaderMacros.Append(MaterialToUse->GetShaderMacros());
        }
 
-       // GPU 스키닝 매크로 추가
-       if (bUseGPUSkinning)
+       // GPU 스키닝 매크로 추가 (전역 설정 적용)
+       if (bUseGPU)
        {
           FShaderMacro GPUSkinningMacro;
           GPUSkinningMacro.Name = FName("GPU_SKINNING");
@@ -177,11 +189,11 @@ void USkinnedMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMes
           BatchElement.PixelShader = ShaderVariant->PixelShader;
           BatchElement.InputLayout = ShaderVariant->InputLayout;
        }
-       
+
        BatchElement.Material = MaterialToUse;
 
-       // GPU/CPU 모드에 따라 적절한 버텍스 버퍼 및 스트라이드 설정
-       if (bUseGPUSkinning)
+       // GPU/CPU 모드에 따라 적절한 버텍스 버퍼 및 스트라이드 설정 (전역 설정 적용)
+       if (bUseGPU)
        {
           BatchElement.VertexBuffer = GPUSkinnedVertexBuffer;
           BatchElement.VertexStride = sizeof(FSkinnedVertex);
@@ -193,7 +205,7 @@ void USkinnedMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMes
        }
 
        BatchElement.IndexBuffer = SkeletalMesh->GetIndexBuffer();
-       
+
        BatchElement.IndexCount = IndexCount;
        BatchElement.StartIndex = StartIndex;
        BatchElement.BaseVertexIndex = 0;
@@ -201,8 +213,8 @@ void USkinnedMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMes
        BatchElement.ObjectID = InternalIndex;
        BatchElement.PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 
-       // GPU 스키닝 모드일 때 본 버퍼 설정
-       if (bUseGPUSkinning && BoneMatricesBuffer)
+       // GPU 스키닝 모드일 때 본 버퍼 설정 (전역 설정 적용)
+       if (bUseGPU && BoneMatricesBuffer)
        {
           // AddRef to keep buffer alive even if component is destroyed
           BoneMatricesBuffer->AddRef();
@@ -285,19 +297,11 @@ void USkinnedMeshComponent::SetSkeletalMesh(const FString& PathFileName)
 
    if (SkeletalMesh && SkeletalMesh->GetSkeletalMeshData())
    {
-      // GPU/CPU 모드에 따라 적절한 버텍스 버퍼 생성
-      if (bUseGPUSkinning)
-      {
-         SkeletalMesh->CreateGPUSkinnedVertexBuffer(&GPUSkinnedVertexBuffer);
-      }
-      else
-      {
-         SkeletalMesh->CreateVertexBuffer(&VertexBuffer);
-      }
-
+      // 버퍼는 PerformSkinning()에서 필요할 때 생성됨
       const TArray<FMatrix> IdentityMatrices(SkeletalMesh->GetBoneCount(), FMatrix::Identity());
       UpdateSkinningMatrices(IdentityMatrices, IdentityMatrices);
-      PerformSkinning();
+      // 첫 스키닝은 기본값 GPU로 수행 (나중에 전역 모드에 따라 변경됨)
+      PerformSkinning(true);
       
       const TArray<FGroupInfo>& GroupInfos = SkeletalMesh->GetMeshGroupInfo();
        MaterialSlots.resize(GroupInfos.size());
@@ -312,70 +316,33 @@ void USkinnedMeshComponent::SetSkeletalMesh(const FString& PathFileName)
    {
       SkeletalMesh = nullptr;
       UpdateSkinningMatrices(TArray<FMatrix>(), TArray<FMatrix>());
-      PerformSkinning();
    }
 }
 
-void USkinnedMeshComponent::SetUseGPUSkinning(bool bInUseGPU)
+void USkinnedMeshComponent::PerformSkinning(bool bUseGPU)
 {
-   if (bUseGPUSkinning == bInUseGPU) { return; } // 이미 같은 모드면 아무것도 안 함
+   if (!SkeletalMesh || FinalSkinningMatrices.IsEmpty()) { return; }
 
-   bUseGPUSkinning = bInUseGPU;
-
-   // 버퍼 재생성
-   if (!SkeletalMesh || !SkeletalMesh->GetSkeletalMeshData()) { return; }
-
-   if (bUseGPUSkinning)
+   if (bUseGPU)
    {
-      // GPU 모드로 전환: GPU 버퍼 생성, CPU 버퍼 해제
-      if (VertexBuffer)
-      {
-         VertexBuffer->Release();
-         VertexBuffer = nullptr;
-      }
+      // GPU 스키닝: 본 행렬만 GPU로 업로드
+      // 전역 모드로 GPU 강제될 때 버퍼가 없으면 생성
       if (!GPUSkinnedVertexBuffer)
       {
          SkeletalMesh->CreateGPUSkinnedVertexBuffer(&GPUSkinnedVertexBuffer);
       }
-      // 본 행렬 버퍼도 업데이트
-      bSkinningMatricesDirty = true;
-   }
-   else
-   {
-      // CPU 모드로 전환: CPU 버퍼 생성, GPU 버퍼 해제
-      if (GPUSkinnedVertexBuffer)
-      {
-         GPUSkinnedVertexBuffer->Release();
-         GPUSkinnedVertexBuffer = nullptr;
-      }
-      if (BoneMatricesBuffer)
-      {
-         BoneMatricesBuffer->Release();
-         BoneMatricesBuffer = nullptr;
-      }
-      if (!VertexBuffer)
-      {
-         SkeletalMesh->CreateVertexBuffer(&VertexBuffer);
-      }
-      // CPU 스키닝 다시 수행
-      bSkinningMatricesDirty = true;
-   }
-}
-
-void USkinnedMeshComponent::PerformSkinning()
-{
-   if (!SkeletalMesh || FinalSkinningMatrices.IsEmpty()) { return; }
-   if (!bSkinningMatricesDirty) { return; }
-
-   if (bUseGPUSkinning)
-   {
-      // GPU 스키닝: 본 행렬만 GPU로 업로드
       UpdateBoneMatrixBuffer();
       bSkinningMatricesDirty = false;
    }
    else
    {
-      // CPU 스키닝: 기존 방식
+      // CPU 스키닝: 버텍스 계산 + GPU 버퍼 업로드
+      // 전역 모드로 CPU 강제될 때 버퍼가 없으면 생성
+      if (!VertexBuffer)
+      {
+         SkeletalMesh->CreateVertexBuffer(&VertexBuffer);
+      }
+
       const TArray<FSkinnedVertex>& SrcVertices = SkeletalMesh->GetSkeletalMeshData()->Vertices;
       const int32 NumVertices = SrcVertices.Num();
       SkinnedVertices.SetNum(NumVertices);
@@ -390,6 +357,14 @@ void USkinnedMeshComponent::PerformSkinning()
          DstVert.Tangent = SkinVertexTangent(SrcVert);
          DstVert.tex = SrcVert.UV;
       }
+
+      // 버텍스 버퍼에 업로드
+      if (VertexBuffer)
+      {
+         SkeletalMesh->UpdateVertexBuffer(SkinnedVertices, VertexBuffer);
+      }
+
+      bSkinningMatricesDirty = false;
    }
 }
 
