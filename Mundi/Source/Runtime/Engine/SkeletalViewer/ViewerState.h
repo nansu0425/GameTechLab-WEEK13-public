@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 class UWorld; class FViewport; class FViewportClient; class ASkeletalMeshActor; class USkeletalMesh;
 
@@ -31,4 +31,5 @@ public:
     
     bool bBoneTransformChanged = false;
     bool bBoneRotationEditing = false;
+    bool bRequestScrollToBone = false;
 };

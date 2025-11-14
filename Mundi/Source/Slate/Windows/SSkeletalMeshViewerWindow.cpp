@@ -177,6 +177,17 @@ void SSkeletalMeshViewerWindow::OnRender()
                     {
                         ActiveState->PreviewActor->SetSkeletalMesh(Path);
                         ActiveState->CurrentMesh = Mesh;
+
+                        // Expand all bone nodes by default on mesh load
+                        ActiveState->ExpandedBoneIndices.clear();
+                        if (const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton())
+                        {
+                            for (int32 i = 0; i < Skeleton->Bones.size(); ++i)
+                            {
+                                ActiveState->ExpandedBoneIndices.insert(i);
+                            }
+                        }
+
                         ActiveState->LoadedMeshPath = Path;  // Track for resource unloading
                         if (auto* Skeletal = ActiveState->PreviewActor->GetSkeletalMeshComponent())
                         {
@@ -260,6 +271,7 @@ void SSkeletalMeshViewerWindow::OnRender()
                 {
                     // Scrollable tree view
                     ImGui::BeginChild("BoneTreeView", ImVec2(0, 0), true);
+                    ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, 12.0f);
                     const TArray<FBone>& Bones = Skeleton->Bones;
                     TArray<TArray<int32>> Children;
                     Children.resize(Bones.size());
@@ -309,8 +321,11 @@ void SSkeletalMeshViewerWindow::OnRender()
                         {
                             ImGui::PopStyleColor(3);
                             
-                            // 선택된 본까지 스크롤
-                            ImGui::SetScrollHereY(0.5f);
+                            if (ActiveState->bRequestScrollToBone)
+                            {
+                                ImGui::SetScrollHereY(0.5f);    // 선택된 본까지 스크롤
+                                ActiveState->bRequestScrollToBone = false; // 요청 처리 완료
+                            }
                         }
 
                         // 사용자가 수동으로 노드를 접거나 펼쳤을 때 상태 업데이트
@@ -328,7 +343,8 @@ void SSkeletalMeshViewerWindow::OnRender()
                             {
                                 ActiveState->SelectedBoneIndex = Index;
                                 ActiveState->bBoneLinesDirty = true;
-                                
+                                ActiveState->bRequestScrollToBone = true;
+
                                 ExpandToSelectedBone(ActiveState, Index);
 
                                 if (ActiveState->PreviewActor && ActiveState->World)
@@ -361,7 +377,7 @@ void SSkeletalMeshViewerWindow::OnRender()
                             DrawNode(i);
                         }
                     }
-
+                    ImGui::PopStyleVar();
                     ImGui::EndChild();
                 }
             }
@@ -628,6 +644,7 @@ void SSkeletalMeshViewerWindow::OnMouseDown(FVector2D MousePos, uint32 Button)
                         // Bone was picked
                         ActiveState->SelectedBoneIndex = PickedBoneIndex;
                         ActiveState->bBoneLinesDirty = true;
+                        ActiveState->bRequestScrollToBone = true;
 
                         ExpandToSelectedBone(ActiveState, PickedBoneIndex);
 
@@ -745,6 +762,17 @@ void SSkeletalMeshViewerWindow::LoadSkeletalMesh(const FString& Path)
         // Set the mesh on the preview actor
         ActiveState->PreviewActor->SetSkeletalMesh(Path);
         ActiveState->CurrentMesh = Mesh;
+
+        // Expand all bone nodes by default on mesh load
+        ActiveState->ExpandedBoneIndices.clear();
+        if (const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton())
+        {
+            for (int32 i = 0; i < Skeleton->Bones.size(); ++i)
+            {
+                ActiveState->ExpandedBoneIndices.insert(i);
+            }
+        }
+
         ActiveState->LoadedMeshPath = Path;  // Track for resource unloading
 
         // Update mesh path buffer for display in UI
