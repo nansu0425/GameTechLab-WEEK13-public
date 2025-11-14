@@ -279,14 +279,7 @@ void USkeletalMeshComponent::TickAnimation(float DeltaTime)
 
         AnimationData->GetAnimationPose(Pose, Context);
 
-        // Pose를 CurrentLocalSpacePose에 적용
-        const int32 NumBones = FMath::Min(Pose.GetNumBones(), CurrentLocalSpacePose.Num());
-        for (int32 i = 0; i < NumBones; ++i)
-        {
-            CurrentLocalSpacePose[i] = Pose.BoneTransforms[i];
-        }
-
-        // 스키닝 업데이트
-        ForceRecomputePose();
+        // TODO: Pose를 CurrentLocalSpacePose에 적용
+        // TODO: ForceRecomputePose() 호출하여 스키닝 업데이트
     }
 }
