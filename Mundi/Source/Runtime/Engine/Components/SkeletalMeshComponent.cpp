@@ -53,7 +53,6 @@ void USkeletalMeshComponent::SetSkeletalMesh(const FString& PathFileName)
         CurrentLocalSpacePose.SetNum(NumBones);
         CurrentComponentSpacePose.SetNum(NumBones);
         TempFinalSkinningMatrices.SetNum(NumBones);
-        TempFinalSkinningNormalMatrices.SetNum(NumBones);
 
         for (int32 i = 0; i < NumBones; ++i)
         {
@@ -82,7 +81,6 @@ void USkeletalMeshComponent::SetSkeletalMesh(const FString& PathFileName)
         CurrentLocalSpacePose.Empty();
         CurrentComponentSpacePose.Empty();
         TempFinalSkinningMatrices.Empty();
-        TempFinalSkinningNormalMatrices.Empty();
     }
 }
 
@@ -136,7 +134,7 @@ void USkeletalMeshComponent::ForceRecomputePose()
     UpdateComponentSpaceTransforms();
     // ComponentSpace -> Final Skinning Matrices 계산
     UpdateFinalSkinningMatrices();
-    UpdateSkinningMatrices(TempFinalSkinningMatrices, TempFinalSkinningNormalMatrices);
+    UpdateSkinningMatrices(TempFinalSkinningMatrices);
     // PerformSkinning은 CollectMeshBatches에서 전역 모드에 따라 수행됨
 }
 
@@ -173,6 +171,5 @@ void USkeletalMeshComponent::UpdateFinalSkinningMatrices()
         const FMatrix ComponentPoseMatrix = CurrentComponentSpacePose[BoneIndex].ToMatrix();
         
         TempFinalSkinningMatrices[BoneIndex] = InvBindPose * ComponentPoseMatrix;
-        TempFinalSkinningNormalMatrices[BoneIndex] = TempFinalSkinningMatrices[BoneIndex].Inverse().Transpose();
     }
 }

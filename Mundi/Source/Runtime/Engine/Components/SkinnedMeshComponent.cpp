@@ -299,7 +299,7 @@ void USkinnedMeshComponent::SetSkeletalMesh(const FString& PathFileName)
    {
       // 버퍼는 PerformSkinning()에서 필요할 때 생성됨
       const TArray<FMatrix> IdentityMatrices(SkeletalMesh->GetBoneCount(), FMatrix::Identity());
-      UpdateSkinningMatrices(IdentityMatrices, IdentityMatrices);
+      UpdateSkinningMatrices(IdentityMatrices);
       // 첫 스키닝은 기본값 GPU로 수행 (나중에 전역 모드에 따라 변경됨)
       PerformSkinning(true);
       
@@ -315,7 +315,7 @@ void USkinnedMeshComponent::SetSkeletalMesh(const FString& PathFileName)
    else
    {
       SkeletalMesh = nullptr;
-      UpdateSkinningMatrices(TArray<FMatrix>(), TArray<FMatrix>());
+      UpdateSkinningMatrices(TArray<FMatrix>());
    }
 }
 
@@ -368,10 +368,9 @@ void USkinnedMeshComponent::PerformSkinning(bool bUseGPU)
    }
 }
 
-void USkinnedMeshComponent::UpdateSkinningMatrices(const TArray<FMatrix>& InSkinningMatrices, const TArray<FMatrix>& InSkinningNormalMatrices)
+void USkinnedMeshComponent::UpdateSkinningMatrices(const TArray<FMatrix>& InSkinningMatrices)
 {
    FinalSkinningMatrices = InSkinningMatrices;
-   FinalSkinningNormalMatrices = InSkinningNormalMatrices;
    bSkinningMatricesDirty = true;
 }
 
@@ -406,7 +405,8 @@ FVector USkinnedMeshComponent::SkinVertexNormal(const FSkinnedVertex& InVertex) 
 
       if (Weight > 0.f)
       {
-         const FMatrix& SkinMatrix = FinalSkinningNormalMatrices[BoneIndex];
+         // 노멀도 일반 스키닝 행렬로 변환 (비균등 스케일 무시)
+         const FMatrix& SkinMatrix = FinalSkinningMatrices[BoneIndex];
          FVector TransformedNormal = SkinMatrix.TransformVector(InVertex.Normal);
          BlendedNormal += TransformedNormal * Weight;
       }
@@ -429,6 +429,7 @@ FVector4 USkinnedMeshComponent::SkinVertexTangent(const FSkinnedVertex& InVertex
 
       if (Weight > 0.f)
       {
+         // 탄젠트도 일반 스키닝 행렬로 변환 (비균등 스케일 무시)
          const FMatrix& SkinMatrix = FinalSkinningMatrices[BoneIndex];
          FVector TransformedTangentDir = SkinMatrix.TransformVector(OriginalTangentDir);
          BlendedTangentDir += TransformedTangentDir * Weight;
@@ -443,11 +444,10 @@ void USkinnedMeshComponent::UpdateBoneMatrixBuffer()
 {
    constexpr int32 MAX_BONES = 128;
 
-   // 본 행렬과 노멀 행렬을 합친 버퍼 구조체
+   // GPU 스키닝용 본 행렬 버퍼 (노멀 행렬 없이 하나만 사용)
    struct FBoneMatricesBufferData
    {
       FMatrix BoneMatrices[MAX_BONES];
-      FMatrix BoneNormalMatrices[MAX_BONES];
    };
 
    FBoneMatricesBufferData BufferData;
@@ -458,7 +458,6 @@ void USkinnedMeshComponent::UpdateBoneMatrixBuffer()
    for (int32 i = 0; i < NumBones; ++i)
    {
       BufferData.BoneMatrices[i] = FinalSkinningMatrices[i];
-      BufferData.BoneNormalMatrices[i] = FinalSkinningNormalMatrices[i];
    }
 
    // 버퍼가 없으면 생성

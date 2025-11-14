@@ -77,8 +77,7 @@ cbuffer FLightShadowmBufferType : register(b5)
 #define MAX_BONES 128
 cbuffer BoneMatricesBuffer : register(b6)
 {
-    row_major float4x4 BoneMatrices[MAX_BONES];          // 본 변환 행렬
-    row_major float4x4 BoneNormalMatrices[MAX_BONES];    // 노멀 변환 행렬
+    row_major float4x4 BoneMatrices[MAX_BONES];          // 본 변환 행렬 (위치, 노멀, 탄젠트 모두 사용)
 };
 #endif
 
@@ -159,11 +158,11 @@ PS_INPUT mainVS(VS_INPUT Input)
             // Position 블렌딩
             skinnedPosition += mul(float4(Input.Position, 1.0f), BoneMatrices[boneIndex]).xyz * weight;
 
-            // Normal 블렌딩 (w=0, 방향 벡터)
-            skinnedNormal += mul(float4(Input.Normal, 0.0f), BoneNormalMatrices[boneIndex]).xyz * weight;
+            // Normal 블렌딩 (w=0, 방향 벡터) - 비균등 스케일 무시하고 일반 행렬 사용
+            skinnedNormal += mul(float4(Input.Normal, 0.0f), BoneMatrices[boneIndex]).xyz * weight;
 
-            // Tangent 블렌딩 (w=0, 방향 벡터)
-            skinnedTangent += mul(float4(Input.Tangent.xyz, 0.0f), BoneNormalMatrices[boneIndex]).xyz * weight;
+            // Tangent 블렌딩 (w=0, 방향 벡터) - 비균등 스케일 무시하고 일반 행렬 사용
+            skinnedTangent += mul(float4(Input.Tangent.xyz, 0.0f), BoneMatrices[boneIndex]).xyz * weight;
         }
     }
 
