@@ -674,10 +674,23 @@ void SSkeletalMeshViewerWindow::OnRenderViewport()
 {
     if (ActiveState && ActiveState->Viewport && CenterRect.GetWidth() > 0 && CenterRect.GetHeight() > 0)
     {
-        const uint32 NewStartX = static_cast<uint32>(CenterRect.Left);
-        const uint32 NewStartY = static_cast<uint32>(CenterRect.Top);
-        const uint32 NewWidth  = static_cast<uint32>(CenterRect.Right - CenterRect.Left);
-        const uint32 NewHeight = static_cast<uint32>(CenterRect.Bottom - CenterRect.Top);
+        // Clamp viewport to window bounds to prevent integer wraparound and corruption
+        extern float CLIENTWIDTH;
+        extern float CLIENTHEIGHT;
+
+        float ClampedLeft = std::max(0.0f, CenterRect.Left);
+        float ClampedTop = std::max(0.0f, CenterRect.Top);
+        float ClampedRight = std::min(CLIENTWIDTH, CenterRect.Right);
+        float ClampedBottom = std::min(CLIENTHEIGHT, CenterRect.Bottom);
+
+        // Skip rendering if viewport is completely outside window bounds
+        if (ClampedLeft >= ClampedRight || ClampedTop >= ClampedBottom)
+            return;
+
+        const uint32 NewStartX = static_cast<uint32>(ClampedLeft);
+        const uint32 NewStartY = static_cast<uint32>(ClampedTop);
+        const uint32 NewWidth  = static_cast<uint32>(ClampedRight - ClampedLeft);
+        const uint32 NewHeight = static_cast<uint32>(ClampedBottom - ClampedTop);
         ActiveState->Viewport->Resize(NewStartX, NewStartY, NewWidth, NewHeight);
 
         // 본 오버레이 재구축

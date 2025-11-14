@@ -24,6 +24,11 @@ protected:
 	~UStaticMeshComponent() override;
 
 public:
+
+    // ===== Lua-Bindable Properties (Auto-moved from protected/private) =====
+
+	UPROPERTY(EditAnywhere, Category="Static Mesh", Tooltip="Static mesh asset to render")
+	UStaticMesh* StaticMesh = nullptr;
 	void OnStaticMeshReleased(UStaticMesh* ReleasedMesh);
 
 	void CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View) override;
@@ -42,6 +47,4 @@ protected:
 	void OnTransformUpdated() override;
 
 protected:
-	UPROPERTY(EditAnywhere, Category="Static Mesh", Tooltip="Static mesh asset to render")
-	UStaticMesh* StaticMesh = nullptr;
 };

@@ -119,7 +119,7 @@ FThumbnailData* FThumbnailManager::CreateFBXThumbnail(const std::string& FilePat
 {
 	// TODO: 실제 FBX 메시를 렌더타겟에 렌더링하여 썸네일 생성
 	// 현재는 기본 아이콘 반환
-	UE_LOG("ThumbnailManager: FBX thumbnail generation not yet implemented for %s", FilePath.c_str());
+	//UE_LOG("ThumbnailManager: FBX thumbnail generation not yet implemented for %s", FilePath.c_str());
 	return CreateDefaultThumbnail(".fbx");
 }
 
