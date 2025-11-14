@@ -14,7 +14,6 @@ class UAnimDataModel : public UObject
 	GENERATED_REFLECTION_BODY()
 
 public:
-
 	UAnimDataModel() = default;
 	virtual ~UAnimDataModel() = default;
 
@@ -25,7 +24,7 @@ public:
 	float SequenceLength = 0.0f;
 
 	/** 프레임레이트 (초당 프레임 수) */
-	float FrameRate = 30.0f;
+	float FrameRate = 60.0f;
 
 	/** 전체 프레임 개수 */
 	int32 NumberOfFrames = 0;

@@ -11,24 +11,22 @@ struct FRawAnimSequenceTrack
 {
 public:
 	/** 위치 키프레임 (Translation) */
-	TArray<FVector> PosKeys;
+	TArray<FVector> PositionKeys;
 
 	/** 회전 키프레임 (Quaternion) */
-	TArray<FQuat> RotKeys;
+	TArray<FQuat> RotationKeys;
 
 	/** 스케일 키프레임 */
 	TArray<FVector> ScaleKeys;
 
 	/** 기본 생성자 */
-	FRawAnimSequenceTrack()
-	{
-	}
+	FRawAnimSequenceTrack() {}
 
 	/** 위치 키프레임 개수 반환 */
-	int32 GetNumPosKeys() const { return PosKeys.Num(); }
+	int32 GetNumPosKeys() const { return PositionKeys.Num(); }
 
 	/** 회전 키프레임 개수 반환 */
-	int32 GetNumRotKeys() const { return RotKeys.Num(); }
+	int32 GetNumRotKeys() const { return RotationKeys.Num(); }
 
 	/** 스케일 키프레임 개수 반환 */
 	int32 GetNumScaleKeys() const { return ScaleKeys.Num(); }
@@ -36,34 +34,34 @@ public:
 	/** 트랙이 비어있는지 확인 */
 	bool IsEmpty() const
 	{
-		return PosKeys.Num() == 0 && RotKeys.Num() == 0 && ScaleKeys.Num() == 0;
+		return PositionKeys.Num() == 0 && RotationKeys.Num() == 0 && ScaleKeys.Num() == 0;
 	}
 
 	/** 아카이브로 직렬화 */
 	friend FArchive& operator<<(FArchive& Ar, FRawAnimSequenceTrack& Track)
 	{
 		// 위치 키 직렬화
-		int32 NumPosKeys = Track.PosKeys.Num();
-		Ar << NumPosKeys;
+		int32 NumPositionKeys = Track.PositionKeys.Num();
+		Ar << NumPositionKeys;
 		if (Ar.IsLoading())
 		{
-			Track.PosKeys.SetNum(NumPosKeys);
+			Track.PositionKeys.SetNum(NumPositionKeys);
 		}
-		for (int32 i = 0; i < NumPosKeys; ++i)
+		for (int32 i = 0; i < NumPositionKeys; ++i)
 		{
-			Ar << Track.PosKeys[i];
+			Ar << Track.PositionKeys[i];
 		}
 
 		// 회전 키 직렬화
-		int32 NumRotKeys = Track.RotKeys.Num();
-		Ar << NumRotKeys;
+		int32 NumRotationKeys = Track.RotationKeys.Num();
+		Ar << NumRotationKeys;
 		if (Ar.IsLoading())
 		{
-			Track.RotKeys.SetNum(NumRotKeys);
+			Track.RotationKeys.SetNum(NumRotationKeys);
 		}
-		for (int32 i = 0; i < NumRotKeys; ++i)
+		for (int32 i = 0; i < NumRotationKeys; ++i)
 		{
-			Ar << Track.RotKeys[i];
+			Ar << Track.RotationKeys[i];
 		}
 
 		// 스케일 키 직렬화
