@@ -130,3 +130,177 @@ public:
 		return Ar;
 	}
 };
+
+/**
+ * 벡터 애니메이션 커브 (Position/Scale용)
+ * 시간별 벡터 값을 저장
+ */
+struct FVectorAnimCurve
+{
+public:
+	/** 키프레임 시간 배열 (초 단위) */
+	TArray<float> Times;
+
+	/** 키프레임 값 배열 (각 Time에 대응) */
+	TArray<FVector> Values;
+
+	/** 기본 생성자 */
+	FVectorAnimCurve() {}
+
+	/** 키프레임 개수 반환 */
+	int32 GetNumKeys() const { return Times.Num(); }
+
+	/** 커브가 비어있는지 확인 */
+	bool IsEmpty() const { return Times.Num() == 0; }
+
+	/** 키프레임 추가 */
+	void AddKey(float Time, const FVector& Value)
+	{
+		Times.Add(Time);
+		Values.Add(Value);
+	}
+
+	/** 아카이브로 직렬화 */
+	friend FArchive& operator<<(FArchive& Ar, FVectorAnimCurve& Curve)
+	{
+		int32 NumKeys = Curve.Times.Num();
+		Ar << NumKeys;
+		if (Ar.IsLoading())
+		{
+			Curve.Times.SetNum(NumKeys);
+			Curve.Values.SetNum(NumKeys);
+		}
+		for (int32 i = 0; i < NumKeys; ++i)
+		{
+			Ar << Curve.Times[i];
+			Ar << Curve.Values[i];
+		}
+		return Ar;
+	}
+};
+
+/**
+ * 쿼터니언 애니메이션 커브 (Rotation용)
+ * 시간별 회전 값을 저장
+ */
+struct FQuatAnimCurve
+{
+public:
+	/** 키프레임 시간 배열 (초 단위) */
+	TArray<float> Times;
+
+	/** 키프레임 값 배열 (각 Time에 대응) */
+	TArray<FQuat> Values;
+
+	/** 기본 생성자 */
+	FQuatAnimCurve() {}
+
+	/** 키프레임 개수 반환 */
+	int32 GetNumKeys() const { return Times.Num(); }
+
+	/** 커브가 비어있는지 확인 */
+	bool IsEmpty() const { return Times.Num() == 0; }
+
+	/** 키프레임 추가 */
+	void AddKey(float Time, const FQuat& Value)
+	{
+		Times.Add(Time);
+		Values.Add(Value);
+	}
+
+	/** 아카이브로 직렬화 */
+	friend FArchive& operator<<(FArchive& Ar, FQuatAnimCurve& Curve)
+	{
+		int32 NumKeys = Curve.Times.Num();
+		Ar << NumKeys;
+		if (Ar.IsLoading())
+		{
+			Curve.Times.SetNum(NumKeys);
+			Curve.Values.SetNum(NumKeys);
+		}
+		for (int32 i = 0; i < NumKeys; ++i)
+		{
+			Ar << Curve.Times[i];
+			Ar << Curve.Values[i];
+		}
+		return Ar;
+	}
+};
+
+/**
+ * Transform 애니메이션 커브
+ * 본 하나의 Position, Rotation, Scale 커브를 저장
+ */
+struct FTransformAnimCurve
+{
+public:
+	/** 위치 커브 */
+	FVectorAnimCurve PositionCurve;
+
+	/** 회전 커브 */
+	FQuatAnimCurve RotationCurve;
+
+	/** 스케일 커브 */
+	FVectorAnimCurve ScaleCurve;
+
+	/** 기본 생성자 */
+	FTransformAnimCurve() {}
+
+	/** 커브가 비어있는지 확인 */
+	bool IsEmpty() const
+	{
+		return PositionCurve.IsEmpty() && RotationCurve.IsEmpty() && ScaleCurve.IsEmpty();
+	}
+
+	/** 아카이브로 직렬화 */
+	friend FArchive& operator<<(FArchive& Ar, FTransformAnimCurve& Curve)
+	{
+		Ar << Curve.PositionCurve;
+		Ar << Curve.RotationCurve;
+		Ar << Curve.ScaleCurve;
+		return Ar;
+	}
+};
+
+/**
+ * 애니메이션 커브 데이터
+ * FBX AnimCurve에서 추출한 실제 키프레임 데이터를 저장
+ * 프레임 샘플링이 아닌 실제 키프레임만 저장하여 메모리 효율적
+ */
+struct FAnimationCurveData
+{
+public:
+	/** 각 본의 Transform 커브 배열 (본 인덱스 순서대로) */
+	TArray<FTransformAnimCurve> BoneTransformCurves;
+
+	/** 기본 생성자 */
+	FAnimationCurveData() {}
+
+	/** 본 개수 반환 */
+	int32 GetNumBones() const { return BoneTransformCurves.Num(); }
+
+	/** 데이터가 비어있는지 확인 */
+	bool IsEmpty() const { return BoneTransformCurves.Num() == 0; }
+
+	/** 초기화 */
+	void Reset()
+	{
+		BoneTransformCurves.clear();
+	}
+
+	/** 아카이브로 직렬화 */
+	friend FArchive& operator<<(FArchive& Ar, FAnimationCurveData& Data)
+	{
+		int32 NumBones = Data.BoneTransformCurves.Num();
+		Ar << NumBones;
+		if (Ar.IsLoading())
+		{
+			Data.BoneTransformCurves.SetNum(NumBones);
+		}
+		for (int32 i = 0; i < NumBones; ++i)
+		{
+			Ar << Data.BoneTransformCurves[i];
+		}
+		return Ar;
+	}
+};

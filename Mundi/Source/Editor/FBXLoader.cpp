@@ -7,8 +7,8 @@
 #include "WindowsBinReader.h"
 #include "WindowsBinWriter.h"
 #include "PathUtils.h"
-#include "../Runtime/Engine/Animation/AnimSequence.h"
-#include "../Runtime/Engine/Animation/AnimDataModel.h"
+#include "AnimSequence.h"
+#include "AnimDataModel.h"
 #include <filesystem>
 #include <functional>
 
