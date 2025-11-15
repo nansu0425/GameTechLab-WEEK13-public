@@ -1,5 +1,6 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "AnimSequence.h"
+#include "VertexData.h"
 
 UAnimSequence::UAnimSequence()
 	: AnimDataModel(nullptr)
@@ -59,6 +60,101 @@ void UAnimSequence::GetBonePose(float Time, TArray<FTransform>& OutBonePose) con
 		// 본 트랜스폼 설정
 		OutBonePose[Track.BoneIndex] = FTransform(Position, Rotation, Scale);
 	}
+}
+
+void UAnimSequence::ExtractBonePose(const FSkeleton& Skeleton, float Time, bool bLooping, bool bInterpolate, TArray<FTransform>& OutLocalPose) const
+{
+    // Ensure output size equals skeleton bones and start from bind local pose
+    const int32 NumBones = static_cast<int32>(Skeleton.Bones.Num());
+    OutLocalPose.SetNum(NumBones);
+
+    // Build bind local as default for all bones
+    for (int32 BoneIndex = 0; BoneIndex < NumBones; ++BoneIndex)
+    {
+        const FBone& ThisBone = Skeleton.Bones[BoneIndex];
+        const int32 ParentIndex = ThisBone.ParentIndex;
+        FMatrix LocalBindMatrix;
+        if (ParentIndex == -1)
+        {
+            LocalBindMatrix = ThisBone.BindPose;
+        }
+        else
+        {
+            const FMatrix& ParentInverseBindPose = Skeleton.Bones[ParentIndex].InverseBindPose;
+            LocalBindMatrix = ThisBone.BindPose * ParentInverseBindPose;
+        }
+        OutLocalPose[BoneIndex] = FTransform(LocalBindMatrix);
+    }
+
+    if (!IsValid())
+    {
+        return; // keep bind pose
+    }
+
+    // Wrap or clamp time to sequence length
+    const float Length = GetPlayLength();
+    if (Length <= 0.f)
+    {
+        return;
+    }
+
+    float EvalTime = Time;
+    if (bLooping)
+    {
+        float T = std::fmod(EvalTime, Length);
+        if (T < 0.f) T += Length;
+        EvalTime = T;
+    }
+    else
+    {
+        EvalTime = FMath::Clamp(EvalTime, 0.0f, Length);
+    }
+
+    // Fill from tracks
+    const TArray<FBoneAnimationTrack>& Tracks = AnimDataModel->GetBoneAnimationTracks();
+    for (const FBoneAnimationTrack& Track : Tracks)
+    {
+        const int32 BoneIndex = Track.BoneIndex;
+        if (BoneIndex < 0 || BoneIndex >= NumBones)
+        {
+            continue;
+        }
+
+        const FRawAnimSequenceTrack& Raw = Track.InternalTrack;
+
+        if (!bInterpolate)
+        {
+            // Sample at nearest key using frame rate
+            const float FrameRate = AnimDataModel->FrameRate;
+            auto SampleVec = [&](const TArray<FVector>& Keys) -> FVector
+            {
+                if (Keys.Num() == 0) return OutLocalPose[BoneIndex].Translation; // keep existing
+                if (Keys.Num() == 1) return Keys[0];
+                int32 i0, i1; float a; FindKeyframeIndices(EvalTime, Keys.Num(), FrameRate, i0, i1, a);
+                return Keys[i0];
+            };
+            auto SampleQuat = [&](const TArray<FQuat>& Keys) -> FQuat
+            {
+                if (Keys.Num() == 0) return OutLocalPose[BoneIndex].Rotation; // keep existing
+                if (Keys.Num() == 1) return Keys[0];
+                int32 i0, i1; float a; FindKeyframeIndices(EvalTime, Keys.Num(), FrameRate, i0, i1, a);
+                return Keys[i0];
+            };
+
+            const FVector P = SampleVec(Raw.PositionKeys);
+            const FQuat   R = SampleQuat(Raw.RotationKeys);
+            const FVector S = Raw.ScaleKeys.Num() > 0 ? SampleVec(Raw.ScaleKeys) : OutLocalPose[BoneIndex].Scale3D;
+            OutLocalPose[BoneIndex] = FTransform(P, R, S);
+        }
+        else
+        {
+            const float FrameRate = AnimDataModel->FrameRate;
+            const FVector P = InterpolatePosition(Raw.PositionKeys, EvalTime, FrameRate);
+            const FQuat   R = InterpolateRotation(Raw.RotationKeys, EvalTime, FrameRate);
+            const FVector S = InterpolateScale(Raw.ScaleKeys, EvalTime, FrameRate);
+            OutLocalPose[BoneIndex] = FTransform(P, R, S);
+        }
+    }
 }
 
 void UAnimSequence::FindKeyframeIndices(float Time, int32 NumKeys, float FrameRate, int32& OutIndex0, int32& OutIndex1, float& OutAlpha) const

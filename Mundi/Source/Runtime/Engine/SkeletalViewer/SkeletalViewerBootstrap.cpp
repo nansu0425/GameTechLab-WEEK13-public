@@ -5,6 +5,8 @@
 #include "FViewport.h"
 #include "FSkeletalViewerViewportClient.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
+#include "Source/Runtime/Engine/Animation/AnimTestUtil.h"
+#include "Source/Runtime/Engine/Animation/AnimSequence.h"
 
 ViewerState* SkeletalViewerBootstrap::CreateViewerState(const char* Name, UWorld* InWorld, ID3D11Device* InDevice)
 {
@@ -42,6 +44,31 @@ ViewerState* SkeletalViewerBootstrap::CreateViewerState(const char* Name, UWorld
     {
         ASkeletalMeshActor* Preview = State->World->SpawnActor<ASkeletalMeshActor>();
         State->PreviewActor = Preview;
+
+        // Placeholder: create a simple test sequence and queue playback.
+        // Note: It will start visibly playing once a skeletal mesh is assigned in the viewer UI.
+        if (Preview && Preview->GetSkeletalMeshComponent())
+        {
+            // If there is already a mesh with skeleton, build sequence to match; otherwise build generic.
+            const USkeletalMesh* Mesh = Preview->GetSkeletalMeshComponent()->GetSkeletalMesh();
+            const FSkeleton* Skel = Mesh ? Mesh->GetSkeleton() : nullptr;
+            if (Skel)
+            {
+                if (UAnimSequence* TestSeq = AnimTestUtil::CreateSimpleSwingSequence(*Skel, 1.0f, 30.0f))
+                {
+                    Preview->GetSkeletalMeshComponent()->PlayAnimation(TestSeq, true, 1.0f);
+                }
+            }
+            else
+            {
+                // Without a mesh yet, we can still prepare a 1-bone sequence; playback starts after a mesh is set.
+                FSkeleton EmptySkel; // no bones yet
+                if (UAnimSequence* TestSeq = AnimTestUtil::CreateSimpleSwingSequence(EmptySkel, 1.0f, 30.0f))
+                {
+                    Preview->GetSkeletalMeshComponent()->PlayAnimation(TestSeq, true, 1.0f);
+                }
+            }
+        }
     }
 
     return State;

@@ -108,7 +108,7 @@ void UAnimSingleNodeInstance::EvaluateAnimation(FPoseContext& Output)
         Ctx.bEnableInterpolation = true;
 
         TArray<FTransform> ComponentPose;
-        FAnimationRuntime::ExtractPostFromSequence(Seq, Ctx, *Skeleton, ComponentPose);
+        FAnimationRuntime::ExtractPoseFromSequence(Seq, Ctx, *Skeleton, ComponentPose);
 
         FAnimationRuntime::ConvertComponentToLocalSpace(*Skeleton, ComponentPose, Output.LocalSpacePose);
     }
@@ -123,8 +123,8 @@ void UAnimSingleNodeInstance::EvaluateAnimation(FPoseContext& Output)
         FAnimExtractContext RefCtx;  RefCtx.CurrentTime = ReferenceTime; RefCtx.bLooping = bLooping; RefCtx.bEnableInterpolation = true;
 
         TArray<FTransform> CurrComp, RefComp;
-        FAnimationRuntime::ExtractPostFromSequence(Seq, CurrCtx, *Skeleton, CurrComp);
-        FAnimationRuntime::ExtractPostFromSequence(Seq, RefCtx,  *Skeleton, RefComp);
+        FAnimationRuntime::ExtractPoseFromSequence(Seq, CurrCtx, *Skeleton, CurrComp);
+        FAnimationRuntime::ExtractPoseFromSequence(Seq, RefCtx,  *Skeleton, RefComp);
 
         // 3) Convert to local-space
         TArray<FTransform> CurrLocal, RefLocal;
