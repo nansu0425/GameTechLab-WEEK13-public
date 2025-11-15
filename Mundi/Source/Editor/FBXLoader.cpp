@@ -1291,7 +1291,10 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 	};
 	CollectBoneNodes(RootNode);
 
-	// 12. 각 본에 대해 애니메이션 키프레임 추출
+	// 12. CurveData 초기화 (본 개수만큼 Transform 커브 배열 생성)
+	DataModel->CurveData.BoneTransformCurves.SetNum(TargetSkeleton->Bones.Num());
+
+	// 13. 각 본에 대해 FbxAnimCurve에서 실제 키프레임만 추출
 	int32 TotalKeys = 0;
 	for (int32 BoneIndex = 0; BoneIndex < TargetSkeleton->Bones.Num(); ++BoneIndex)
 	{
@@ -1306,10 +1309,8 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 
 		FbxNode* BoneNode = BoneNameToNode[Bone.Name];
 
-		// FBoneAnimationTrack 생성
-		FBoneAnimationTrack Track;
-		Track.BoneIndex = BoneIndex;
-		Track.BoneName = Bone.Name;
+		// FTransformAnimCurve 참조 가져오기
+		FTransformAnimCurve& TransformCurve = DataModel->CurveData.BoneTransformCurves[BoneIndex];
 
 		// Position, Rotation, Scale 애니메이션 커브 가져오기
 		FbxAnimCurve* TranslationCurveX = BoneNode->LclTranslation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
@@ -1324,64 +1325,92 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 		FbxAnimCurve* ScaleCurveY = BoneNode->LclScaling.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
 		FbxAnimCurve* ScaleCurveZ = BoneNode->LclScaling.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
 
-		// 키프레임 개수 결정 (프레임 단위로 샘플링)
-		int32 NumFrames = DataModel->NumberOfFrames + 1; // 마지막 프레임 포함
-
-		// 각 프레임에서 키 샘플링
-		for (int32 FrameIndex = 0; FrameIndex < NumFrames; ++FrameIndex)
+		// Position 키프레임 추출 (실제 키프레임만)
+		if (TranslationCurveX && TranslationCurveY && TranslationCurveZ)
 		{
-			float Time = (FrameIndex / FrameRate);
-			FbxTime FbxSampleTime;
-			FbxSampleTime.SetSecondDouble(Time);
+			int KeyCount = TranslationCurveX->KeyGetCount();
+			for (int i = 0; i < KeyCount; ++i)
+			{
+				FbxTime KeyTime = TranslationCurveX->KeyGetTime(i);
+				float Time = static_cast<float>(KeyTime.GetSecondDouble());
 
-			// Position 키 추출
-			FbxVector4 Translation = BoneNode->EvaluateLocalTranslation(FbxSampleTime);
-			Track.InternalTrack.PositionKeys.Add(FVector(
-				static_cast<float>(Translation[0]),
-				static_cast<float>(Translation[1]),
-				static_cast<float>(Translation[2])
-			));
+				FVector Position(
+					static_cast<float>(TranslationCurveX->KeyGetValue(i)),
+					static_cast<float>(TranslationCurveY->Evaluate(KeyTime)),
+					static_cast<float>(TranslationCurveZ->Evaluate(KeyTime))
+				);
 
-			// Rotation 키 추출 (Euler -> Quaternion 변환)
-			FbxVector4 EulerRotation = BoneNode->EvaluateLocalRotation(FbxSampleTime);
-			FbxQuaternion FbxQuat;
-			FbxQuat.ComposeSphericalXYZ(FbxVector4(
-				FbxDouble3(EulerRotation[0], EulerRotation[1], EulerRotation[2])
-			));
-
-			Track.InternalTrack.RotationKeys.Add(FQuat(
-				static_cast<float>(FbxQuat[0]),
-				static_cast<float>(FbxQuat[1]),
-				static_cast<float>(FbxQuat[2]),
-				static_cast<float>(FbxQuat[3])
-			));
-
-			// Scale 키 추출
-			FbxVector4 Scale = BoneNode->EvaluateLocalScaling(FbxSampleTime);
-			Track.InternalTrack.ScaleKeys.Add(FVector(
-				static_cast<float>(Scale[0]),
-				static_cast<float>(Scale[1]),
-				static_cast<float>(Scale[2])
-			));
+				TransformCurve.PositionCurve.AddKey(Time, Position);
+			}
+			TotalKeys += KeyCount;
 		}
 
-		TotalKeys += NumFrames;
-		DataModel->BoneAnimationTracks.Add(Track);
+		// Rotation 키프레임 추출 (Euler -> Quaternion 변환)
+		if (RotationCurveX && RotationCurveY && RotationCurveZ)
+		{
+			int KeyCount = RotationCurveX->KeyGetCount();
+			for (int i = 0; i < KeyCount; ++i)
+			{
+				FbxTime KeyTime = RotationCurveX->KeyGetTime(i);
+				float Time = static_cast<float>(KeyTime.GetSecondDouble());
+
+				// Euler 각도 추출
+				FbxDouble3 EulerRotation(
+					RotationCurveX->KeyGetValue(i),
+					RotationCurveY->Evaluate(KeyTime),
+					RotationCurveZ->Evaluate(KeyTime)
+				);
+
+				// Euler -> Quaternion 변환
+				FbxQuaternion FbxQuat;
+				FbxQuat.ComposeSphericalXYZ(FbxVector4(EulerRotation[0], EulerRotation[1], EulerRotation[2]));
+
+				FQuat Rotation(
+					static_cast<float>(FbxQuat[0]),
+					static_cast<float>(FbxQuat[1]),
+					static_cast<float>(FbxQuat[2]),
+					static_cast<float>(FbxQuat[3])
+				);
+
+				TransformCurve.RotationCurve.AddKey(Time, Rotation);
+			}
+			TotalKeys += KeyCount;
+		}
+
+		// Scale 키프레임 추출
+		if (ScaleCurveX && ScaleCurveY && ScaleCurveZ)
+		{
+			int KeyCount = ScaleCurveX->KeyGetCount();
+			for (int i = 0; i < KeyCount; ++i)
+			{
+				FbxTime KeyTime = ScaleCurveX->KeyGetTime(i);
+				float Time = static_cast<float>(KeyTime.GetSecondDouble());
+
+				FVector Scale(
+					static_cast<float>(ScaleCurveX->KeyGetValue(i)),
+					static_cast<float>(ScaleCurveY->Evaluate(KeyTime)),
+					static_cast<float>(ScaleCurveZ->Evaluate(KeyTime))
+				);
+
+				TransformCurve.ScaleCurve.AddKey(Time, Scale);
+			}
+			TotalKeys += KeyCount;
+		}
 	}
 
 	DataModel->NumberOfKeys = TotalKeys;
 
-	// 13. UAnimSequence 생성 및 설정
+	// 14. UAnimSequence 생성 및 설정
 	UAnimSequence* AnimSequence = NewObject<UAnimSequence>();
 	AnimSequence->SetFilePath(NormalizedPath);
 	AnimSequence->SetSkeletonName(TargetSkeleton->Name);
 	AnimSequence->SetAnimDataModel(DataModel);
 
-	// 14. 씬 정리
+	// 15. 씬 정리
 	Scene->Destroy();
 
-	UE_LOG("UFbxLoader::LoadFbxAnimation: Successfully loaded animation (%.3f sec, %d tracks, %d keys)",
-		SequenceLength, DataModel->BoneAnimationTracks.Num(), TotalKeys);
+	UE_LOG("UFbxLoader::LoadFbxAnimation: Successfully loaded animation (%.3f sec, %d bones, %d total keys)",
+		SequenceLength, TargetSkeleton->Bones.Num(), TotalKeys);
 
 	return AnimSequence;
 }
