@@ -46,8 +46,9 @@ protected:
     /**
      * @brief 자식에게서 원본 메시를 받아 스키닝 행렬 업데이트
      * @param InSkinningMatrices 스키닝 매트릭스
+     * @param BoneMatrixCalcTimeMS 본 행렬 계산에 걸린 시간 (밀리초)
      */
-    void UpdateSkinningMatrices(const TArray<FMatrix>& InSkinningMatrices);
+    void UpdateSkinningMatrices(const TArray<FMatrix>& InSkinningMatrices, double BoneMatrixCalcTimeMS = 0.0);
 
     /**
      * @brief GPU 스키닝을 위해 본 행렬을 GPU 버퍼로 업로드
@@ -77,6 +78,11 @@ private:
      * @brief 이전 프레임의 스키닝 모드 (모드 변경 감지용)
      */
     bool bLastFrameUsedGPU = true;
+
+    /**
+     * @brief 본 행렬 계산 시간 (밀리초) - 자식 컴포넌트에서 전달받음
+     */
+    double LastBoneMatrixCalcTimeMS = 0.0;
     
     /**
      * @brief CPU 스키닝에서 진행하기 때문에, Component별로 VertexBuffer를 가지고 스키닝 업데이트를 진행해야함

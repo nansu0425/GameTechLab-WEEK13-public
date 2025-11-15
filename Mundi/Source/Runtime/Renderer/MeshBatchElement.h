@@ -65,6 +65,9 @@ struct FMeshBatchElement
 	// GPU 스키닝용 본 행렬 상수 버퍼 (register b6)
 	ID3D11Buffer* BoneMatricesBuffer = nullptr;
 
+	// 스켈레탈 메시 여부 (GPU 타이머 측정용)
+	bool bIsSkeletalMesh = false;
+
 	// --- 기본 생성자 ---
 	FMeshBatchElement() = default;
 

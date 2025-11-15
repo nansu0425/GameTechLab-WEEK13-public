@@ -21,6 +21,7 @@
 #include "SelectionManager.h"
 #include "StaticMeshComponent.h"
 #include "DecalStatManager.h"
+#include "SkinningStats.h"
 #include "BillboardComponent.h"
 #include "TextRenderComponent.h"
 #include "OBB.h"
@@ -77,6 +78,29 @@ void FSceneRenderer::Render()
 {
     if (!IsValid()) return;
 
+	// 현재 스키닝 모드 확인
+	ESkinningMode GlobalMode = World->GetRenderSettings().GetGlobalSkinningMode();
+	bool bIsCPUMode = (GlobalMode == ESkinningMode::ForceCPU);
+
+	// 이전 프레임의 GPU draw 시간 가져오기 (비동기)
+	double LastGPUDrawTimeMS = FSkinningStatManager::GetInstance().GetGPUDrawTimeMS(RHIDevice->GetDeviceContext());
+
+	// 프레임 단위 통계 리셋 (선택적 리셋: 비활성 모드의 마지막 통계 보존)
+	FDecalStatManager::GetInstance().ResetFrameStats();
+	FSkinningStatManager::GetInstance().ResetFrameStats(bIsCPUMode);
+
+	// GPU draw 시간을 현재 활성 모드 통계에 추가
+	// CPU 모드: CPU 본 계산 + 버텍스 스키닝 + 버퍼 업로드 + GPU draw
+	// GPU 모드: CPU 본 계산 + 본 버퍼 업로드 + GPU draw(셰이더 스키닝 포함)
+	if (bIsCPUMode)
+	{
+		FSkinningStatManager::GetInstance().AddCPUGPUDrawTime(LastGPUDrawTimeMS);
+	}
+	else
+	{
+		FSkinningStatManager::GetInstance().AddGPUDrawTime(LastGPUDrawTimeMS);
+	}
+
 	/*static bool Loaded = false;
 	if (!Loaded)
 	{
@@ -85,7 +109,7 @@ void FSceneRenderer::Render()
 	}*/
     // 뷰(View) 준비: 행렬, 절두체 등 프레임에 필요한 기본 데이터 계산
     PrepareView();
-    // (Background is cleared per-path when binding scene color)
+    // (Background is cleared per-path when binding service color)
     // 렌더링할 대상 수집 (Cull + Gather)
     GatherVisibleProxies();
 
@@ -164,8 +188,9 @@ void FSceneRenderer::RenderLitPath()
         RHIDevice->ClearDepthBuffer(1.0f, 0);
     }
 
-	// Base Pass
+	// Base Pass (GPU 타이머는 DrawMeshBatches 내에서 스켈레탈 메시만 측정)
 	RenderOpaquePass(View->RenderSettings->GetViewMode());
+
 	RenderDecalPass();
 }
 
@@ -1314,6 +1339,9 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 	ID3D11SamplerState* ShadowSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::Shadow);
 	ID3D11SamplerState* VSMSampler = RHIDevice->GetSamplerState(RHI_Sampler_Index::VSM);
 
+	// 스켈레탈 메시 GPU 타이머 상태 추적
+	bool bInSkeletalMeshSection = false;
+
 	// 정렬된 리스트 순회
 	for (const FMeshBatchElement& Batch : InMeshBatches)
 	{
@@ -1439,8 +1467,28 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 		ID3D11Buffer* BoneBuffer = Batch.BoneMatricesBuffer;
 		RHIDevice->GetDeviceContext()->VSSetConstantBuffers(6, 1, &BoneBuffer);
 
+		// 스켈레탈 메시 GPU 타이머 제어
+		if (Batch.bIsSkeletalMesh && !bInSkeletalMeshSection)
+		{
+			// 스켈레탈 메시 섹션 시작
+			FSkinningStatManager::GetInstance().BeginGPUTimer(RHIDevice->GetDeviceContext());
+			bInSkeletalMeshSection = true;
+		}
+		else if (!Batch.bIsSkeletalMesh && bInSkeletalMeshSection)
+		{
+			// 스켈레탈 메시 섹션 종료
+			FSkinningStatManager::GetInstance().EndGPUTimer(RHIDevice->GetDeviceContext());
+			bInSkeletalMeshSection = false;
+		}
+
 		// 5. 드로우 콜 실행
 		RHIDevice->GetDeviceContext()->DrawIndexed(Batch.IndexCount, Batch.StartIndex, Batch.BaseVertexIndex);
+	}
+
+	// 루프 종료 시 스켈레탈 메시 섹션이 열려있으면 닫기
+	if (bInSkeletalMeshSection)
+	{
+		FSkinningStatManager::GetInstance().EndGPUTimer(RHIDevice->GetDeviceContext());
 	}
 
 	// 루프 종료 후 리스트 비우기 (옵션)

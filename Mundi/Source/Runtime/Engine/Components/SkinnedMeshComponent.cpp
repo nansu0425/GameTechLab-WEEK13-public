@@ -2,6 +2,8 @@
 #include "SkinnedMeshComponent.h"
 #include "MeshBatchElement.h"
 #include "SceneView.h"
+#include "SkinningStats.h"
+#include "PlatformTime.h"
 
 USkinnedMeshComponent::USkinnedMeshComponent() : SkeletalMesh(nullptr)
 {
@@ -225,6 +227,9 @@ void USkinnedMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMes
           BatchElement.BoneMatricesBuffer = nullptr;
        }
 
+       // 스켈레탈 메시 플래그 설정 (GPU 타이머 측정용)
+       BatchElement.bIsSkeletalMesh = true;
+
        OutMeshBatchElements.Add(BatchElement);
     }
 }
@@ -323,29 +328,52 @@ void USkinnedMeshComponent::PerformSkinning(bool bUseGPU)
 {
    if (!SkeletalMesh || FinalSkinningMatrices.IsEmpty()) { return; }
 
+   FSkinningStatManager& StatManager = FSkinningStatManager::GetInstance();
+   const TArray<FSkinnedVertex>& SrcVertices = SkeletalMesh->GetSkeletalMeshData()->Vertices;
+   const int32 NumVertices = SrcVertices.Num();
+   const int32 NumBones = FinalSkinningMatrices.Num();
+
    if (bUseGPU)
    {
-      // GPU 스키닝: 본 행렬만 GPU로 업로드
+      // === GPU 스키닝 ===
+
       // 전역 모드로 GPU 강제될 때 버퍼가 없으면 생성
       if (!GPUSkinnedVertexBuffer)
       {
          SkeletalMesh->CreateGPUSkinnedVertexBuffer(&GPUSkinnedVertexBuffer);
       }
+
+      // 본 버퍼 업로드 시간 측정
+      uint64 BoneUploadStart = FWindowsPlatformTime::Cycles64();
       UpdateBoneMatrixBuffer();
+      uint64 BoneUploadEnd = FWindowsPlatformTime::Cycles64();
+      double BoneUploadTimeMS = FWindowsPlatformTime::ToMilliseconds(BoneUploadEnd - BoneUploadStart);
+
+      // NOTE: GPU 셰이더 실행 시간은 현재 구조상 측정 불가
+      // (Begin/End 사이에 실제 Draw call이 없음, 별도의 렌더링 파이프라인 통합 필요)
+
+      // 통계에 추가
+      const uint64 BoneBufferSize = sizeof(FMatrix) * 128; // MAX_BONES
+      StatManager.AddGPUMesh(NumVertices, NumBones, BoneBufferSize);
+      StatManager.AddGPUBoneMatrixCalcTime(LastBoneMatrixCalcTimeMS); // 본 행렬 계산 시간 추가
+      StatManager.AddGPUBoneBufferUploadTime(BoneUploadTimeMS);
+
       bSkinningMatricesDirty = false;
    }
    else
    {
-      // CPU 스키닝: 버텍스 계산 + GPU 버퍼 업로드
+      // === CPU 스키닝 ===
+
       // 전역 모드로 CPU 강제될 때 버퍼가 없으면 생성
       if (!VertexBuffer)
       {
          SkeletalMesh->CreateVertexBuffer(&VertexBuffer);
       }
 
-      const TArray<FSkinnedVertex>& SrcVertices = SkeletalMesh->GetSkeletalMeshData()->Vertices;
-      const int32 NumVertices = SrcVertices.Num();
       SkinnedVertices.SetNum(NumVertices);
+
+      // CPU 버텍스 스키닝 계산 시간 측정
+      uint64 VertexSkinningStart = FWindowsPlatformTime::Cycles64();
 
       for (int32 Idx = 0; Idx < NumVertices; ++Idx)
       {
@@ -358,19 +386,35 @@ void USkinnedMeshComponent::PerformSkinning(bool bUseGPU)
          DstVert.tex = SrcVert.UV;
       }
 
-      // 버텍스 버퍼에 업로드
+      uint64 VertexSkinningEnd = FWindowsPlatformTime::Cycles64();
+      double VertexSkinningTimeMS = FWindowsPlatformTime::ToMilliseconds(VertexSkinningEnd - VertexSkinningStart);
+
+      // 버텍스 버퍼 업로드 시간 측정
+      uint64 BufferUploadStart = FWindowsPlatformTime::Cycles64();
+
       if (VertexBuffer)
       {
          SkeletalMesh->UpdateVertexBuffer(SkinnedVertices, VertexBuffer);
       }
 
+      uint64 BufferUploadEnd = FWindowsPlatformTime::Cycles64();
+      double BufferUploadTimeMS = FWindowsPlatformTime::ToMilliseconds(BufferUploadEnd - BufferUploadStart);
+
+      // 통계에 추가
+      const uint64 VertexBufferSize = sizeof(FNormalVertex) * NumVertices;
+      StatManager.AddCPUMesh(NumVertices, NumBones, VertexBufferSize);
+      StatManager.AddCPUBoneMatrixCalcTime(LastBoneMatrixCalcTimeMS); // 본 행렬 계산 시간 추가
+      StatManager.AddCPUVertexSkinningTime(VertexSkinningTimeMS);
+      StatManager.AddCPUBufferUploadTime(BufferUploadTimeMS);
+
       bSkinningMatricesDirty = false;
    }
 }
 
-void USkinnedMeshComponent::UpdateSkinningMatrices(const TArray<FMatrix>& InSkinningMatrices)
+void USkinnedMeshComponent::UpdateSkinningMatrices(const TArray<FMatrix>& InSkinningMatrices, double BoneMatrixCalcTimeMS)
 {
    FinalSkinningMatrices = InSkinningMatrices;
+   LastBoneMatrixCalcTimeMS = BoneMatrixCalcTimeMS;
    bSkinningMatricesDirty = true;
 }
 

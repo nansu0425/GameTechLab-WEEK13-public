@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "SkeletalMeshComponent.h"
+#include "PlatformTime.h"
 
 USkeletalMeshComponent::USkeletalMeshComponent()
 {
@@ -133,8 +134,8 @@ void USkeletalMeshComponent::ForceRecomputePose()
     // LocalSpace -> ComponentSpace 계산
     UpdateComponentSpaceTransforms();
     // ComponentSpace -> Final Skinning Matrices 계산
+    // UpdateFinalSkinningMatrices()에서 UpdateSkinningMatrices()를 호출하여 본 행렬 계산 시간과 함께 전달
     UpdateFinalSkinningMatrices();
-    UpdateSkinningMatrices(TempFinalSkinningMatrices);
     // PerformSkinning은 CollectMeshBatches에서 전역 모드에 따라 수행됨
 }
 
@@ -165,11 +166,22 @@ void USkeletalMeshComponent::UpdateFinalSkinningMatrices()
     const FSkeleton& Skeleton = SkeletalMesh->GetSkeletalMeshData()->Skeleton;
     const int32 NumBones = Skeleton.Bones.Num();
 
+    // 본 행렬 계산 시간 측정 시작
+    uint64 BoneMatrixCalcStart = FWindowsPlatformTime::Cycles64();
+
     for (int32 BoneIndex = 0; BoneIndex < NumBones; ++BoneIndex)
     {
         const FMatrix& InvBindPose = Skeleton.Bones[BoneIndex].InverseBindPose;
         const FMatrix ComponentPoseMatrix = CurrentComponentSpacePose[BoneIndex].ToMatrix();
-        
+
         TempFinalSkinningMatrices[BoneIndex] = InvBindPose * ComponentPoseMatrix;
     }
+
+    // 본 행렬 계산 시간 측정 종료
+    uint64 BoneMatrixCalcEnd = FWindowsPlatformTime::Cycles64();
+    double BoneMatrixCalcTimeMS = FWindowsPlatformTime::ToMilliseconds(BoneMatrixCalcEnd - BoneMatrixCalcStart);
+
+    // 본 행렬 계산 시간을 부모 USkinnedMeshComponent로 전달
+    // 부모에서 실제 스키닝 모드(CPU/GPU)에 따라 통계에 추가됨
+    UpdateSkinningMatrices(TempFinalSkinningMatrices, BoneMatrixCalcTimeMS);
 }

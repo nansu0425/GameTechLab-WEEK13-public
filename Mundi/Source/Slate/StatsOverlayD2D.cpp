@@ -13,6 +13,7 @@
 #include "TileCullingStats.h"
 #include "LightStats.h"
 #include "ShadowStats.h"
+#include "SkinningStats.h"
 #include "SkinnedMeshComponent.h"
 
 #pragma comment(lib, "d2d1")
@@ -180,6 +181,7 @@ void UStatsOverlayD2D::Draw()
 	const float Margin = 12.0f;
 	const float Space = 8.0f;   // 패널간의 간격
 	const float PanelWidth = 200.0f;
+	const float SkinningPanelWidth = 340.0f;  // 스키닝 통계용 넓은 패널
 	const float PanelHeight = 48.0f;
 	float NextY = 70.0f;
 
@@ -364,7 +366,8 @@ void UStatsOverlayD2D::Draw()
 		NextY += shadowPanelHeight + Space;
 
 
-		rc = D2D1::RectF(Margin, NextY, Margin + PanelWidth, NextY + 40);
+		const float shadowMapPassHeight = 40.0f;
+		rc = D2D1::RectF(Margin, NextY, Margin + PanelWidth, NextY + shadowMapPassHeight);
 
 		// 4. DrawTextBlock 함수를 호출하여 화면에 그립니다. 색상은 구분을 위해 한색(Magenta)으로 설정합니다.
 		DrawTextBlock(
@@ -372,69 +375,84 @@ void UStatsOverlayD2D::Draw()
 			D2D1::ColorF(0, 0, 0, 0.6f),
 			D2D1::ColorF(D2D1::ColorF::DeepPink));
 
-		NextY += shadowPanelHeight + Space;
+		NextY += shadowMapPassHeight + Space;
 	}
 
 	if (bShowSkinning)
 	{
-		// 월드에서 스켈레탈 메시 컴포넌트 통계 수집
-		UWorld* World = GEngine.GetDefaultWorld();
-		int32 TotalSkeletalMeshes = 0;
-		int32 GPUSkinnedMeshes = 0;
-		int32 CPUSkinnedMeshes = 0;
-		int32 TotalBones = 0;
-		int32 TotalVertices = 0;
+		// 스키닝 통계 매니저에서 데이터 가져오기
+		const FSkinningStats& Stats = FSkinningStatManager::GetInstance().GetStats();
 
+		// 전역 스키닝 모드 확인
+		UWorld* World = GEngine.GetDefaultWorld();
+		ESkinningMode GlobalMode = ESkinningMode::ForceCPU;
 		if (World)
 		{
-			// 전역 스키닝 모드 확인
-			ESkinningMode GlobalMode = World->GetRenderSettings().GetGlobalSkinningMode();
-			bool bUseGPU = (GlobalMode == ESkinningMode::ForceGPU);
-
-			for (AActor* Actor : World->GetActors())
-			{
-				for (UActorComponent* Comp : Actor->GetOwnedComponents())
-				{
-					USkinnedMeshComponent* SkinnedMesh = dynamic_cast<USkinnedMeshComponent*>(Comp);
-					if (SkinnedMesh && SkinnedMesh->GetSkeletalMesh())
-					{
-						TotalSkeletalMeshes++;
-						// 전역 모드에 따라 GPU/CPU 카운트
-						if (bUseGPU)
-						{
-							GPUSkinnedMeshes++;
-						}
-						else
-						{
-							CPUSkinnedMeshes++;
-						}
-
-						USkeletalMesh* Mesh = SkinnedMesh->GetSkeletalMesh();
-						TotalBones += Mesh->GetBoneCount();
-						TotalVertices += Mesh->GetVertexCount();
-					}
-				}
-			}
+			GlobalMode = World->GetRenderSettings().GetGlobalSkinningMode();
 		}
+		bool bUseGPU = (GlobalMode == ESkinningMode::ForceGPU);
 
-		// 출력할 문자열 버퍼
-		wchar_t Buf[512];
-		swprintf_s(Buf, L"[Skinning Stats]\nTotal Skeletal Meshes: %d\n  GPU Skinning: %d\n  CPU Skinning: %d\n\nTotal Bones: %d\nTotal Vertices: %d",
-			TotalSkeletalMeshes,
-			GPUSkinnedMeshes,
-			CPUSkinnedMeshes,
-			TotalBones,
-			TotalVertices);
+		// CPU 스키닝 상자 (파란색) - 제목 포함
+		wchar_t CPUBuf[1024];
+		swprintf_s(CPUBuf,
+			L"[Skinning Performance]\n"
+			L"CPU Skinning\n"
+			L"Bone Matrix Calc:     %.3f ms\n"
+			L"Vertex Skinning:      %.3f ms\n"
+			L"Vertex Buffer Upload: %.3f ms\n"
+			L"GPU Draw Time:        %.3f ms\n"
+			L"Total Skinning Time:  %.3f ms\n"
+			L"\n"
+			L"Vertices: %d | Bones: %d\n"
+			L"Vertex Buffer: %.2f KB\n"
+			L"Buffer Updates: %d",
+			Stats.CPUBoneMatrixCalcTimeMS,
+			Stats.CPUVertexSkinningTimeMS,
+			Stats.CPUVertexBufferUploadTimeMS,
+			Stats.CPUGPUDrawTimeMS,
+			Stats.GetCPUTotalTimeMS(),
+			Stats.CPUTotalVertices,
+			Stats.CPUTotalBones,
+			Stats.CPUVertexBufferMemory / 1024.0,
+			Stats.CPUBufferUpdateCount);
 
-		const float skinningPanelHeight = 150.0f;
-		D2D1_RECT_F rc = D2D1::RectF(Margin, NextY, Margin + PanelWidth, NextY + skinningPanelHeight);
-
+		const float cpuPanelHeight = 250.0f; // 제목 2줄 추가로 높이 증가
+		D2D1_RECT_F cpuRc = D2D1::RectF(Margin, NextY, Margin + SkinningPanelWidth, NextY + cpuPanelHeight);
 		DrawTextBlock(
-			D2dCtx, Dwrite, Buf, rc, 16.0f,
+			D2dCtx, Dwrite, CPUBuf, cpuRc, 16.0f,
 			D2D1::ColorF(0, 0, 0, 0.6f),
-			D2D1::ColorF(D2D1::ColorF::Cyan));
+			D2D1::ColorF(0.4f, 0.7f, 1.0f)); // 파란색
+		NextY += cpuPanelHeight + Space;
 
-		NextY += skinningPanelHeight + Space;
+		// GPU 스키닝 상자 (연두색) - 제목 포함
+		wchar_t GPUBuf[1024];
+		swprintf_s(GPUBuf,
+			L"[Skinning Performance]\n"
+			L"GPU Skinning\n"
+			L"Bone Matrix Calc:     %.3f ms\n"
+			L"Bone Buffer Upload:   %.3f ms\n"
+			L"GPU Draw Time:        %.3f ms\n"
+			L"Total Skinning Time:  %.3f ms\n"
+			L"\n"
+			L"Vertices: %d | Bones: %d\n"
+			L"Bone Buffer: %.2f KB\n"
+			L"Buffer Updates: %d",
+			Stats.GPUBoneMatrixCalcTimeMS,
+			Stats.GPUBoneBufferUploadTimeMS,
+			Stats.GPUDrawTimeMS,
+			Stats.GetGPUTotalTimeMS(),
+			Stats.GPUTotalVertices,
+			Stats.GPUTotalBones,
+			Stats.GPUBoneBufferMemory / 1024.0,
+			Stats.GPUBufferUpdateCount);
+
+		const float gpuPanelHeight = 230.0f; // 제목 2줄 추가로 높이 증가
+		D2D1_RECT_F gpuRc = D2D1::RectF(Margin, NextY, Margin + SkinningPanelWidth, NextY + gpuPanelHeight);
+		DrawTextBlock(
+			D2dCtx, Dwrite, GPUBuf, gpuRc, 16.0f,
+			D2D1::ColorF(0, 0, 0, 0.6f),
+			D2D1::ColorF(0.5f, 1.0f, 0.5f)); // 연두색
+		NextY += gpuPanelHeight + Space;
 	}
 
 	D2dCtx->EndDraw();
