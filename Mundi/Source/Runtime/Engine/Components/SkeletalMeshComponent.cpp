@@ -1,6 +1,10 @@
 ﻿#include "pch.h"
 #include "SkeletalMeshComponent.h"
 
+#include "AnimNodeBase.h"
+#include "AnimInstance.h"
+#include "AnimSingleNodeInstance.h"
+
 USkeletalMeshComponent::USkeletalMeshComponent()
 {
     // 테스트용 기본 메시 설정
@@ -11,6 +15,20 @@ USkeletalMeshComponent::USkeletalMeshComponent()
 void USkeletalMeshComponent::TickComponent(float DeltaTime)
 {
     Super::TickComponent(DeltaTime);
+    // Drive animation instance if present
+    if (bUseAnimation && AnimInstance && SkeletalMesh && SkeletalMesh->GetSkeleton())
+    {
+        AnimInstance->NativeUpdateAnimation(DeltaTime);
+
+        FPoseContext OutputPose;
+        OutputPose.Initialize(this, SkeletalMesh->GetSkeleton(), DeltaTime);
+        AnimInstance->EvaluateAnimation(OutputPose);
+
+        // Apply local-space pose to component and rebuild skinning
+        CurrentLocalSpacePose = OutputPose.LocalSpacePose;
+        ForceRecomputePose();
+        return; // skip test code when animation is active
+    }
     //// FOR TEST ////
     if (!SkeletalMesh) { return; } // 부모의 SkeletalMesh 확인
 
@@ -74,7 +92,13 @@ void USkeletalMeshComponent::SetSkeletalMesh(const FString& PathFileName)
             CurrentLocalSpacePose[i] = FTransform(LocalBindMatrix); 
         }
         
-        ForceRecomputePose(); 
+        ForceRecomputePose();
+
+        // Rebind anim instance to new skeleton
+        if (AnimInstance)
+        {
+            AnimInstance->InitializeAnimation(this);
+        }
     }
     else
     {
@@ -84,6 +108,67 @@ void USkeletalMeshComponent::SetSkeletalMesh(const FString& PathFileName)
         TempFinalSkinningMatrices.Empty();
         TempFinalSkinningNormalMatrices.Empty();
     }
+}
+
+void USkeletalMeshComponent::SetAnimInstance(UAnimInstance* InInstance)
+{
+    AnimInstance = InInstance;
+    if (AnimInstance)
+    {
+        AnimInstance->InitializeAnimation(this);
+    }
+}
+
+void USkeletalMeshComponent::PlayAnimation(UAnimationAsset* Asset, bool bLooping, float InPlayRate)
+{
+    UAnimSingleNodeInstance* Single = nullptr;
+    if (!AnimInstance)
+    {
+        Single = NewObject<UAnimSingleNodeInstance>();
+        SetAnimInstance(Single);
+    }
+    else
+    {
+        Single = Cast<UAnimSingleNodeInstance>(AnimInstance);
+        if (!Single)
+        {
+            // Replace with a single-node instance for simple playback
+            Single = NewObject<UAnimSingleNodeInstance>();
+            SetAnimInstance(Single);
+        }
+    }
+
+    if (Single)
+    {
+        Single->SetAnimationAsset(Asset, bLooping);
+        Single->SetPlayRate(InPlayRate);
+        Single->Play(true);
+    }
+}
+
+void USkeletalMeshComponent::StopAnimation()
+{
+    if (UAnimSingleNodeInstance* Single = Cast<UAnimSingleNodeInstance>(AnimInstance))
+    {
+        Single->Stop();
+    }
+}
+
+void USkeletalMeshComponent::SetAnimationPosition(float InSeconds)
+{
+    if (UAnimSingleNodeInstance* Single = Cast<UAnimSingleNodeInstance>(AnimInstance))
+    {
+        Single->SetPosition(InSeconds, false);
+    }
+}
+
+bool USkeletalMeshComponent::IsPlayingAnimation() const
+{
+    if (const UAnimSingleNodeInstance* Single = Cast<UAnimSingleNodeInstance>(AnimInstance))
+    {
+        return Single->IsPlaying();
+    }
+    return false;
 }
 
 void USkeletalMeshComponent::SetBoneLocalTransform(int32 BoneIndex, const FTransform& NewLocalTransform)

@@ -1,12 +1,16 @@
 #pragma once
 #include "AnimInstance.h"
+#include "UAnimSingleNodeInstance.generated.h"
 
 class UAnimationAsset;
 class UAnimSequenceBase;
 
+UCLASS(DisplayName="싱글 노드 애니 인스턴스", Description="단일 시퀀스 재생기")
 class UAnimSingleNodeInstance : public UAnimInstance
 {
 public:
+    GENERATED_REFLECTION_BODY()
+
     UAnimSingleNodeInstance() = default;
 
     // Control API
@@ -18,6 +22,7 @@ public:
     void SetPlayRate(float InRate);
     void SetPosition(float InSeconds, bool bFireNotifies = false);
     float GetPosition() const { return CurrentTime; }
+    bool IsPlaying() const { return bPlaying; }
 
     // UAnimInstance overrides
     void NativeUpdateAnimation(float DeltaTime) override;
@@ -40,4 +45,3 @@ private:
     EAdditiveType AdditiveType = EAdditiveType::LocalSpace;
     float ReferenceTime = 0.f;
 };
-

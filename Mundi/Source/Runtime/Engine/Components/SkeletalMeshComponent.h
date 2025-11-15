@@ -1,6 +1,10 @@
 ﻿#pragma once
 #include "SkinnedMeshComponent.h"
+#include "SkeletalMesh.h"
 #include "USkeletalMeshComponent.generated.h"
+
+class UAnimInstance;
+class UAnimationAsset;
 
 UCLASS(DisplayName="스켈레탈 메시 컴포넌트", Description="스켈레탈 메시를 렌더링하는 컴포넌트입니다")
 class USkeletalMeshComponent : public USkinnedMeshComponent
@@ -13,6 +17,17 @@ public:
 
     void TickComponent(float DeltaTime) override;
     void SetSkeletalMesh(const FString& PathFileName) override;
+
+    // Animation Integration
+public:
+    void SetAnimInstance(class UAnimInstance* InInstance);
+    class UAnimInstance* GetAnimInstance() const { return AnimInstance; }
+
+    // Convenience single-clip controls (optional)
+    void PlayAnimation(class UAnimationAsset* Asset, bool bLooping = true, float InPlayRate = 1.f);
+    void StopAnimation();
+    void SetAnimationPosition(float InSeconds);
+    bool IsPlayingAnimation() const;
 
 // Editor Section
 public:
@@ -77,4 +92,8 @@ private:
     float TestTime = 0;
     bool bIsInitialized = false;
     FTransform TestBoneBasePose;
+
+    // Animation state
+    class UAnimInstance* AnimInstance = nullptr;
+    bool bUseAnimation = true;
 };
