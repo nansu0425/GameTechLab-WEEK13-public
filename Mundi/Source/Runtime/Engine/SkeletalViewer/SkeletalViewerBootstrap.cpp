@@ -6,7 +6,7 @@
 #include "FSkeletalViewerViewportClient.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 // --- for testing ---
-#include "Source/Runtime/Engine/Animation/AnimTestUtil.h"
+#include "Source/Editor/FBXLoader.h"
 #include "Source/Runtime/Engine/Animation/AnimSequence.h"
 // -------------------
 
@@ -49,28 +49,22 @@ ViewerState* SkeletalViewerBootstrap::CreateViewerState(const char* Name, UWorld
 
         // -------- TEST --------
         
-        // Create a lightweight state machine with two procedural sequences and attach it.
-        // If a skeletal mesh is not assigned yet, fall back to single-clip for now.
+        // Load default DancingRacer mesh + its animation for a rich default preview.
+        // If loading fails, fall back to simple playback later when a mesh is assigned.
         if (Preview && Preview->GetSkeletalMeshComponent())
         {
             // If there is already a mesh with skeleton, build sequence to match; otherwise build generic.
             const USkeletalMesh* Mesh = Preview->GetSkeletalMeshComponent()->GetSkeletalMesh();
             const FSkeleton* Skel = Mesh ? Mesh->GetSkeleton() : nullptr;
+            // Try to load a default mesh + animation from the Data folder
+            FString DefaultFBXPath = GDataDir + "/DancingRacer.fbx";
+            Preview->SetSkeletalMesh(DefaultFBXPath);
+            Skel = Preview->GetSkeletalMeshComponent()->GetSkeletalMesh() ? Preview->GetSkeletalMeshComponent()->GetSkeletalMesh()->GetSkeleton() : nullptr;
             if (Skel)
             {
-                if (UAnimStateMachineInstance* SM = AnimTestUtil::SetupTwoStateSMOnComponent(Preview->GetSkeletalMeshComponent(), 1.0f, 0.6f, 30.0f))
+                if (UAnimSequence* TestAnimation = UFbxLoader::GetInstance().LoadFbxAnimation(DefaultFBXPath, Skel))
                 {
-                    // Start a gentle blend into Walk to showcase transitions
-                    AnimTestUtil::TriggerTransition(SM, "Walk", 0.4f);
-                }
-            }
-            else
-            {
-                // Without a mesh yet, create a simple sequence and single-node player as fallback
-                FSkeleton EmptySkel; // no bones yet
-                if (UAnimSequence* TestSeq = AnimTestUtil::CreateSimpleSwingSequence(EmptySkel, 1.0f, 30.0f))
-                {
-                    Preview->GetSkeletalMeshComponent()->PlayAnimation(TestSeq, true, 1.0f);
+                    Preview->GetSkeletalMeshComponent()->PlayAnimation(TestAnimation, true, 1.0f);
                 }
             }
         }

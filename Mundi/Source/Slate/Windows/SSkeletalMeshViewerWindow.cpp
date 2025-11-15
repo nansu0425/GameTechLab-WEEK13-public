@@ -3,6 +3,7 @@
 #include "FViewport.h"
 #include "FViewportClient.h"
 #include "Source/Runtime/Engine/SkeletalViewer/SkeletalViewerBootstrap.h"
+#include "Source/Editor/FBXLoader.h"
 #include "Source/Editor/PlatformProcess.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 #include "Source/Runtime/Engine/Components/LineComponent.h"
@@ -182,6 +183,11 @@ void SSkeletalMeshViewerWindow::OnRender()
                         ActiveState->ExpandedBoneIndices.clear();
                         if (const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton())
                         {
+                            // Auto-load an animation from the same FBX (if available) for convenience
+                            if (UAnimSequence* Anim = UFbxLoader::GetInstance().LoadFbxAnimation(Path, Skeleton))
+                            {
+                                ActiveState->PreviewActor->GetSkeletalMeshComponent()->PlayAnimation(Anim, true, 1.0f);
+                            }
                             for (int32 i = 0; i < Skeleton->Bones.size(); ++i)
                             {
                                 ActiveState->ExpandedBoneIndices.insert(i);

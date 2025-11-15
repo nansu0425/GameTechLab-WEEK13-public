@@ -12,38 +12,9 @@
 
 USkeletalMeshComponent::USkeletalMeshComponent()
 {
-    // 테스트용 DancingRacer 메시 및 애니메이션 설정
-    FString TestFbxPath = "Data/DancingRacer.fbx";
-
-    // 1. 스켈레탈 메시 로드
-    SetSkeletalMesh(TestFbxPath);
-
-    // 2. 메시가 로드된 후 애니메이션 로드
-    if (SkeletalMesh && SkeletalMesh->GetSkeleton())
-    {
-        UE_LOG("USkeletalMeshComponent: Loading test animation from '%s'", TestFbxPath.c_str());
-
-        // 3. FbxLoader를 통해 애니메이션 로드
-        UAnimSequence* TestAnimation = UFbxLoader::GetInstance().LoadFbxAnimation(
-            TestFbxPath,
-            SkeletalMesh->GetSkeleton()
-        );
-
-        // 4. 애니메이션 로드 성공 시 재생 시작
-        if (TestAnimation)
-        {
-            UE_LOG("USkeletalMeshComponent: Starting animation playback (Loop: true)");
-            PlayAnimation(TestAnimation, true);
-        }
-        else
-        {
-            UE_LOG("USkeletalMeshComponent: Failed to load animation");
-        }
-    }
-    else
-    {
-        UE_LOG("USkeletalMeshComponent: Failed to load skeletal mesh");
-    }
+    // Keep constructor lightweight for editor/viewer usage.
+    // Load a simple default test mesh if available; viewer UI can override.
+    SetSkeletalMesh(GDataDir + "/Test.fbx");
 }
 
 
