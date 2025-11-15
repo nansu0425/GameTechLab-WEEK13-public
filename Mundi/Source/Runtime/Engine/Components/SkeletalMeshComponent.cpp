@@ -1,5 +1,7 @@
 ﻿#include "pch.h"
 #include "SkeletalMeshComponent.h"
+#include "AnimSequence.h"
+#include "AnimDataModel.h"
 
 USkeletalMeshComponent::USkeletalMeshComponent()
 {
@@ -11,34 +13,36 @@ USkeletalMeshComponent::USkeletalMeshComponent()
 void USkeletalMeshComponent::TickComponent(float DeltaTime)
 {
     Super::TickComponent(DeltaTime);
-    //// FOR TEST ////
-    if (!SkeletalMesh) { return; } // 부모의 SkeletalMesh 확인
 
-    // 1. 테스트할 뼈 인덱스 (모델에 따라 1, 5, 10 등 바꿔보세요)
-    constexpr int32 TEST_BONE_INDEX = 2;
-    
-    // 3. 테스트 시간 누적
-    if (!bIsInitialized)
+    if (!SkeletalMesh) { return; }
+
+    // 애니메이션 재생 중인 경우
+    if (bIsPlaying && CurrentAnimation)
     {
-        TestBoneBasePose = CurrentLocalSpacePose[TEST_BONE_INDEX];
-        bIsInitialized = true;
+        // 1. 애니메이션 시간 업데이트
+        CurrentAnimationTime += DeltaTime;
+
+        // 2. 시간 래핑 (루핑 또는 클램핑)
+        float AnimLength = CurrentAnimation->GetPlayLength();
+        if (CurrentAnimationTime >= AnimLength)
+        {
+            if (bLooping)
+            {
+                CurrentAnimationTime = fmodf(CurrentAnimationTime, AnimLength);
+            }
+            else
+            {
+                CurrentAnimationTime = AnimLength;
+                bIsPlaying = false; // 애니메이션 종료
+            }
+        }
+
+        // 3. 애니메이션 평가 및 포즈 적용
+        EvaluateAnimation(CurrentAnimationTime);
+
+        // 4. 포즈 갱신
+        ForceRecomputePose();
     }
-    TestTime += DeltaTime;
-
-    // 4. sin 함수를 이용해 -1 ~ +1 사이를 왕복하는 회전값 생성
-    // (예: Y축(Yaw)을 기준으로 1초에 1라디안(약 57도)씩 왕복)
-    float Angle = sinf(TestTime * 2.f);
-    FQuat TestRotation = FQuat::FromAxisAngle(FVector(1.f, 0.f, 0.f), Angle);
-    TestRotation.Normalize();
-
-    // 5. [중요] 원본 T-Pose에 테스트 회전을 누적
-    FTransform NewLocalPose = TestBoneBasePose;
-    NewLocalPose.Rotation = TestRotation * TestBoneBasePose.Rotation;
-    
-    // 6. [핵심] 기즈모가 하듯이, 뼈의 로컬 트랜스폼을 강제 설정
-    // (이 함수는 내부적으로 ForceRecomputePose()를 호출함)
-    SetBoneLocalTransform(TEST_BONE_INDEX, NewLocalPose);
-    //// FOR TEST ////
 }
 
 void USkeletalMeshComponent::SetSkeletalMesh(const FString& PathFileName)
@@ -134,6 +138,7 @@ void USkeletalMeshComponent::ForceRecomputePose()
 
     // LocalSpace -> ComponentSpace 계산
     UpdateComponentSpaceTransforms();
+
     // ComponentSpace -> Final Skinning Matrices 계산
     UpdateFinalSkinningMatrices();
     UpdateSkinningMatrices(TempFinalSkinningMatrices, TempFinalSkinningNormalMatrices);
@@ -171,8 +176,142 @@ void USkeletalMeshComponent::UpdateFinalSkinningMatrices()
     {
         const FMatrix& InvBindPose = Skeleton.Bones[BoneIndex].InverseBindPose;
         const FMatrix ComponentPoseMatrix = CurrentComponentSpacePose[BoneIndex].ToMatrix();
-        
+
         TempFinalSkinningMatrices[BoneIndex] = InvBindPose * ComponentPoseMatrix;
         TempFinalSkinningNormalMatrices[BoneIndex] = TempFinalSkinningMatrices[BoneIndex].Inverse().Transpose();
+    }
+}
+
+void USkeletalMeshComponent::PlayAnimation(UAnimSequence* Animation, bool bLoop)
+{
+    if (!Animation)
+    {
+        UE_LOG("USkeletalMeshComponent::PlayAnimation: Invalid animation");
+        return;
+    }
+
+    CurrentAnimation = Animation;
+    CurrentAnimationTime = 0.0f;
+    bIsPlaying = true;
+    bLooping = bLoop;
+
+    UE_LOG("USkeletalMeshComponent::PlayAnimation: Started animation (Length: %.3f sec, Loop: %s)",
+        Animation->GetPlayLength(), bLoop ? "true" : "false");
+}
+
+void USkeletalMeshComponent::StopAnimation()
+{
+    bIsPlaying = false;
+    CurrentAnimationTime = 0.0f;
+    UE_LOG("USkeletalMeshComponent::StopAnimation: Stopped animation");
+}
+
+void USkeletalMeshComponent::SetAnimationTime(float Time)
+{
+    if (CurrentAnimation)
+    {
+        float ClampedTime = Time;
+        float AnimLength = CurrentAnimation->GetPlayLength();
+
+        if (bLooping)
+        {
+            while (ClampedTime >= AnimLength)
+            {
+                ClampedTime -= AnimLength;
+            }
+            while (ClampedTime < 0.0f)
+            {
+                ClampedTime += AnimLength;
+            }
+        }
+        else
+        {
+            ClampedTime = FMath::Clamp(ClampedTime, 0.0f, AnimLength);
+        }
+
+        CurrentAnimationTime = ClampedTime;
+    }
+}
+
+void USkeletalMeshComponent::EvaluateAnimation(float Time)
+{
+    if (!CurrentAnimation || !SkeletalMesh)
+        return;
+
+    const UAnimDataModel* DataModel = CurrentAnimation->GetDataModel();
+    if (!DataModel || !DataModel->IsValid())
+        return;
+
+    const FSkeleton* Skeleton = SkeletalMesh->GetSkeleton();
+    if (!Skeleton)
+        return;
+
+    const TArray<FBoneAnimationTrack>& AnimTracks = DataModel->GetBoneAnimationTracks();
+
+    // 각 본에 대해 애니메이션 트랙 평가
+    for (int32 BoneIndex = 0; BoneIndex < Skeleton->Bones.Num(); ++BoneIndex)
+    {
+        const FBone& Bone = Skeleton->Bones[BoneIndex];
+
+        // 해당 본의 애니메이션 트랙 찾기
+        const FRawAnimSequenceTrack* Track = DataModel->GetTrackByBoneIndex(BoneIndex);
+
+        if (Track && !Track->IsEmpty())
+        {
+            // 프레임 인덱스 계산
+            float FrameRate = DataModel->FrameRate;
+            float FrameTime = Time * FrameRate;
+            int32 FrameIndex0 = static_cast<int32>(floorf(FrameTime));
+            int32 FrameIndex1 = FrameIndex0 + 1;
+            float Alpha = FrameTime - static_cast<float>(FrameIndex0);
+
+            // 키프레임 인덱스 클램핑
+            int32 NumPosKeys = Track->GetNumPosKeys();
+            int32 NumRotKeys = Track->GetNumRotKeys();
+            int32 NumScaleKeys = Track->GetNumScaleKeys();
+
+            // Position 보간
+            FVector Position;
+            if (NumPosKeys > 0)
+            {
+                int32 PosIdx0 = FMath::Clamp(FrameIndex0, 0, NumPosKeys - 1);
+                int32 PosIdx1 = FMath::Clamp(FrameIndex1, 0, NumPosKeys - 1);
+                Position = FMath::Lerp(Track->PositionKeys[PosIdx0], Track->PositionKeys[PosIdx1], Alpha);
+            }
+            else
+            {
+                Position = FVector(0, 0, 0);
+            }
+
+            // Rotation 보간 (Slerp)
+            FQuat Rotation;
+            if (NumRotKeys > 0)
+            {
+                int32 RotIdx0 = FMath::Clamp(FrameIndex0, 0, NumRotKeys - 1);
+                int32 RotIdx1 = FMath::Clamp(FrameIndex1, 0, NumRotKeys - 1);
+                Rotation = FQuat::Slerp(Track->RotationKeys[RotIdx0], Track->RotationKeys[RotIdx1], Alpha);
+                Rotation.Normalize();
+            }
+            else
+            {
+                Rotation = FQuat::Identity();
+            }
+
+            // Scale 보간
+            FVector Scale;
+            if (NumScaleKeys > 0)
+            {
+                int32 ScaleIdx0 = FMath::Clamp(FrameIndex0, 0, NumScaleKeys - 1);
+                int32 ScaleIdx1 = FMath::Clamp(FrameIndex1, 0, NumScaleKeys - 1);
+                Scale = FMath::Lerp(Track->ScaleKeys[ScaleIdx0], Track->ScaleKeys[ScaleIdx1], Alpha);
+            }
+            else
+            {
+                Scale = FVector(1, 1, 1);
+            }
+
+            // CurrentLocalSpacePose 업데이트
+            CurrentLocalSpacePose[BoneIndex] = FTransform(Position, Rotation, Scale);
+        }
     }
 }
