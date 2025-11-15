@@ -5,7 +5,7 @@
 #include "UIManager.h"
 #include "InputManager.h"
 #include "Vector.h"
-#include "USlateManager.h"
+#include "SlateManager.h"
 
 // 예전 World에서 사용하던 전역 변수들 (임시)
 static float MouseSensitivity = 0.05f;  // 적당한 값으로 조정

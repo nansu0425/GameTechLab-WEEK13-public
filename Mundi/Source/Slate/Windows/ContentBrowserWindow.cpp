@@ -4,7 +4,7 @@
 #include "ContentBrowserWindow.h"
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_internal.h"
-#include "USlateManager.h"
+#include "SlateManager.h"
 #include "ThumbnailManager.h"
 #include <algorithm>
 

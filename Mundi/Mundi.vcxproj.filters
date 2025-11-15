@@ -491,7 +491,7 @@
     <ClCompile Include="Source\Slate\UIManager.cpp">
       <Filter>Source\Slate</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Slate\USlateManager.cpp">
+    <ClCompile Include="Source\Slate\SlateManager.cpp">
       <Filter>Source\Slate</Filter>
     </ClCompile>
     <ClCompile Include="Source\Slate\Windows\ContentBrowserWindow.cpp">
@@ -1232,7 +1232,7 @@
     <ClInclude Include="Source\Slate\UIManager.h">
       <Filter>Source\Slate</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Slate\USlateManager.h">
+    <ClInclude Include="Source\Slate\SlateManager.h">
       <Filter>Source\Slate</Filter>
     </ClInclude>
     <ClInclude Include="Source\Slate\Windows\ContentBrowserWindow.h">

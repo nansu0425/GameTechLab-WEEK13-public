@@ -1,5 +1,5 @@
 ﻿#include "pch.h"
-#include "USlateManager.h"
+#include "SlateManager.h"
 
 #include "CameraActor.h"
 #include "Windows/SWindow.h"
@@ -29,7 +29,6 @@ USlateManager& USlateManager::GetInstance()
     }
     return *Instance;
 }
-#include "FViewportClient.h"
 
 extern float CLIENTWIDTH;
 extern float CLIENTHEIGHT;

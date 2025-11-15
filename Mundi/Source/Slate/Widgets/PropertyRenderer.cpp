@@ -17,7 +17,7 @@
 #include "SpotLightComponent.h"
 #include "PlatformProcess.h"
 #include "SkeletalMeshComponent.h"
-#include "USlateManager.h"
+#include "SlateManager.h"
 #include "ImGui/imgui_curve.hpp"
 
 // 정적 멤버 변수 초기화

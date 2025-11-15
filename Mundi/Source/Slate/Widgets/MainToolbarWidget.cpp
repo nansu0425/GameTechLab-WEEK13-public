@@ -7,7 +7,7 @@
 #include "CameraActor.h"
 #include "EditorEngine.h"
 #include "PlatformProcess.h"
-#include "USlateManager.h"
+#include "SlateManager.h"
 #include <commdlg.h>
 #include <random>
 
