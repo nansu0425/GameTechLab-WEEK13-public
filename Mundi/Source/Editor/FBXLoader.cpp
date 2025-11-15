@@ -1204,7 +1204,99 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 		return nullptr;
 	}
 
-	// 4. FbxImporter 생성 및 초기화
+	// 4. 바이너리 캐시 파일 처리
+	UAnimDataModel* DataModel = nullptr;
+#ifdef USE_OBJ_CACHE
+	// 4-1. 캐시 파일 경로 설정
+	FString CachePathStr = ConvertDataPathToCachePath(NormalizedPath);
+	const FString AnimCacheFileName = CachePathStr + ".anim.bin";
+
+	// 캐시를 저장할 디렉토리가 없으면 생성
+	std::filesystem::path CacheFileDirPath(AnimCacheFileName);
+	if (CacheFileDirPath.has_parent_path())
+	{
+		std::filesystem::create_directories(CacheFileDirPath.parent_path());
+	}
+
+	bool bLoadedFromCache = false;
+
+	// 4-2. 캐시 유효성 검사
+	bool bShouldRegenerate = true;
+	if (std::filesystem::exists(AnimCacheFileName))
+	{
+		try
+		{
+			auto binTime = std::filesystem::last_write_time(AnimCacheFileName);
+			auto fbxTime = std::filesystem::last_write_time(NormalizedPath);
+
+			// FBX 파일이 캐시보다 오래되었으면 캐시 사용
+			if (fbxTime <= binTime)
+			{
+				bShouldRegenerate = false;
+			}
+		}
+		catch (const std::filesystem::filesystem_error& e)
+		{
+			UE_LOG("UFbxLoader::LoadFbxAnimation: Filesystem error during cache validation: %s. Forcing regeneration.", e.what());
+			bShouldRegenerate = true;
+		}
+	}
+
+	// 4-3. 캐시에서 로드 시도
+	if (!bShouldRegenerate)
+	{
+		UE_LOG("UFbxLoader::LoadFbxAnimation: Attempting to load animation from cache '%s'", AnimCacheFileName.c_str());
+		try
+		{
+			DataModel = NewObject<UAnimDataModel>();
+
+			FWindowsBinReader Reader(AnimCacheFileName);
+			if (!Reader.IsOpen())
+			{
+				throw std::runtime_error("Failed to open animation cache file for reading.");
+			}
+			Reader << *DataModel;
+			Reader.Close();
+
+			// 캐시 로드 성공
+			bLoadedFromCache = true;
+			UE_LOG("UFbxLoader::LoadFbxAnimation: Successfully loaded animation from cache (%.3f sec, %d bones, %d keys)",
+				DataModel->SequenceLength, DataModel->BoneAnimationTracks.Num(), DataModel->NumberOfKeys);
+
+			// UAnimSequence 생성 및 설정
+			UAnimSequence* AnimSequence = NewObject<UAnimSequence>();
+			AnimSequence->SetFilePath(NormalizedPath);
+			AnimSequence->SetSkeletonName(TargetSkeleton->Name);
+			AnimSequence->SetAnimDataModel(DataModel);
+
+			// 리소스 매니저에 등록
+			UResourceManager::GetInstance().Add<UAnimSequence>(NormalizedPath, AnimSequence);
+
+			return AnimSequence;
+		}
+		catch (const std::exception& e)
+		{
+			UE_LOG("UFbxLoader::LoadFbxAnimation: Error loading animation from cache: %s. Cache might be corrupt or incompatible.", e.what());
+			UE_LOG("UFbxLoader::LoadFbxAnimation: Deleting corrupt cache and forcing regeneration.");
+
+			std::filesystem::remove(AnimCacheFileName);
+			if (DataModel)
+			{
+				delete DataModel;
+				DataModel = nullptr;
+			}
+			bLoadedFromCache = false;
+		}
+	}
+
+	// 4-4. 캐시 로드 실패 시 FBX 파싱
+	if (!bLoadedFromCache)
+	{
+		UE_LOG("UFbxLoader::LoadFbxAnimation: Regenerating animation cache from FBX...");
+	}
+#endif // USE_OBJ_CACHE
+
+	// 5. FbxImporter 생성 및 초기화
 	FbxImporter* Importer = FbxImporter::Create(SdkManager, "");
 	if (!Importer->Initialize(NormalizedPath.c_str(), -1, SdkManager->GetIOSettings()))
 	{
@@ -1267,8 +1359,11 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 
 	UE_LOG("UFbxLoader::LoadFbxAnimation: Duration = %.3f seconds, FrameRate = %.1f fps", SequenceLength, FrameRate);
 
-	// 8. UAnimDataModel 생성
-	UAnimDataModel* DataModel = NewObject<UAnimDataModel>();
+	// 8. UAnimDataModel 생성 (캐시 로드 실패 시만 생성)
+	if (!DataModel)
+	{
+		DataModel = NewObject<UAnimDataModel>();
+	}
 	DataModel->SequenceLength = SequenceLength;
 	DataModel->FrameRate = FrameRate;
 	DataModel->NumberOfFrames = static_cast<int32>(SequenceLength * FrameRate);
@@ -1462,6 +1557,28 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 	{
 		UE_LOG("UFbxLoader::LoadFbxAnimation: Warning - Animation was already registered");
 	}
+
+#ifdef USE_OBJ_CACHE
+	// 19. 바이너리 캐시 저장 (FBX 파싱으로 생성한 경우만)
+	if (!bLoadedFromCache)
+	{
+		try
+		{
+			UE_LOG("UFbxLoader::LoadFbxAnimation: Saving animation to cache '%s'", AnimCacheFileName.c_str());
+
+			FWindowsBinWriter Writer(AnimCacheFileName);
+			Writer << *DataModel;
+			Writer.Close();
+
+			UE_LOG("UFbxLoader::LoadFbxAnimation: Successfully saved animation cache");
+		}
+		catch (const std::exception& e)
+		{
+			UE_LOG("UFbxLoader::LoadFbxAnimation: Error saving animation cache: %s", e.what());
+			// 캐시 저장 실패는 치명적이지 않으므로 계속 진행
+		}
+	}
+#endif // USE_OBJ_CACHE
 
 	return AnimSequence;
 }
