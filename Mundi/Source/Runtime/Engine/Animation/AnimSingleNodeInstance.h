@@ -22,7 +22,7 @@ public:
     void SetPlayRate(float InRate);
     void SetPosition(float InSeconds, bool bFireNotifies = false);
     float GetPosition() const { return CurrentTime; }
-    bool IsPlaying() const { return bPlaying; }
+    bool IsPlaying() const override { return bPlaying; }
 
     // UAnimInstance overrides
     void NativeUpdateAnimation(float DeltaTime) override;

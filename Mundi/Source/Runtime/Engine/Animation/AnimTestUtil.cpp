@@ -3,6 +3,9 @@
 #include "AnimSequence.h"
 #include "AnimDataModel.h"
 #include "VertexData.h"
+//#include "AnimInstance.h"
+#include "AnimStateMachine.h"
+#include "SkeletalMeshComponent.h"
 
 static void FillTrackKeys(FRawAnimSequenceTrack& Track, float Time, float Amp)
 {
@@ -71,5 +74,47 @@ UAnimSequence* AnimTestUtil::CreateSimpleSwingSequence(const FSkeleton& Skeleton
 
     Seq->SetAnimDataModel(Model);
     return Seq;
+}
+
+UAnimStateMachineInstance* AnimTestUtil::SetupTwoStateSMOnComponent(USkeletalMeshComponent* Component,
+    float IdleLengthSeconds, float WalkLengthSeconds, float FrameRate)
+{
+    if (!Component) return nullptr;
+    const USkeletalMesh* Mesh = Component->GetSkeletalMesh();
+    const FSkeleton* Skel = Mesh ? Mesh->GetSkeleton() : nullptr;
+    if (!Skel) return nullptr;
+
+    UAnimSequence* IdleSeq = CreateSimpleSwingSequence(*Skel, IdleLengthSeconds, FrameRate);
+    UAnimSequence* WalkSeq = CreateSimpleSwingSequence(*Skel, WalkLengthSeconds, FrameRate);
+
+    if (!IdleSeq || !WalkSeq)
+    {
+        return nullptr;
+    }
+
+    UAnimStateMachineInstance* SM = NewObject<UAnimStateMachineInstance>();
+    if (!SM) return nullptr;
+
+    // Idle state (slower)
+    FAnimState IdleState; IdleState.Name = "Idle"; IdleState.Asset = IdleSeq; IdleState.PlayRate = 1.f; IdleState.bLooping = true;
+    // Walk state (shorter sequence -> appears faster)
+    FAnimState WalkState; WalkState.Name = "Walk"; WalkState.Asset = WalkSeq; WalkState.PlayRate = 1.f; WalkState.bLooping = true;
+
+    const int32 IdleIdx = SM->AddState(IdleState);
+    SM->AddState(WalkState);
+    SM->SetCurrentState(IdleIdx, 0.f);
+
+    Component->SetAnimInstance(SM);
+    return SM;
+}
+
+void AnimTestUtil::TriggerTransition(UAnimStateMachineInstance* SM, const FString& ToStateName, float BlendTime)
+{
+    if (!SM) return;
+    const int32 Idx = SM->FindStateByName(ToStateName);
+    if (Idx != -1)
+    {
+        SM->SetCurrentState(Idx, BlendTime);
+    }
 }
 

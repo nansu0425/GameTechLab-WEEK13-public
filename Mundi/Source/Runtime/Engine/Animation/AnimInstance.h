@@ -17,6 +17,7 @@ public:
     void Tick(float DeltaTime);
     virtual void NativeUpdateAnimation(float DeltaTime);
     virtual void EvaluateAnimation(FPoseContext& Output);
+    virtual bool IsPlaying() const; // default: false
 
     USkeletalMeshComponent* GetOwningComponent() const;
     const FSkeleton* GetSkeleton() const;

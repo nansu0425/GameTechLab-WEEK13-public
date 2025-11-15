@@ -68,3 +68,9 @@ const FSkeleton* UAnimInstance::GetSkeleton() const
     return Mesh ? Mesh->GetSkeleton() : nullptr;
 }
 
+bool UAnimInstance::IsPlaying() const
+{
+    return false;
+}
+
+

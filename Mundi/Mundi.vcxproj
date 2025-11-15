@@ -276,6 +276,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\Lua\lib\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Source\Runtime\Engine\Animation\AnimDataModel.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Animation\AnimSequence.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Animation\AnimSequenceBase.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Animation\AnimStateMachine.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Animation\AnimTestUtil.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Components\SkeletalMeshComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Components\SkinnedMeshComponent.cpp" />
@@ -512,7 +513,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\Lua\lib\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Generated\UAnimationAsset.generated.cpp" />
     <ClCompile Include="Generated\UAnimSequence.generated.cpp" />
     <ClCompile Include="Generated\UAnimSequenceBase.generated.cpp" />
-  <ClCompile Include="Generated\UAnimInstance.generated.cpp" /><ClCompile Include="Generated\UAnimSingleNodeInstance.generated.cpp" /></ItemGroup>
+  <ClCompile Include="Generated\UAnimInstance.generated.cpp" /><ClCompile Include="Generated\UAnimSingleNodeInstance.generated.cpp" /><ClCompile Include="Generated\UAnimStateMachineInstance.generated.cpp" /></ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\Common\LightingBuffers.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -681,6 +682,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\Lua\lib\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Source\Runtime\Engine\Animation\AnimDataModel.h" />
     <ClInclude Include="Source\Runtime\Engine\Animation\AnimSequence.h" />
     <ClInclude Include="Source\Runtime\Engine\Animation\AnimSequenceBase.h" />
+    <ClInclude Include="Source\Runtime\Engine\Animation\AnimStateMachine.h" />
     <ClInclude Include="Source\Runtime\Engine\Animation\AnimTestUtil.h" />
     <ClInclude Include="Source\Runtime\Engine\Animation\AnimTypes.h" />
     <ClInclude Include="Source\Runtime\Engine\Animation\AnimationRuntime.h" />
@@ -903,7 +905,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\Lua\lib\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Generated\UAnimationAsset.generated.h" />
     <ClInclude Include="Generated\UAnimSequence.generated.h" />
     <ClInclude Include="Generated\UAnimSequenceBase.generated.h" />
-  <ClInclude Include="Generated\UAnimInstance.generated.h" /><ClInclude Include="Generated\UAnimSingleNodeInstance.generated.h" /></ItemGroup>
+  <ClInclude Include="Generated\UAnimInstance.generated.h" /><ClInclude Include="Generated\UAnimSingleNodeInstance.generated.h" /><ClInclude Include="Generated\UAnimStateMachineInstance.generated.h" /></ItemGroup>
   <ItemGroup>
     <None Include="BuildTools\CodeGenerator\generate.py" />
     <None Include="BuildTools\CodeGenerator\lua_generator.py" />

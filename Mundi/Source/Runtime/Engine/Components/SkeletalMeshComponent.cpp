@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "SkeletalMeshComponent.h"
 
 #include "AnimNodeBase.h"
@@ -136,11 +136,7 @@ void USkeletalMeshComponent::SetAnimationPosition(float InSeconds)
 
 bool USkeletalMeshComponent::IsPlayingAnimation() const
 {
-    if (const UAnimSingleNodeInstance* Single = Cast<UAnimSingleNodeInstance>(AnimInstance))
-    {
-        return Single->IsPlaying();
-    }
-    return false;
+    return AnimInstance ? AnimInstance->IsPlaying() : false;
 }
 
 void USkeletalMeshComponent::SetBoneLocalTransform(int32 BoneIndex, const FTransform& NewLocalTransform)
@@ -233,3 +229,4 @@ void USkeletalMeshComponent::UpdateFinalSkinningMatrices()
         TempFinalSkinningNormalMatrices[BoneIndex] = TempFinalSkinningMatrices[BoneIndex].Inverse().Transpose();
     }
 }
+
