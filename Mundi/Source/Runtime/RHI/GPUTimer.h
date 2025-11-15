@@ -62,12 +62,18 @@ public:
 	bool IsInitialized() const { return bInitialized; }
 
 private:
-	// GPU 타임스탬프 쿼리 (시작/끝)
-	ID3D11Query* QueryBegin = nullptr;
-	ID3D11Query* QueryEnd = nullptr;
+	// 링버퍼 크기 (비동기 GPU 타이머 처리를 위한 충분한 레이턴시 제공)
+	static constexpr int NUM_QUERIES = 4;
 
-	// 주파수 및 disjoint 체크용 쿼리
-	ID3D11Query* QueryDisjoint = nullptr;
+	// GPU 타임스탬프 쿼리 링버퍼 (시작/끝)
+	ID3D11Query* QueryBegin[NUM_QUERIES] = {};
+	ID3D11Query* QueryEnd[NUM_QUERIES] = {};
+
+	// 주파수 및 disjoint 체크용 쿼리 링버퍼
+	ID3D11Query* QueryDisjoint[NUM_QUERIES] = {};
+
+	// 현재 쿼리 인덱스 (쓰기용)
+	int CurrentQueryIndex = 0;
 
 	// 초기화 여부
 	bool bInitialized = false;

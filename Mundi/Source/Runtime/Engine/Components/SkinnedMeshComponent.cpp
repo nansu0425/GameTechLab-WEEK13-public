@@ -228,9 +228,6 @@ void USkinnedMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMes
           BatchElement.BoneMatricesBuffer = nullptr;
        }
 
-       // 스켈레탈 메시 플래그 설정 (GPU 타이머 측정용)
-       BatchElement.bIsSkeletalMesh = true;
-
        OutMeshBatchElements.Add(BatchElement);
     }
 }
@@ -356,6 +353,11 @@ void USkinnedMeshComponent::PerformSkinning(bool bUseGPU)
       // 통계에 추가 (실제 할당된 버퍼 크기 사용)
       const uint64 BoneBufferSize = CurrentBoneBufferSize;
       StatManager.AddGPUMesh(NumVertices, NumBones, BoneBufferSize);
+
+      // TimeProfile 시스템에 GPU 스키닝 시간 추가
+      FScopeCycleCounter::AddTimeProfile(TStatId("GPU_BoneCalc"), LastBoneMatrixCalcTimeMS);
+      FScopeCycleCounter::AddTimeProfile(TStatId("GPU_BoneUpload"), BoneUploadTimeMS);
+
       StatManager.AddGPUBoneMatrixCalcTime(LastBoneMatrixCalcTimeMS); // 본 행렬 계산 시간 추가
       StatManager.AddGPUBoneBufferUploadTime(BoneUploadTimeMS);
 
@@ -404,6 +406,12 @@ void USkinnedMeshComponent::PerformSkinning(bool bUseGPU)
       // 통계에 추가
       const uint64 VertexBufferSize = sizeof(FNormalVertex) * NumVertices;
       StatManager.AddCPUMesh(NumVertices, NumBones, VertexBufferSize);
+
+      // TimeProfile 시스템에 CPU 스키닝 시간 추가
+      FScopeCycleCounter::AddTimeProfile(TStatId("CPU_BoneCalc"), LastBoneMatrixCalcTimeMS);
+      FScopeCycleCounter::AddTimeProfile(TStatId("CPU_VertexSkinning"), VertexSkinningTimeMS);
+      FScopeCycleCounter::AddTimeProfile(TStatId("CPU_BufferUpload"), BufferUploadTimeMS);
+
       StatManager.AddCPUBoneMatrixCalcTime(LastBoneMatrixCalcTimeMS); // 본 행렬 계산 시간 추가
       StatManager.AddCPUVertexSkinningTime(VertexSkinningTimeMS);
       StatManager.AddCPUBufferUploadTime(BufferUploadTimeMS);
