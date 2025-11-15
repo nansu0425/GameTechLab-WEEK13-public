@@ -40,6 +40,16 @@ public:
 	 */
 	void SetSkeletonName(const FString& InName) { SkeletonName = InName; }
 
+	/**
+	 * 스켈레톤 기준 로컬 포즈를 추출합니다.
+	 * @param Skeleton 평가할 스켈레톤
+	 * @param Time 시간(초)
+	 * @param bLooping 루프 여부
+	 * @param bInterpolate 키 보간 사용 여부
+	 * @param OutLocalPose 본 개수 크기의 로컬 포즈 배열(출력)
+	 **/
+	virtual void ExtractBonePose(const FSkeleton& Skeleton, float Time, bool bLooping, bool bInterpolate, TArray<FTransform>& OutLocalPose) const;
+
 protected:
 	/** 애니메이션 전체 재생 길이 (초 단위) */
 	float SequenceLength = 0.0f;
