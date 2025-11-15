@@ -568,6 +568,7 @@ void USlateManager::ProcessInput()
 {
     const FVector2D MousePosition = INPUT.GetMousePosition();
 
+    // Process input for SkeletalViewerWindow if hovered
     if (SkeletalViewerWindow && SkeletalViewerWindow->Rect.Contains(MousePosition))
     {
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
@@ -587,33 +588,35 @@ void USlateManager::ProcessInput()
             OnMouseUp(MousePosition, 1);
         }
     }
-
-    if (INPUT.IsMouseButtonPressed(LeftButton))
+    else    // Otherwise, process general viewport input
     {
-        const FVector2D MousePosition = INPUT.GetMousePosition();
+        if (INPUT.IsMouseButtonPressed(LeftButton))
         {
-            OnMouseDown(MousePosition, 0);
+            const FVector2D MousePosition = INPUT.GetMousePosition();
+            {
+                OnMouseDown(MousePosition, 0);
+            }
         }
-    }
-    if (INPUT.IsMouseButtonPressed(RightButton))
-    {
-        const FVector2D MousePosition = INPUT.GetMousePosition();
+        if (INPUT.IsMouseButtonPressed(RightButton))
         {
-            OnMouseDown(MousePosition, 1);
+            const FVector2D MousePosition = INPUT.GetMousePosition();
+            {
+                OnMouseDown(MousePosition, 1);
+            }
         }
-    }
-    if (INPUT.IsMouseButtonReleased(LeftButton))
-    {
-        const FVector2D MousePosition = INPUT.GetMousePosition();
+        if (INPUT.IsMouseButtonReleased(LeftButton))
         {
-            OnMouseUp(MousePosition, 0);
+            const FVector2D MousePosition = INPUT.GetMousePosition();
+            {
+                OnMouseUp(MousePosition, 0);
+            }
         }
-    }
-    if (INPUT.IsMouseButtonReleased(RightButton))
-    {
-        const FVector2D MousePosition = INPUT.GetMousePosition();
+        if (INPUT.IsMouseButtonReleased(RightButton))
         {
-            OnMouseUp(MousePosition, 1);
+            const FVector2D MousePosition = INPUT.GetMousePosition();
+            {
+                OnMouseUp(MousePosition, 1);
+            }
         }
     }
     OnMouseMove(MousePosition);

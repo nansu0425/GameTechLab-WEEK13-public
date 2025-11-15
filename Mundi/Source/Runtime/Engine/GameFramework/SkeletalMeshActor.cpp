@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "SkeletalMeshActor.h"
 #include "World.h"
 
@@ -302,10 +302,10 @@ void ASkeletalMeshActor::BuildBoneLinesCache()
                 const FVector BaseVertex1 = ParentPos + Right * (Radius * std::cos(angle1)) + Forward * (Radius * std::sin(angle1));
 
                 // Cone edge from base vertex to tip (child)
-                BL.ConeEdges.Add(BoneLineComponent->AddLine(BaseVertex0, ChildPos, FVector4(0, 1, 0, 1)));
+                BL.ConeEdges.Add(BoneLineComponent->AddLine(BaseVertex0, ChildPos, FVector4(1, 1, 1, 1)));
 
                 // Base circle edge
-                BL.ConeBase.Add(BoneLineComponent->AddLine(BaseVertex0, BaseVertex1, FVector4(0, 1, 0, 1)));
+                BL.ConeBase.Add(BoneLineComponent->AddLine(BaseVertex0, BaseVertex1, FVector4(1, 1, 1, 1)));
             }
         }
 
@@ -356,8 +356,9 @@ void ASkeletalMeshActor::UpdateBoneSelectionHighlight(int32 SelectedBoneIndex)
 
     const FVector4 SelRing(1.0f, 0.85f, 0.2f, 1.0f);
     const FVector4 NormalRing(0.8f, 0.8f, 0.8f, 1.0f);
-    const FVector4 SelCone(1.0f, 0.0f, 0.0f, 1.0f);      // Red for selected bone cone
-    const FVector4 NormalCone(0.0f, 1.0f, 0.0f, 1.0f);   // Green for normal bone cone
+    const FVector4 SelectedBoneColor(0.0f, 1.0f, 0.0f, 1.0f);      // Green for selected bone
+    const FVector4 ParentOfSelectedColor(1.0f, 0.5f, 0.0f, 1.0f);  // Orange for parent of selected
+    const FVector4 NormalCone(1.0f, 1.0f, 1.0f, 1.0f);   // White for normal bone cone
 
     for (int32 i = 0; i < BoneCount; ++i)
     {
@@ -373,8 +374,9 @@ void ASkeletalMeshActor::UpdateBoneSelectionHighlight(int32 SelectedBoneIndex)
 
         // Update cone colors
         const int32 parent = Bones[i].ParentIndex;
-        const bool bConeSelected = (i == SelectedBoneIndex || parent == SelectedBoneIndex);
-        const FVector4 ConeColor = bConeSelected ? SelCone : NormalCone;
+        FVector4 ConeColor = NormalCone;
+        if (i == SelectedBoneIndex)             ConeColor = SelectedBoneColor;
+        else if (parent == SelectedBoneIndex)   ConeColor = ParentOfSelectedColor;
 
         for (ULine* L : BL.ConeEdges)
         {
