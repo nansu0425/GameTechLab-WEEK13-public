@@ -2,7 +2,7 @@
 #include "SSkeletalMeshViewerWindow.h"
 #include "FViewport.h"
 #include "FViewportClient.h"
-#include "Source/Runtime/Engine/SkeletalViewer/SkeletalViewerBootstrap.h"
+#include "Source/Runtime/Engine/Viewer/SkeletalViewerBootstrap.h"
 #include "Source/Editor/PlatformProcess.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 #include "Source/Runtime/Engine/Components/LineComponent.h"

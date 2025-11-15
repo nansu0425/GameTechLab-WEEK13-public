@@ -1,6 +1,6 @@
 ﻿#include "pch.h"
-#include "FSkeletalViewerViewportClient.h"
-#include"CameraActor.h"
+#include "SkeletalViewerViewportClient.h"
+#include "CameraActor.h"
 #include "World.h"
 
 FSkeletalViewerViewportClient::FSkeletalViewerViewportClient()

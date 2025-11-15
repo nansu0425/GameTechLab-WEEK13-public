@@ -1,9 +1,9 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "SkeletalViewerBootstrap.h"
 #include "CameraActor.h"
-#include "Source/Runtime/Engine/SkeletalViewer/ViewerState.h"
+#include "Source/Runtime/Engine/Viewer/ViewerState.h"
 #include "FViewport.h"
-#include "FSkeletalViewerViewportClient.h"
+#include "SkeletalViewerViewportClient.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 
 ViewerState* SkeletalViewerBootstrap::CreateViewerState(const char* Name, UWorld* InWorld, ID3D11Device* InDevice)

@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug_StandAlone|x64">
@@ -272,7 +272,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\Lua\lib\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Source\Runtime\Engine\Components\SkeletalMeshComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Components\SkinnedMeshComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\SkeletalMeshActor.cpp" />
-      <ClCompile Include="Source\Runtime\Engine\Components\BoneAnchorComponent.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Components\BoneAnchorComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\Camera\CamMod_Fade.cpp" />
     <FxCompile Include="Shaders\Materials\Fireball.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -344,9 +344,9 @@ xcopy /y /d "$(ProjectDir)ThirdParty\Lua\lib\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Source\Runtime\Engine\Scripting\LuaComponentProxy.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Scripting\LuaCoroutineScheduler.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Scripting\LuaManager.cpp" />
-    <ClCompile Include="Source\Runtime\Engine\SkeletalViewer\SkeletalViewerBootstrap.cpp" />
-    <ClCompile Include="Source\Runtime\Engine\SkeletalViewer\ViewerState.cpp" />
-    <ClCompile Include="Source\Runtime\Renderer\FSkeletalViewerViewportClient.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Viewer\SkeletalViewerBootstrap.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Viewer\ViewerState.cpp" />
+    <ClCompile Include="Source\Runtime\Renderer\SkeletalViewerViewportClient.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\LightManager.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\PostProcessing\GammaPass.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\PostProcessing\HeightFogPass.cpp" />
@@ -498,7 +498,9 @@ xcopy /y /d "$(ProjectDir)ThirdParty\Lua\lib\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Source\Slate\Windows\SWindow.cpp" />
     <ClCompile Include="Source\Slate\Windows\UIWindow.cpp" />
     <ClCompile Include="Generated\UMeshComponent.generated.cpp" />
-  <ClCompile Include="Generated\UMovementComponent.generated.cpp" /><ClCompile Include="Generated\AInfo.generated.cpp" /></ItemGroup>
+    <ClCompile Include="Generated\UMovementComponent.generated.cpp" />
+    <ClCompile Include="Generated\AInfo.generated.cpp" />
+  </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\Common\LightingBuffers.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -698,9 +700,9 @@ xcopy /y /d "$(ProjectDir)ThirdParty\Lua\lib\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Source\Runtime\Engine\Scripting\LuaComponentProxy.h" />
     <ClInclude Include="Source\Runtime\Engine\Scripting\LuaCoroutineScheduler.h" />
     <ClInclude Include="Source\Runtime\Engine\Scripting\LuaManager.h" />
-    <ClInclude Include="Source\Runtime\Engine\SkeletalViewer\SkeletalViewerBootstrap.h" />
-    <ClInclude Include="Source\Runtime\Engine\SkeletalViewer\ViewerState.h" />
-    <ClInclude Include="Source\Runtime\Renderer\FSkeletalViewerViewportClient.h" />
+    <ClInclude Include="Source\Runtime\Engine\Viewer\SkeletalViewerBootstrap.h" />
+    <ClInclude Include="Source\Runtime\Engine\Viewer\ViewerState.h" />
+    <ClInclude Include="Source\Runtime\Renderer\SkeletalViewerViewportClient.h" />
     <ClInclude Include="Source\Runtime\Renderer\LightManager.h" />
     <ClInclude Include="Source\Runtime\Engine\Components\AmbientLightComponent.h" />
     <ClInclude Include="Source\Runtime\Engine\Components\DirectionalLightComponent.h" />
@@ -872,7 +874,10 @@ xcopy /y /d "$(ProjectDir)ThirdParty\Lua\lib\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="ThirdParty\Lua\include\lualib.h" />
     <ClInclude Include="Generated\UMeshComponent.generated.h" />
     <ClInclude Include="Generated\ASkinnedMeshActor.generated.h" />
-  <ClInclude Include="Generated\ASkeletalMeshActor.generated.h" /><ClInclude Include="Generated\UMovementComponent.generated.h" /><ClInclude Include="Generated\AInfo.generated.h" /></ItemGroup>
+    <ClInclude Include="Generated\ASkeletalMeshActor.generated.h" />
+    <ClInclude Include="Generated\UMovementComponent.generated.h" />
+    <ClInclude Include="Generated\AInfo.generated.h" />
+  </ItemGroup>
   <ItemGroup>
     <None Include="BuildTools\CodeGenerator\generate.py" />
     <None Include="BuildTools\CodeGenerator\lua_generator.py" />
