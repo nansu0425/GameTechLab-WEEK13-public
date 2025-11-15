@@ -9,6 +9,7 @@
 #include "PathUtils.h"
 #include "AnimSequence.h"
 #include "AnimDataModel.h"
+#include "ResourceManager.h"
 #include <filesystem>
 #include <functional>
 
@@ -1188,14 +1189,22 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 	FString NormalizedPath = NormalizePath(FilePath);
 	UE_LOG("UFbxLoader::LoadFbxAnimation: Loading animation from '%s'", NormalizedPath.c_str());
 
-	// 2. 스켈레톤 유효성 검사
+	// 2. 리소스 매니저 캐시 확인
+	UAnimSequence* CachedAnim = UResourceManager::GetInstance().Get<UAnimSequence>(NormalizedPath);
+	if (CachedAnim)
+	{
+		UE_LOG("UFbxLoader::LoadFbxAnimation: Animation already cached, returning existing resource");
+		return CachedAnim;
+	}
+
+	// 3. 스켈레톤 유효성 검사
 	if (!TargetSkeleton || TargetSkeleton->Bones.IsEmpty())
 	{
 		UE_LOG("UFbxLoader::LoadFbxAnimation: Invalid target skeleton");
 		return nullptr;
 	}
 
-	// 3. FbxImporter 생성 및 초기화
+	// 4. FbxImporter 생성 및 초기화
 	FbxImporter* Importer = FbxImporter::Create(SdkManager, "");
 	if (!Importer->Initialize(NormalizedPath.c_str(), -1, SdkManager->GetIOSettings()))
 	{
@@ -1204,12 +1213,12 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 		return nullptr;
 	}
 
-	// 4. FbxScene 생성 및 Import
+	// 5. FbxScene 생성 및 Import
 	FbxScene* Scene = FbxScene::Create(SdkManager, "Animation Scene");
 	Importer->Import(Scene);
 	Importer->Destroy();
 
-	// 5. AnimStack 가져오기 (FBX 파일의 첫 번째 애니메이션 스택 사용)
+	// 6. AnimStack 가져오기 (FBX 파일의 첫 번째 애니메이션 스택 사용)
 	int AnimStackCount = Scene->GetSrcObjectCount<FbxAnimStack>();
 	if (AnimStackCount == 0)
 	{
@@ -1222,7 +1231,7 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 	FbxString AnimStackName = AnimStack->GetName();
 	UE_LOG("UFbxLoader::LoadFbxAnimation: Found animation stack '%s'", AnimStackName.Buffer());
 
-	// 6. 애니메이션 시간 범위 가져오기
+	// 7. 애니메이션 시간 범위 가져오기
 	FbxTakeInfo* TakeInfo = Scene->GetTakeInfo(AnimStackName);
 	FbxTimeSpan TimeSpan;
 	if (TakeInfo)
@@ -1247,16 +1256,16 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 
 	UE_LOG("UFbxLoader::LoadFbxAnimation: Duration = %.3f seconds, FrameRate = %.1f fps", SequenceLength, FrameRate);
 
-	// 7. UAnimDataModel 생성
+	// 8. UAnimDataModel 생성
 	UAnimDataModel* DataModel = NewObject<UAnimDataModel>();
 	DataModel->SequenceLength = SequenceLength;
 	DataModel->FrameRate = FrameRate;
 	DataModel->NumberOfFrames = static_cast<int32>(SequenceLength * FrameRate);
 
-	// 8. AnimStack 활성화
+	// 9. AnimStack 활성화
 	Scene->SetCurrentAnimationStack(AnimStack);
 
-	// 9. 첫 번째 AnimLayer 가져오기 (일반적으로 레이어는 하나만 사용)
+	// 10. 첫 번째 AnimLayer 가져오기 (일반적으로 레이어는 하나만 사용)
 	int LayerCount = AnimStack->GetMemberCount<FbxAnimLayer>();
 	UE_LOG("UFbxLoader::LoadFbxAnimation: Found %d animation layer(s)", LayerCount);
 
@@ -1269,7 +1278,7 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 	}
 	UE_LOG("UFbxLoader::LoadFbxAnimation: Using animation layer '%s'", AnimLayer->GetName());
 
-	// 10. FBX 씬의 루트 노드 가져오기
+	// 11. FBX 씬의 루트 노드 가져오기
 	FbxNode* RootNode = Scene->GetRootNode();
 	if (!RootNode)
 	{
@@ -1278,7 +1287,7 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 		return nullptr;
 	}
 
-	// 11. 본 이름으로 FbxNode 찾기 위한 맵 생성
+	// 12. 본 이름으로 FbxNode 찾기 위한 맵 생성
 	TMap<FString, FbxNode*> BoneNameToNode;
 	std::function<void(FbxNode*)> CollectBoneNodes = [&](FbxNode* Node)
 	{
@@ -1297,10 +1306,10 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 
 	UE_LOG("UFbxLoader::LoadFbxAnimation: Collected %d bone nodes from FBX", BoneNameToNode.size());
 
-	// 12. CurveData 초기화 (본 개수만큼 Transform 커브 배열 생성)
+	// 13. CurveData 초기화 (본 개수만큼 Transform 커브 배열 생성)
 	DataModel->CurveData.BoneTransformCurves.SetNum(TargetSkeleton->Bones.Num());
 
-	// 13. 애니메이션 데이터 추출
+	// 14. 애니메이션 데이터 추출
 	// 먼저 첫 번째 본의 커브를 체크하여 커브 기반인지 평가(Evaluation) 기반인지 판단
 	bool bUseCurveBased = false;
 	bool bUseEvaluationBased = false;
@@ -1326,7 +1335,7 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 		}
 	}
 
-	// 14. 각 본에 대해 애니메이션 데이터 추출
+	// 15. 각 본에 대해 애니메이션 데이터 추출
 	int32 TotalKeys = 0;
 	for (int32 BoneIndex = 0; BoneIndex < TargetSkeleton->Bones.Num(); ++BoneIndex)
 	{
@@ -1521,17 +1530,28 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 
 	DataModel->NumberOfKeys = TotalKeys;
 
-	// 14. UAnimSequence 생성 및 설정
+	// 16. UAnimSequence 생성 및 설정
 	UAnimSequence* AnimSequence = NewObject<UAnimSequence>();
 	AnimSequence->SetFilePath(NormalizedPath);
 	AnimSequence->SetSkeletonName(TargetSkeleton->Name);
 	AnimSequence->SetAnimDataModel(DataModel);
 
-	// 15. 씬 정리
+	// 17. 씬 정리
 	Scene->Destroy();
 
 	UE_LOG("UFbxLoader::LoadFbxAnimation: Successfully loaded animation (%.3f sec, %d bones, %d total keys)",
 		SequenceLength, TargetSkeleton->Bones.Num(), TotalKeys);
+
+	// 18. 리소스 매니저에 등록
+	bool bRegistered = UResourceManager::GetInstance().Add<UAnimSequence>(NormalizedPath, AnimSequence);
+	if (bRegistered)
+	{
+		UE_LOG("UFbxLoader::LoadFbxAnimation: Animation registered in ResourceManager");
+	}
+	else
+	{
+		UE_LOG("UFbxLoader::LoadFbxAnimation: Warning - Animation was already registered");
+	}
 
 	return AnimSequence;
 }
