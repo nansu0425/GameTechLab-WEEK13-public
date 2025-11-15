@@ -78,4 +78,11 @@ protected:
 
     // Lazily create viewer-only components (BoneLineComponent, BoneAnchor) if in preview world
     void EnsureViewerComponents();
+
+    // ------- TEST ------- 
+    // -- Preview-only SM test toggler (for viewer demonstration)
+private:
+    float SMTestAccum = 0.f;
+    bool bSMTestFlip = false;
+    // ---------------------
 };

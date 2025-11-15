@@ -2,6 +2,9 @@
 #include "SkinnedMeshComponent.h"
 #include "USkeletalMeshComponent.generated.h"
 
+class UAnimInstance;
+class UAnimationAsset;
+
 UCLASS(DisplayName="스켈레탈 메시 컴포넌트", Description="스켈레탈 메시를 렌더링하는 컴포넌트입니다")
 class USkeletalMeshComponent : public USkinnedMeshComponent
 {
@@ -14,33 +17,16 @@ public:
     void TickComponent(float DeltaTime) override;
     void SetSkeletalMesh(const FString& PathFileName) override;
 
-    /**
-     * 애니메이션 재생 시작
-     * @param Animation 재생할 애니메이션 시퀀스
-     * @param bLoop 루핑 여부 (기본값: true)
-     */
-    void PlayAnimation(class UAnimSequence* Animation, bool bLoop = true);
+    // Animation Integration
+public:
+    void SetAnimInstance(class UAnimInstance* InInstance);
+    UAnimInstance* GetAnimInstance() const { return AnimInstance; }
 
-    /**
-     * 애니메이션 재생 중지
-     */
+    // Convenience single-clip controls (optional)
+    void PlayAnimation(class UAnimationAsset* Asset, bool bLooping = true, float InPlayRate = 1.f);
     void StopAnimation();
-
-    /**
-     * 애니메이션 재생 시간 설정
-     * @param Time 설정할 시간 (초 단위)
-     */
-    void SetAnimationTime(float Time);
-
-    /**
-     * 현재 애니메이션 재생 중인지 확인
-     */
-    bool IsPlayingAnimation() const { return bIsPlaying; }
-
-    /**
-     * 현재 재생 중인 애니메이션 가져오기
-     */
-    class UAnimSequence* GetCurrentAnimation() const { return CurrentAnimation; }
+    void SetAnimationPosition(float InSeconds);
+    bool IsPlayingAnimation() const;
 
 // Editor Section
 public:
@@ -79,12 +65,6 @@ protected:
      */
     void UpdateFinalSkinningMatrices();
 
-    /**
-     * @brief 주어진 시간에 애니메이션을 평가하여 CurrentLocalSpacePose 업데이트
-     * @param Time 평가할 시간 (초 단위)
-     */
-    void EvaluateAnimation(float Time);
-
 protected:
     /**
      * @brief 각 뼈의 부모 기준 로컬 트랜스폼
@@ -101,29 +81,13 @@ protected:
      */
     TArray<FMatrix> TempFinalSkinningMatrices;
 
-    /**
-     * @brief 현재 재생 중인 애니메이션 시퀀스
-     */
-    class UAnimSequence* CurrentAnimation = nullptr;
-
-    /**
-     * @brief 현재 애니메이션 재생 시간 (초 단위)
-     */
-    float CurrentAnimationTime = 0.0f;
-
-    /**
-     * @brief 애니메이션 재생 중 여부
-     */
-    bool bIsPlaying = false;
-
-    /**
-     * @brief 애니메이션 루핑 여부
-     */
-    bool bLooping = false;
-
 // FOR TEST!!!
 private:
     float TestTime = 0;
     bool bIsInitialized = false;
     FTransform TestBoneBasePose;
+
+    // Animation state
+    UAnimInstance* AnimInstance = nullptr;
+    bool bUseAnimation = true;
 };

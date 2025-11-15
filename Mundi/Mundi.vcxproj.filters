@@ -60,17 +60,41 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Generated\ASkeletalMeshActor.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
     <ClCompile Include="Generated\USkinnedMeshComponent.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
     <ClCompile Include="Generated\USkeletalMeshComponent.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
-    <ClCompile Include="Generated\ASkeletalMeshActor.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Animation\AnimationRuntime.cpp">
+      <Filter>Source\Runtime\Engine\Animation</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Animation\AnimInstance.cpp">
+      <Filter>Source\Runtime\Engine\Animation</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Animation\AnimSingleNodeInstance.cpp">
+      <Filter>Source\Runtime\Engine\Animation</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Animation\AnimStateMachine.cpp">
+      <Filter>Source\Runtime\Engine\Animation</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Animation\AnimTestUtil.cpp">
+      <Filter>Source\Runtime\Engine\Animation</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UAnimInstance.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UAnimSingleNodeInstance.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UAnimStateMachineInstance.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\Animation\AnimationAsset.cpp">
       <Filter>Source\Runtime\Engine\Animation</Filter>
     </ClCompile>
@@ -82,108 +106,6 @@
     </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\Animation\AnimSequenceBase.cpp">
       <Filter>Source\Runtime\Engine\Animation</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Renderer\SkinningStats.cpp">
-      <Filter>Source\Runtime\Renderer</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\FbxLoader.cpp">
-      <Filter>Source\Editor</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\PlatformProcess.cpp">
-      <Filter>Source\Editor</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\ObjManager.cpp">
-      <Filter>Source\Editor</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\SelectionManager.cpp">
-      <Filter>Source\Editor</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\Clipboard\ClipboardManager.cpp">
-      <Filter>Source\Editor\Clipboard</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\Gizmo\GizmoActor.cpp">
-      <Filter>Source\Editor\Gizmo</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\Gizmo\GizmoArrowComponent.cpp">
-      <Filter>Source\Editor\Gizmo</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\Gizmo\GizmoRotateComponent.cpp">
-      <Filter>Source\Editor\Gizmo</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\Gizmo\GizmoScaleComponent.cpp">
-      <Filter>Source\Editor\Gizmo</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\Grid\GridActor.cpp">
-      <Filter>Source\Editor\Grid</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\AssetManagement\SkeletalMesh.cpp">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\AssetManagement\DynamicMesh.cpp">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\AssetManagement\Line.cpp">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\AssetManagement\LineDynamicMesh.cpp">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\AssetManagement\MeshLoader.cpp">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\AssetManagement\Quad.cpp">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\AssetManagement\ResourceBase.cpp">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\AssetManagement\ResourceManager.cpp">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\AssetManagement\StaticMesh.cpp">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\AssetManagement\Texture.cpp">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\AssetManagement\TextureConverter.cpp">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Misc\VertexData.cpp">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Misc\Color.cpp">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Misc\FName.cpp">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Math\Vector.cpp">
-      <Filter>Source\Runtime\Core\Math</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Object\FireballActor.cpp">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Object\Actor.cpp">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Object\ActorComponent.cpp">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Object\Object.cpp">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Object\ObjectFactory.cpp">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Containers\UEContainer.cpp">
-      <Filter>Source\Runtime\Core\Containers</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Memory\MemoryManager.cpp">
-      <Filter>Source\Runtime\Core\Memory</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Memory\PlatformTime.cpp">
-      <Filter>Source\Runtime\Core\Memory</Filter>
     </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\Components\SkeletalMeshComponent.cpp">
       <Filter>Source\Runtime\Engine\Components</Filter>
@@ -425,6 +347,9 @@
     <ClCompile Include="Source\Runtime\Renderer\SceneRenderer.cpp">
       <Filter>Source\Runtime\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Runtime\Renderer\SkinningStats.cpp">
+      <Filter>Source\Runtime\Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Runtime\Renderer\FViewport.cpp">
       <Filter>Source\Runtime\Renderer</Filter>
     </ClCompile>
@@ -461,6 +386,75 @@
     <ClCompile Include="Source\Runtime\Renderer\PostProcessing\VignettePass.cpp">
       <Filter>Source\Runtime\Renderer\PostProcessing</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Runtime\AssetManagement\SkeletalMesh.cpp">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\AssetManagement\DynamicMesh.cpp">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\AssetManagement\Line.cpp">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\AssetManagement\LineDynamicMesh.cpp">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\AssetManagement\MeshLoader.cpp">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\AssetManagement\Quad.cpp">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\AssetManagement\ResourceBase.cpp">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\AssetManagement\ResourceManager.cpp">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\AssetManagement\StaticMesh.cpp">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\AssetManagement\Texture.cpp">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\AssetManagement\TextureConverter.cpp">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Misc\VertexData.cpp">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Misc\Color.cpp">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Misc\FName.cpp">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Math\Vector.cpp">
+      <Filter>Source\Runtime\Core\Math</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Object\FireballActor.cpp">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Object\Actor.cpp">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Object\ActorComponent.cpp">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Object\Object.cpp">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Object\ObjectFactory.cpp">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Containers\UEContainer.cpp">
+      <Filter>Source\Runtime\Core\Containers</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Memory\MemoryManager.cpp">
+      <Filter>Source\Runtime\Core\Memory</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Memory\PlatformTime.cpp">
+      <Filter>Source\Runtime\Core\Memory</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Runtime\InputCore\InputManager.cpp">
       <Filter>Source\Runtime\InputCore</Filter>
     </ClCompile>
@@ -478,6 +472,36 @@
     </ClCompile>
     <ClCompile Include="Source\Runtime\RHI\RHIDevice.cpp">
       <Filter>Source\Runtime\RHI</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\FbxLoader.cpp">
+      <Filter>Source\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\PlatformProcess.cpp">
+      <Filter>Source\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\ObjManager.cpp">
+      <Filter>Source\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\SelectionManager.cpp">
+      <Filter>Source\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\Clipboard\ClipboardManager.cpp">
+      <Filter>Source\Editor\Clipboard</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\Gizmo\GizmoActor.cpp">
+      <Filter>Source\Editor\Gizmo</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\Gizmo\GizmoArrowComponent.cpp">
+      <Filter>Source\Editor\Gizmo</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\Gizmo\GizmoRotateComponent.cpp">
+      <Filter>Source\Editor\Gizmo</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\Gizmo\GizmoScaleComponent.cpp">
+      <Filter>Source\Editor\Gizmo</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\Grid\GridActor.cpp">
+      <Filter>Source\Editor\Grid</Filter>
     </ClCompile>
     <ClCompile Include="Source\Slate\ThumbnailManager.cpp">
       <Filter>Source\Slate</Filter>
@@ -746,6 +770,33 @@
       <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="pch.h" />
+    <ClInclude Include="Source\Runtime\Engine\Animation\AnimStateMachine.h">
+      <Filter>Source\Runtime\Engine\Animation</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Animation\AnimTestUtil.h">
+      <Filter>Source\Runtime\Engine\Animation</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Animation\AnimationRuntime.h">
+      <Filter>Source\Runtime\Engine\Animation</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Animation\AnimInstance.h">
+      <Filter>Source\Runtime\Engine\Animation</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Animation\AnimNodeBase.h">
+      <Filter>Source\Runtime\Engine\Animation</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Animation\AnimSingleNodeInstance.h">
+      <Filter>Source\Runtime\Engine\Animation</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UAnimInstance.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UAnimSingleNodeInstance.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UAnimStateMachineInstance.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\Animation\AnimationAsset.h">
       <Filter>Source\Runtime\Engine\Animation</Filter>
     </ClInclude>
@@ -760,150 +811,6 @@
     </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\Animation\AnimTypes.h">
       <Filter>Source\Runtime\Engine\Animation</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\FbxLoader.h">
-      <Filter>Source\Editor</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\PlatformProcess.h">
-      <Filter>Source\Editor</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\ImGuiConsole.h">
-      <Filter>Source\Editor</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\ObjManager.h">
-      <Filter>Source\Editor</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\SelectionManager.h">
-      <Filter>Source\Editor</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\Clipboard\ClipboardManager.h">
-      <Filter>Source\Editor\Clipboard</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\Gizmo\GizmoActor.h">
-      <Filter>Source\Editor\Gizmo</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\Gizmo\GizmoArrowComponent.h">
-      <Filter>Source\Editor\Gizmo</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\Gizmo\GizmoRotateComponent.h">
-      <Filter>Source\Editor\Gizmo</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\Gizmo\GizmoScaleComponent.h">
-      <Filter>Source\Editor\Gizmo</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\Grid\Grid.h">
-      <Filter>Source\Editor\Grid</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\Grid\GridActor.h">
-      <Filter>Source\Editor\Grid</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\AssetManagement\SkeletalMesh.h">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\AssetManagement\Cube.h">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\AssetManagement\DynamicMesh.h">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\AssetManagement\Line.h">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\AssetManagement\LineDynamicMesh.h">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\AssetManagement\MeshLoader.h">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\AssetManagement\Quad.h">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\AssetManagement\ResourceBase.h">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\AssetManagement\ResourceManager.h">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\AssetManagement\StaticMesh.h">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\AssetManagement\Texture.h">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\AssetManagement\TextureConverter.h">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\AssetManagement\Triangle.h">
-      <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\Delegates.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\Hash.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\PathUtils.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\Archive.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\Color.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\Enums.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\ResourceData.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\JsonSerializer.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\Name.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\ObjectIterator.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\VertexData.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\WindowsBinReader.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\WindowsBinWriter.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Math\Vector.h">
-      <Filter>Source\Runtime\Core\Math</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Object\FireballActor.h">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Object\Property.h">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Object\Actor.h">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Object\ActorComponent.h">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Object\Object.h">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Object\ObjectFactory.h">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Containers\UEContainer.h">
-      <Filter>Source\Runtime\Core\Containers</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Memory\MemoryManager.h">
-      <Filter>Source\Runtime\Core\Memory</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Memory\PlatformTime.h">
-      <Filter>Source\Runtime\Core\Memory</Filter>
     </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\Components\AudioComponent.h">
       <Filter>Source\Runtime\Engine\Components</Filter>
@@ -1196,6 +1103,114 @@
     <ClInclude Include="Source\Runtime\Renderer\PostProcessing\VignettePass.h">
       <Filter>Source\Runtime\Renderer\PostProcessing</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Runtime\AssetManagement\SkeletalMesh.h">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\AssetManagement\Cube.h">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\AssetManagement\DynamicMesh.h">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\AssetManagement\Line.h">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\AssetManagement\LineDynamicMesh.h">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\AssetManagement\MeshLoader.h">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\AssetManagement\Quad.h">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\AssetManagement\ResourceBase.h">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\AssetManagement\ResourceManager.h">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\AssetManagement\StaticMesh.h">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\AssetManagement\Texture.h">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\AssetManagement\TextureConverter.h">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\AssetManagement\Triangle.h">
+      <Filter>Source\Runtime\AssetManagement</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\Delegates.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\Hash.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\PathUtils.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\Archive.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\Color.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\Enums.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\ResourceData.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\JsonSerializer.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\Name.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\ObjectIterator.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\VertexData.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\WindowsBinReader.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\WindowsBinWriter.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Math\Vector.h">
+      <Filter>Source\Runtime\Core\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Object\FireballActor.h">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Object\Property.h">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Object\Actor.h">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Object\ActorComponent.h">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Object\Object.h">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Object\ObjectFactory.h">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Containers\UEContainer.h">
+      <Filter>Source\Runtime\Core\Containers</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Memory\MemoryManager.h">
+      <Filter>Source\Runtime\Core\Memory</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Memory\PlatformTime.h">
+      <Filter>Source\Runtime\Core\Memory</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Runtime\InputCore\InputManager.h">
       <Filter>Source\Runtime\InputCore</Filter>
     </ClInclude>
@@ -1219,6 +1234,42 @@
     </ClInclude>
     <ClInclude Include="Source\Runtime\RHI\RHIDevice.h">
       <Filter>Source\Runtime\RHI</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\FbxLoader.h">
+      <Filter>Source\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\PlatformProcess.h">
+      <Filter>Source\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\ImGuiConsole.h">
+      <Filter>Source\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\ObjManager.h">
+      <Filter>Source\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\SelectionManager.h">
+      <Filter>Source\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\Clipboard\ClipboardManager.h">
+      <Filter>Source\Editor\Clipboard</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\Gizmo\GizmoActor.h">
+      <Filter>Source\Editor\Gizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\Gizmo\GizmoArrowComponent.h">
+      <Filter>Source\Editor\Gizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\Gizmo\GizmoRotateComponent.h">
+      <Filter>Source\Editor\Gizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\Gizmo\GizmoScaleComponent.h">
+      <Filter>Source\Editor\Gizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\Grid\Grid.h">
+      <Filter>Source\Editor\Grid</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\Grid\GridActor.h">
+      <Filter>Source\Editor\Grid</Filter>
     </ClInclude>
     <ClInclude Include="Source\Slate\ThumbnailManager.h">
       <Filter>Source\Slate</Filter>
@@ -1582,151 +1633,151 @@
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source">
-      <UniqueIdentifier>{182bb79e-ecdb-4320-a6e3-ed2104dc86b6}</UniqueIdentifier>
+      <UniqueIdentifier>{802b81d9-8195-475a-8ee9-bab9947e06a5}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime">
-      <UniqueIdentifier>{d4115024-d54e-4e23-bb83-32926de9be2b}</UniqueIdentifier>
+      <UniqueIdentifier>{664f606c-a077-4298-adad-03ca9c4ce158}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Engine">
-      <UniqueIdentifier>{16e4cdc5-cd3c-4aaa-baaa-237f0ea9620c}</UniqueIdentifier>
+      <UniqueIdentifier>{9c7fc366-a44d-403f-be50-dd66bdfbb2c4}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Engine\Animation">
-      <UniqueIdentifier>{4ffe630f-73d5-4e35-a599-3ed3eacc6b50}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Renderer">
-      <UniqueIdentifier>{0df22cf4-d902-4bd6-bdff-66730f0b6c98}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Shaders">
-      <UniqueIdentifier>{137b762f-e059-4b90-9ee0-52d9898b3f13}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Shaders\PostProcess">
-      <UniqueIdentifier>{5c2a94af-0e49-4791-9e7e-457f5ee84eed}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Shaders\Materials">
-      <UniqueIdentifier>{b51d2557-009c-4761-8dc7-c23606ae9649}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Shaders\Shadows">
-      <UniqueIdentifier>{eb852c62-3c62-4f51-bcc0-3a6cd636091f}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Shaders\Common">
-      <UniqueIdentifier>{7e97e981-b169-4109-adf4-d2277c3db881}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Shaders\UI">
-      <UniqueIdentifier>{a13345b2-db72-4ad8-a92a-6f5a768e2d07}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Shaders\Effects">
-      <UniqueIdentifier>{161dd266-3550-4bd7-b3ff-970b2c1c9324}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Shaders\Utility">
-      <UniqueIdentifier>{aaeb0f88-32ad-4590-9067-712ab41d72d4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Editor">
-      <UniqueIdentifier>{07ee05cd-0ee2-4378-a3b4-25603981d792}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Editor\Clipboard">
-      <UniqueIdentifier>{1608c569-2a21-4bf1-8a06-7ff0da15b313}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Editor\Gizmo">
-      <UniqueIdentifier>{d5e886b6-380c-48f5-92c1-fb6a8b5810b4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Editor\Grid">
-      <UniqueIdentifier>{28b65f7b-e18f-425e-8f16-4c1738d462a6}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\AssetManagement">
-      <UniqueIdentifier>{833fa477-8076-4e2d-af7f-1268ac5eaff9}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Core">
-      <UniqueIdentifier>{352cd960-558a-46a7-9dcf-63349bb84af8}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Core\Misc">
-      <UniqueIdentifier>{416dfb46-fec3-4f3a-a859-00ef3a7f2817}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Core\Math">
-      <UniqueIdentifier>{a9d2321c-ec86-41bc-a0a4-049829b2ae2f}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Core\Object">
-      <UniqueIdentifier>{2c7fde67-74d7-48f1-ae5e-40f688064a18}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Core\Containers">
-      <UniqueIdentifier>{1d52a351-9f99-4b45-84fc-c789fc35f7f0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Core\Memory">
-      <UniqueIdentifier>{b64ae65e-b1ce-4285-972d-ee85baf97f82}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\Components">
-      <UniqueIdentifier>{1058e293-bdb8-4261-bf06-d2390f0fddd2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\GameFramework">
-      <UniqueIdentifier>{dd0d8e0e-1605-49f6-9103-44a7aee1c332}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\GameFramework\Camera">
-      <UniqueIdentifier>{248fec27-ae20-4bf6-84e3-d8a7f0246172}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\Scripting">
-      <UniqueIdentifier>{8c6cf971-38af-41b6-8347-6bc9f6f90373}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\Audio">
-      <UniqueIdentifier>{f5c05b42-9166-4aa5-9925-995d2258aed1}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\Collision">
-      <UniqueIdentifier>{395dd938-09f5-4112-bbc0-7ae8dd69621f}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\Spatial">
-      <UniqueIdentifier>{e06596e6-b021-44ff-beb5-fab37b6f8eea}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\Viewer">
-      <UniqueIdentifier>{a7f677c1-c88d-4d7f-a8df-496bef66722f}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Renderer\PostProcessing">
-      <UniqueIdentifier>{cf4d7e25-f532-43da-bba0-d64d4089b8ea}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\InputCore">
-      <UniqueIdentifier>{f05f76db-4011-4ce5-86d9-97cdf229f8b4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\RHI">
-      <UniqueIdentifier>{11165a57-b2fe-499e-9454-36ef97e288a5}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Slate">
-      <UniqueIdentifier>{5acc5216-8382-4228-94a8-4f0266748893}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Slate\Windows">
-      <UniqueIdentifier>{aabd9743-fcc8-49c6-aac6-5c10fdc135fc}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Slate\Widgets">
-      <UniqueIdentifier>{dfe286c0-4416-4f75-ad3b-b36498d48ed3}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Slate\Factory">
-      <UniqueIdentifier>{03b633b2-0b9c-4f4d-adda-2dc8db61d5bc}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Slate\ImGui">
-      <UniqueIdentifier>{e8c9e42e-1c66-4114-98e1-0acbe7ecac5d}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ThirdParty">
-      <UniqueIdentifier>{207d3aee-50a6-433e-851f-606c294fb420}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ThirdParty\ImGui">
-      <UniqueIdentifier>{3ff04b95-5478-4374-8060-e1ef6ee49d84}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ThirdParty\DirectXTK">
-      <UniqueIdentifier>{a6f05bd6-40a9-474d-855b-5f93947ef5e3}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ThirdParty\DirectXTK\include">
-      <UniqueIdentifier>{0fb2ed2e-fadf-4688-8450-2f1645d04738}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ThirdParty\Lua">
-      <UniqueIdentifier>{773564e9-4505-4abc-9b39-2657f6f3e5cf}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ThirdParty\Lua\include">
-      <UniqueIdentifier>{f409e171-2064-46a0-8449-37b06eceb7f4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="BuildTools">
-      <UniqueIdentifier>{63dab3df-12ba-4a72-9642-5310a968a52a}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="BuildTools\CodeGenerator">
-      <UniqueIdentifier>{a62cca76-7939-452d-b5b1-2f16283fba35}</UniqueIdentifier>
+      <UniqueIdentifier>{5d1649e3-c628-4959-a48e-59a013c660da}</UniqueIdentifier>
     </Filter>
     <Filter Include="Generated">
-      <UniqueIdentifier>{77d72e8d-3845-4ab9-a941-cf6bf1082f24}</UniqueIdentifier>
+      <UniqueIdentifier>{2adc384e-0d5d-4e8f-85e7-ca14d0d1ab8b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\Components">
+      <UniqueIdentifier>{b9ce56c9-d5bb-4175-8969-f149cc264aa5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\GameFramework">
+      <UniqueIdentifier>{b11eedb1-86ce-4190-b8f9-45c52037d10f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\GameFramework\Camera">
+      <UniqueIdentifier>{67597f7f-9ff0-45a6-8334-965ae0923609}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\Scripting">
+      <UniqueIdentifier>{5976cd15-8457-49e6-a1de-f4074c7eafe6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\Audio">
+      <UniqueIdentifier>{edc333f9-9d30-46de-a81e-dca543fade29}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\Collision">
+      <UniqueIdentifier>{33cd7459-0018-4243-a649-c8dfd96e2e30}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\Spatial">
+      <UniqueIdentifier>{7849c49c-d86a-4ebf-aaac-33fc182ee0a1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\Viewer">
+      <UniqueIdentifier>{0c4d04ba-c734-487c-8b57-2ed2d0980818}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Renderer">
+      <UniqueIdentifier>{a11302e7-9136-4f43-a356-83def85073cc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Renderer\PostProcessing">
+      <UniqueIdentifier>{82aa0033-bb62-41da-b2be-f0a2007fbf6f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\AssetManagement">
+      <UniqueIdentifier>{593b9318-e860-4f29-9762-ca70627cd3a0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Core">
+      <UniqueIdentifier>{86dfdbff-0676-4001-8557-abccb9f55089}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Core\Misc">
+      <UniqueIdentifier>{525376c6-1ce9-4840-a597-f600c40a0ad6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Core\Math">
+      <UniqueIdentifier>{64fd46ae-e357-48ec-8578-82ed58ded5c5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Core\Object">
+      <UniqueIdentifier>{be79e04e-1c7b-43bf-89f5-a50a0a7d6725}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Core\Containers">
+      <UniqueIdentifier>{5c788a09-ffde-4152-85d9-a3aa1e78e7a1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Core\Memory">
+      <UniqueIdentifier>{ec5f18b1-1178-4dcd-952f-5f82e391ec75}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\InputCore">
+      <UniqueIdentifier>{ee2b1f54-91cd-46f1-ba7c-886c935ea0a4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\RHI">
+      <UniqueIdentifier>{960dc525-cc92-469c-93ff-917d776ce4e3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Editor">
+      <UniqueIdentifier>{a68ce38f-99ac-4743-a0ea-6cc51fbedda6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Editor\Clipboard">
+      <UniqueIdentifier>{9d208397-91d4-44ca-a5f3-1702ac13de9f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Editor\Gizmo">
+      <UniqueIdentifier>{4e40bb01-d3ec-4170-bc66-f68147620e9e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Editor\Grid">
+      <UniqueIdentifier>{a11edd72-3bd8-4798-adf1-e1556d381f65}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Slate">
+      <UniqueIdentifier>{16866f84-0468-41e0-b8db-ebadae8cde34}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Slate\Windows">
+      <UniqueIdentifier>{e9fdd3c5-481d-45ca-912e-5afa97af5321}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Slate\Widgets">
+      <UniqueIdentifier>{8d843e4a-68f0-4307-9443-abe9e57a5de6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Slate\Factory">
+      <UniqueIdentifier>{36623cc8-0414-4d99-a667-01266921ba81}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Slate\ImGui">
+      <UniqueIdentifier>{1565ea71-8dcc-4d83-b816-b56f3bb0ded6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{a49344cd-9ee3-463a-9bd1-6e7f5289ce32}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\PostProcess">
+      <UniqueIdentifier>{4a565149-6d75-485a-bbd5-a21e15c947f6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\Materials">
+      <UniqueIdentifier>{75797faf-32e6-4891-8347-cbc1bccc4127}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\Shadows">
+      <UniqueIdentifier>{d1867a07-50d2-4e50-b5dc-26c1058c2e61}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\Common">
+      <UniqueIdentifier>{bfc6ad53-7826-41b9-bfdc-462a0b880c11}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\UI">
+      <UniqueIdentifier>{2bf0b6d8-3b44-469c-bff5-825dc58f54b6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\Effects">
+      <UniqueIdentifier>{1645b6d2-07f4-4a65-afdb-8cf06be14b98}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\Utility">
+      <UniqueIdentifier>{d2230756-877f-4660-a469-8fc40476fe9a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThirdParty">
+      <UniqueIdentifier>{10aa3cf3-2611-4669-ac0d-691cb9b87ceb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThirdParty\ImGui">
+      <UniqueIdentifier>{5876e9a3-3066-4d20-b70d-8be7cb8a9754}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThirdParty\DirectXTK">
+      <UniqueIdentifier>{c8fa7f4a-0c66-4e0a-bc3a-54a33e11400b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThirdParty\DirectXTK\include">
+      <UniqueIdentifier>{a29a9592-c88d-4600-a675-5e6ad02ab045}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThirdParty\Lua">
+      <UniqueIdentifier>{d222b1a8-e951-4ff1-9e70-83963a3bb856}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThirdParty\Lua\include">
+      <UniqueIdentifier>{0de9fca4-3c2e-473b-85c8-dcc9face83ed}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="BuildTools">
+      <UniqueIdentifier>{60de802c-5ac3-4dda-bd1b-7926b1f6d247}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="BuildTools\CodeGenerator">
+      <UniqueIdentifier>{699c4ed8-5595-43af-b0a7-62a1dc1cdfa7}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

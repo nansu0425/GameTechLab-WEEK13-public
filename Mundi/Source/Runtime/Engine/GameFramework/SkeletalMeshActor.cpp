@@ -6,6 +6,9 @@ ASkeletalMeshActor::ASkeletalMeshActor()
 {
     ObjectName = "Skeletal Mesh Actor";
 
+    // TODO: 애니메이션 뷰어에서 테스트 하는 용도. placeholder임
+    SetTickInEditor(true);
+
     // 스킨드 메시 렌더용 컴포넌트 생성 및 루트로 설정
     // - 프리뷰 장면에서 메시를 표시하는 실제 렌더링 컴포넌트
     SkeletalMeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>("SkeletalMeshComponent");
@@ -130,9 +133,17 @@ void ASkeletalMeshActor::RebuildBoneLines(int32 SelectedBoneIndex)
         CachedSelected = SelectedBoneIndex;
     }
 
-    // Update transforms only for the selected bone subtree
-    if (SelectedBoneIndex >= 0 && SelectedBoneIndex < BoneCount)
+    // Update transforms based on whether animation is playing
+    const bool bIsAnimationPlaying = SkeletalMeshComponent && SkeletalMeshComponent->IsPlayingAnimation();
+
+    if (bIsAnimationPlaying)
     {
+        // During animation, update all bone transforms (root bone subtree = entire skeleton)
+        UpdateBoneSubtreeTransforms(0);
+    }
+    else if (SelectedBoneIndex >= 0 && SelectedBoneIndex < BoneCount)
+    {
+        // When editing manually, only update the selected bone subtree
         UpdateBoneSubtreeTransforms(SelectedBoneIndex);
     }
 }

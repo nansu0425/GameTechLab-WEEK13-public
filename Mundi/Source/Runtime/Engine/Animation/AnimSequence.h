@@ -48,6 +48,9 @@ public:
 	 */
 	virtual bool IsValid() const override;
 
+	// UAnimSequenceBase override
+	virtual void ExtractBonePose(const FSkeleton& Skeleton, float Time, bool bLooping, bool bInterpolate, TArray<FTransform>& OutLocalPose) const override;
+
 protected:
 	/** 실제 애니메이션 키프레임 데이터를 저장하는 모델 */
 	UAnimDataModel* AnimDataModel = nullptr;
