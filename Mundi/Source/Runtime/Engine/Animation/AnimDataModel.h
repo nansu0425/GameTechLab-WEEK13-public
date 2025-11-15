@@ -32,6 +32,9 @@ public:
 	/** 전체 키프레임 개수 */
 	int32 NumberOfKeys = 0;
 
+	/** FBX AnimCurve에서 추출한 실제 키프레임 데이터 */
+	FAnimationCurveData CurveData;
+
 	/**
 	 * 본 인덱스로 트랙 가져오기
 	 * @param BoneIndex 스켈레톤의 본 인덱스
@@ -90,6 +93,7 @@ public:
 	void Reset()
 	{
 		BoneAnimationTracks.clear();
+		CurveData.Reset();
 		SequenceLength = 0.0f;
 		FrameRate = 30.0f;
 		NumberOfFrames = 0;
@@ -118,6 +122,9 @@ public:
 		Ar << Model.FrameRate;
 		Ar << Model.NumberOfFrames;
 		Ar << Model.NumberOfKeys;
+
+		// 커브 데이터 직렬화
+		Ar << Model.CurveData;
 
 		return Ar;
 	}
