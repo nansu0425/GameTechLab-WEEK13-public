@@ -1238,7 +1238,7 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 		return nullptr;
 	}
 
-	FbxAnimStack* AnimStack = Scene->GetSrcObject<FbxAnimStack>(0);
+	FbxAnimStack* AnimStack = Scene->GetSrcObject<FbxAnimStack>(1);
 	FbxString AnimStackName = AnimStack->GetName();
 	UE_LOG("UFbxLoader::LoadFbxAnimation: Found animation stack '%s'", AnimStackName.Buffer());
 
@@ -1321,30 +1321,9 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 	DataModel->CurveData.BoneTransformCurves.SetNum(TargetSkeleton->Bones.Num());
 
 	// 14. 애니메이션 데이터 추출
-	// 먼저 첫 번째 본의 커브를 체크하여 커브 기반인지 평가(Evaluation) 기반인지 판단
-	bool bUseCurveBased = false;
-	bool bUseEvaluationBased = false;
-
-	if (!TargetSkeleton->Bones.IsEmpty())
-	{
-		const FBone& FirstBone = TargetSkeleton->Bones[0];
-		if (BoneNameToNode.Contains(FirstBone.Name))
-		{
-			FbxNode* TestNode = BoneNameToNode[FirstBone.Name];
-			FbxAnimCurve* TestCurve = TestNode->LclTranslation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
-
-			if (TestCurve && TestCurve->KeyGetCount() > 0)
-			{
-				bUseCurveBased = true;
-				UE_LOG("UFbxLoader::LoadFbxAnimation: Using CURVE-BASED extraction (found explicit animation curves)");
-			}
-			else
-			{
-				bUseEvaluationBased = true;
-				UE_LOG("UFbxLoader::LoadFbxAnimation: Using EVALUATION-BASED extraction (no explicit curves, will sample at framerate)");
-			}
-		}
-	}
+	// 수정: Offset 문제 방지를 위해 항상 Evaluation-Based 방식 사용
+	// EvaluateLocalTransform으로 절대 로컬 변환을 가져와서 커브 유무와 관계없이 모든 본 처리
+	UE_LOG("UFbxLoader::LoadFbxAnimation: Using EVALUATION-BASED extraction (EvaluateLocalTransform for all bones)");
 
 	// 15. 각 본에 대해 애니메이션 데이터 추출
 	int32 TotalKeys = 0;
@@ -1364,96 +1343,7 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 		// FTransformAnimCurve 참조 가져오기
 		FTransformAnimCurve& TransformCurve = DataModel->CurveData.BoneTransformCurves[BoneIndex];
 
-		// 방법 1: Curve-Based 추출 (명시적 애니메이션 커브가 있는 경우)
-		if (bUseCurveBased)
-		{
-			// Position, Rotation, Scale 애니메이션 커브 가져오기
-			FbxAnimCurve* TranslationCurveX = BoneNode->LclTranslation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
-			FbxAnimCurve* TranslationCurveY = BoneNode->LclTranslation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
-			FbxAnimCurve* TranslationCurveZ = BoneNode->LclTranslation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
-
-			FbxAnimCurve* RotationCurveX = BoneNode->LclRotation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
-			FbxAnimCurve* RotationCurveY = BoneNode->LclRotation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
-			FbxAnimCurve* RotationCurveZ = BoneNode->LclRotation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
-
-			FbxAnimCurve* ScaleCurveX = BoneNode->LclScaling.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
-			FbxAnimCurve* ScaleCurveY = BoneNode->LclScaling.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
-			FbxAnimCurve* ScaleCurveZ = BoneNode->LclScaling.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
-
-			// Position 키프레임 추출 (실제 키프레임만)
-			if (TranslationCurveX && TranslationCurveY && TranslationCurveZ)
-			{
-				int KeyCount = TranslationCurveX->KeyGetCount();
-				for (int i = 0; i < KeyCount; ++i)
-				{
-					FbxTime KeyTime = TranslationCurveX->KeyGetTime(i);
-					float Time = static_cast<float>(KeyTime.GetSecondDouble());
-
-					FVector Position(
-						static_cast<float>(TranslationCurveX->KeyGetValue(i)),
-						static_cast<float>(TranslationCurveY->Evaluate(KeyTime)),
-						static_cast<float>(TranslationCurveZ->Evaluate(KeyTime))
-					);
-
-					TransformCurve.PositionCurve.AddKey(Time, Position);
-				}
-				TotalKeys += KeyCount;
-			}
-
-			// Rotation 키프레임 추출 (Euler -> Quaternion 변환)
-			if (RotationCurveX && RotationCurveY && RotationCurveZ)
-			{
-				int KeyCount = RotationCurveX->KeyGetCount();
-				for (int i = 0; i < KeyCount; ++i)
-				{
-					FbxTime KeyTime = RotationCurveX->KeyGetTime(i);
-					float Time = static_cast<float>(KeyTime.GetSecondDouble());
-
-					// Euler 각도 추출 (도 단위)
-					FbxDouble3 EulerRotation(
-						RotationCurveX->KeyGetValue(i),
-						RotationCurveY->Evaluate(KeyTime),
-						RotationCurveZ->Evaluate(KeyTime)
-					);
-
-					// Euler -> Quaternion 변환
-					FbxQuaternion FbxQuat;
-					FbxQuat.ComposeSphericalXYZ(FbxVector4(EulerRotation[0], EulerRotation[1], EulerRotation[2]));
-
-					FQuat Rotation(
-						static_cast<float>(FbxQuat[0]),
-						static_cast<float>(FbxQuat[1]),
-						static_cast<float>(FbxQuat[2]),
-						static_cast<float>(FbxQuat[3])
-					);
-
-					TransformCurve.RotationCurve.AddKey(Time, Rotation);
-				}
-				TotalKeys += KeyCount;
-			}
-
-			// Scale 키프레임 추출
-			if (ScaleCurveX && ScaleCurveY && ScaleCurveZ)
-			{
-				int KeyCount = ScaleCurveX->KeyGetCount();
-				for (int i = 0; i < KeyCount; ++i)
-				{
-					FbxTime KeyTime = ScaleCurveX->KeyGetTime(i);
-					float Time = static_cast<float>(KeyTime.GetSecondDouble());
-
-					FVector Scale(
-						static_cast<float>(ScaleCurveX->KeyGetValue(i)),
-						static_cast<float>(ScaleCurveY->Evaluate(KeyTime)),
-						static_cast<float>(ScaleCurveZ->Evaluate(KeyTime))
-					);
-
-					TransformCurve.ScaleCurve.AddKey(Time, Scale);
-				}
-				TotalKeys += KeyCount;
-			}
-		}
-		// 방법 2: Evaluation-Based 추출 (커브가 없는 경우 - 샘플링 방식) 
-		else if (bUseEvaluationBased)
+		// Evaluation-Based 추출: EvaluateLocalTransform으로 절대 로컬 변환 가져오기
 		{
 			// 프레임 간격 계산 (30fps 기준으로 샘플링)
 			FbxTime FrameTime;
