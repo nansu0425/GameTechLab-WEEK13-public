@@ -21,14 +21,16 @@ struct FAnimTransition
     bool bAutomatic = false;
 };
 
+struct FAnimExtractContext; // fwd decl
+
 struct FAnimSMRuntime
 {
     int32 CurrentState = -1;
     int32 NextState = -1;
     float BlendAlpha = 0.f;
     float BlendDuration = 0.f;
-    float CurrentTimeA = 0.f;
-    float CurrentTimeB = 0.f;
+    FAnimExtractContext CtxA; // runtime sampling context for current state
+    FAnimExtractContext CtxB; // runtime sampling context for next state (during transition)
 };
 
 UCLASS(DisplayName="애님 상태 머신 인스턴스", Description="경량 상태 전이/블렌드 플레이어")

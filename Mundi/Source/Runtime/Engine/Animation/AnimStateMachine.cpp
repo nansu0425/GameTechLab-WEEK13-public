@@ -45,8 +45,13 @@ void UAnimStateMachineInstance::SetCurrentState(int32 StateIndex, float BlendTim
         Runtime.NextState = -1;
         Runtime.BlendAlpha = 0.f;
         Runtime.BlendDuration = 0.f;
-        Runtime.CurrentTimeA = 0.f;
-        Runtime.CurrentTimeB = 0.f;
+        // initialize sampling context for current state
+        Runtime.CtxA = FAnimExtractContext{};
+        Runtime.CtxA.CurrentTime = 0.f;
+        Runtime.CtxA.PlayRate = States[StateIndex].PlayRate;
+        Runtime.CtxA.bLooping = States[StateIndex].bLooping;
+        Runtime.CtxA.bEnableInterpolation = true;
+        Runtime.CtxB = FAnimExtractContext{};
         return;
     }
 
@@ -60,7 +65,12 @@ void UAnimStateMachineInstance::SetCurrentState(int32 StateIndex, float BlendTim
     Runtime.NextState = StateIndex;
     Runtime.BlendDuration = std::max(0.f, BlendTime);
     Runtime.BlendAlpha = 0.f;
-    Runtime.CurrentTimeB = 0.f;
+    // initialize next state's sampling context
+    Runtime.CtxB = FAnimExtractContext{};
+    Runtime.CtxB.CurrentTime = 0.f;
+    Runtime.CtxB.PlayRate = States[StateIndex].PlayRate;
+    Runtime.CtxB.bLooping = States[StateIndex].bLooping;
+    Runtime.CtxB.bEnableInterpolation = true;
 }
 
 const FAnimState* UAnimStateMachineInstance::GetStateChecked(int32 Index) const
@@ -75,54 +85,14 @@ void UAnimStateMachineInstance::NativeUpdateAnimation(float DeltaSeconds)
     if (const FAnimState* Curr = GetStateChecked(Runtime.CurrentState))
     {
         const float Length = Curr->Asset ? Curr->Asset->GetPlayLength() : 0.f;
-        if (Length > 0.f)
-        {
-            float Move = DeltaSeconds * Curr->PlayRate;
-            float NewTime = Runtime.CurrentTimeA + Move;
-            if (Curr->bLooping)
-            {
-                float T = std::fmod(NewTime, Length);
-                if (T < 0.f) T += Length;
-                Runtime.CurrentTimeA = T;
-            }
-            else
-            {
-                if (NewTime < 0.f) NewTime = 0.f;
-                if (NewTime > Length) NewTime = Length;
-                Runtime.CurrentTimeA = NewTime;
-            }
-        }
-        else
-        {
-            Runtime.CurrentTimeA = 0.f;
-        }
+        Runtime.CtxA.Advance(DeltaSeconds, Length);
     }
 
     // If blending, advance next state time and blend alpha
     if (const FAnimState* Next = GetStateChecked(Runtime.NextState))
     {
         const float Length = Next->Asset ? Next->Asset->GetPlayLength() : 0.f;
-        if (Length > 0.f)
-        {
-            float Move = DeltaSeconds * Next->PlayRate;
-            float NewTime = Runtime.CurrentTimeB + Move;
-            if (Next->bLooping)
-            {
-                float T = std::fmod(NewTime, Length);
-                if (T < 0.f) T += Length;
-                Runtime.CurrentTimeB = T;
-            }
-            else
-            {
-                if (NewTime < 0.f) NewTime = 0.f;
-                if (NewTime > Length) NewTime = Length;
-                Runtime.CurrentTimeB = NewTime;
-            }
-        }
-        else
-        {
-            Runtime.CurrentTimeB = 0.f;
-        }
+        Runtime.CtxB.Advance(DeltaSeconds, Length);
 
         // Advance blend alpha
         if (Runtime.BlendDuration <= 0.f)
@@ -139,11 +109,11 @@ void UAnimStateMachineInstance::NativeUpdateAnimation(float DeltaSeconds)
             // Finalize transition
             Runtime.BlendAlpha = 1.f;
             Runtime.CurrentState = Runtime.NextState;
-            Runtime.CurrentTimeA = Runtime.CurrentTimeB;
+            Runtime.CtxA = Runtime.CtxB;
             Runtime.NextState = -1;
             Runtime.BlendAlpha = 0.f;
             Runtime.BlendDuration = 0.f;
-            Runtime.CurrentTimeB = 0.f;
+            Runtime.CtxB = FAnimExtractContext{};
         }
     }
 }
@@ -167,8 +137,7 @@ void UAnimStateMachineInstance::EvaluateAnimation(FPoseContext& Output)
     if (Curr && Curr->Asset)
     {
         UAnimSequenceBase* SeqA = Cast<UAnimSequenceBase>(Curr->Asset);
-        FAnimExtractContext CtxA; CtxA.CurrentTime = Runtime.CurrentTimeA; CtxA.bLooping = Curr->bLooping; CtxA.bEnableInterpolation = true;
-        FAnimationRuntime::ExtractPoseFromSequence(SeqA, CtxA, *Skeleton, CompA);
+        FAnimationRuntime::ExtractPoseFromSequence(SeqA, Runtime.CtxA, *Skeleton, CompA);
     }
     else
     {
@@ -180,8 +149,7 @@ void UAnimStateMachineInstance::EvaluateAnimation(FPoseContext& Output)
     if (Next && Next->Asset)
     {
         UAnimSequenceBase* SeqB = Cast<UAnimSequenceBase>(Next->Asset);
-        FAnimExtractContext CtxB; CtxB.CurrentTime = Runtime.CurrentTimeB; CtxB.bLooping = Next->bLooping; CtxB.bEnableInterpolation = true;
-        FAnimationRuntime::ExtractPoseFromSequence(SeqB, CtxB, *Skeleton, CompB);
+        FAnimationRuntime::ExtractPoseFromSequence(SeqB, Runtime.CtxB, *Skeleton, CompB);
 
         const float Alpha = std::clamp(Runtime.BlendAlpha, 0.f, 1.f);
         FAnimationRuntime::BlendTwoPoses(*Skeleton, CompA, CompB, Alpha, CompOut);

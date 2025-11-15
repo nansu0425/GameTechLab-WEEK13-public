@@ -21,7 +21,7 @@ public:
     void SetLooping(bool bInLooping);
     void SetPlayRate(float InRate);
     void SetPosition(float InSeconds, bool bFireNotifies = false);
-    float GetPosition() const { return CurrentTime; }
+    float GetPosition() const { return ExtractCtx.CurrentTime; }
     bool IsPlaying() const override { return bPlaying; }
 
     // UAnimInstance overrides
@@ -35,9 +35,7 @@ public:
 
 private:
     UAnimationAsset* CurrentAsset = nullptr;
-    float CurrentTime = 0.f;
-    float PlayRate = 1.f;
-    bool bLooping = true;
+    FAnimExtractContext ExtractCtx; // holds time/looping/playrate/interp
     bool bPlaying = false;
 
     // Additive

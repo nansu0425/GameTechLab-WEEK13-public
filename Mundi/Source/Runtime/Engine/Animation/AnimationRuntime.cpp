@@ -7,7 +7,7 @@
 // Helpers
 static void BuildLocalBindPoseFromSkeleton(const FSkeleton& Skeleton, TArray<FTransform>& OutLocalPose)
 {
-    const int32 NumBones = static_cast<int32>(Skeleton.Bones.Num());
+    const int32 NumBones = Skeleton.Bones.Num();
     OutLocalPose.SetNum(NumBones);
     for (int32 BoneIndex = 0; BoneIndex < NumBones; ++BoneIndex)
     {
@@ -30,7 +30,7 @@ static void BuildLocalBindPoseFromSkeleton(const FSkeleton& Skeleton, TArray<FTr
 void FAnimationRuntime::ConvertLocalToComponentSpace(const FSkeleton& Skeleton, const TArray<FTransform>& LocalPose,
     TArray<FTransform>& OutComponentPose)
 {
-    const int32 NumBones = static_cast<int32>(Skeleton.Bones.Num());
+    const int32 NumBones = Skeleton.Bones.Num();
     OutComponentPose.SetNum(NumBones);
 
     for (int32 BoneIndex = 0; BoneIndex < NumBones; ++BoneIndex)
@@ -50,7 +50,7 @@ void FAnimationRuntime::ConvertLocalToComponentSpace(const FSkeleton& Skeleton, 
 void FAnimationRuntime::ConvertComponentToLocalSpace(const FSkeleton& Skeleton, const TArray<FTransform>& ComponentPose,
     TArray<FTransform>& OutLocalPose)
 {
-    const int32 NumBones = static_cast<int32>(Skeleton.Bones.Num());
+    const int32 NumBones = Skeleton.Bones.Num();
     OutLocalPose.SetNum(NumBones);
 
     for (int32 BoneIndex = 0; BoneIndex < NumBones; ++BoneIndex)
@@ -70,7 +70,7 @@ void FAnimationRuntime::ConvertComponentToLocalSpace(const FSkeleton& Skeleton, 
 void FAnimationRuntime::ExtractPoseFromSequence(const UAnimSequenceBase* Sequence, const FAnimExtractContext& ExtractContext,
     const FSkeleton& Skeleton, TArray<FTransform>& OutComponentPose)
 {
-    const int32 NumBones = static_cast<int32>(Skeleton.Bones.Num());
+    const int32 NumBones = Skeleton.Bones.Num();
     if (NumBones <= 0)
     {
         OutComponentPose.Empty();
@@ -83,8 +83,6 @@ void FAnimationRuntime::ExtractPoseFromSequence(const UAnimSequenceBase* Sequenc
 
     if (Sequence)
     {
-        // Assume teammate provides this API:
-        // void ExtractBonePose(const FSkeleton& Skeleton, float Time, bool bLooping, bool bInterpolate, TArray<FTransform>& OutLocalPose) const;
         Sequence->ExtractBonePose(Skeleton, ExtractContext.CurrentTime, ExtractContext.bLooping, ExtractContext.bEnableInterpolation, LocalPose);
     }
     else
@@ -100,7 +98,7 @@ void FAnimationRuntime::ExtractPoseFromSequence(const UAnimSequenceBase* Sequenc
 void FAnimationRuntime::BlendTwoPoses(const FSkeleton& Skeleton, const TArray<FTransform>& ComponentPoseA, const TArray<FTransform>& ComponentPoseB,
     float Alpha, TArray<FTransform>& OutComponentPose)
 {
-    const int32 NumBones = static_cast<int32>(Skeleton.Bones.Num());
+    const int32 NumBones = Skeleton.Bones.Num();
     OutComponentPose.SetNum(NumBones);
 
     const float ClampedAlpha = std::clamp(Alpha, 0.f, 1.f);
@@ -116,7 +114,7 @@ void FAnimationRuntime::BlendTwoPoses(const FSkeleton& Skeleton, const TArray<FT
 void FAnimationRuntime::AccumulateAdditivePose(const FSkeleton& Skeleton, const TArray<FTransform>& BasePose,
     const TArray<FTransform>& AdditivePose, float Weight, TArray<FTransform>& OutAdditivePose)
 {
-    const int32 NumBones = static_cast<int32>(Skeleton.Bones.Num());
+    const int32 NumBones = Skeleton.Bones.Num();
     OutAdditivePose.SetNum(NumBones);
 
     const float W = std::max(0.f, Weight);

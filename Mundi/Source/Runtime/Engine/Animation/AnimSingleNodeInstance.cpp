@@ -7,8 +7,10 @@
 void UAnimSingleNodeInstance::SetAnimationAsset(UAnimationAsset* InAsset, bool bInLooping)
 {
     CurrentAsset = InAsset;
-    bLooping = bInLooping;
-    CurrentTime = 0.f;
+    ExtractCtx.bLooping = bInLooping;
+    ExtractCtx.PlayRate = 1.f;
+    ExtractCtx.bEnableInterpolation = true;
+    ExtractCtx.CurrentTime = 0.f;
 }
 
 void UAnimSingleNodeInstance::Play(bool bResetTime)
@@ -16,7 +18,7 @@ void UAnimSingleNodeInstance::Play(bool bResetTime)
     bPlaying = true;
     if (bResetTime)
     {
-        CurrentTime = 0.f;
+        ExtractCtx.CurrentTime = 0.f;
     }
 }
 
@@ -32,17 +34,17 @@ void UAnimSingleNodeInstance::SetPlaying(bool bInPlaying)
 
 void UAnimSingleNodeInstance::SetLooping(bool bInLooping)
 {
-    bLooping = bInLooping;
+    ExtractCtx.bLooping = bInLooping;
 }
 
 void UAnimSingleNodeInstance::SetPlayRate(float InRate)
 {
-    PlayRate = InRate;
+    ExtractCtx.PlayRate = InRate;
 }
 
 void UAnimSingleNodeInstance::SetPosition(float InSeconds, bool /*bFireNotifies*/)
 {
-    CurrentTime = InSeconds;
+    ExtractCtx.CurrentTime = InSeconds;
 }
 
 void UAnimSingleNodeInstance::NativeUpdateAnimation(float DeltaTime)
@@ -56,28 +58,7 @@ void UAnimSingleNodeInstance::NativeUpdateAnimation(float DeltaTime)
     if (UAnimSequenceBase* Seq = Cast<UAnimSequenceBase>(CurrentAsset))
     {
         const float Length = Seq->GetPlayLength();
-        if (Length > 0.f)
-        {
-            float Move = DeltaTime * PlayRate;
-            float NewTime = CurrentTime + Move;
-
-            if (bLooping)
-            {
-                float T = std::fmod(NewTime, Length);
-                if (T < 0.f) T += Length;
-                CurrentTime = T;
-            }
-            else
-            {
-                if (NewTime < 0.f) NewTime = 0.f;
-                if (NewTime > Length) NewTime = Length;
-                CurrentTime = NewTime;
-            }
-        }
-        else
-        {
-            CurrentTime = 0.f;
-        }
+        ExtractCtx.Advance(DeltaTime, Length);
     }
 }
 
@@ -101,14 +82,8 @@ void UAnimSingleNodeInstance::EvaluateAnimation(FPoseContext& Output)
     if (!bTreatAssetAsAdditive)
     {
         // Build component-space pose then convert to local for Output
-        FAnimExtractContext Ctx;
-        Ctx.CurrentTime = CurrentTime;
-        Ctx.PlayRate = PlayRate;
-        Ctx.bLooping = bLooping;
-        Ctx.bEnableInterpolation = true;
-
         TArray<FTransform> ComponentPose;
-        FAnimationRuntime::ExtractPoseFromSequence(Seq, Ctx, *Skeleton, ComponentPose);
+        FAnimationRuntime::ExtractPoseFromSequence(Seq, ExtractCtx, *Skeleton, ComponentPose);
 
         FAnimationRuntime::ConvertComponentToLocalSpace(*Skeleton, ComponentPose, Output.LocalSpacePose);
     }
@@ -119,8 +94,8 @@ void UAnimSingleNodeInstance::EvaluateAnimation(FPoseContext& Output)
         Output.ResetToRefPose();
 
         // 2) Extract current and reference component poses
-        FAnimExtractContext CurrCtx; CurrCtx.CurrentTime = CurrentTime; CurrCtx.bLooping = bLooping; CurrCtx.bEnableInterpolation = true;
-        FAnimExtractContext RefCtx;  RefCtx.CurrentTime = ReferenceTime; RefCtx.bLooping = bLooping; RefCtx.bEnableInterpolation = true;
+        FAnimExtractContext CurrCtx = ExtractCtx;
+        FAnimExtractContext RefCtx = ExtractCtx;  RefCtx.CurrentTime = ReferenceTime;
 
         TArray<FTransform> CurrComp, RefComp;
         FAnimationRuntime::ExtractPoseFromSequence(Seq, CurrCtx, *Skeleton, CurrComp);
