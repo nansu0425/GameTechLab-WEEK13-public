@@ -19,6 +19,6 @@ public:
     void LoadSkeletalMesh(const FString& Path);
 
 protected:
-    virtual ViewerState* CreateViewerState(const char* Name) override;
+    virtual ViewerState* CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context) override;
     virtual void DestroyViewerState(ViewerState*& State) override;
 };

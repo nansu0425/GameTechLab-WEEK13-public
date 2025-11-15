@@ -7,6 +7,7 @@
 #include "Source/Editor/PlatformProcess.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 #include "Source/Runtime/Engine/GameFramework/CameraActor.h"
+#include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 
 SViewerWindow::SViewerWindow()
 {
@@ -16,10 +17,11 @@ SViewerWindow::~SViewerWindow()
 {
 }
 
-bool SViewerWindow::Initialize(float StartX, float StartY, float Width, float Height, UWorld* InWorld, ID3D11Device* InDevice)
+bool SViewerWindow::Initialize(float StartX, float StartY, float Width, float Height, UWorld* InWorld, ID3D11Device* InDevice, UEditorAssetPreviewContext* InContext)
 {
     World = InWorld;
     Device = InDevice;
+    Context = InContext;
 
     SetRect(StartX, StartY, StartX + Width, StartY + Height);
 
@@ -713,7 +715,7 @@ void SViewerWindow::OnRenderViewport()
 
 void SViewerWindow::OpenNewTab(const char* Name)
 {
-    ViewerState* State = CreateViewerState(Name);
+    ViewerState* State = CreateViewerState(Name, Context);
     if (!State) return;
 
     Tabs.Add(State);

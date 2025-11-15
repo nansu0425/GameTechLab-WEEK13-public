@@ -2,6 +2,7 @@
 #include "SAnimationViewerWindow.h"
 #include "Source/Runtime/Engine/Viewer/AnimationViewerBootstrap.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
+#include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 
 SAnimationViewerWindow::SAnimationViewerWindow()
 {
@@ -90,7 +91,7 @@ void SAnimationViewerWindow::LoadSkeletalMesh(const FString& Path)
     }
 }
 
-ViewerState* SAnimationViewerWindow::CreateViewerState(const char* Name)
+ViewerState* SAnimationViewerWindow::CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context)
 {
     return AnimationViewerBootstrap::CreateViewerState(Name, World, Device);
 }

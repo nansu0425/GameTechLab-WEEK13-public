@@ -764,6 +764,9 @@
     <ClCompile Include="Source\Slate\Windows\SViewerWindow.cpp">
       <Filter>Source\Slate\Windows</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Viewer\EditorAssetPreviewContext.cpp">
+      <Filter>Source\Runtime\Engine\Viewer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Generated\USkinnedMeshComponent.generated.h">
@@ -1621,6 +1624,9 @@
     </ClInclude>
     <ClInclude Include="Source\Slate\Windows\SViewerWindow.h">
       <Filter>Source\Slate\Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Viewer\EditorAssetPreviewContext.h">
+      <Filter>Source\Runtime\Engine\Viewer</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

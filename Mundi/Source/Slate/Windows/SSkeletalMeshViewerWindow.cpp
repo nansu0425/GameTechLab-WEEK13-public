@@ -90,7 +90,7 @@ void SSkeletalMeshViewerWindow::LoadSkeletalMesh(const FString& Path)
     }
 }
 
-ViewerState* SSkeletalMeshViewerWindow::CreateViewerState(const char* Name)
+ViewerState* SSkeletalMeshViewerWindow::CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context)
 {
     return SkeletalViewerBootstrap::CreateViewerState(Name, World, Device);
 }

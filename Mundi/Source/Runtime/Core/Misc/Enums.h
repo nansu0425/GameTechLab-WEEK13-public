@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "UEContainer.h"
 #include <d3d11.h>
 
@@ -251,4 +251,15 @@ enum class EWorldType : uint8
 
     End,
     PreviewMinimal, 
+};
+
+enum class EViewerType : uint8
+{
+    None,
+
+    Skeletal,
+    Animation,
+    // Particle, etc.
+
+    End,
 };

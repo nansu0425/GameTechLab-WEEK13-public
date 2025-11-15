@@ -12,6 +12,7 @@ class SDetailsWindow;
 class UMainToolbarWidget;
 class UConsoleWindow; // 오버레이 콘솔 윈도우
 class UContentBrowserWindow;
+class UEditorAssetPreviewContext;
 
 // 중앙 레이아웃/입력 라우팅/뷰포트 관리 매니저 (위젯 아님)
 class USlateManager : public UObject
@@ -74,17 +75,9 @@ public:
     void ToggleContentBrowser();
     bool IsContentBrowserVisible() const;
 
-    // Temp: open/close Skeletal Mesh Viewer (detached window)
-    void OpenSkeletalMeshViewer();
-    void OpenSkeletalMeshViewerWithFile(const char* FilePath);
-    void CloseSkeletalMeshViewer();
-    bool IsSkeletalMeshViewerOpen() const { return SkeletalViewerWindow != nullptr; }
-
-    // Temp: open/close Animation Viewer (detached window)
-    void OpenAnimationViewer();
-    void OpenAnimationViewerWithFile(const char* FilePath);
-    void CloseAnimationViewer();
-    bool IsAnimationViewerOpen() const { return AnimationViewerWindow != nullptr; }
+    // Open/Close Viewer (detached window)
+    void OpenAssetViewer(UEditorAssetPreviewContext* Context);
+    void CloseDetachedWindow(SWindow* WindowToClose);
 
 private:
     FRect Rect; // 이전엔 SWindow로부터 상속받던 영역 정보
@@ -138,8 +131,7 @@ private:
     const float ConsoleMaxHeightRatio = 0.8f; // 최대 콘솔 높이 비율
 
     // Detached viewer window
-    SSkeletalMeshViewerWindow* SkeletalViewerWindow = nullptr;
-    SAnimationViewerWindow* AnimationViewerWindow = nullptr;
+    TArray<SWindow*> DetachedWindows;
 
     // Content Browser (Bottom panel overlay with animation)
     UContentBrowserWindow* ContentBrowserWindow = nullptr;

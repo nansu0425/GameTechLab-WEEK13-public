@@ -17,6 +17,7 @@
 #include "UIManager.h"
 #include "GlobalConsole.h"
 #include "ThumbnailManager.h"
+#include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 
 IMPLEMENT_CLASS(USlateManager)
 
@@ -174,84 +175,51 @@ void USlateManager::Initialize(ID3D11Device* InDevice, UWorld* InWorld, const FR
     }
 }
 
-void USlateManager::OpenSkeletalMeshViewer()
+void USlateManager::OpenAssetViewer(UEditorAssetPreviewContext* Context)
 {
-    if (SkeletalViewerWindow)
+    if (Context)    return;
+
+    SViewerWindow* NewViewer = nullptr;
+    switch (Context->ViewerType)
+    {
+    case EViewerType::Skeletal:
+        NewViewer = new SSkeletalMeshViewerWindow();
+        break;
+    case EViewerType::Animation:
+        NewViewer = new SAnimationViewerWindow();
+    default:
+        UE_LOG("ERROR: Unsupported asset type for viewer.");
         return;
-
-    SkeletalViewerWindow = new SSkeletalMeshViewerWindow();
-
-    // Open as a detached window at a default size and position
-    const float toolbarHeight = 50.0f;
-    const float availableHeight = Rect.GetHeight() - toolbarHeight;
-    const float w = Rect.GetWidth() * 0.6f;
-    const float h = availableHeight * 0.7f;
-    const float x = Rect.Left + (Rect.GetWidth() - w) * 0.5f;
-    const float y = Rect.Top + toolbarHeight + (availableHeight - h) * 0.5f;
-    SkeletalViewerWindow->Initialize(x, y, w, h, World, Device);
-}
-
-void USlateManager::OpenSkeletalMeshViewerWithFile(const char* FilePath)
-{
-    // 뷰어가 이미 열려있으면 그냥 사용, 아니면 새로 열기
-    if (!SkeletalViewerWindow)
-    {
-        OpenSkeletalMeshViewer();
     }
 
-    // Load the skeletal mesh into the viewer
-    if (SkeletalViewerWindow && FilePath && FilePath[0] != '\0')
+    if (NewViewer)
     {
-        SkeletalViewerWindow->LoadSkeletalMesh(FilePath);
-        UE_LOG("Opening SkeletalMeshViewer with file: %s", FilePath);
+        // Open as a detached window at a default size and position
+        const float toolbarHeight = 50.0f;
+        const float availableHeight = Rect.GetHeight() - toolbarHeight;
+        const float w = Rect.GetWidth() * 0.6f;
+        const float h = availableHeight * 0.7f;
+        const float x = Rect.Left + (Rect.GetWidth() - w) * 0.5f;
+        const float y = Rect.Top + toolbarHeight + (availableHeight - h) * 0.5f;
+
+        NewViewer->Initialize(x, y, w, h, World, Device, Context);
+        DetachedWindows.Add(NewViewer);
+        UE_LOG("Opened a new asset viewer for asset: %s", Context->AssetPath);
     }
 }
 
-void USlateManager::CloseSkeletalMeshViewer()
+void USlateManager::CloseDetachedWindow(SWindow* WindowToClose)
 {
-    if (!SkeletalViewerWindow) return;
-    delete SkeletalViewerWindow;
-    SkeletalViewerWindow = nullptr;
-}
+    if (!WindowToClose) return;
 
-void USlateManager::OpenAnimationViewer()
-{
-    if (AnimationViewerWindow)
-        return;
-
-    AnimationViewerWindow = new SAnimationViewerWindow();
-
-    // Open as a detached window at a default size and position
-    const float toolbarHeight = 50.0f;
-    const float availableHeight = Rect.GetHeight() - toolbarHeight;
-    const float w = Rect.GetWidth() * 0.6f;
-    const float h = availableHeight * 0.7f;
-    const float x = Rect.Left + (Rect.GetWidth() - w) * 0.5f;
-    const float y = Rect.Top + toolbarHeight + (availableHeight - h) * 0.5f;
-    AnimationViewerWindow->Initialize(x, y, w, h, World, Device);
-}
-
-void USlateManager::OpenAnimationViewerWithFile(const char* FilePath)
-{
-    // 뷰어가 이미 열려있으면 그냥 사용, 아니면 새로 열기
-    if (!AnimationViewerWindow)
+    // Find 'window to close' in DetachedWindows array
+    int32 IndexToRemove = DetachedWindows.Find(WindowToClose);
+    if (IndexToRemove != -1)
     {
-        OpenAnimationViewer();
+        DetachedWindows.RemoveAt(IndexToRemove);
+        delete WindowToClose;
+        // The caller will null its pointer.
     }
-
-    // Load the skeletal mesh into the viewer
-    if (AnimationViewerWindow && FilePath && FilePath[0] != '\0')
-    {
-        AnimationViewerWindow->LoadSkeletalMesh(FilePath);
-        UE_LOG("Opening AnimationViewer with file: %s", FilePath);
-    }
-}
-
-void USlateManager::CloseAnimationViewer()
-{
-    if (!AnimationViewerWindow) return;
-    delete AnimationViewerWindow;
-    AnimationViewerWindow = nullptr;
 }
 
 void USlateManager::SwitchLayout(EViewportLayoutMode NewMode)
@@ -513,25 +481,20 @@ void USlateManager::Render()
     }
     
     // Render detached viewer on top
-    if (SkeletalViewerWindow)
+    for (SWindow* Window : DetachedWindows)
     {
-        SkeletalViewerWindow->OnRender();
-    }
-    if (AnimationViewerWindow)
-    {
-        AnimationViewerWindow->OnRender();
+        Window->OnRender();
     }
 }
 
 void USlateManager::RenderAfterUI()
 {
-    if (SkeletalViewerWindow)
+    for (SWindow* Window : DetachedWindows)
     {
-        SkeletalViewerWindow->OnRenderViewport();
-    }
-    if (AnimationViewerWindow)
-    {
-        AnimationViewerWindow->OnRenderViewport();
+        /*if (SViewerWindow* ViewerWindow = dynamic_cast<SViewerWindow>(Window))
+        {
+            ViewerWindow->OnRenderViewport();
+        }*/
     }
 }
 
@@ -549,13 +512,9 @@ void USlateManager::Update(float DeltaSeconds)
         TopPanel->OnUpdate(DeltaSeconds);
     }
 
-    if (SkeletalViewerWindow)
+    for (SWindow* Window : DetachedWindows)
     {
-        SkeletalViewerWindow->OnUpdate(DeltaSeconds);
-    }
-    if (AnimationViewerWindow)
-    {
-        AnimationViewerWindow->OnUpdate(DeltaSeconds);
+        Window->OnUpdate(DeltaSeconds);
     }
 
     // 콘솔 애니메이션 업데이트
@@ -618,42 +577,59 @@ void USlateManager::Update(float DeltaSeconds)
 void USlateManager::ProcessInput()
 {
     const FVector2D MousePosition = INPUT.GetMousePosition();
+    SWindow* HoveredDetachedWindow = nullptr;
 
-    // Process input for SkeletalViewerWindow if hovered
-    if (SkeletalViewerWindow && SkeletalViewerWindow->Rect.Contains(MousePosition))
+    // Find the detached window that the mouse is hovering over
+    for (SWindow* Window : DetachedWindows)
     {
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+        if (Window && Window->Rect.Contains(MousePosition))
         {
-            OnMouseDown(MousePosition, 0);
-        }
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-        {
-            OnMouseDown(MousePosition, 1);
-        }
-        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
-        {
-            OnMouseUp(MousePosition, 0);
-        }
-        if (ImGui::IsMouseReleased(ImGuiMouseButton_Right))
-        {
-            OnMouseUp(MousePosition, 1);
+            HoveredDetachedWindow = Window;
+            break;
         }
     }
-    else if (AnimationViewerWindow && AnimationViewerWindow->Rect.Contains(MousePosition))
+
+    // Process input for window if hovered
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
     {
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+        if (HoveredDetachedWindow)
+        {
+            HoveredDetachedWindow->OnMouseDown(MousePosition, 0);
+        }
+        else
         {
             OnMouseDown(MousePosition, 0);
         }
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+    }
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+    {
+        if (HoveredDetachedWindow)
+        {
+            HoveredDetachedWindow->OnMouseDown(MousePosition, 1);
+        }
+        else
         {
             OnMouseDown(MousePosition, 1);
         }
-        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+    }
+    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+    {
+        if (HoveredDetachedWindow)
+        {
+            HoveredDetachedWindow->OnMouseUp(MousePosition, 0);
+        }
+        else
         {
             OnMouseUp(MousePosition, 0);
         }
-        if (ImGui::IsMouseReleased(ImGuiMouseButton_Right))
+    }
+    if (ImGui::IsMouseReleased(ImGuiMouseButton_Right))
+    {
+        if (HoveredDetachedWindow)
+        {
+            HoveredDetachedWindow->OnMouseUp(MousePosition, 1);
+        }
+        else
         {
             OnMouseUp(MousePosition, 1);
         }
@@ -703,14 +679,14 @@ void USlateManager::ProcessInput()
         ToggleContentBrowser();
     }
 
-    // ESC closes the Skeletal Mesh Viewer if open
-    if (ImGui::IsKeyPressed(ImGuiKey_Escape) && SkeletalViewerWindow)
+    // ESC closes the most recently opened detached window
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape))
     {
-        CloseSkeletalMeshViewer();
-    }
-    if (ImGui::IsKeyPressed(ImGuiKey_Escape) && AnimationViewerWindow)
-    {
-        CloseAnimationViewer();
+        if (!DetachedWindows.IsEmpty())
+        {
+            SWindow* WindowToClose = DetachedWindows.Last();
+            CloseDetachedWindow(WindowToClose);
+        }
     }
 
     // 단축키로 기즈모 모드 변경
@@ -720,18 +696,6 @@ void USlateManager::ProcessInput()
 
 void USlateManager::OnMouseMove(FVector2D MousePos)
 {
-    // Route to detached viewer if hovered
-    if (SkeletalViewerWindow && SkeletalViewerWindow->IsHover(MousePos))
-    {
-        SkeletalViewerWindow->OnMouseMove(MousePos);
-        return;
-    }
-    if (AnimationViewerWindow && AnimationViewerWindow->IsHover(MousePos))
-    {
-        AnimationViewerWindow->OnMouseMove(MousePos);
-        return;
-    }
-
     if (ActiveViewport)
     {
         ActiveViewport->OnMouseMove(MousePos);
@@ -744,17 +708,6 @@ void USlateManager::OnMouseMove(FVector2D MousePos)
 
 void USlateManager::OnMouseDown(FVector2D MousePos, uint32 Button)
 {
-    if (SkeletalViewerWindow && SkeletalViewerWindow->Rect.Contains(MousePos))
-    {
-        SkeletalViewerWindow->OnMouseDown(MousePos, Button);
-        return;
-    }
-    if (AnimationViewerWindow && AnimationViewerWindow->Rect.Contains(MousePos))
-    {
-        AnimationViewerWindow->OnMouseDown(MousePos, Button);
-        return;
-    }
-    
     if (ActiveViewport)
     {
     }
@@ -789,18 +742,7 @@ void USlateManager::OnMouseUp(FVector2D MousePos, uint32 Button)
         INPUT.SetCursorVisible(true);
         INPUT.ReleaseCursor();
     }
-
-    if (SkeletalViewerWindow && SkeletalViewerWindow->Rect.Contains(MousePos))
-    {
-        SkeletalViewerWindow->OnMouseUp(MousePos, Button);
-        // do not return; still allow panels to finish mouse up
-    }
-    if (AnimationViewerWindow && AnimationViewerWindow->Rect.Contains(MousePos))
-    {
-        AnimationViewerWindow->OnMouseUp(MousePos, Button);
-        // do not return; still allow panels to finish mouse up
-    }
-
+    
     if (ActiveViewport)
     {
         ActiveViewport->OnMouseUp(MousePos, Button);
@@ -862,16 +804,11 @@ void USlateManager::Shutdown()
     MainViewport = nullptr;
     ActiveViewport = nullptr;
 
-    if (SkeletalViewerWindow)
+    for (SWindow* Window : DetachedWindows)
     {
-        delete SkeletalViewerWindow;
-        SkeletalViewerWindow = nullptr;
+        delete Window;
     }
-    if (AnimationViewerWindow)
-    {
-        delete AnimationViewerWindow;
-        AnimationViewerWindow = nullptr;
-    }
+    DetachedWindows.Empty();
 }
 
 void USlateManager::SetPIEWorld(UWorld* InWorld)

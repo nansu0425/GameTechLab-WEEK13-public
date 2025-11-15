@@ -354,6 +354,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\Lua\lib\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Source\Runtime\Engine\Scripting\LuaCoroutineScheduler.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Scripting\LuaManager.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Viewer\AnimationViewerBootstrap.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Viewer\EditorAssetPreviewContext.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Viewer\SkeletalViewerBootstrap.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Viewer\ViewerState.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\AnimationViewerViewportClient.cpp" />
@@ -734,6 +735,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\Lua\lib\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Source\Runtime\Engine\Scripting\LuaCoroutineScheduler.h" />
     <ClInclude Include="Source\Runtime\Engine\Scripting\LuaManager.h" />
     <ClInclude Include="Source\Runtime\Engine\Viewer\AnimationViewerBootstrap.h" />
+    <ClInclude Include="Source\Runtime\Engine\Viewer\EditorAssetPreviewContext.h" />
     <ClInclude Include="Source\Runtime\Engine\Viewer\SkeletalViewerBootstrap.h" />
     <ClInclude Include="Source\Runtime\Engine\Viewer\ViewerState.h" />
     <ClInclude Include="Source\Runtime\Renderer\AnimationViewerViewportClient.h" />

@@ -2,13 +2,15 @@
 #include "SWindow.h"
 #include "Source/Runtime/Engine/Viewer/ViewerState.h"
 
+class UEditorAssetPreviewContext;
 class SViewerWindow : public SWindow
 {
 public:
 	SViewerWindow();
 	virtual ~SViewerWindow();
 
-	bool Initialize(float StartX, float StartY, float Width, float Height, UWorld* InWorld, ID3D11Device* InDevice);
+	bool Initialize(float StartX, float StartY, float Width, float Height, UWorld* InWorld, 
+		ID3D11Device* InDevice, UEditorAssetPreviewContext* InContext);
 
 	// SWindow overrides
 	virtual void OnRender() override;
@@ -26,6 +28,7 @@ public:
 
 protected:
 	// Per-tab state
+	UEditorAssetPreviewContext* Context = nullptr;
 	ViewerState* ActiveState = nullptr;
 	TArray<ViewerState*> Tabs;
 	int ActiveTabIndex = -1;
@@ -53,7 +56,7 @@ protected:
 	void OpenNewTab(const char* Name = "Viewer");
 	void CloseTab(int Index);
 	
-	virtual ViewerState* CreateViewerState(const char* Name) = 0;
+	virtual ViewerState* CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context) = 0;
 	virtual void DestroyViewerState(ViewerState*& State) = 0;
 
 	void UpdateBoneTransformFromSkeleton(ViewerState* State);
