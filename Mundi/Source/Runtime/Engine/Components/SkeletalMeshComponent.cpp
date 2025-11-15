@@ -2,11 +2,43 @@
 #include "SkeletalMeshComponent.h"
 #include "AnimSequence.h"
 #include "AnimDataModel.h"
+#include "FbxLoader.h"
+#include "ResourceManager.h"
 
 USkeletalMeshComponent::USkeletalMeshComponent()
 {
-    // 테스트용 기본 메시 설정
-    SetSkeletalMesh(GDataDir + "/Test.fbx"); 
+    // 테스트용 DancingRacer 메시 및 애니메이션 설정
+    FString TestFbxPath = "Data/DancingRacer.fbx";
+
+    // 1. 스켈레탈 메시 로드
+    SetSkeletalMesh(TestFbxPath);
+
+    // 2. 메시가 로드된 후 애니메이션 로드
+    if (SkeletalMesh && SkeletalMesh->GetSkeleton())
+    {
+        UE_LOG("USkeletalMeshComponent: Loading test animation from '%s'", TestFbxPath.c_str());
+
+        // 3. FbxLoader를 통해 애니메이션 로드
+        UAnimSequence* TestAnimation = UFbxLoader::GetInstance().LoadFbxAnimation(
+            TestFbxPath,
+            SkeletalMesh->GetSkeleton()
+        );
+
+        // 4. 애니메이션 로드 성공 시 재생 시작
+        if (TestAnimation)
+        {
+            UE_LOG("USkeletalMeshComponent: Starting animation playback (Loop: true)");
+            PlayAnimation(TestAnimation, true);
+        }
+        else
+        {
+            UE_LOG("USkeletalMeshComponent: Failed to load animation");
+        }
+    }
+    else
+    {
+        UE_LOG("USkeletalMeshComponent: Failed to load skeletal mesh");
+    }
 }
 
 
@@ -20,6 +52,7 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
     if (bIsPlaying && CurrentAnimation)
     {
         // 1. 애니메이션 시간 업데이트
+        float OldTime = CurrentAnimationTime;
         CurrentAnimationTime += DeltaTime;
 
         // 2. 시간 래핑 (루핑 또는 클램핑)
@@ -35,6 +68,15 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
                 CurrentAnimationTime = AnimLength;
                 bIsPlaying = false; // 애니메이션 종료
             }
+        }
+
+        // 디버그 로깅: 애니메이션 시간 업데이트 확인
+        static float LastLogTime = 0.0f;
+        if (CurrentAnimationTime - LastLogTime >= 1.0f) // 1초마다 로그
+        {
+            UE_LOG("USkeletalMeshComponent::TickComponent: Time %.3f -> %.3f (Delta: %.4f, Length: %.3f)",
+                OldTime, CurrentAnimationTime, DeltaTime, AnimLength);
+            LastLogTime = CurrentAnimationTime;
         }
 
         // 3. 애니메이션 평가 및 포즈 적용
@@ -240,14 +282,30 @@ void USkeletalMeshComponent::EvaluateAnimation(float Time)
 
     const UAnimDataModel* DataModel = CurrentAnimation->GetDataModel();
     if (!DataModel || !DataModel->IsValid())
+    {
+        UE_LOG("USkeletalMeshComponent::EvaluateAnimation: DataModel is invalid!");
         return;
+    }
 
     const FSkeleton* Skeleton = SkeletalMesh->GetSkeleton();
     if (!Skeleton)
+    {
+        UE_LOG("USkeletalMeshComponent::EvaluateAnimation: Skeleton is null!");
         return;
+    }
 
     const TArray<FBoneAnimationTrack>& AnimTracks = DataModel->GetBoneAnimationTracks();
 
+    // 디버그: 처음 한 번만 트랙 정보 출력
+    static bool bLoggedOnce = false;
+    if (!bLoggedOnce)
+    {
+        UE_LOG("USkeletalMeshComponent::EvaluateAnimation: %d bones, %d animation tracks",
+            Skeleton->Bones.Num(), AnimTracks.Num());
+        bLoggedOnce = true;
+    }
+
+    int32 TracksApplied = 0;
     // 각 본에 대해 애니메이션 트랙 평가
     for (int32 BoneIndex = 0; BoneIndex < Skeleton->Bones.Num(); ++BoneIndex)
     {
@@ -258,6 +316,8 @@ void USkeletalMeshComponent::EvaluateAnimation(float Time)
 
         if (Track && !Track->IsEmpty())
         {
+            TracksApplied++;
+
             // 프레임 인덱스 계산
             float FrameRate = DataModel->FrameRate;
             float FrameTime = Time * FrameRate;
@@ -310,8 +370,29 @@ void USkeletalMeshComponent::EvaluateAnimation(float Time)
                 Scale = FVector(1, 1, 1);
             }
 
+            // 디버그: 루트 본 변환 로깅 (매 초마다)
+            if (BoneIndex == 0)
+            {
+                static float LastRootLogTime = 0.0f;
+                if (Time - LastRootLogTime >= 1.0f)
+                {
+                    UE_LOG("  Root Bone [Frame %.2f, Alpha %.3f]: Pos(%.2f, %.2f, %.2f) Rot(%.2f, %.2f, %.2f, %.2f)",
+                        FrameTime, Alpha, Position.X, Position.Y, Position.Z,
+                        Rotation.X, Rotation.Y, Rotation.Z, Rotation.W);
+                    LastRootLogTime = Time;
+                }
+            }
+
             // CurrentLocalSpacePose 업데이트
             CurrentLocalSpacePose[BoneIndex] = FTransform(Position, Rotation, Scale);
         }
+    }
+
+    // 디버그: 적용된 트랙 수 확인 (1초마다)
+    static float LastTrackLogTime = 0.0f;
+    if (Time - LastTrackLogTime >= 1.0f)
+    {
+        UE_LOG("  Applied %d/%d animation tracks", TracksApplied, Skeleton->Bones.Num());
+        LastTrackLogTime = Time;
     }
 }

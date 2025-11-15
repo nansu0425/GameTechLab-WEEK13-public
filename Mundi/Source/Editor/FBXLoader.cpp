@@ -1218,6 +1218,17 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 	Importer->Import(Scene);
 	Importer->Destroy();
 
+	FbxAxisSystem UnrealImportAxis(FbxAxisSystem::eZAxis, FbxAxisSystem::eParityEven, FbxAxisSystem::eLeftHanded);
+	FbxAxisSystem SourceSetup = Scene->GetGlobalSettings().GetAxisSystem();
+
+	FbxSystemUnit::m.ConvertScene(Scene);
+
+	if (SourceSetup != UnrealImportAxis)
+	{
+		UE_LOG("Fbx 축 변환 완료!\n");
+		UnrealImportAxis.DeepConvertScene(Scene);
+	}
+
 	// 6. AnimStack 가져오기 (FBX 파일의 첫 번째 애니메이션 스택 사용)
 	int AnimStackCount = Scene->GetSrcObjectCount<FbxAnimStack>();
 	if (AnimStackCount == 0)
@@ -1500,6 +1511,15 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 					TransformCurve.PositionCurve.Times.Num(),
 					TransformCurve.RotationCurve.Times.Num(),
 					TransformCurve.ScaleCurve.Times.Num());
+
+				// 첫 3개 프레임의 실제 값 출력 (디버깅용)
+				for (int32 i = 0; i < FMath::Min(3, TransformCurve.RotationCurve.Values.Num()); ++i)
+				{
+					const FQuat& Rot = TransformCurve.RotationCurve.Values[i];
+					const FVector& Pos = TransformCurve.PositionCurve.Values[i];
+					UE_LOG("    Frame[%d]: Pos(%.3f, %.3f, %.3f) Rot(%.3f, %.3f, %.3f, %.3f)",
+						i, Pos.X, Pos.Y, Pos.Z, Rot.X, Rot.Y, Rot.Z, Rot.W);
+				}
 			}
 		}
 

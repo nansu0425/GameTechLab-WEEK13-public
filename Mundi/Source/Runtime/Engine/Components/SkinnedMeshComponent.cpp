@@ -52,6 +52,16 @@ void USkinnedMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMes
    {
       bSkinningMatricesDirty = false;
       SkeletalMesh->UpdateVertexBuffer(SkinnedVertices, VertexBuffer);
+
+      // 디버그: GPU 버퍼 업데이트 확인 (5초마다)
+      static float LastBufferUpdateLog = 0.0f;
+      static float CurrentTime = 0.0f;
+      CurrentTime += 0.016f; // 대략적인 프레임 시간
+      if (CurrentTime - LastBufferUpdateLog >= 5.0f)
+      {
+         UE_LOG("USkinnedMeshComponent: GPU vertex buffer updated (%d vertices)", SkinnedVertices.Num());
+         LastBufferUpdateLog = CurrentTime;
+      }
    }
 
     const TArray<FGroupInfo>& MeshGroupInfos = SkeletalMesh->GetMeshGroupInfo();
@@ -233,8 +243,7 @@ void USkinnedMeshComponent::SetSkeletalMesh(const FString& PathFileName)
 void USkinnedMeshComponent::PerformSkinning()
 {
    if (!SkeletalMesh || FinalSkinningMatrices.IsEmpty()) { return; }
-   if (!bSkinningMatricesDirty) { return; }
-   
+
    const TArray<FSkinnedVertex>& SrcVertices = SkeletalMesh->GetSkeletalMeshData()->Vertices;
    const int32 NumVertices = SrcVertices.Num();
    SkinnedVertices.SetNum(NumVertices);
@@ -244,11 +253,14 @@ void USkinnedMeshComponent::PerformSkinning()
       const FSkinnedVertex& SrcVert = SrcVertices[Idx];
       FNormalVertex& DstVert = SkinnedVertices[Idx];
 
-      DstVert.pos = SkinVertexPosition(SrcVert); 
+      DstVert.pos = SkinVertexPosition(SrcVert);
       DstVert.normal = SkinVertexNormal(SrcVert);
       DstVert.Tangent = SkinVertexTangent(SrcVert);
       DstVert.tex = SrcVert.UV;
    }
+
+   // CPU 스키닝 완료 후 dirty 플래그 설정
+   bSkinningMatricesDirty = true;
 }
 
 void USkinnedMeshComponent::UpdateSkinningMatrices(const TArray<FMatrix>& InSkinningMatrices, const TArray<FMatrix>& InSkinningNormalMatrices)
