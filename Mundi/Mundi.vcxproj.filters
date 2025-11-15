@@ -761,6 +761,9 @@
     <ClCompile Include="Generated\UAnimSequenceBase.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Slate\Windows\SViewerWindow.cpp">
+      <Filter>Source\Slate\Windows</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Generated\USkinnedMeshComponent.generated.h">
@@ -1615,6 +1618,9 @@
     </ClInclude>
     <ClInclude Include="Generated\UAnimSequenceBase.generated.h">
       <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Slate\Windows\SViewerWindow.h">
+      <Filter>Source\Slate\Windows</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
