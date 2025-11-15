@@ -1,5 +1,10 @@
 #include "pch.h"
 #include "SkeletalMeshComponent.h"
+#include "PlatformTime.h"
+#include "AnimSequence.h"
+#include "AnimDataModel.h"
+#include "FbxLoader.h"
+#include "ResourceManager.h"
 
 #include "AnimNodeBase.h"
 #include "AnimInstance.h"
@@ -7,14 +12,46 @@
 
 USkeletalMeshComponent::USkeletalMeshComponent()
 {
-    // 테스트용 기본 메시 설정
-    SetSkeletalMesh(GDataDir + "/Test.fbx"); 
+    // 테스트용 DancingRacer 메시 및 애니메이션 설정
+    FString TestFbxPath = "Data/DancingRacer.fbx";
+
+    // 1. 스켈레탈 메시 로드
+    SetSkeletalMesh(TestFbxPath);
+
+    // 2. 메시가 로드된 후 애니메이션 로드
+    if (SkeletalMesh && SkeletalMesh->GetSkeleton())
+    {
+        UE_LOG("USkeletalMeshComponent: Loading test animation from '%s'", TestFbxPath.c_str());
+
+        // 3. FbxLoader를 통해 애니메이션 로드
+        UAnimSequence* TestAnimation = UFbxLoader::GetInstance().LoadFbxAnimation(
+            TestFbxPath,
+            SkeletalMesh->GetSkeleton()
+        );
+
+        // 4. 애니메이션 로드 성공 시 재생 시작
+        if (TestAnimation)
+        {
+            UE_LOG("USkeletalMeshComponent: Starting animation playback (Loop: true)");
+            PlayAnimation(TestAnimation, true);
+        }
+        else
+        {
+            UE_LOG("USkeletalMeshComponent: Failed to load animation");
+        }
+    }
+    else
+    {
+        UE_LOG("USkeletalMeshComponent: Failed to load skeletal mesh");
+    }
 }
 
 
 void USkeletalMeshComponent::TickComponent(float DeltaTime)
 {
     Super::TickComponent(DeltaTime);
+
+    if (!SkeletalMesh) { return; }
     // Drive animation instance if present
     if (bUseAnimation && AnimInstance && SkeletalMesh && SkeletalMesh->GetSkeleton())
     {
@@ -43,7 +80,6 @@ void USkeletalMeshComponent::SetSkeletalMesh(const FString& PathFileName)
         CurrentLocalSpacePose.SetNum(NumBones);
         CurrentComponentSpacePose.SetNum(NumBones);
         TempFinalSkinningMatrices.SetNum(NumBones);
-        TempFinalSkinningNormalMatrices.SetNum(NumBones);
 
         for (int32 i = 0; i < NumBones; ++i)
         {
@@ -78,7 +114,6 @@ void USkeletalMeshComponent::SetSkeletalMesh(const FString& PathFileName)
         CurrentLocalSpacePose.Empty();
         CurrentComponentSpacePose.Empty();
         TempFinalSkinningMatrices.Empty();
-        TempFinalSkinningNormalMatrices.Empty();
     }
 }
 
@@ -187,10 +222,11 @@ void USkeletalMeshComponent::ForceRecomputePose()
 
     // LocalSpace -> ComponentSpace 계산
     UpdateComponentSpaceTransforms();
+
     // ComponentSpace -> Final Skinning Matrices 계산
+    // UpdateFinalSkinningMatrices()에서 UpdateSkinningMatrices()를 호출하여 본 행렬 계산 시간과 함께 전달
     UpdateFinalSkinningMatrices();
-    UpdateSkinningMatrices(TempFinalSkinningMatrices, TempFinalSkinningNormalMatrices);
-    PerformSkinning();
+    // PerformSkinning은 CollectMeshBatches에서 전역 모드에 따라 수행됨
 }
 
 void USkeletalMeshComponent::UpdateComponentSpaceTransforms()
@@ -220,13 +256,22 @@ void USkeletalMeshComponent::UpdateFinalSkinningMatrices()
     const FSkeleton& Skeleton = SkeletalMesh->GetSkeletalMeshData()->Skeleton;
     const int32 NumBones = Skeleton.Bones.Num();
 
+    // 본 행렬 계산 시간 측정 시작
+    uint64 BoneMatrixCalcStart = FWindowsPlatformTime::Cycles64();
+
     for (int32 BoneIndex = 0; BoneIndex < NumBones; ++BoneIndex)
     {
         const FMatrix& InvBindPose = Skeleton.Bones[BoneIndex].InverseBindPose;
         const FMatrix ComponentPoseMatrix = CurrentComponentSpacePose[BoneIndex].ToMatrix();
-        
-        TempFinalSkinningMatrices[BoneIndex] = InvBindPose * ComponentPoseMatrix;
-        TempFinalSkinningNormalMatrices[BoneIndex] = TempFinalSkinningMatrices[BoneIndex].Inverse().Transpose();
-    }
-}
 
+        TempFinalSkinningMatrices[BoneIndex] = InvBindPose * ComponentPoseMatrix;
+    }
+
+    // 본 행렬 계산 시간 측정 종료
+    uint64 BoneMatrixCalcEnd = FWindowsPlatformTime::Cycles64();
+    double BoneMatrixCalcTimeMS = FWindowsPlatformTime::ToMilliseconds(BoneMatrixCalcEnd - BoneMatrixCalcStart);
+
+    // 본 행렬 계산 시간을 부모 USkinnedMeshComponent로 전달
+    // 부모에서 실제 스키닝 모드(CPU/GPU)에 따라 통계에 추가됨
+    UpdateSkinningMatrices(TempFinalSkinningMatrices, BoneMatrixCalcTimeMS);
+}

@@ -1,6 +1,5 @@
 ﻿#pragma once
 #include "SkinnedMeshComponent.h"
-#include "SkeletalMesh.h"
 #include "USkeletalMeshComponent.generated.h"
 
 class UAnimInstance;
@@ -21,7 +20,7 @@ public:
     // Animation Integration
 public:
     void SetAnimInstance(class UAnimInstance* InInstance);
-    class UAnimInstance* GetAnimInstance() const { return AnimInstance; }
+    UAnimInstance* GetAnimInstance() const { return AnimInstance; }
 
     // Convenience single-clip controls (optional)
     void PlayAnimation(class UAnimationAsset* Asset, bool bLooping = true, float InPlayRate = 1.f);
@@ -81,11 +80,6 @@ protected:
      * @brief 부모에게 보낼 최종 스키닝 행렬 (임시 계산용)
      */
     TArray<FMatrix> TempFinalSkinningMatrices;
-    /**
-     * @brief CPU 스키닝에 전달할 최종 노말 스키닝 행렬
-     */
-    TArray<FMatrix> TempFinalSkinningNormalMatrices;
-
 
 // FOR TEST!!!
 private:
@@ -94,6 +88,6 @@ private:
     FTransform TestBoneBasePose;
 
     // Animation state
-    class UAnimInstance* AnimInstance = nullptr;
+    UAnimInstance* AnimInstance = nullptr;
     bool bUseAnimation = true;
 };
