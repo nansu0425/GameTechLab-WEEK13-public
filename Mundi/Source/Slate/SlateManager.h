@@ -78,6 +78,7 @@ public:
     // Open/Close Viewer (detached window)
     void OpenAssetViewer(UEditorAssetPreviewContext* Context);
     void CloseDetachedWindow(SWindow* WindowToClose);
+    void RequestCloseDetachedWindow(SWindow* WindowToClose);
 
 private:
     FRect Rect; // 이전엔 SWindow로부터 상속받던 영역 정보
@@ -132,6 +133,7 @@ private:
 
     // Detached viewer window
     TArray<SWindow*> DetachedWindows;
+    TArray<SWindow*> PendingCloseWindows;
 
     // Content Browser (Bottom panel overlay with animation)
     UContentBrowserWindow* ContentBrowserWindow = nullptr;

@@ -3,6 +3,7 @@
 #include "FViewport.h"
 #include "FViewportClient.h"
 #include "SelectionManager.h"
+#include "SlateManager.h"
 #include "Source/Editor/FBXLoader.h"
 #include "Source/Editor/PlatformProcess.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
@@ -547,8 +548,8 @@ void SViewerWindow::OnRender()
     // If window was closed via X button, notify the manager to clean up
     if (!bIsOpen)
     {
-        // USlateManager::GetInstance().CloseSkeletalMeshViewer();
-        // This will be .. CloseDetachedViewer() ~
+        // Just request to close the window
+        USlateManager::GetInstance().RequestCloseDetachedWindow(this);
     }
 
     bRequestFocus = false;

@@ -177,7 +177,7 @@ void USlateManager::Initialize(ID3D11Device* InDevice, UWorld* InWorld, const FR
 
 void USlateManager::OpenAssetViewer(UEditorAssetPreviewContext* Context)
 {
-    if (Context)    return;
+    if (!Context)    return;
 
     SViewerWindow* NewViewer = nullptr;
     switch (Context->ViewerType)
@@ -187,6 +187,7 @@ void USlateManager::OpenAssetViewer(UEditorAssetPreviewContext* Context)
         break;
     case EViewerType::Animation:
         NewViewer = new SAnimationViewerWindow();
+        break;
     default:
         UE_LOG("ERROR: Unsupported asset type for viewer.");
         return;
@@ -219,6 +220,14 @@ void USlateManager::CloseDetachedWindow(SWindow* WindowToClose)
         DetachedWindows.RemoveAt(IndexToRemove);
         delete WindowToClose;
         // The caller will null its pointer.
+    }
+}
+
+void USlateManager::RequestCloseDetachedWindow(SWindow* WindowToClose)
+{
+    if (PendingCloseWindows.Find(WindowToClose) == -1)
+    {
+        PendingCloseWindows.Add(WindowToClose);
     }
 }
 
@@ -491,10 +500,10 @@ void USlateManager::RenderAfterUI()
 {
     for (SWindow* Window : DetachedWindows)
     {
-        /*if (SViewerWindow* ViewerWindow = dynamic_cast<SViewerWindow>(Window))
+        if (SViewerWindow* ViewerWindow = dynamic_cast<SViewerWindow*>(Window))
         {
             ViewerWindow->OnRenderViewport();
-        }*/
+        }
     }
 }
 
@@ -692,6 +701,15 @@ void USlateManager::ProcessInput()
     // 단축키로 기즈모 모드 변경
     if (World->GetGizmoActor())
         World->GetGizmoActor()->ProcessGizmoModeSwitch();
+
+    if (!PendingCloseWindows.IsEmpty())
+    {
+        for (SWindow* Window : PendingCloseWindows)
+        {
+            CloseDetachedWindow(Window);
+        }
+        PendingCloseWindows.Empty();
+    }
 }
 
 void USlateManager::OnMouseMove(FVector2D MousePos)

@@ -19,6 +19,7 @@
 #include "SkeletalMeshComponent.h"
 #include "SlateManager.h"
 #include "ImGui/imgui_curve.hpp"
+#include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 
 // 정적 멤버 변수 초기화
 TArray<FString> UPropertyRenderer::CachedSkeletalMeshPaths;
@@ -1050,46 +1051,27 @@ bool UPropertyRenderer::RenderSkeletalMeshProperty(const FProperty& Prop, void* 
 		}
 	}
 
-	//if (ImGui::Button("Skeletal Viewer"))
-	//{
-	//	if (!USlateManager::GetInstance().IsSkeletalMeshViewerOpen())
-	//	{
-	//		// Open viewer with the currently selected skeletal mesh if available
-	//		if (!CurrentPath.empty())
-	//		{
-	//			USlateManager::GetInstance().OpenSkeletalMeshViewerWithFile(CurrentPath.c_str());
-	//		}
-	//		else
-	//		{
-	//			USlateManager::GetInstance().OpenSkeletalMeshViewer();
-	//		}
-	//	}
-	//	else
-	//	{
-	//		USlateManager::GetInstance().CloseSkeletalMeshViewer();
-	//	}
-	//}
+	if (ImGui::Button("Skeletal Viewer"))
+	{
+		// Create a context to store asset info
+		UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
+		Context->ViewerType = EViewerType::Skeletal;
+		Context->AssetPath = CurrentPath;
 
-	//ImGui::SameLine();
-	//if (ImGui::Button("Anim Viewer"))
-	//{
-	//	if (!USlateManager::GetInstance().IsAnimationViewerOpen())
-	//	{
-	//		// Open viewer with the currently selected skeletal mesh if available
-	//		if (!CurrentPath.empty())
-	//		{
-	//			USlateManager::GetInstance().OpenAnimationViewerWithFile(CurrentPath.c_str());
-	//		}
-	//		else
-	//		{
-	//			USlateManager::GetInstance().OpenAnimationViewer();
-	//		}
-	//	}
-	//	else
-	//	{
-	//		USlateManager::GetInstance().CloseAnimationViewer();
-	//	}
-	//}
+		// Request USlateManager to open the viewer
+		USlateManager::GetInstance().OpenAssetViewer(Context);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Anim Viewer"))
+	{
+		// Create a context to store asset info
+		UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
+		Context->ViewerType = EViewerType::Animation;
+		Context->AssetPath = CurrentPath;
+
+		// Request USlateManager to open the viewer
+		USlateManager::GetInstance().OpenAssetViewer(Context);
+	}
 
 	ImGui::SetNextItemWidth(240);
 	if (ImGui::Combo(Prop.Name, &SelectedIdx, &ItemsGetter, (void*)&CachedSkeletalMeshItems, static_cast<int>(CachedSkeletalMeshItems.size())))
