@@ -13,6 +13,7 @@ public:
     SSkeletalMeshViewerWindow();
     virtual ~SSkeletalMeshViewerWindow();
 
+    virtual void OnRender() override;
     virtual void PreRenderViewportUpdate() override;
 
 protected:

@@ -185,12 +185,13 @@ void USlateManager::OpenAssetViewer(UEditorAssetPreviewContext* Context)
         if (SViewerWindow* ExistingViewer = dynamic_cast<SViewerWindow*>(Window))
         {
             // Check if the viewer's Context is valid and if both the type and asset path match
-            if (ExistingViewer->Context &&
-                ExistingViewer->Context->ViewerType == Context->ViewerType &&
-                ExistingViewer->Context->AssetPath == Context->AssetPath)
+            UEditorAssetPreviewContext* ExistingContext = ExistingViewer->GetContext();
+            if (ExistingContext &&
+                ExistingContext->ViewerType == Context->ViewerType &&
+                ExistingContext->AssetPath == Context->AssetPath)
             {
                 // If the window already exists, focus it instead of creating a new one
-                ExistingViewer->bRequestFocus = true;
+                ExistingViewer->RequestFocus();
                 UE_LOG("Focusing existing asset viewer for: %s", Context->AssetPath.c_str());
                 return;
             }

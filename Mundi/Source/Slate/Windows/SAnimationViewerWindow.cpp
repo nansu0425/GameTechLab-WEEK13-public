@@ -1,4 +1,5 @@
 ﻿#include "pch.h"
+#include "SlateManager.h"
 #include "SAnimationViewerWindow.h"
 #include "Source/Runtime/Engine/Viewer/AnimationViewerBootstrap.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
@@ -19,6 +20,127 @@ SAnimationViewerWindow::~SAnimationViewerWindow()
     }
     Tabs.Empty();
     ActiveState = nullptr;
+}
+
+void SAnimationViewerWindow::OnRender()
+{
+    // If window is closed, don't render
+    if (!bIsOpen)
+    {
+        return;
+    }
+
+    // Parent detachable window (movable, top-level) with solid background
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoSavedSettings;
+
+    if (!bInitialPlacementDone)
+    {
+        ImGui::SetNextWindowPos(ImVec2(Rect.Left, Rect.Top));
+        ImGui::SetNextWindowSize(ImVec2(Rect.GetWidth(), Rect.GetHeight()));
+        bInitialPlacementDone = true;
+    }
+    if (bRequestFocus)
+    {
+        ImGui::SetNextWindowFocus();
+    }
+
+    // Generate a unique window title to pass to ImGui
+    // Format: "Skeletal Mesh Viewer - MyAsset.fbx###0x12345678"
+    char UniqueTitle[256];
+    sprintf_s(UniqueTitle, sizeof(UniqueTitle), "%s###%p", WindowTitle.c_str(), this);
+
+    bool bViewerVisible = false;
+    if (ImGui::Begin(UniqueTitle, &bIsOpen, flags))
+    {
+        bViewerVisible = true;
+        // Render tab bar and switch active state
+        if (ImGui::BeginTabBar("SkeletalViewerTabs", ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
+        {
+            for (int i = 0; i < Tabs.Num(); ++i)
+            {
+                ViewerState* State = Tabs[i];
+                bool open = true;
+                if (ImGui::BeginTabItem(State->Name.ToString().c_str(), &open))
+                {
+                    ActiveTabIndex = i;
+                    ActiveState = State;
+                    ImGui::EndTabItem();
+                }
+                if (!open)
+                {
+                    CloseTab(i);
+                    break;
+                }
+            }
+            if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing))
+            {
+                char label[32]; sprintf_s(label, "Viewer %d", Tabs.Num() + 1);
+                OpenNewTab(label);
+            }
+            ImGui::EndTabBar();
+        }
+        ImVec2 pos = ImGui::GetWindowPos();
+        ImVec2 size = ImGui::GetWindowSize();
+        Rect.Left = pos.x; Rect.Top = pos.y; Rect.Right = pos.x + size.x; Rect.Bottom = pos.y + size.y; Rect.UpdateMinMax();
+
+        ImVec2 contentAvail = ImGui::GetContentRegionAvail();
+        float totalWidth = contentAvail.x;
+        float totalHeight = contentAvail.y;
+
+        float leftWidth = totalWidth * LeftPanelRatio;
+        float rightWidth = totalWidth * RightPanelRatio;
+        float centerWidth = totalWidth - leftWidth - rightWidth;
+
+        // Remove spacing between panels
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+
+        // Left panel - Asset Browser & Bone Hierarchy
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
+        ImGui::BeginChild("LeftPanel", ImVec2(leftWidth, totalHeight), true, ImGuiWindowFlags_NoScrollbar);
+        ImGui::PopStyleVar();
+        RenderLeftPanel(leftWidth);
+        ImGui::EndChild();
+
+        ImGui::SameLine(0, 0); // No spacing between panels
+
+        // Center panel (viewport area) — draw with border to see the viewport area
+        ImGui::BeginChild("SkeletalMeshViewport", ImVec2(centerWidth, totalHeight), true, ImGuiWindowFlags_NoScrollbar);
+        ImVec2 childPos = ImGui::GetWindowPos();
+        ImVec2 childSize = ImGui::GetWindowSize();
+        ImVec2 rectMin = childPos;
+        ImVec2 rectMax(childPos.x + childSize.x, childPos.y + childSize.y);
+        CenterRect.Left = rectMin.x; CenterRect.Top = rectMin.y; CenterRect.Right = rectMax.x; CenterRect.Bottom = rectMax.y; CenterRect.UpdateMinMax();
+        ImGui::EndChild();
+
+        ImGui::SameLine(0, 0); // No spacing between panels
+
+        // Right panel - Bone Properties
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
+        ImGui::BeginChild("RightPanel", ImVec2(rightWidth, totalHeight), true);
+        ImGui::PopStyleVar();
+        RenderRightPanel();
+        ImGui::EndChild(); // RightPanel
+
+        // Pop the ItemSpacing style
+        ImGui::PopStyleVar();
+    }
+    ImGui::End();
+
+    // If collapsed or not visible, clear the center rect so we don't render a floating viewport
+    if (!bViewerVisible)
+    {
+        CenterRect = FRect(0, 0, 0, 0);
+        CenterRect.UpdateMinMax();
+    }
+
+    // If window was closed via X button, notify the manager to clean up
+    if (!bIsOpen)
+    {
+        // Just request to close the window
+        USlateManager::GetInstance().RequestCloseDetachedWindow(this);
+    }
+
+    bRequestFocus = false;
 }
 
 void SAnimationViewerWindow::PreRenderViewportUpdate()

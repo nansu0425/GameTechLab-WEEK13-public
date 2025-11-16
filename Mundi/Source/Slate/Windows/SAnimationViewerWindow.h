@@ -13,6 +13,7 @@ public:
     SAnimationViewerWindow();
     virtual ~SAnimationViewerWindow();
 
+    virtual void OnRender() override;
     virtual void PreRenderViewportUpdate() override;
 
 protected:
