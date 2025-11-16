@@ -17,6 +17,13 @@ public:
 	FSkeletalMeshData* LoadFbxMeshAsset(const FString& FilePath);
 
 	/**
+	 * FBX 파일에 포함된 모든 애니메이션 스택(AnimStack)의 이름을 가져옴
+	 * @param FilePath FBX 파일 경로
+	 * @return 애니메이션 스택 이름 배열 (애니메이션이 없으면 빈 배열)
+	 */
+	TArray<FString> GetAnimationStackNames(const FString& FilePath);
+
+	/**
 	 * FBX 파일에서 애니메이션 로드
 	 * @param FilePath FBX 파일 경로
 	 * @param TargetSkeleton 대상 스켈레톤 (본 인덱스 매칭용)

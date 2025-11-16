@@ -63,6 +63,7 @@ void UFbxLoader::PreLoad()
 			UResourceManager::GetInstance().Load<UTexture>(Path.string()); // 데칼 텍스쳐를 ui에서 고를 수 있게 하기 위해 임시로 만듬.
 		}
 	}
+
 	RESOURCE.SetSkeletalMeshs();
 
 	UE_LOG("UFbxLoader::Preload: Loaded %zu .fbx files from %s", LoadedCount, DataDir.string().c_str());
@@ -1181,6 +1182,61 @@ void UFbxLoader::EnsureSingleRootBone(FSkeletalMeshData& MeshData)
 
 		UE_LOG("UFbxLoader: Created virtual root bone. Found %d root bones.", RootBoneIndices.Num());
 	}
+}
+
+TArray<FString> UFbxLoader::GetAnimationStackNames(const FString& FilePath)
+{
+	TArray<FString> AnimStackNames;
+
+	// 1. 파일 경로 정규화
+	FString NormalizedPath = NormalizePath(FilePath);
+
+	// 2. FbxImporter 생성 및 초기화
+	FbxImporter* Importer = FbxImporter::Create(SdkManager, "");
+	if (!Importer->Initialize(NormalizedPath.c_str(), -1, SdkManager->GetIOSettings()))
+	{
+		UE_LOG("UFbxLoader::GetAnimationStackNames: Failed to initialize FbxImporter for '%s'", NormalizedPath.c_str());
+		Importer->Destroy();
+		return AnimStackNames; // 빈 배열 반환
+	}
+
+	// 3. FbxScene 생성 및 Import
+	FbxScene* Scene = FbxScene::Create(SdkManager, "TempScene");
+	if (!Importer->Import(Scene))
+	{
+		UE_LOG("UFbxLoader::GetAnimationStackNames: Failed to import scene from '%s'", NormalizedPath.c_str());
+		Importer->Destroy();
+		Scene->Destroy();
+		return AnimStackNames; // 빈 배열 반환
+	}
+	Importer->Destroy();
+
+	// 4. AnimStack 개수 확인
+	int AnimStackCount = Scene->GetSrcObjectCount<FbxAnimStack>();
+	if (AnimStackCount == 0)
+	{
+		UE_LOG("UFbxLoader::GetAnimationStackNames: No animation stacks found in '%s'", NormalizedPath.c_str());
+		Scene->Destroy();
+		return AnimStackNames; // 빈 배열 반환
+	}
+
+	// 5. 각 AnimStack의 이름을 배열에 추가
+	for (int i = 0; i < AnimStackCount; ++i)
+	{
+		FbxAnimStack* AnimStack = Scene->GetSrcObject<FbxAnimStack>(i);
+		if (AnimStack)
+		{
+			FbxString AnimStackName = AnimStack->GetName();
+			AnimStackNames.Add(FString(AnimStackName.Buffer()));
+			UE_LOG("UFbxLoader::GetAnimationStackNames: Found AnimStack[%d]: '%s'", i, AnimStackName.Buffer());
+		}
+	}
+
+	// 6. Scene 정리
+	Scene->Destroy();
+
+	UE_LOG("UFbxLoader::GetAnimationStackNames: Total %d animation stacks found in '%s'", AnimStackNames.Num(), NormalizedPath.c_str());
+	return AnimStackNames;
 }
 
 UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struct FSkeleton* TargetSkeleton)
