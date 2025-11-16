@@ -1239,17 +1239,28 @@ TArray<FString> UFbxLoader::GetAnimationStackNames(const FString& FilePath)
 	return AnimStackNames;
 }
 
-UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struct FSkeleton* TargetSkeleton)
+UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struct FSkeleton* TargetSkeleton, const FString& AnimStackName)
 {
 	// 1. 파일 경로 정규화
 	FString NormalizedPath = NormalizePath(FilePath);
-	UE_LOG("UFbxLoader::LoadFbxAnimation: Loading animation from '%s'", NormalizedPath.c_str());
+	UE_LOG("UFbxLoader::LoadFbxAnimation: Loading animation from '%s' (AnimStack: '%s')",
+		NormalizedPath.c_str(), AnimStackName.empty() ? "default" : AnimStackName.c_str());
 
-	// 2. 리소스 매니저 캐시 확인
-	UAnimSequence* CachedAnim = UResourceManager::GetInstance().Get<UAnimSequence>(NormalizedPath);
+	// 2. 리소스 키 생성: {파일명}_{AnimStack명} 또는 {파일명} (AnimStackName이 비어있을 경우)
+	FString ResourceKey = NormalizedPath;
+	if (!AnimStackName.empty())
+	{
+		// 파일명에서 확장자 제거
+		size_t LastDot = NormalizedPath.find_last_of('.');
+		FString BaseName = (LastDot != FString::npos) ? NormalizedPath.substr(0, LastDot) : NormalizedPath;
+		ResourceKey = BaseName + "_" + AnimStackName;
+	}
+
+	// 3. 리소스 매니저 캐시 확인
+	UAnimSequence* CachedAnim = UResourceManager::GetInstance().Get<UAnimSequence>(ResourceKey);
 	if (CachedAnim)
 	{
-		UE_LOG("UFbxLoader::LoadFbxAnimation: Animation already cached, returning existing resource");
+		UE_LOG("UFbxLoader::LoadFbxAnimation: Animation already cached (key: '%s'), returning existing resource", ResourceKey.c_str());
 		return CachedAnim;
 	}
 
@@ -1263,9 +1274,20 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 	// 4. 바이너리 캐시 파일 처리
 	UAnimDataModel* DataModel = nullptr;
 #ifdef USE_OBJ_CACHE
-	// 4-1. 캐시 파일 경로 설정
+	// 4-1. 캐시 파일 경로 설정 (AnimStack 이름 포함)
 	FString CachePathStr = ConvertDataPathToCachePath(NormalizedPath);
-	const FString AnimCacheFileName = CachePathStr + ".anim.bin";
+	FString AnimCacheFileName = CachePathStr;
+	if (!AnimStackName.empty())
+	{
+		// 확장자 제거 후 AnimStack 이름 추가
+		size_t LastDot = AnimCacheFileName.find_last_of('.');
+		if (LastDot != FString::npos)
+		{
+			AnimCacheFileName = AnimCacheFileName.substr(0, LastDot);
+		}
+		AnimCacheFileName += "_" + AnimStackName;
+	}
+	AnimCacheFileName += ".anim.bin";
 
 	// 캐시를 저장할 디렉토리가 없으면 생성
 	std::filesystem::path CacheFileDirPath(AnimCacheFileName);
@@ -1325,8 +1347,8 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 			AnimSequence->SetSkeletonName(TargetSkeleton->Name);
 			AnimSequence->SetAnimDataModel(DataModel);
 
-			// 리소스 매니저에 등록
-			UResourceManager::GetInstance().Add<UAnimSequence>(NormalizedPath, AnimSequence);
+			// 리소스 매니저에 등록 (ResourceKey 사용)
+			UResourceManager::GetInstance().Add<UAnimSequence>(ResourceKey, AnimSequence);
 
 			return AnimSequence;
 		}
@@ -1374,7 +1396,7 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 		UnrealImportAxis.DeepConvertScene(Scene);
 	}
 
-	// 6. AnimStack 가져오기 (FBX 파일의 첫 번째 애니메이션 스택 사용)
+	// 6. AnimStack 가져오기 (이름으로 찾거나 첫 번째 스택 사용)
 	int AnimStackCount = Scene->GetSrcObjectCount<FbxAnimStack>();
 	if (AnimStackCount == 0)
 	{
@@ -1383,12 +1405,41 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 		return nullptr;
 	}
 
-	FbxAnimStack* AnimStack = Scene->GetSrcObject<FbxAnimStack>(1);
-	FbxString AnimStackName = AnimStack->GetName();
-	UE_LOG("UFbxLoader::LoadFbxAnimation: Found animation stack '%s'", AnimStackName.Buffer());
+	FbxAnimStack* AnimStack = nullptr;
+	FbxString FbxAnimStackName;
+
+	// AnimStackName이 지정되었으면 해당 이름의 스택 찾기
+	if (!AnimStackName.empty())
+	{
+		for (int i = 0; i < AnimStackCount; ++i)
+		{
+			FbxAnimStack* TempStack = Scene->GetSrcObject<FbxAnimStack>(i);
+			if (TempStack && TempStack->GetName() == AnimStackName.c_str())
+			{
+				AnimStack = TempStack;
+				FbxAnimStackName = TempStack->GetName();
+				break;
+			}
+		}
+
+		if (!AnimStack)
+		{
+			UE_LOG("UFbxLoader::LoadFbxAnimation: AnimStack '%s' not found in FBX file", AnimStackName.c_str());
+			Scene->Destroy();
+			return nullptr;
+		}
+	}
+	else
+	{
+		// AnimStackName이 비어있으면 첫 번째 스택 사용
+		AnimStack = Scene->GetSrcObject<FbxAnimStack>(0);
+		FbxAnimStackName = AnimStack->GetName();
+	}
+
+	UE_LOG("UFbxLoader::LoadFbxAnimation: Using animation stack '%s'", FbxAnimStackName.Buffer());
 
 	// 7. 애니메이션 시간 범위 가져오기
-	FbxTakeInfo* TakeInfo = Scene->GetTakeInfo(AnimStackName);
+	FbxTakeInfo* TakeInfo = Scene->GetTakeInfo(FbxAnimStackName);
 	FbxTimeSpan TimeSpan;
 	if (TakeInfo)
 	{
@@ -1600,15 +1651,15 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 	UE_LOG("UFbxLoader::LoadFbxAnimation: Successfully loaded animation (%.3f sec, %d bones, %d total keys)",
 		SequenceLength, TargetSkeleton->Bones.Num(), TotalKeys);
 
-	// 18. 리소스 매니저에 등록
-	bool bRegistered = UResourceManager::GetInstance().Add<UAnimSequence>(NormalizedPath, AnimSequence);
+	// 18. 리소스 매니저에 등록 (ResourceKey 사용)
+	bool bRegistered = UResourceManager::GetInstance().Add<UAnimSequence>(ResourceKey, AnimSequence);
 	if (bRegistered)
 	{
-		UE_LOG("UFbxLoader::LoadFbxAnimation: Animation registered in ResourceManager");
+		UE_LOG("UFbxLoader::LoadFbxAnimation: Animation registered in ResourceManager (key: '%s')", ResourceKey.c_str());
 	}
 	else
 	{
-		UE_LOG("UFbxLoader::LoadFbxAnimation: Warning - Animation was already registered");
+		UE_LOG("UFbxLoader::LoadFbxAnimation: Warning - Animation was already registered (key: '%s')", ResourceKey.c_str());
 	}
 
 #ifdef USE_OBJ_CACHE

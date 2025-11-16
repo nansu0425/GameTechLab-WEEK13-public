@@ -27,9 +27,10 @@ public:
 	 * FBX 파일에서 애니메이션 로드
 	 * @param FilePath FBX 파일 경로
 	 * @param TargetSkeleton 대상 스켈레톤 (본 인덱스 매칭용)
+	 * @param AnimStackName 로드할 애니메이션 스택 이름 (빈 문자열이면 첫 번째 스택 사용)
 	 * @return 로드된 애니메이션 시퀀스
 	 */
-	class UAnimSequence* LoadFbxAnimation(const FString& FilePath, const struct FSkeleton* TargetSkeleton);
+	class UAnimSequence* LoadFbxAnimation(const FString& FilePath, const struct FSkeleton* TargetSkeleton, const FString& AnimStackName = "");
 
 protected:
 	~UFbxLoader() override;
