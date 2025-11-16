@@ -2,6 +2,7 @@
 #include "SSkeletalMeshViewerWindow.h"
 #include "Source/Runtime/Engine/Viewer/SkeletalViewerBootstrap.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
+#include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 
 SSkeletalMeshViewerWindow::SSkeletalMeshViewerWindow()
 {
@@ -38,48 +39,65 @@ void SSkeletalMeshViewerWindow::PreRenderViewportUpdate()
     }
 }
 
-void SSkeletalMeshViewerWindow::LoadSkeletalMesh(const FString& Path)
+ViewerState* SSkeletalMeshViewerWindow::CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context)
 {
-    if (!ActiveState || Path.empty())
+    ViewerState* NewState = SkeletalViewerBootstrap::CreateViewerState(Name, World, Device);
+    if (!NewState) return nullptr;
+
+    if (Context && !Context->AssetPath.empty())
+    {
+        LoadSkeletalMesh(NewState, Context->AssetPath);
+    }
+    return NewState;
+}
+
+void SSkeletalMeshViewerWindow::DestroyViewerState(ViewerState*& State)
+{
+    SkeletalViewerBootstrap::DestroyViewerState(State);
+}
+
+void SSkeletalMeshViewerWindow::LoadSkeletalMesh(ViewerState* State, const FString& Path)
+{
+    if (!State || Path.empty())
         return;
 
     // Load the skeletal mesh using the resource manager
     USkeletalMesh* Mesh = UResourceManager::GetInstance().Load<USkeletalMesh>(Path);
-    if (Mesh && ActiveState->PreviewActor)
+    if (Mesh && State->PreviewActor)
     {
         // Set the mesh on the preview actor
-        ActiveState->PreviewActor->SetSkeletalMesh(Path);
-        ActiveState->CurrentMesh = Mesh;
+        State->PreviewActor->SetSkeletalMesh(Path);
+        State->CurrentMesh = Mesh;
 
         // Expand all bone nodes by default on mesh load
-        ActiveState->ExpandedBoneIndices.clear();
-        if (const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton())
+        State->ExpandedBoneIndices.clear();
+        if (const FSkeleton* Skeleton = State->CurrentMesh->GetSkeleton())
         {
             for (int32 i = 0; i < Skeleton->Bones.size(); ++i)
             {
-                ActiveState->ExpandedBoneIndices.insert(i);
+                State->ExpandedBoneIndices.insert(i);
             }
         }
 
-        ActiveState->LoadedMeshPath = Path;  // Track for resource unloading
+        State->LoadedMeshPath = Path;  // Track for resource unloading
 
         // Update mesh path buffer for display in UI
-        strncpy_s(ActiveState->MeshPathBuffer, Path.c_str(), sizeof(ActiveState->MeshPathBuffer) - 1);
+        strncpy_s(State->MeshPathBuffer, Path.c_str(), sizeof(State->MeshPathBuffer) - 1);
 
         // Sync mesh visibility with checkbox state
-        if (auto* Skeletal = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+        if (auto* Skeletal = State->PreviewActor->GetSkeletalMeshComponent())
         {
-            Skeletal->SetVisibility(ActiveState->bShowMesh);
+            Skeletal->SetVisibility(State->bShowMesh);
         }
 
         // Mark bone lines as dirty to rebuild on next frame
-        ActiveState->bBoneLinesDirty = true;
+        State->bBoneLinesDirty = true;
 
         // Clear and sync bone line visibility
-        if (auto* LineComp = ActiveState->PreviewActor->GetBoneLineComponent())
+        if (auto* LineComp = State->PreviewActor->GetBoneLineComponent())
         {
             LineComp->ClearLines();
-            LineComp->SetLineVisible(ActiveState->bShowBones);
+            LineComp->SetLineVisible(State->bShowBones);
         }
 
         UE_LOG("SSkeletalMeshViewerWindow: Loaded skeletal mesh from %s", Path.c_str());
@@ -88,14 +106,4 @@ void SSkeletalMeshViewerWindow::LoadSkeletalMesh(const FString& Path)
     {
         UE_LOG("SSkeletalMeshViewerWindow: Failed to load skeletal mesh from %s", Path.c_str());
     }
-}
-
-ViewerState* SSkeletalMeshViewerWindow::CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context)
-{
-    return SkeletalViewerBootstrap::CreateViewerState(Name, World, Device);
-}
-
-void SSkeletalMeshViewerWindow::DestroyViewerState(ViewerState*& State)
-{
-    SkeletalViewerBootstrap::DestroyViewerState(State);
 }

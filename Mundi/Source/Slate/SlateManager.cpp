@@ -714,6 +714,15 @@ void USlateManager::ProcessInput()
 
 void USlateManager::OnMouseMove(FVector2D MousePos)
 {
+    for (SWindow* Window : DetachedWindows)
+    {
+        if (Window && Window->IsHover(MousePos))
+        {
+            Window->OnMouseMove(MousePos);
+            return;
+        }
+    }
+
     if (ActiveViewport)
     {
         ActiveViewport->OnMouseMove(MousePos);

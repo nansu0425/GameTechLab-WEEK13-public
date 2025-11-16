@@ -24,6 +24,20 @@ bool SViewerWindow::Initialize(float StartX, float StartY, float Width, float He
     Device = InDevice;
     Context = InContext;
 
+    // Create window title
+    FString BaseTitle = GetWindowTitle();
+    if (Context && !Context->AssetPath.empty())
+    {
+        // ex) "Data/Mesh/MyAsset.fbx" -> "MyAsset.fbx"
+        std::filesystem::path fsPath(Context->AssetPath);
+        FString AssetName = fsPath.filename().string();
+        WindowTitle = BaseTitle + " - " + AssetName;
+    }
+    else
+    {
+        WindowTitle = BaseTitle;
+    }
+
     SetRect(StartX, StartY, StartX + Width, StartY + Height);
 
     // Create first tab/state
@@ -54,13 +68,18 @@ void SViewerWindow::OnRender()
         ImGui::SetNextWindowSize(ImVec2(Rect.GetWidth(), Rect.GetHeight()));
         bInitialPlacementDone = true;
     }
-
     if (bRequestFocus)
     {
         ImGui::SetNextWindowFocus();
     }
+
+    // Generate a unique window title to pass to ImGui
+    // Format: "Skeletal Mesh Viewer - MyAsset.fbx###0x12345678"
+    char UniqueTitle[256];
+    sprintf_s(UniqueTitle, sizeof(UniqueTitle), "%s###%p", WindowTitle.c_str(), this);
+
     bool bViewerVisible = false;
-    if (ImGui::Begin("Skeletal Mesh Viewer", &bIsOpen, flags))
+    if (ImGui::Begin(UniqueTitle, &bIsOpen, flags))
     {
         bViewerVisible = true;
         // Render tab bar and switch active state

@@ -52,12 +52,14 @@ protected:
 
 	// Window open state
 	bool bIsOpen = true;
+	FString WindowTitle;
 
 	void OpenNewTab(const char* Name = "Viewer");
 	void CloseTab(int Index);
 	
 	virtual ViewerState* CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context) = 0;
 	virtual void DestroyViewerState(ViewerState*& State) = 0;
+	virtual FString GetWindowTitle() const = 0;
 
 	void UpdateBoneTransformFromSkeleton(ViewerState* State);
 	void ApplyBoneTransform(ViewerState* State);
