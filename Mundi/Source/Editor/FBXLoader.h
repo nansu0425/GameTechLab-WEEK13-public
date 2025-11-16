@@ -54,6 +54,13 @@ private:
 	FbxString GetAttributeTypeName(FbxNodeAttribute* InAttribute);
 
 	void EnsureSingleRootBone(FSkeletalMeshData& MeshData);
+
+	/**
+	 * 파일 시스템에 안전한 이름으로 변환 (특수문자 제거)
+	 * @param FileName 원본 파일명
+	 * @return Windows 파일 시스템에 사용 가능한 파일명
+	 */
+	static FString SanitizeFileName(const FString& FileName);
 	
 	// bin파일 저장용
 	TArray<FMaterialInfo> MaterialInfos;

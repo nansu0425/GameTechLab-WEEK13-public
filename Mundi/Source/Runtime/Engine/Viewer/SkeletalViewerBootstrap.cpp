@@ -62,6 +62,7 @@ ViewerState* SkeletalViewerBootstrap::CreateViewerState(const char* Name, UWorld
             Skel = Preview->GetSkeletalMeshComponent()->GetSkeletalMesh() ? Preview->GetSkeletalMeshComponent()->GetSkeletalMesh()->GetSkeleton() : nullptr;
             if (Skel)
             {
+                // Todo: 이거 LoadFbxAnimation 부분 PlayAnimation() 안에 넣는 게 낫나?
                 if (UAnimSequence* TestAnimation = UFbxLoader::GetInstance().LoadFbxAnimation(DefaultFBXPath, Skel))
                 {
                     Preview->GetSkeletalMeshComponent()->PlayAnimation(TestAnimation, true, 1.0f);

@@ -49,12 +49,47 @@ void UFbxLoader::PreLoad()
 		if (Extension == ".fbx")
 		{
 			FString PathStr = NormalizePath(Path.string());
+			if (PathStr == "Data/ninave.fbx")
+			{
+				int i = 0;
+			}
 
 			// 이미 처리된 파일인지 확인
 			if (ProcessedFiles.find(PathStr) == ProcessedFiles.end())
 			{
 				ProcessedFiles.insert(PathStr);
-				FbxLoader.LoadFbxMesh(PathStr);
+
+				// 1. FBX 메시 로드
+				USkeletalMesh* SkeletalMesh = FbxLoader.LoadFbxMesh(PathStr);
+
+				// 2. 애니메이션 로드 (메시가 성공적으로 로드되고 스켈레톤이 있는 경우)
+				if (SkeletalMesh)
+				{
+					const FSkeleton* Skeleton = SkeletalMesh->GetSkeleton();
+					if (Skeleton && !Skeleton->Bones.IsEmpty())
+					{
+						// 3. FBX 파일에서 모든 애니메이션 스택 이름 가져오기
+						TArray<FString> AnimStackNames = FbxLoader.GetAnimationStackNames(PathStr);
+
+						// 4. 각 애니메이션 스택 로드
+						for (const FString& AnimStackName : AnimStackNames)
+						{
+							UAnimSequence* AnimSequence = FbxLoader.LoadFbxAnimation(PathStr, Skeleton, AnimStackName);
+							if (AnimSequence)
+							{
+								UE_LOG("UFbxLoader::PreLoad: Loaded animation '%s' from '%s'",
+									AnimStackName.c_str(), PathStr.c_str());
+							}
+						}
+
+						if (!AnimStackNames.IsEmpty())
+						{
+							UE_LOG("UFbxLoader::PreLoad: Total %d animations loaded from '%s'",
+								AnimStackNames.Num(), PathStr.c_str());
+						}
+					}
+				}
+
 				++LoadedCount;
 			}
 		}
@@ -1184,6 +1219,22 @@ void UFbxLoader::EnsureSingleRootBone(FSkeletalMeshData& MeshData)
 	}
 }
 
+FString UFbxLoader::SanitizeFileName(const FString& FileName)
+{
+	FString Sanitized = FileName;
+
+	// Windows 파일 시스템에서 사용할 수 없는 문자들을 언더스코어로 대체
+	// < > : " / \ | ? *
+	const char InvalidChars[] = {'<', '>', ':', '"', '/', '\\', '|', '?', '*'};
+
+	for (char InvalidChar : InvalidChars)
+	{
+		std::replace(Sanitized.begin(), Sanitized.end(), InvalidChar, '_');
+	}
+
+	return Sanitized;
+}
+
 TArray<FString> UFbxLoader::GetAnimationStackNames(const FString& FilePath)
 {
 	TArray<FString> AnimStackNames;
@@ -1248,12 +1299,19 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 
 	// 2. 리소스 키 생성: {파일명}_{AnimStack명} 또는 {파일명} (AnimStackName이 비어있을 경우)
 	FString ResourceKey = NormalizedPath;
+	FString SanitizedAnimStackName;
 	if (!AnimStackName.empty())
 	{
+		// AnimStack 이름에서 파일 시스템에 안전하지 않은 문자 제거
+		SanitizedAnimStackName = SanitizeFileName(AnimStackName);
+
 		// 파일명에서 확장자 제거
 		size_t LastDot = NormalizedPath.find_last_of('.');
 		FString BaseName = (LastDot != FString::npos) ? NormalizedPath.substr(0, LastDot) : NormalizedPath;
-		ResourceKey = BaseName + "_" + AnimStackName;
+		ResourceKey = BaseName + "_" + SanitizedAnimStackName;
+
+		UE_LOG("UFbxLoader::LoadFbxAnimation: Sanitized AnimStack name '%s' -> '%s'",
+			AnimStackName.c_str(), SanitizedAnimStackName.c_str());
 	}
 
 	// 3. 리소스 매니저 캐시 확인
@@ -1279,13 +1337,13 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 	FString AnimCacheFileName = CachePathStr;
 	if (!AnimStackName.empty())
 	{
-		// 확장자 제거 후 AnimStack 이름 추가
+		// 확장자 제거 후 Sanitized AnimStack 이름 추가
 		size_t LastDot = AnimCacheFileName.find_last_of('.');
 		if (LastDot != FString::npos)
 		{
 			AnimCacheFileName = AnimCacheFileName.substr(0, LastDot);
 		}
-		AnimCacheFileName += "_" + AnimStackName;
+		AnimCacheFileName += "_" + SanitizedAnimStackName;
 	}
 	AnimCacheFileName += ".anim.bin";
 
@@ -1411,20 +1469,39 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 	// AnimStackName이 지정되었으면 해당 이름의 스택 찾기
 	if (!AnimStackName.empty())
 	{
+		UE_LOG("UFbxLoader::LoadFbxAnimation: Searching for AnimStack '%s' among %d stacks", AnimStackName.c_str(), AnimStackCount);
+
 		for (int i = 0; i < AnimStackCount; ++i)
 		{
 			FbxAnimStack* TempStack = Scene->GetSrcObject<FbxAnimStack>(i);
-			if (TempStack && TempStack->GetName() == AnimStackName.c_str())
+			if (TempStack)
 			{
-				AnimStack = TempStack;
-				FbxAnimStackName = TempStack->GetName();
-				break;
+				FbxString TempStackName = TempStack->GetName();
+				UE_LOG("UFbxLoader::LoadFbxAnimation: Checking stack[%d]: '%s'", i, TempStackName.Buffer());
+
+				// FbxString 비교: Buffer()로 변환하여 strcmp 사용
+				if (strcmp(TempStackName.Buffer(), AnimStackName.c_str()) == 0)
+				{
+					AnimStack = TempStack;
+					FbxAnimStackName = TempStackName;
+					UE_LOG("UFbxLoader::LoadFbxAnimation: Found matching AnimStack at index %d", i);
+					break;
+				}
 			}
 		}
 
 		if (!AnimStack)
 		{
-			UE_LOG("UFbxLoader::LoadFbxAnimation: AnimStack '%s' not found in FBX file", AnimStackName.c_str());
+			UE_LOG("UFbxLoader::LoadFbxAnimation: ERROR - AnimStack '%s' not found in FBX file", AnimStackName.c_str());
+			UE_LOG("UFbxLoader::LoadFbxAnimation: Available stacks:");
+			for (int i = 0; i < AnimStackCount; ++i)
+			{
+				FbxAnimStack* TempStack = Scene->GetSrcObject<FbxAnimStack>(i);
+				if (TempStack)
+				{
+					UE_LOG("  [%d] '%s'", i, TempStack->GetName());
+				}
+			}
 			Scene->Destroy();
 			return nullptr;
 		}
@@ -1591,25 +1668,6 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 			}
 
 			TotalKeys += (FrameCount + 1) * 3; // Position, Rotation, Scale 각각
-
-			// 디버깅: 첫 5개 본의 샘플 데이터 출력
-			if (BoneIndex < 5)
-			{
-				UE_LOG("  Bone[%d] '%s': Sampled %d frames (P:%d, R:%d, S:%d keys)",
-					BoneIndex, Bone.Name.c_str(), FrameCount + 1,
-					TransformCurve.PositionCurve.Times.Num(),
-					TransformCurve.RotationCurve.Times.Num(),
-					TransformCurve.ScaleCurve.Times.Num());
-
-				// 첫 3개 프레임의 실제 값 출력 (디버깅용)
-				for (int32 i = 0; i < FMath::Min(3, TransformCurve.RotationCurve.Values.Num()); ++i)
-				{
-					const FQuat& Rot = TransformCurve.RotationCurve.Values[i];
-					const FVector& Pos = TransformCurve.PositionCurve.Values[i];
-					UE_LOG("    Frame[%d]: Pos(%.3f, %.3f, %.3f) Rot(%.3f, %.3f, %.3f, %.3f)",
-						i, Pos.X, Pos.Y, Pos.Z, Rot.X, Rot.Y, Rot.Z, Rot.W);
-				}
-			}
 		}
 
 		// BoneAnimationTrack 생성 및 추가 (CurveData를 FRawAnimSequenceTrack으로 변환)
