@@ -49,10 +49,6 @@ void UFbxLoader::PreLoad()
 		if (Extension == ".fbx")
 		{
 			FString PathStr = NormalizePath(Path.string());
-			if (PathStr == "Data/ninave.fbx")
-			{
-				int i = 0;
-			}
 
 			// 이미 처리된 파일인지 확인
 			if (ProcessedFiles.find(PathStr) == ProcessedFiles.end())
@@ -539,17 +535,6 @@ void UFbxLoader::LoadSkeletonFromNode(FbxNode* InNode, FSkeletalMeshData& MeshDa
 // 예시 코드
 void UFbxLoader::LoadMeshFromAttribute(FbxNodeAttribute* InAttribute, FSkeletalMeshData& MeshData)
 {
-
-	/*if (!InAttribute)
-	{
-		return;
-	}*/
-	//FbxString TypeName = GetAttributeTypeName(InAttribute);
-	// 타입과 별개로 Element 자체의 이름도 있음
-	//FbxString AttributeName = InAttribute->GetName();
-
-	// Buffer함수로 FbxString->char* 변환
-	//UE_LOG("<Attribute Type = %s, Name = %s\n", TypeName.Buffer(), AttributeName.Buffer());
 }
 
 void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int32, TArray<uint32>>& MaterialGroupIndexList, TMap<FbxNode*, int32>& BoneToIndex, TArray<int32> MaterialSlotToIndex, int32 DefaultMaterialIndex)
@@ -916,10 +901,6 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 			TArray<uint32>& GroupIndexList = MaterialGroupIndexList[MaterialIndex];
 			GroupIndexList.Add(IndexOfVertex);
 
-			// 인덱스 리스트에 최종 인덱스 추가(Vertex 리스트와 대응)
-			// 머티리얼 사용하면서 필요 없어짐.(머티리얼 소팅 후 한번에 복사할거임)
-			//MeshData.Indices.Add(IndexOfVertex);
-
 			// Vertex 하나 저장했고 Vertex마다 Id를 사용하므로 +1
 			VertexId++;
 		} // for PolygonSize
@@ -1075,10 +1056,6 @@ void UFbxLoader::ParseMaterial(FbxSurfaceMaterial* Material, FMaterialInfo& Mate
 		Double3Prop = SurfacePhong->Ambient;
 		MaterialInfo.AmbientColor = FVector(Double3Prop.Get()[0], Double3Prop.Get()[1], Double3Prop.Get()[2]);
 
-		// HDR 안 써서 의미 없음
-	/*	Double3Prop = SurfacePhong->Emissive;
-		MaterialInfo.EmissiveColor = FVector(Double3Prop.Get()[0], Double3Prop.Get()[1], Double3Prop.Get()[2]);*/
-
 		DoubleProp = SurfacePhong->TransparencyFactor;
 		MaterialInfo.Transparency = DoubleProp.Get();
 	}
@@ -1134,32 +1111,6 @@ FString UFbxLoader::ParseTexturePath(FbxProperty& Property)
 
 FbxString UFbxLoader::GetAttributeTypeName(FbxNodeAttribute* InAttribute)
 {
-	// 테스트코드
-	// Attribute타입에 대한 자료형, 이것으로 Skeleton만 빼낼 수 있을 듯
-	/*FbxNodeAttribute::EType Type = InAttribute->GetAttributeType();
-	switch (Type) {
-	case FbxNodeAttribute::eUnknown: return "unidentified";
-	case FbxNodeAttribute::eNull: return "null";
-	case FbxNodeAttribute::eMarker: return "marker";
-	case FbxNodeAttribute::eSkeleton: return "skeleton";
-	case FbxNodeAttribute::eMesh: return "mesh";
-	case FbxNodeAttribute::eNurbs: return "nurbs";
-	case FbxNodeAttribute::ePatch: return "patch";
-	case FbxNodeAttribute::eCamera: return "camera";
-	case FbxNodeAttribute::eCameraStereo: return "stereo";
-	case FbxNodeAttribute::eCameraSwitcher: return "camera switcher";
-	case FbxNodeAttribute::eLight: return "light";
-	case FbxNodeAttribute::eOpticalReference: return "optical reference";
-	case FbxNodeAttribute::eOpticalMarker: return "marker";
-	case FbxNodeAttribute::eNurbsCurve: return "nurbs curve";
-	case FbxNodeAttribute::eTrimNurbsSurface: return "trim nurbs surface";
-	case FbxNodeAttribute::eBoundary: return "boundary";
-	case FbxNodeAttribute::eNurbsSurface: return "nurbs surface";
-	case FbxNodeAttribute::eShape: return "shape";
-	case FbxNodeAttribute::eLODGroup: return "lodgroup";
-	case FbxNodeAttribute::eSubDiv: return "subdiv";
-	default: return "unknown";
-	}*/
 	return "test";
 }
 
