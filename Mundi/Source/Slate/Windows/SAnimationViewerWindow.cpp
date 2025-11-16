@@ -53,7 +53,11 @@ void SAnimationViewerWindow::OnRender()
     if (ImGui::Begin(UniqueTitle, &bIsOpen, flags))
     {
         bViewerVisible = true;
-        // Render tab bar and switch active state
+
+        //===============================
+        // Tab Bar
+        // : Render tab bar and switch active state
+        //===============================
         if (ImGui::BeginTabBar("SkeletalViewerTabs", ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
         {
             for (int i = 0; i < Tabs.Num(); ++i)
@@ -79,9 +83,14 @@ void SAnimationViewerWindow::OnRender()
             }
             ImGui::EndTabBar();
         }
+
+        //===============================
+        // Layout calculations
+        //===============================
         ImVec2 pos = ImGui::GetWindowPos();
         ImVec2 size = ImGui::GetWindowSize();
-        Rect.Left = pos.x; Rect.Top = pos.y; Rect.Right = pos.x + size.x; Rect.Bottom = pos.y + size.y; Rect.UpdateMinMax();
+        Rect.Left = pos.x; Rect.Top = pos.y; Rect.Right = pos.x + size.x; Rect.Bottom = pos.y + size.y; 
+        Rect.UpdateMinMax();
 
         ImVec2 contentAvail = ImGui::GetContentRegionAvail();
         float totalWidth = contentAvail.x;
@@ -90,6 +99,10 @@ void SAnimationViewerWindow::OnRender()
         float leftWidth = totalWidth * LeftPanelRatio;
         float rightWidth = totalWidth * RightPanelRatio;
         float centerWidth = totalWidth - leftWidth - rightWidth;
+
+        //===============================
+        // Top panels (Left / Center / Right)
+        //===============================
 
         // Remove spacing between panels
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
@@ -104,12 +117,127 @@ void SAnimationViewerWindow::OnRender()
         ImGui::SameLine(0, 0); // No spacing between panels
 
         // Center panel (viewport area) — draw with border to see the viewport area
-        ImGui::BeginChild("SkeletalMeshViewport", ImVec2(centerWidth, totalHeight), true, ImGuiWindowFlags_NoScrollbar);
-        ImVec2 childPos = ImGui::GetWindowPos();
-        ImVec2 childSize = ImGui::GetWindowSize();
-        ImVec2 rectMin = childPos;
-        ImVec2 rectMax(childPos.x + childSize.x, childPos.y + childSize.y);
-        CenterRect.Left = rectMin.x; CenterRect.Top = rectMin.y; CenterRect.Right = rectMax.x; CenterRect.Bottom = rectMax.y; CenterRect.UpdateMinMax();
+        ImGui::BeginChild("CenterPanel", ImVec2(centerWidth, totalHeight), true, ImGuiWindowFlags_NoScrollbar);
+
+        float contentHeight = ImGui::GetContentRegionAvail().y;
+        float itemSpacingY = ImGui::GetStyle().ItemSpacing.y;
+        float viewportHeight = (contentHeight - itemSpacingY) * 0.75f;
+        float timelineHeight = (contentHeight - itemSpacingY) * 0.25f;
+        float innerWidth = ImGui::GetContentRegionAvail().x;
+        {
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+            // Remove all padding, spacing, rounding
+            ImGui::BeginChild("ViewportArea", ImVec2(innerWidth, viewportHeight), false,
+                ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar);
+            ImGui::PopStyleVar();
+            ImVec2 childPos = ImGui::GetCursorScreenPos();      // inner top-left
+            ImVec2 childSize = ImGui::GetContentRegionAvail();  // usable area
+            ImVec2 rectMin = childPos;
+            ImVec2 rectMax(childPos.x + childSize.x, childPos.y + childSize.y);
+            CenterRect.Left = rectMin.x; CenterRect.Top = rectMin.y; CenterRect.Right = rectMax.x; CenterRect.Bottom = rectMax.y;
+            CenterRect.UpdateMinMax();
+            ImGui::EndChild();
+        }
+        {
+            ImGui::BeginChild("TimelineArea", ImVec2(innerWidth, timelineHeight), true);
+            //----------------------------------------------
+            // TIMELINE PANEL (Inside CenterPanel)
+            //----------------------------------------------
+            ImGui::Text("Timeline");
+
+            static bool dummyPlaying = false;
+            static bool dummyLoop = true;
+            static float dummySpeed = 1.0f;
+            static float dummyTime = 0.0f;
+
+            // -- Controls Row --
+            ImGui::Spacing();
+
+            if (dummyPlaying)
+            {
+                if (ImGui::Button("Pause", ImVec2(55, 24))) dummyPlaying = false;
+            }
+            else
+            {
+                if (ImGui::Button("Play", ImVec2(55, 24))) dummyPlaying = true;
+            }
+
+            ImGui::SameLine();
+            ImGui::Checkbox("Loop", &dummyLoop);
+
+            ImGui::SameLine();
+            ImGui::Text("Speed:");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(70);
+            ImGui::SliderFloat("##DummySpeed", &dummySpeed, 0.1f, 3.0f, "%.1fx");
+
+            ImGui::SameLine();
+            ImGui::Text("Time:");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(100);
+            ImGui::SliderFloat("##DummyTime", &dummyTime, 0.0f, 1.0f, "%.2f");
+
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            //----------------------------------------------
+            // Track List + Timeline Grid Layout
+            //----------------------------------------------
+            ImGui::BeginChild("TrackLayoutInner", ImVec2(0, 0), false);
+
+            float leftTrackWidth = 130.0f;
+            float rightTimelineWidth = ImGui::GetContentRegionAvail().x - leftTrackWidth;
+
+            //======== LEFT TRACK PANEL ========//
+            ImGui::BeginChild("TrackListSmall", ImVec2(leftTrackWidth, 0), true);
+
+            ImGui::Text("Notifies");
+            ImGui::Separator();
+            ImGui::Text("Curves");
+            ImGui::Separator();
+            ImGui::Text("Attributes");
+            ImGui::Separator();
+
+            ImGui::EndChild();
+
+            ImGui::SameLine();
+
+            //======== RIGHT TIMELINE GRID ========//
+            ImGui::BeginChild("TimelineGridSmall", ImVec2(rightTimelineWidth, 0), true);
+
+            ImGui::Text("Timeline:");
+            ImGui::PushItemWidth(-1);
+            ImGui::SliderFloat("##TimelineScrubSmall", &dummyTime, 0.0f, 1.0f);
+            ImGui::PopItemWidth();
+
+            ImGui::Separator();
+
+            // Draw timeline grid
+            ImDrawList* draw = ImGui::GetWindowDrawList();
+            ImVec2 p0 = ImGui::GetCursorScreenPos();
+            ImVec2 sz = ImGui::GetContentRegionAvail();
+
+            // background
+            draw->AddRectFilled(p0, ImVec2(p0.x + sz.x, p0.y + sz.y), IM_COL32(40, 40, 40, 255));
+
+            const int frameCount = 50;   // compact version
+            for (int i = 0; i < frameCount; i++)
+            {
+                float x = p0.x + (float)i * (sz.x / frameCount);
+                draw->AddLine(ImVec2(x, p0.y), ImVec2(x, p0.y + sz.y), IM_COL32(80, 80, 80, 180));
+            }
+
+            // Red playhead
+            float playheadX = p0.x + dummyTime * sz.x;
+            draw->AddLine(ImVec2(playheadX, p0.y),
+                ImVec2(playheadX, p0.y + sz.y),
+                IM_COL32(255, 0, 0, 255),
+                2.0f);
+
+            ImGui::EndChild();  // TimelineGridSmall
+            ImGui::EndChild();  // TrackLayoutInner
+            ImGui::EndChild();
+        }
         ImGui::EndChild();
 
         ImGui::SameLine(0, 0); // No spacing between panels

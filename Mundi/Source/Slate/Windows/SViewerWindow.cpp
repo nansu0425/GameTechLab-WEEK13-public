@@ -388,7 +388,7 @@ void SViewerWindow::RenderLeftPanel(float PanelWidth)
         else
         {
             // Scrollable tree view
-            ImGui::BeginChild("BoneTreeView", ImVec2(0, 0), true);
+            ImGui::BeginChild("BoneTreeView", ImVec2(0, 0), true, ImGuiWindowFlags_NoScrollbar);
             ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, 12.0f);
             const TArray<FBone>& Bones = Skeleton->Bones;
             TArray<TArray<int32>> Children;

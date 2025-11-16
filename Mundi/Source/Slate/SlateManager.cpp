@@ -218,8 +218,8 @@ void USlateManager::OpenAssetViewer(UEditorAssetPreviewContext* Context)
         // Open as a detached window at a default size and position
         const float toolbarHeight = 50.0f;
         const float availableHeight = Rect.GetHeight() - toolbarHeight;
-        const float w = Rect.GetWidth() * 0.6f;
-        const float h = availableHeight * 0.7f;
+        const float w = Rect.GetWidth() * 0.8f;
+        const float h = availableHeight * 0.9f;
         const float x = Rect.Left + (Rect.GetWidth() - w) * 0.5f;
         const float y = Rect.Top + toolbarHeight + (availableHeight - h) * 0.5f;
 
