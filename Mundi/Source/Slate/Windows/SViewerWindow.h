@@ -25,10 +25,12 @@ public:
 	// Accessors (active tab)
 	FViewport* GetViewport() const { return ActiveState ? ActiveState->Viewport : nullptr; }
 	FViewportClient* GetViewportClient() const { return ActiveState ? ActiveState->Client : nullptr; }
+	
+	UEditorAssetPreviewContext* Context = nullptr;
+	bool bRequestFocus = false;		// Request focus on first open
 
 protected:
 	// Per-tab state
-	UEditorAssetPreviewContext* Context = nullptr;
 	ViewerState* ActiveState = nullptr;
 	TArray<ViewerState*> Tabs;
 	int ActiveTabIndex = -1;
@@ -46,9 +48,6 @@ protected:
 
 	// Whether we've applied the initial ImGui window placement
 	bool bInitialPlacementDone = false;
-
-	// Request focus on first open
-	bool bRequestFocus = false;
 
 	// Window open state
 	bool bIsOpen = true;
