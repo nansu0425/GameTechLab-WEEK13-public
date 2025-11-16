@@ -62,10 +62,16 @@ ViewerState* SkeletalViewerBootstrap::CreateViewerState(const char* Name, UWorld
             Skel = Preview->GetSkeletalMeshComponent()->GetSkeletalMesh() ? Preview->GetSkeletalMeshComponent()->GetSkeletalMesh()->GetSkeleton() : nullptr;
             if (Skel)
             {
-                // Todo: 이거 LoadFbxAnimation 부분 PlayAnimation() 안에 넣는 게 낫나?
-                if (UAnimSequence* TestAnimation = UFbxLoader::GetInstance().LoadFbxAnimation(DefaultFBXPath, Skel))
+                // PreLoad()에서 이미 로드된 애니메이션을 리소스 매니저에서 가져오기
+                // 리소스 키 형식: {파일경로(확장자 제외)}_{AnimStack명}
+                UAnimSequence* TestAnimation = UResourceManager::GetInstance().Get<UAnimSequence>("Data/DancingRacer_mixamo.com");
+                if (TestAnimation)
                 {
                     Preview->GetSkeletalMeshComponent()->PlayAnimation(TestAnimation, true, 1.0f);
+                }
+                else
+                {
+                    UE_LOG("SkeletalViewerBootstrap: Failed to load test animation 'Data/DancingRacer_mixamo.com'");
                 }
             }
         }

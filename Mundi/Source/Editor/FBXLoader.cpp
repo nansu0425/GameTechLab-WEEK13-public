@@ -100,6 +100,7 @@ void UFbxLoader::PreLoad()
 	}
 
 	RESOURCE.SetSkeletalMeshs();
+	RESOURCE.SetAnimations();
 
 	UE_LOG("UFbxLoader::Preload: Loaded %zu .fbx files from %s", LoadedCount, DataDir.string().c_str());
 }
