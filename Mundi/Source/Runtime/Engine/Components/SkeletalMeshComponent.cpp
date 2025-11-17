@@ -14,7 +14,7 @@ USkeletalMeshComponent::USkeletalMeshComponent()
 {
     // Keep constructor lightweight for editor/viewer usage.
     // Load a simple default test mesh if available; viewer UI can override.
-    SetSkeletalMesh(GDataDir + "/DancingRacer.fbx");
+    SetSkeletalMesh(GDataDir + "/Test.fbx");
 }
 
 
