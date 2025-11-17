@@ -11,6 +11,7 @@
 #include <cctype>
 #include <cstring>
 #include <algorithm>
+#include <stdexcept>
 
 using std::max;
 using std::min;
@@ -59,6 +60,9 @@ void UConsoleWidget::Initialize()
 	HelpCommandList.Add("STAT SHADOW");
 	HelpCommandList.Add("MINIDUMP");
 	HelpCommandList.Add("CAUSECRASH");
+	HelpCommandList.Add("CRASHIN <seconds>");
+	HelpCommandList.Add("CANCELCRASH");
+	HelpCommandList.Add("THROWEXCEPTION");
 
 	// Add welcome messages
 	AddLog("=== Console Widget Initialized ===");
@@ -463,11 +467,19 @@ void UConsoleWidget::ExecCommand(const char* command_line)
 	}
 	else if (Stricmp(command_line, "CAUSECRASH") == 0)
 	{
-		AddLog("WARNING: Triggering intentional crash!");
-		AddLog("This will create a MiniDump file and terminate the application.");
+		AddLog("WARNING: Triggering random crash by deleting a live UObject!");
+		AddLog("A random object will be deleted, causing a crash at a random CallStack location.");
 
-		// 잠시 후 크래시 발생 (로그가 표시될 시간을 줌)
+		// 랜덤한 UObject를 삭제하여 나중에 랜덤한 위치에서 크래시 발생
 		FPlatformCrashHandler::CauseIntentionalCrash();
+	}
+	else if (Stricmp(command_line, "THROWEXCEPTION") == 0)
+	{
+		AddLog("WARNING: Throwing C++ exception!");
+		AddLog("This will test C++ exception handling and create a MiniDump.");
+
+		// C++ 예외 던지기 (std::runtime_error)
+		throw std::runtime_error("Intentional C++ exception thrown from console command!");
 	}
 	else
 	{
