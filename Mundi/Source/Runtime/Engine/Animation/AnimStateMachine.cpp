@@ -9,6 +9,7 @@
 int32 FAnimNode_StateMachine::AddState(const FAnimState& State, UAnimSequenceBase* Sequence)
 {
     const int32 Index = States.Add(State);
+    EnsureTransitionBuckets();
     // Wire authoring fields into the internal sequence player for this state
     FAnimState& S = States[Index];
     S.Player.SetSequence(Sequence);
@@ -21,6 +22,12 @@ int32 FAnimNode_StateMachine::AddState(const FAnimState& State, UAnimSequenceBas
 void FAnimNode_StateMachine::AddTransition(const FAnimTransition& Transition)
 {
     Transitions.Add(Transition);
+    // Also index by source state for O(outgoing) lookup
+    EnsureTransitionBuckets();
+    if (Transition.FromStateIndex >= 0 && Transition.FromStateIndex < TransitionsByFrom.Num())
+    {
+        TransitionsByFrom[Transition.FromStateIndex].Add(Transition);
+    }
 }
 
 int32 FAnimNode_StateMachine::FindStateByName(const FString& Name) const
@@ -35,6 +42,42 @@ int32 FAnimNode_StateMachine::FindStateByName(const FString& Name) const
     return -1;
 }
 
+const FString& FAnimNode_StateMachine::GetStateName(int32 Index) const
+{
+    static FString Empty;
+    if (Index < 0 || Index >= States.Num()) return Empty;
+    return States[Index].Name;
+}
+
+bool FAnimNode_StateMachine::SetStatePlayRate(int32 Index, float Rate)
+{
+    if (Index < 0 || Index >= States.Num()) return false;
+    States[Index].PlayRate = Rate;
+    States[Index].Player.SetPlayRate(Rate);
+    return true;
+}
+
+bool FAnimNode_StateMachine::SetStateLooping(int32 Index, bool bInLooping)
+{
+    if (Index < 0 || Index >= States.Num()) return false;
+    States[Index].bLooping = bInLooping;
+    States[Index].Player.SetLooping(bInLooping);
+    return true;
+}
+
+float FAnimNode_StateMachine::GetStateTime(int32 Index) const
+{
+    if (Index < 0 || Index >= States.Num()) return 0.f;
+    return States[Index].Player.GetExtractContext().CurrentTime;
+}
+
+bool FAnimNode_StateMachine::SetStateTime(int32 Index, float TimeSeconds)
+{
+    if (Index < 0 || Index >= States.Num()) return false;
+    States[Index].Player.GetExtractContext().CurrentTime = TimeSeconds;
+    return true;
+}
+
 void FAnimNode_StateMachine::SetCurrentState(int32 StateIndex, float BlendTime)
 {
     if (StateIndex < 0 || StateIndex >= States.Num())
@@ -46,7 +89,21 @@ void FAnimNode_StateMachine::SetCurrentState(int32 StateIndex, float BlendTime)
         return;
     }
 
-    if (Runtime.CurrentState == -1 || BlendTime <= 0.f)
+    // Resolve blend time: if negative, try transition data; otherwise use explicit value
+    float EffectiveBlendTime = BlendTime;
+    if (EffectiveBlendTime < 0.f)
+    {
+        if (const FAnimTransition* Trans = FindTransition(Runtime.CurrentState, StateIndex))
+        {
+            EffectiveBlendTime = Trans->BlendTime;
+        }
+        else
+        {
+            EffectiveBlendTime = 0.f; // default immediate if not specified
+        }
+    }
+
+    if (Runtime.CurrentState == -1 || EffectiveBlendTime <= 0.f)
     {
         // Immediate switch
         Runtime.CurrentState = StateIndex;
@@ -70,7 +127,7 @@ void FAnimNode_StateMachine::SetCurrentState(int32 StateIndex, float BlendTime)
 
     // Begin transition
     Runtime.NextState = StateIndex;
-    Runtime.BlendDuration = std::max(0.f, BlendTime);
+    Runtime.BlendDuration = std::max(0.f, EffectiveBlendTime);
     Runtime.BlendAlpha = 0.f;
     // Reset next state's player time/settings
     FAnimState& Next = States[StateIndex];
@@ -84,6 +141,24 @@ const FAnimState* FAnimNode_StateMachine::GetStateChecked(int32 Index) const
 {
     if (Index < 0 || Index >= States.Num()) return nullptr;
     return &States[Index];
+}
+
+const FAnimTransition* FAnimNode_StateMachine::FindTransition(int32 FromIndex, int32 ToIndex) const
+{
+    if (FromIndex < 0 || FromIndex >= TransitionsByFrom.Num())
+        return nullptr;
+    for (const FAnimTransition& T : TransitionsByFrom[FromIndex])
+        if (T.ToStateIndex == ToIndex)
+            return &T;
+    return nullptr;
+}
+
+void FAnimNode_StateMachine::EnsureTransitionBuckets()
+{
+    if (TransitionsByFrom.Num() < States.Num())
+    {
+        TransitionsByFrom.SetNum(States.Num());
+    }
 }
 
 void FAnimNode_StateMachine::Update(FAnimationBaseContext& Context)

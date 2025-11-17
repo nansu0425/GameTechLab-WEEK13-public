@@ -40,8 +40,17 @@ struct FAnimNode_StateMachine : public FAnimNode_Base
     // Authoring API
     int32 AddState(const FAnimState& State, UAnimSequenceBase* Sequence);
     void AddTransition(const FAnimTransition& Transition);
-    void SetCurrentState(int32 StateIndex, float BlendTime = 0.f);
+    void SetCurrentState(int32 StateIndex, float BlendTime = -1.f);
     int32 FindStateByName(const FString& Name) const;
+
+    // Introspection / controls
+    int32 GetCurrentStateIndex() const { return Runtime.CurrentState; }
+    int32 GetNumStates() const { return States.Num(); }
+    const FString& GetStateName(int32 Index) const;
+    bool SetStatePlayRate(int32 Index, float Rate);
+    bool SetStateLooping(int32 Index, bool bInLooping);
+    float GetStateTime(int32 Index) const;
+    bool SetStateTime(int32 Index, float TimeSeconds);
 
     // FAnimNode_Base overrides
     void Update(FAnimationBaseContext& Context) override;
@@ -51,9 +60,14 @@ struct FAnimNode_StateMachine : public FAnimNode_Base
 
 private:
     const FAnimState* GetStateChecked(int32 Index) const;
+    const FAnimTransition* FindTransition(int32 FromIndex, int32 ToIndex) const;
+    void EnsureTransitionBuckets();
 
 private:
     TArray<FAnimState> States;
+    // Flat list kept for tooling/debug; lookups use adjacency buckets
     TArray<FAnimTransition> Transitions;
+    // Adjacency: per-from-state list of outgoing transitions
+    TArray<TArray<FAnimTransition>> TransitionsByFrom;
     FAnimSMRuntime Runtime;
 };

@@ -9,6 +9,7 @@
 #include "AnimNodeBase.h"
 #include "AnimInstance.h"
 #include "AnimSingleNodeInstance.h"
+#include "AnimStateMachineInstance.h"
 
 USkeletalMeshComponent::USkeletalMeshComponent()
 {
@@ -126,6 +127,124 @@ void USkeletalMeshComponent::PlayAnimation(UAnimationAsset* Asset, bool bLooping
         Single->SetPlayRate(InPlayRate);
         Single->Play(true);
     }
+}
+
+// ==== Lua-friendly State Machine helpers ====
+void USkeletalMeshComponent::UseStateMachine()
+{
+    UAnimStateMachineInstance* SM = Cast<UAnimStateMachineInstance>(AnimInstance);
+    if (!SM)
+    {
+        SM = NewObject<UAnimStateMachineInstance>();
+        SetAnimInstance(SM);
+    }
+}
+
+void USkeletalMeshComponent::AnimSM_Clear()
+{
+    // Replace with a fresh state machine instance
+    if (AnimInstance)
+    {
+        ObjectFactory::DeleteObject(AnimInstance);
+        AnimInstance = nullptr;
+    }
+    UseStateMachine();
+}
+
+bool USkeletalMeshComponent::AnimSM_IsActive() const
+{
+    const UAnimStateMachineInstance* SM = Cast<UAnimStateMachineInstance>(AnimInstance);
+    return SM ? SM->IsPlaying() : false;
+}
+
+int32 USkeletalMeshComponent::AnimSM_AddState(const FString& Name, const FString& AssetPath, float Rate, bool bLooping)
+{
+    UAnimStateMachineInstance* SM = Cast<UAnimStateMachineInstance>(AnimInstance);
+    if (!SM)
+    {
+        SM = NewObject<UAnimStateMachineInstance>();
+        const_cast<USkeletalMeshComponent*>(this)->SetAnimInstance(SM);
+    }
+
+    // Get or load sequence asset from resource manager
+    // Note: AnimSequence resources are loaded by FBXLoader and cached in ResourceManager
+    // We use Get() instead of Load() because UAnimSequence::Load() signature differs from the template
+    UAnimSequence* Seq = UResourceManager::GetInstance().Get<UAnimSequence>(AssetPath);
+    if (!Seq)
+    {
+        return -1;
+    }
+
+    FAnimState StateDesc; StateDesc.Name = Name; StateDesc.PlayRate = Rate; StateDesc.bLooping = bLooping;
+    return SM->AddState(StateDesc, Seq);
+}
+
+void USkeletalMeshComponent::AnimSM_AddTransitionByName(const FString& FromName, const FString& ToName, float BlendTime)
+{
+    UAnimStateMachineInstance* SM = Cast<UAnimStateMachineInstance>(AnimInstance);
+    if (!SM) return;
+    const int32 From = SM->FindStateByName(FromName);
+    const int32 To = SM->FindStateByName(ToName);
+    if (From < 0 || To < 0) return;
+    FAnimTransition T; T.FromStateIndex = From; T.ToStateIndex = To; T.BlendTime = BlendTime;
+    SM->AddTransition(T);
+}
+
+void USkeletalMeshComponent::AnimSM_SetState(const FString& Name, float BlendTime)
+{
+    UAnimStateMachineInstance* SM = Cast<UAnimStateMachineInstance>(AnimInstance);
+    if (!SM) return;
+    const int32 Idx = SM->FindStateByName(Name);
+    if (Idx >= 0)
+    {
+        SM->SetCurrentState(Idx, BlendTime);
+    }
+}
+
+FString USkeletalMeshComponent::AnimSM_GetCurrentStateName() const
+{
+    const UAnimStateMachineInstance* SM = Cast<UAnimStateMachineInstance>(AnimInstance);
+    if (!SM) return "";
+    const int32 Curr = SM->GetCurrentStateIndex();
+    return (Curr >= 0) ? SM->GetStateName(Curr) : "";
+}
+
+int32 USkeletalMeshComponent::AnimSM_GetStateIndex(const FString& Name) const
+{
+    const UAnimStateMachineInstance* SM = Cast<UAnimStateMachineInstance>(AnimInstance);
+    return SM ? SM->FindStateByName(Name) : -1;
+}
+
+void USkeletalMeshComponent::AnimSM_SetStatePlayRate(const FString& Name, float Rate)
+{
+    UAnimStateMachineInstance* SM = Cast<UAnimStateMachineInstance>(AnimInstance);
+    if (!SM) return;
+    const int32 Idx = SM->FindStateByName(Name);
+    if (Idx >= 0) SM->SetStatePlayRate(Idx, Rate);
+}
+
+void USkeletalMeshComponent::AnimSM_SetStateLooping(const FString& Name, bool bLooping)
+{
+    UAnimStateMachineInstance* SM = Cast<UAnimStateMachineInstance>(AnimInstance);
+    if (!SM) return;
+    const int32 Idx = SM->FindStateByName(Name);
+    if (Idx >= 0) SM->SetStateLooping(Idx, bLooping);
+}
+
+float USkeletalMeshComponent::AnimSM_GetStateTime(const FString& Name) const
+{
+    const UAnimStateMachineInstance* SM = Cast<UAnimStateMachineInstance>(AnimInstance);
+    if (!SM) return 0.f;
+    const int32 Idx = SM->FindStateByName(Name);
+    return (Idx >= 0) ? SM->GetStateTime(Idx) : 0.f;
+}
+
+void USkeletalMeshComponent::AnimSM_SetStateTime(const FString& Name, float TimeSeconds)
+{
+    UAnimStateMachineInstance* SM = Cast<UAnimStateMachineInstance>(AnimInstance);
+    if (!SM) return;
+    const int32 Idx = SM->FindStateByName(Name);
+    if (Idx >= 0) SM->SetStateTime(Idx, TimeSeconds);
 }
 
 void USkeletalMeshComponent::StopAnimation()
