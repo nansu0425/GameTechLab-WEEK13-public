@@ -12,22 +12,46 @@ USkinnedMeshComponent::USkinnedMeshComponent() : SkeletalMesh(nullptr)
 
 USkinnedMeshComponent::~USkinnedMeshComponent()
 {
-   if (VertexBuffer)
+   // 컴포넌트 소멸 시 버퍼 지연 해제 (안전한 GPU 정리)
+   URenderer* Renderer = GEngine.GetRenderer();
+   if (Renderer)
    {
-      VertexBuffer->Release();
-      VertexBuffer = nullptr;
-   }
+      if (VertexBuffer)
+      {
+         Renderer->DeferredReleaseBuffer(VertexBuffer);
+         VertexBuffer = nullptr;
+      }
 
-   // GPU 스키닝 버퍼 해제
-   if (GPUSkinnedVertexBuffer)
-   {
-      GPUSkinnedVertexBuffer->Release();
-      GPUSkinnedVertexBuffer = nullptr;
+      // GPU 스키닝 버퍼 해제
+      if (GPUSkinnedVertexBuffer)
+      {
+         Renderer->DeferredReleaseBuffer(GPUSkinnedVertexBuffer);
+         GPUSkinnedVertexBuffer = nullptr;
+      }
+      if (BoneMatricesBuffer)
+      {
+         Renderer->DeferredReleaseBuffer(BoneMatricesBuffer);
+         BoneMatricesBuffer = nullptr;
+      }
    }
-   if (BoneMatricesBuffer)
+   else
    {
-      BoneMatricesBuffer->Release();
-      BoneMatricesBuffer = nullptr;
+      // Renderer가 없으면 즉시 해제 (엔진 종료 시)
+      if (VertexBuffer)
+      {
+         VertexBuffer->Release();
+         VertexBuffer = nullptr;
+      }
+      if (GPUSkinnedVertexBuffer)
+      {
+         GPUSkinnedVertexBuffer->Release();
+         GPUSkinnedVertexBuffer = nullptr;
+      }
+      if (BoneMatricesBuffer)
+      {
+         BoneMatricesBuffer->Release();
+         BoneMatricesBuffer = nullptr;
+      }
    }
 }
 
@@ -74,30 +98,34 @@ void USkinnedMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMes
    ESkinningMode GlobalMode = View->RenderSettings->GetGlobalSkinningMode();
    const bool bUseGPU = (GlobalMode == ESkinningMode::ForceGPU);
 
-   // 스키닝 모드가 바뀌었으면 기존 버퍼 정리
+   // 스키닝 모드가 바뀌었으면 기존 버퍼 정리 (지연 해제로 GPU 안전성 확보)
    if (bUseGPU != bLastFrameUsedGPU)
    {
-      if (bUseGPU)
+      URenderer* Renderer = GEngine.GetRenderer();
+      if (Renderer)
       {
-         // CPU -> GPU 전환: CPU 버퍼 해제
-         if (VertexBuffer)
+         if (bUseGPU)
          {
-            VertexBuffer->Release();
-            VertexBuffer = nullptr;
+            // CPU -> GPU 전환: CPU 버퍼 지연 해제
+            if (VertexBuffer)
+            {
+               Renderer->DeferredReleaseBuffer(VertexBuffer);
+               VertexBuffer = nullptr;
+            }
          }
-      }
-      else
-      {
-         // GPU -> CPU 전환: GPU 버퍼 해제
-         if (GPUSkinnedVertexBuffer)
+         else
          {
-            GPUSkinnedVertexBuffer->Release();
-            GPUSkinnedVertexBuffer = nullptr;
-         }
-         if (BoneMatricesBuffer)
-         {
-            BoneMatricesBuffer->Release();
-            BoneMatricesBuffer = nullptr;
+            // GPU -> CPU 전환: GPU 버퍼 지연 해제
+            if (GPUSkinnedVertexBuffer)
+            {
+               Renderer->DeferredReleaseBuffer(GPUSkinnedVertexBuffer);
+               GPUSkinnedVertexBuffer = nullptr;
+            }
+            if (BoneMatricesBuffer)
+            {
+               Renderer->DeferredReleaseBuffer(BoneMatricesBuffer);
+               BoneMatricesBuffer = nullptr;
+            }
          }
       }
       bSkinningMatricesDirty = true;  // 모드 변경 시 강제 업데이트
@@ -287,15 +315,20 @@ void USkinnedMeshComponent::SetSkeletalMesh(const FString& PathFileName)
 
    SkeletalMesh = UResourceManager::GetInstance().Load<USkeletalMesh>(PathFileName);
 
-   if (VertexBuffer)
+   // 기존 버퍼 지연 해제 (새 메시 로드 시)
+   URenderer* Renderer = GEngine.GetRenderer();
+   if (Renderer)
    {
-      VertexBuffer->Release();
-      VertexBuffer = nullptr;
-   }
-   if (GPUSkinnedVertexBuffer)
-   {
-      GPUSkinnedVertexBuffer->Release();
-      GPUSkinnedVertexBuffer = nullptr;
+      if (VertexBuffer)
+      {
+         Renderer->DeferredReleaseBuffer(VertexBuffer);
+         VertexBuffer = nullptr;
+      }
+      if (GPUSkinnedVertexBuffer)
+      {
+         Renderer->DeferredReleaseBuffer(GPUSkinnedVertexBuffer);
+         GPUSkinnedVertexBuffer = nullptr;
+      }
    }
 
    if (SkeletalMesh && SkeletalMesh->GetSkeletalMeshData())
@@ -534,10 +567,14 @@ void USkinnedMeshComponent::UpdateBoneMatrixBuffer()
    // 버퍼 크기가 변경되었거나 버퍼가 없으면 재생성
    if (!BoneMatricesBuffer || CurrentBoneBufferSize != AlignedBufferSize)
    {
-      // 기존 버퍼 해제
+      // 기존 버퍼 지연 해제 (버퍼 재생성 시)
       if (BoneMatricesBuffer)
       {
-         BoneMatricesBuffer->Release();
+         URenderer* Renderer = GEngine.GetRenderer();
+         if (Renderer)
+         {
+            Renderer->DeferredReleaseBuffer(BoneMatricesBuffer);
+         }
          BoneMatricesBuffer = nullptr;
       }
 
