@@ -275,6 +275,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\Lua\lib\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Source\Runtime\Engine\Animation\AnimSequenceBase.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Animation\AnimStateMachine.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Animation\AnimTestUtil.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Components\CharacterMovementComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Components\InputComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Components\SkeletalMeshComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Components\SkinnedMeshComponent.cpp" />
@@ -530,6 +531,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\Lua\lib\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Generated\APlayerController.generated.cpp" />
     <ClCompile Include="Generated\UInputComponent.generated.cpp" />
     <ClCompile Include="Generated\APawn.generated.cpp" />
+    <ClCompile Include="Generated\UCharacterMovementComponent.generated.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\Common\LightingBuffers.hlsl">
@@ -709,6 +711,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\Lua\lib\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Source\Runtime\Engine\Audio\Sound.h" />
     <ClInclude Include="Source\Runtime\Engine\Components\AudioComponent.h" />
     <ClInclude Include="Source\Runtime\Engine\Components\CapsuleComponent.h" />
+    <ClInclude Include="Source\Runtime\Engine\Components\CharacterMovementComponent.h" />
     <ClInclude Include="Source\Runtime\Engine\Components\InputComponent.h" />
     <ClInclude Include="Source\Runtime\Engine\Components\LuaScriptComponent.h" />
     <ClInclude Include="Source\Runtime\Engine\Components\MovementComponent.h" />
@@ -940,6 +943,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\Lua\lib\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Generated\APlayerController.generated.h" />
     <ClInclude Include="Generated\UInputComponent.generated.h" />
     <ClInclude Include="Generated\APawn.generated.h" />
+    <ClInclude Include="Generated\UCharacterMovementComponent.generated.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="BuildTools\CodeGenerator\generate.py" />
