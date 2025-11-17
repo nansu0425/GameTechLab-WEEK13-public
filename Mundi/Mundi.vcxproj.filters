@@ -368,6 +368,9 @@
     <ClCompile Include="Source\Runtime\Renderer\Renderer.cpp">
       <Filter>Source\Runtime\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Runtime\Renderer\RenderSettings.cpp">
+      <Filter>Source\Runtime\Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Runtime\Renderer\RenderManager.cpp">
       <Filter>Source\Runtime\Renderer</Filter>
     </ClCompile>
@@ -480,6 +483,9 @@
       <Filter>Source\Editor</Filter>
     </ClCompile>
     <ClCompile Include="Source\Editor\PlatformProcess.cpp">
+      <Filter>Source\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\PlatformCrashHandler.cpp">
       <Filter>Source\Editor</Filter>
     </ClCompile>
     <ClCompile Include="Source\Editor\ObjManager.cpp">
@@ -1251,6 +1257,9 @@
       <Filter>Source\Editor</Filter>
     </ClInclude>
     <ClInclude Include="Source\Editor\PlatformProcess.h">
+      <Filter>Source\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\PlatformCrashHandler.h">
       <Filter>Source\Editor</Filter>
     </ClInclude>
     <ClInclude Include="Source\Editor\ImGuiConsole.h">

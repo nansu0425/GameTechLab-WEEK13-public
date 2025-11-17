@@ -12,22 +12,46 @@ USkinnedMeshComponent::USkinnedMeshComponent() : SkeletalMesh(nullptr)
 
 USkinnedMeshComponent::~USkinnedMeshComponent()
 {
-   if (VertexBuffer)
+   // 컴포넌트 소멸 시 버퍼 지연 해제 (안전한 GPU 정리)
+   URenderer* Renderer = GEngine.GetRenderer();
+   if (Renderer)
    {
-      VertexBuffer->Release();
-      VertexBuffer = nullptr;
-   }
+      if (VertexBuffer)
+      {
+         Renderer->DeferredReleaseBuffer(VertexBuffer);
+         VertexBuffer = nullptr;
+      }
 
-   // GPU 스키닝 버퍼 해제
-   if (GPUSkinnedVertexBuffer)
-   {
-      GPUSkinnedVertexBuffer->Release();
-      GPUSkinnedVertexBuffer = nullptr;
+      // GPU 스키닝 버퍼 해제
+      if (GPUSkinnedVertexBuffer)
+      {
+         Renderer->DeferredReleaseBuffer(GPUSkinnedVertexBuffer);
+         GPUSkinnedVertexBuffer = nullptr;
+      }
+      if (BoneMatricesBuffer)
+      {
+         Renderer->DeferredReleaseBuffer(BoneMatricesBuffer);
+         BoneMatricesBuffer = nullptr;
+      }
    }
-   if (BoneMatricesBuffer)
+   else
    {
-      BoneMatricesBuffer->Release();
-      BoneMatricesBuffer = nullptr;
+      // Renderer가 없으면 즉시 해제 (엔진 종료 시)
+      if (VertexBuffer)
+      {
+         VertexBuffer->Release();
+         VertexBuffer = nullptr;
+      }
+      if (GPUSkinnedVertexBuffer)
+      {
+         GPUSkinnedVertexBuffer->Release();
+         GPUSkinnedVertexBuffer = nullptr;
+      }
+      if (BoneMatricesBuffer)
+      {
+         BoneMatricesBuffer->Release();
+         BoneMatricesBuffer = nullptr;
+      }
    }
 }
 
@@ -74,30 +98,34 @@ void USkinnedMeshComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMes
    ESkinningMode GlobalMode = View->RenderSettings->GetGlobalSkinningMode();
    const bool bUseGPU = (GlobalMode == ESkinningMode::ForceGPU);
 
-   // 스키닝 모드가 바뀌었으면 기존 버퍼 정리
+   // 스키닝 모드가 바뀌었으면 기존 버퍼 정리 (지연 해제로 GPU 안전성 확보)
    if (bUseGPU != bLastFrameUsedGPU)
    {
-      if (bUseGPU)
+      URenderer* Renderer = GEngine.GetRenderer();
+      if (Renderer)
       {
-         // CPU -> GPU 전환: CPU 버퍼 해제
-         if (VertexBuffer)
+         if (bUseGPU)
          {
-            VertexBuffer->Release();
-            VertexBuffer = nullptr;
+            // CPU -> GPU 전환: CPU 버퍼 지연 해제
+            if (VertexBuffer)
+            {
+               Renderer->DeferredReleaseBuffer(VertexBuffer);
+               VertexBuffer = nullptr;
+            }
          }
-      }
-      else
-      {
-         // GPU -> CPU 전환: GPU 버퍼 해제
-         if (GPUSkinnedVertexBuffer)
+         else
          {
-            GPUSkinnedVertexBuffer->Release();
-            GPUSkinnedVertexBuffer = nullptr;
-         }
-         if (BoneMatricesBuffer)
-         {
-            BoneMatricesBuffer->Release();
-            BoneMatricesBuffer = nullptr;
+            // GPU -> CPU 전환: GPU 버퍼 지연 해제
+            if (GPUSkinnedVertexBuffer)
+            {
+               Renderer->DeferredReleaseBuffer(GPUSkinnedVertexBuffer);
+               GPUSkinnedVertexBuffer = nullptr;
+            }
+            if (BoneMatricesBuffer)
+            {
+               Renderer->DeferredReleaseBuffer(BoneMatricesBuffer);
+               BoneMatricesBuffer = nullptr;
+            }
          }
       }
       bSkinningMatricesDirty = true;  // 모드 변경 시 강제 업데이트
@@ -287,15 +315,20 @@ void USkinnedMeshComponent::SetSkeletalMesh(const FString& PathFileName)
 
    SkeletalMesh = UResourceManager::GetInstance().Load<USkeletalMesh>(PathFileName);
 
-   if (VertexBuffer)
+   // 기존 버퍼 지연 해제 (새 메시 로드 시)
+   URenderer* Renderer = GEngine.GetRenderer();
+   if (Renderer)
    {
-      VertexBuffer->Release();
-      VertexBuffer = nullptr;
-   }
-   if (GPUSkinnedVertexBuffer)
-   {
-      GPUSkinnedVertexBuffer->Release();
-      GPUSkinnedVertexBuffer = nullptr;
+      if (VertexBuffer)
+      {
+         Renderer->DeferredReleaseBuffer(VertexBuffer);
+         VertexBuffer = nullptr;
+      }
+      if (GPUSkinnedVertexBuffer)
+      {
+         Renderer->DeferredReleaseBuffer(GPUSkinnedVertexBuffer);
+         GPUSkinnedVertexBuffer = nullptr;
+      }
    }
 
    if (SkeletalMesh && SkeletalMesh->GetSkeletalMeshData())
@@ -350,16 +383,16 @@ void USkinnedMeshComponent::PerformSkinning(bool bUseGPU)
       // NOTE: GPU 셰이더 실행 시간은 현재 구조상 측정 불가
       // (Begin/End 사이에 실제 Draw call이 없음, 별도의 렌더링 파이프라인 통합 필요)
 
-      // 통계에 추가 (실제 할당된 버퍼 크기 사용)
+      // 통계에 추가 (실제 할당된 본 버퍼 크기 사용)
       const uint64 BoneBufferSize = CurrentBoneBufferSize;
-      StatManager.AddGPUMesh(NumVertices, NumBones, BoneBufferSize);
+      StatManager.AddMesh(NumVertices, NumBones, BoneBufferSize);
 
       // TimeProfile 시스템에 GPU 스키닝 시간 추가
       FScopeCycleCounter::AddTimeProfile(TStatId("GPU_BoneCalc"), LastBoneMatrixCalcTimeMS);
       FScopeCycleCounter::AddTimeProfile(TStatId("GPU_BoneUpload"), BoneUploadTimeMS);
 
-      StatManager.AddGPUBoneMatrixCalcTime(LastBoneMatrixCalcTimeMS); // 본 행렬 계산 시간 추가
-      StatManager.AddGPUBoneBufferUploadTime(BoneUploadTimeMS);
+      StatManager.AddBoneMatrixCalcTime(LastBoneMatrixCalcTimeMS); // 본 행렬 계산 시간 추가
+      StatManager.AddBufferUploadTime(BoneUploadTimeMS); // 본 버퍼 업로드 시간
 
       bSkinningMatricesDirty = false;
    }
@@ -403,18 +436,18 @@ void USkinnedMeshComponent::PerformSkinning(bool bUseGPU)
       uint64 BufferUploadEnd = FWindowsPlatformTime::Cycles64();
       double BufferUploadTimeMS = FWindowsPlatformTime::ToMilliseconds(BufferUploadEnd - BufferUploadStart);
 
-      // 통계에 추가
+      // 통계에 추가 (버텍스 버퍼 크기 사용)
       const uint64 VertexBufferSize = sizeof(FNormalVertex) * NumVertices;
-      StatManager.AddCPUMesh(NumVertices, NumBones, VertexBufferSize);
+      StatManager.AddMesh(NumVertices, NumBones, VertexBufferSize);
 
       // TimeProfile 시스템에 CPU 스키닝 시간 추가
       FScopeCycleCounter::AddTimeProfile(TStatId("CPU_BoneCalc"), LastBoneMatrixCalcTimeMS);
       FScopeCycleCounter::AddTimeProfile(TStatId("CPU_VertexSkinning"), VertexSkinningTimeMS);
       FScopeCycleCounter::AddTimeProfile(TStatId("CPU_BufferUpload"), BufferUploadTimeMS);
 
-      StatManager.AddCPUBoneMatrixCalcTime(LastBoneMatrixCalcTimeMS); // 본 행렬 계산 시간 추가
-      StatManager.AddCPUVertexSkinningTime(VertexSkinningTimeMS);
-      StatManager.AddCPUBufferUploadTime(BufferUploadTimeMS);
+      StatManager.AddBoneMatrixCalcTime(LastBoneMatrixCalcTimeMS); // 본 행렬 계산 시간 추가
+      StatManager.AddVertexSkinningTime(VertexSkinningTimeMS); // 버텍스 스키닝 시간 (CPU만)
+      StatManager.AddBufferUploadTime(BufferUploadTimeMS); // 버텍스 버퍼 업로드 시간
 
       bSkinningMatricesDirty = false;
    }
@@ -499,18 +532,33 @@ void USkinnedMeshComponent::UpdateBoneMatrixBuffer()
    const int32 NumBones = FinalSkinningMatrices.Num();
    if (NumBones == 0) return;
 
-   // 버퍼 크기 계산 (실제 본 개수만큼)
-   const int32 RawBufferSize = NumBones * sizeof(FMatrix);
+   // HLSL의 MAX_BONES와 동일한 값 (UberLit.hlsl:77)
+   constexpr int32 MAX_BONES = 256;
 
-   // D3D11 상수 버퍼는 16바이트 정렬 필수
-   const int32 AlignedBufferSize = ((RawBufferSize + 15) / 16) * 16;
+   // 셰이더가 기대하는 크기만큼 버퍼 생성 (경고 방지)
+   if (NumBones > MAX_BONES)
+   {
+      UE_LOG("Warning: Bone count (%d) exceeds MAX_BONES (%d). Some bones will be ignored.", NumBones, MAX_BONES);
+   }
 
-   // 동적 배열로 본 행렬 데이터 준비
+   // 버퍼 크기는 항상 MAX_BONES 크기로 고정 (256 * 64 = 16384 bytes)
+   const int32 AlignedBufferSize = MAX_BONES * sizeof(FMatrix);
+
+   // 동적 배열로 본 행렬 데이터 준비 (MAX_BONES 크기로 생성)
    TArray<FMatrix> BufferData;
-   BufferData.SetNum(NumBones);
-   for (int32 i = 0; i < NumBones; ++i)
+   BufferData.SetNum(MAX_BONES);
+
+   // 실제 본 행렬 복사
+   const int32 BonesToCopy = FMath::Min(NumBones, MAX_BONES);
+   for (int32 i = 0; i < BonesToCopy; ++i)
    {
       BufferData[i] = FinalSkinningMatrices[i];
+   }
+
+   // 나머지는 Identity 행렬로 채움 (안전성 확보)
+   for (int32 i = BonesToCopy; i < MAX_BONES; ++i)
+   {
+      BufferData[i] = FMatrix::Identity();
    }
 
    ID3D11Device* Device = GEngine.GetRHIDevice()->GetDevice();
@@ -519,10 +567,14 @@ void USkinnedMeshComponent::UpdateBoneMatrixBuffer()
    // 버퍼 크기가 변경되었거나 버퍼가 없으면 재생성
    if (!BoneMatricesBuffer || CurrentBoneBufferSize != AlignedBufferSize)
    {
-      // 기존 버퍼 해제
+      // 기존 버퍼 지연 해제 (버퍼 재생성 시)
       if (BoneMatricesBuffer)
       {
-         BoneMatricesBuffer->Release();
+         URenderer* Renderer = GEngine.GetRenderer();
+         if (Renderer)
+         {
+            Renderer->DeferredReleaseBuffer(BoneMatricesBuffer);
+         }
          BoneMatricesBuffer = nullptr;
       }
 
@@ -557,8 +609,8 @@ void USkinnedMeshComponent::UpdateBoneMatrixBuffer()
       HRESULT hr = Context->Map(BoneMatricesBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedResource);
       if (SUCCEEDED(hr))
       {
-         // 실제 데이터 크기만큼만 복사
-         memcpy(MappedResource.pData, BufferData.GetData(), RawBufferSize);
+         // 전체 버퍼 크기만큼 복사 (MAX_BONES * sizeof(FMatrix))
+         memcpy(MappedResource.pData, BufferData.GetData(), AlignedBufferSize);
          Context->Unmap(BoneMatricesBuffer, 0);
       }
       else

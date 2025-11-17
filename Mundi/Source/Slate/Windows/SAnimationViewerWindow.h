@@ -14,6 +14,7 @@ public:
     virtual ~SAnimationViewerWindow();
 
     virtual void OnRender() override;
+    virtual void OnUpdate(float DeltaSeconds) override;
     virtual void PreRenderViewportUpdate() override;
 
 protected:
@@ -24,4 +25,9 @@ protected:
 private:
     // Load a skeletal mesh into the active tab
     void LoadSkeletalMesh(ViewerState* State, const FString& Path);
+    void RenderAnimationBrowser();
+
+    void AnimJumpToStart();
+    void AnimJumpToEnd();
+    void AnimStep(bool bForward);
 };

@@ -15,7 +15,7 @@ USkeletalMeshComponent::USkeletalMeshComponent()
 {
     // Keep constructor lightweight for editor/viewer usage.
     // Load a simple default test mesh if available; viewer UI can override.
-    SetSkeletalMesh(GDataDir + "/Test.fbx");
+    SetSkeletalMesh(GDataDir + "/DancingRacer.fbx");
 }
 
 
@@ -266,6 +266,14 @@ void USkeletalMeshComponent::SetAnimationPosition(float InSeconds)
 bool USkeletalMeshComponent::IsPlayingAnimation() const
 {
     return AnimInstance ? AnimInstance->IsPlaying() : false;
+}
+
+float USkeletalMeshComponent::GetAnimationPosition()
+{
+    if (UAnimSingleNodeInstance* Single = Cast<UAnimSingleNodeInstance>(AnimInstance))
+    {
+        return Single->GetPosition();
+    }
 }
 
 void USkeletalMeshComponent::SetBoneLocalTransform(int32 BoneIndex, const FTransform& NewLocalTransform)

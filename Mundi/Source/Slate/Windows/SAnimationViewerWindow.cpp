@@ -4,6 +4,7 @@
 #include "Source/Runtime/Engine/Viewer/AnimationViewerBootstrap.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 #include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
+#include "AnimSingleNodeInstance.h"
 
 SAnimationViewerWindow::SAnimationViewerWindow()
 {
@@ -145,37 +146,61 @@ void SAnimationViewerWindow::OnRender()
             //----------------------------------------------
             ImGui::Text("Timeline");
 
-            static bool dummyPlaying = false;
-            static bool dummyLoop = true;
-            static float dummySpeed = 1.0f;
-            static float dummyTime = 0.0f;
-
             // -- Controls Row --
             ImGui::Spacing();
 
-            if (dummyPlaying)
+            if (ImGui::Button("|<<")) { AnimJumpToStart(); }
+            ImGui::SameLine();
+            if (ImGui::Button("<")) { AnimStep(false); }
+            ImGui::SameLine();
+
+            if (ActiveState->bIsPlaying)
             {
-                if (ImGui::Button("Pause", ImVec2(55, 24))) dummyPlaying = false;
+                if (ImGui::Button("Pause")) { ActiveState->bIsPlaying = false; }
             }
             else
             {
-                if (ImGui::Button("Play", ImVec2(55, 24))) dummyPlaying = true;
+                if (ImGui::Button("Play"))  { ActiveState->bIsPlaying = true; }
             }
 
             ImGui::SameLine();
-            ImGui::Checkbox("Loop", &dummyLoop);
+            if (ImGui::Button(">")) { AnimStep(true); }
+            ImGui::SameLine();
+            if (ImGui::Button(">>|")) { AnimJumpToEnd(); }
+            ImGui::SameLine();
+
+            bool bHighlighted = ActiveState->bReversePlay;
+            if (bHighlighted)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.6f, 0.9f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.7f, 1.0f, 1.0f));
+            }
+            if (ImGui::Button("Reverse"))
+            {
+                ActiveState->bReversePlay = !ActiveState->bReversePlay;
+            }
+            if (bHighlighted)
+            {
+                ImGui::PopStyleColor(2);
+            }
+
+            ImGui::SameLine();
+            ImGui::Checkbox("Loop", &ActiveState->bIsLooping);
 
             ImGui::SameLine();
             ImGui::Text("Speed:");
             ImGui::SameLine();
             ImGui::SetNextItemWidth(70);
-            ImGui::SliderFloat("##DummySpeed", &dummySpeed, 0.1f, 3.0f, "%.1fx");
+            ImGui::SliderFloat("##AnimSpeed", &ActiveState->PlaybackSpeed, 0.1f, 3.0f, "%.1fx");
 
             ImGui::SameLine();
             ImGui::Text("Time:");
             ImGui::SameLine();
             ImGui::SetNextItemWidth(100);
-            ImGui::SliderFloat("##DummyTime", &dummyTime, 0.0f, 1.0f, "%.2f");
+            if (ImGui::SliderFloat("##AnimTime", &ActiveState->CurrentTime, 0.0f, ActiveState->TotalTime, "%.2f"))
+            {
+                ActiveState->bIsScrubbing = true;
+            }
 
             ImGui::Separator();
             ImGui::Spacing();
@@ -207,7 +232,10 @@ void SAnimationViewerWindow::OnRender()
 
             ImGui::Text("Timeline:");
             ImGui::PushItemWidth(-1);
-            ImGui::SliderFloat("##TimelineScrubSmall", &dummyTime, 0.0f, 1.0f);
+            if (ImGui::SliderFloat("##TimelineScrubSmall", &ActiveState->CurrentTime, 0.0f, ActiveState->TotalTime))
+            {
+                ActiveState->bIsScrubbing = true;
+            }
             ImGui::PopItemWidth();
 
             ImGui::Separator();
@@ -228,7 +256,11 @@ void SAnimationViewerWindow::OnRender()
             }
 
             // Red playhead
-            float playheadX = p0.x + dummyTime * sz.x;
+            float playheadX = p0.x;
+            if (ActiveState && ActiveState->TotalTime > 0.0f)
+            {
+                playheadX = p0.x + (ActiveState->CurrentTime / ActiveState->TotalTime) * sz.x;
+            }
             draw->AddLine(ImVec2(playheadX, p0.y),
                 ImVec2(playheadX, p0.y + sz.y),
                 IM_COL32(255, 0, 0, 255),
@@ -246,7 +278,18 @@ void SAnimationViewerWindow::OnRender()
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
         ImGui::BeginChild("RightPanel", ImVec2(rightWidth, totalHeight), true);
         ImGui::PopStyleVar();
-        RenderRightPanel();
+        {
+            float bonePropsHeight = ImGui::GetContentRegionAvail().y * 0.5f;
+            float animBrowserHeight = ImGui::GetContentRegionAvail().y * 0.5f;
+
+            ImGui::BeginChild("BonePropertiesArea", ImVec2(0, bonePropsHeight), false);
+            RenderRightPanel();
+            ImGui::EndChild();
+
+            ImGui::BeginChild("AnimationBrowserArea", ImVec2(0, 0), false);
+            RenderAnimationBrowser();
+            ImGui::EndChild();
+        }
         ImGui::EndChild(); // RightPanel
 
         // Pop the ItemSpacing style
@@ -269,6 +312,64 @@ void SAnimationViewerWindow::OnRender()
     }
 
     bRequestFocus = false;
+}
+
+void SAnimationViewerWindow::OnUpdate(float DeltaSeconds)
+{
+    SViewerWindow::OnUpdate(DeltaSeconds);
+
+    if (!ActiveState || !ActiveState->PreviewActor || !ActiveState->CurrentAnimation) return;
+
+    USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+    if (!MeshComp)  return;
+
+    UAnimSingleNodeInstance* SingleAnimInstance = Cast<UAnimSingleNodeInstance>(MeshComp->GetAnimInstance());
+    if (!SingleAnimInstance)    return;
+
+    // Get current animation component's actual state
+    bool bIsActuallyPlaying = MeshComp->IsPlayingAnimation();
+    float CurrentAnimPosition = MeshComp->GetAnimationPosition();
+
+    // Synchronize play/pause state
+    if (ActiveState->bIsPlaying && !bIsActuallyPlaying)
+    {
+        MeshComp->PlayAnimation(ActiveState->CurrentAnimation, ActiveState->bIsLooping, ActiveState->PlaybackSpeed);
+        MeshComp->SetAnimationPosition(ActiveState->CurrentTime);
+    }
+    else if (!ActiveState->bIsPlaying && bIsActuallyPlaying)
+    {
+        MeshComp->StopAnimation();
+    }
+
+    // Synchronize play rate and loop setting
+    float FinalPlayRate = ActiveState->bReversePlay ? -ActiveState->PlaybackSpeed : ActiveState->PlaybackSpeed;
+    SingleAnimInstance->SetPlayRate(FinalPlayRate);
+    SingleAnimInstance->SetLooping(ActiveState->bIsLooping);
+
+    // Control time slider (UI to Engine)
+    // Update the component's animation position only when the user is dragging the slider
+    if (ActiveState->bIsScrubbing)
+    {
+        MeshComp->PlayAnimation(ActiveState->CurrentAnimation, ActiveState->bIsLooping, 0.0f);
+        MeshComp->SetAnimationPosition(ActiveState->CurrentTime);
+        ActiveState->bBoneLinesDirty = true;
+        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+        {
+            ActiveState->bIsScrubbing = false;
+        }
+    }
+    // Update time slider (Engine to UI)
+    // Update the UI with the engine's time only when the user is not dragging the slider.
+    else
+    {
+        ActiveState->CurrentTime = CurrentAnimPosition;
+    }
+
+    // Update total animation length
+    if (ActiveState->CurrentAnimation)
+    {
+        ActiveState->TotalTime = ActiveState->CurrentAnimation->GetSequenceLength();
+    }
 }
 
 void SAnimationViewerWindow::PreRenderViewportUpdate()
@@ -355,5 +456,113 @@ void SAnimationViewerWindow::LoadSkeletalMesh(ViewerState* State, const FString&
     else
     {
         UE_LOG("SAnimationViewerWindow: Failed to load skeletal mesh from %s", Path.c_str());
+    }
+}
+
+void SAnimationViewerWindow::RenderAnimationBrowser()
+{
+    if (!ActiveState)   return;
+
+    ImGui::Separator();
+    ImGui::Text("Animation Browser");
+    ImGui::Checkbox("Show Only Compatible", &ActiveState->bShowOnlyCompatible);
+    ImGui::Separator();
+
+    const TArray<UAnimSequence*>& AnimsToShow = ActiveState->bShowOnlyCompatible
+        ? ActiveState->CompatibleAnimations
+        : UResourceManager::GetInstance().GetAnimations();
+
+    if (AnimsToShow.IsEmpty())
+    {
+        ImGui::Text(ActiveState->bShowOnlyCompatible
+            ? "No compatible animations found."
+            : "No animations loaded in ResourceManager.");
+        return;
+    }
+
+    if (ImGui::BeginListBox("##AnimBrowser", ImVec2(-1, -1)))
+    {
+        for (UAnimSequence* Anim : AnimsToShow)
+        {
+            if (!Anim)  continue;
+
+            bool isSelected = (ActiveState->CurrentAnimation == Anim);
+            if (ImGui::Selectable(Anim->GetName().c_str(), isSelected))
+            {
+                if (ActiveState->PreviewActor)
+                {
+                    ActiveState->CurrentAnimation = Anim;
+                    ActiveState->TotalTime = Anim->GetSequenceLength();
+                    ActiveState->CurrentTime = 0.0f;
+                    ActiveState->bIsPlaying = true;
+
+                    USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+                    if (MeshComp)
+                    {
+                        MeshComp->PlayAnimation(Anim, ActiveState->bIsLooping, ActiveState->PlaybackSpeed);
+                    }
+                }
+            }
+            if (isSelected)
+            {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndListBox();
+    }
+}
+
+void SAnimationViewerWindow::AnimJumpToStart()
+{
+    if (!ActiveState || !ActiveState->PreviewActor) return;
+
+    ActiveState->bIsPlaying = false;
+    ActiveState->CurrentTime = 0.0f;
+
+    if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+    {
+        MeshComp->PlayAnimation(ActiveState->CurrentAnimation, ActiveState->bIsLooping, 0.0f);
+        MeshComp->SetAnimationPosition(ActiveState->CurrentTime);
+        MeshComp->TickComponent(0.0f);
+    }
+    ActiveState->bBoneLinesDirty = true;
+}
+
+void SAnimationViewerWindow::AnimJumpToEnd()
+{
+    if (!ActiveState || !ActiveState->PreviewActor) return;
+
+    ActiveState->bIsPlaying = false;
+    ActiveState->CurrentTime = ActiveState->TotalTime;
+
+    if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+    {
+        MeshComp->PlayAnimation(ActiveState->CurrentAnimation, ActiveState->bIsLooping, 0.0f);
+        MeshComp->SetAnimationPosition(ActiveState->CurrentTime);
+        MeshComp->TickComponent(0.0f);
+    }
+    ActiveState->bBoneLinesDirty = true;
+}
+
+void SAnimationViewerWindow::AnimStep(bool bForward)
+{
+    if (!ActiveState || !ActiveState->PreviewActor) return;
+
+    ActiveState->bIsPlaying = false;
+    const float FrameTime = 1.0f / 30.0f;
+
+    if (bForward)
+    {
+        ActiveState->CurrentTime = FMath::Min(ActiveState->TotalTime, ActiveState->CurrentTime + FrameTime);
+    }
+    else
+    {
+        ActiveState->CurrentTime = FMath::Max(0.0f, ActiveState->CurrentTime - FrameTime);
+    }
+
+    if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+    {
+        MeshComp->PlayAnimation(ActiveState->CurrentAnimation, ActiveState->bIsLooping, 0.0f);
+        MeshComp->SetAnimationPosition(ActiveState->CurrentTime);
     }
 }

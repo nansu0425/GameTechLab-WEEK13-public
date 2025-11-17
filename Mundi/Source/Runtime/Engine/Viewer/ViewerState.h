@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-class UWorld; class FViewport; class FViewportClient; class ASkeletalMeshActor; class USkeletalMesh;
+class UWorld; class FViewport; class FViewportClient; class ASkeletalMeshActor; class USkeletalMesh; class UAnimSequence;
 
 class ViewerState
 {
@@ -37,8 +37,13 @@ public:
     UAnimSequence* CurrentAnimation = nullptr;
     bool bIsPlaying = false;
     bool bIsLooping = true;
+    bool bReversePlay = false;
     float PlaybackSpeed = 1.0f;
     float CurrentTime = 0.0f;
+    float TotalTime = 0.0f;
+
+    bool bIsScrubbing = false;
 
     TArray<UAnimSequence*> CompatibleAnimations;
+    bool bShowOnlyCompatible = false;
 };

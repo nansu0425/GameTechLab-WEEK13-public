@@ -28,6 +28,7 @@ public:
     void PlayAnimation(class UAnimationAsset* Asset, bool bLooping = true, float InPlayRate = 1.f);
     void StopAnimation();
     void SetAnimationPosition(float InSeconds);
+    float GetAnimationPosition();
     bool IsPlayingAnimation() const;
 
     //==== Lua-friendly Animation State Machine helpers ====
