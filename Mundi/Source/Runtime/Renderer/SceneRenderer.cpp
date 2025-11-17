@@ -78,34 +78,8 @@ void FSceneRenderer::Render()
 {
     if (!IsValid()) return;
 
-	// 현재 스키닝 모드 확인
-	ESkinningMode GlobalMode = World->GetRenderSettings().GetGlobalSkinningMode();
-	bool bIsCPUMode = (GlobalMode == ESkinningMode::ForceCPU);
-
-	// 이전 프레임의 GPU draw 시간 가져오기 (비동기, N-3 프레임 결과)
-	double LastGPUDrawTimeMS = FSkinningStatManager::GetInstance().GetGPUDrawTimeMS(RHIDevice->GetDeviceContext());
-
-	// TimeProfile 시스템에 GPU Draw Time 추가 (프로파일링 통합)
-	if (LastGPUDrawTimeMS >= 0.0)
-	{
-		FScopeCycleCounter::AddTimeProfile(TStatId("GPUDrawTime"), LastGPUDrawTimeMS);
-	}
-
-	// 프레임 단위 통계 리셋 (선택적 리셋: 비활성 모드의 마지막 통계 보존)
-	FDecalStatManager::GetInstance().ResetFrameStats();
-	FSkinningStatManager::GetInstance().ResetFrameStats(bIsCPUMode);
-
-	// GPU draw 시간을 현재 활성 모드 통계에 추가
-	// CPU 모드: CPU 본 계산 + 버텍스 스키닝 + 버퍼 업로드 + GPU draw
-	// GPU 모드: CPU 본 계산 + 본 버퍼 업로드 + GPU draw(셰이더 스키닝 포함)
-	if (bIsCPUMode)
-	{
-		FSkinningStatManager::GetInstance().AddCPUGPUDrawTime(LastGPUDrawTimeMS);
-	}
-	else
-	{
-		FSkinningStatManager::GetInstance().AddGPUDrawTime(LastGPUDrawTimeMS);
-	}
+	// 스키닝 통계 리셋 및 GPU 시간 조회는 Renderer::BeginFrame()으로 이동됨
+	// 각 뷰어는 통계를 누적만 함
 
 	/*static bool Loaded = false;
 	if (!Loaded)

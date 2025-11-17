@@ -64,32 +64,31 @@ void FGPUTimer::Begin(ID3D11DeviceContext* DeviceContext)
 		return;
 	}
 
-	// 중복 Begin 방지 (여러 뷰포트가 동일 타이머 공유 시)
-	if (bIsActive)
+	// 중첩 호출 카운터 증가
+	ActiveCallCount++;
+
+	// 첫 번째 Begin 호출에만 실제 GPU 쿼리 시작
+	if (ActiveCallCount == 1)
 	{
-		return; // 이미 Begin 상태이면 무시
+		// 현재 쿼리 인덱스의 쿼리 사용
+		int Index = CurrentQueryIndex;
+
+		// 이 쿼리 슬롯의 이전 결과를 먼저 소비 (경고 방지)
+		// D3D11은 GetData를 호출하면 "이전 결과를 읽으려고 시도했다"고 인식
+		// 결과가 준비되지 않았어도 (S_FALSE) 괜찮음 - 단순히 경고 방지용
+		UINT64 DummyTimestamp = 0;
+		D3D11_QUERY_DATA_TIMESTAMP_DISJOINT DummyDisjoint = {};
+		DeviceContext->GetData(QueryBegin[Index], &DummyTimestamp, sizeof(DummyTimestamp), D3D11_ASYNC_GETDATA_DONOTFLUSH);
+		DeviceContext->GetData(QueryEnd[Index], &DummyTimestamp, sizeof(DummyTimestamp), D3D11_ASYNC_GETDATA_DONOTFLUSH);
+		DeviceContext->GetData(QueryDisjoint[Index], &DummyDisjoint, sizeof(DummyDisjoint), D3D11_ASYNC_GETDATA_DONOTFLUSH);
+
+		// Disjoint 쿼리 시작 (주파수 측정 시작)
+		DeviceContext->Begin(QueryDisjoint[Index]);
+
+		// 시작 타임스탬프 기록
+		DeviceContext->End(QueryBegin[Index]);
 	}
-
-	// 현재 쿼리 인덱스의 쿼리 사용
-	int Index = CurrentQueryIndex;
-
-	// 이 쿼리 슬롯의 이전 결과를 먼저 소비 (경고 방지)
-	// D3D11은 GetData를 호출하면 "이전 결과를 읽으려고 시도했다"고 인식
-	// 결과가 준비되지 않았어도 (S_FALSE) 괜찮음 - 단순히 경고 방지용
-	UINT64 DummyTimestamp = 0;
-	D3D11_QUERY_DATA_TIMESTAMP_DISJOINT DummyDisjoint = {};
-	DeviceContext->GetData(QueryBegin[Index], &DummyTimestamp, sizeof(DummyTimestamp), D3D11_ASYNC_GETDATA_DONOTFLUSH);
-	DeviceContext->GetData(QueryEnd[Index], &DummyTimestamp, sizeof(DummyTimestamp), D3D11_ASYNC_GETDATA_DONOTFLUSH);
-	DeviceContext->GetData(QueryDisjoint[Index], &DummyDisjoint, sizeof(DummyDisjoint), D3D11_ASYNC_GETDATA_DONOTFLUSH);
-
-	// Disjoint 쿼리 시작 (주파수 측정 시작)
-	DeviceContext->Begin(QueryDisjoint[Index]);
-
-	// 시작 타임스탬프 기록
-	DeviceContext->End(QueryBegin[Index]);
-
-	// Begin 상태로 설정
-	bIsActive = true;
+	// 중첩된 Begin 호출은 카운터만 증가시키고 GPU 쿼리는 시작하지 않음
 }
 
 void FGPUTimer::End(ID3D11DeviceContext* DeviceContext)
@@ -100,25 +99,30 @@ void FGPUTimer::End(ID3D11DeviceContext* DeviceContext)
 	}
 
 	// Begin이 호출되지 않았으면 End도 무시
-	if (!bIsActive)
+	if (ActiveCallCount == 0)
 	{
 		return;
 	}
 
-	// 현재 쿼리 인덱스의 쿼리 사용
-	int Index = CurrentQueryIndex;
+	// 중첩 호출 카운터 감소
+	ActiveCallCount--;
 
-	// 종료 타임스탬프 기록
-	DeviceContext->End(QueryEnd[Index]);
+	// 마지막 End 호출에만 실제 GPU 쿼리 종료
+	if (ActiveCallCount == 0)
+	{
+		// 현재 쿼리 인덱스의 쿼리 사용
+		int Index = CurrentQueryIndex;
 
-	// Disjoint 쿼리 종료
-	DeviceContext->End(QueryDisjoint[Index]);
+		// 종료 타임스탬프 기록
+		DeviceContext->End(QueryEnd[Index]);
 
-	// 다음 프레임을 위해 인덱스 증가 (링버퍼)
-	CurrentQueryIndex = (CurrentQueryIndex + 1) % NUM_QUERIES;
+		// Disjoint 쿼리 종료
+		DeviceContext->End(QueryDisjoint[Index]);
 
-	// Begin 상태 해제
-	bIsActive = false;
+		// 다음 프레임을 위해 인덱스 증가 (링버퍼)
+		CurrentQueryIndex = (CurrentQueryIndex + 1) % NUM_QUERIES;
+	}
+	// 중첩된 End 호출은 카운터만 감소시키고 GPU 쿼리는 종료하지 않음
 }
 
 float FGPUTimer::GetElapsedTimeMS(ID3D11DeviceContext* DeviceContext)

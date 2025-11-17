@@ -82,8 +82,9 @@ private:
 	// 마지막으로 측정된 시간 (캐시)
 	float LastElapsedMS = 0.0f;
 
-	// Begin/End 중복 호출 방지 플래그
-	bool bIsActive = false;
+	// Begin/End 중첩 호출 카운터 (다중 뷰어 지원)
+	// 0: 비활성, >0: 활성 (중첩 깊이)
+	int ActiveCallCount = 0;
 };
 
 
