@@ -9,6 +9,9 @@
 SAnimationViewerWindow::SAnimationViewerWindow()
 {
     CenterRect = FRect(0, 0, 0, 0);
+
+    LeftPanelRatio = 0.2f;   // 25% of width
+    RightPanelRatio = 0.2f;  // 25% of width
 }
 
 SAnimationViewerWindow::~SAnimationViewerWindow()
@@ -144,8 +147,6 @@ void SAnimationViewerWindow::OnRender()
             //----------------------------------------------
             // TIMELINE PANEL (Inside CenterPanel)
             //----------------------------------------------
-            ImGui::Text("Timeline");
-
             // -- Controls Row --
             ImGui::Spacing();
 
@@ -213,62 +214,280 @@ void SAnimationViewerWindow::OnRender()
             float leftTrackWidth = 130.0f;
             float rightTimelineWidth = ImGui::GetContentRegionAvail().x - leftTrackWidth;
 
-            //======== LEFT TRACK PANEL ========//
+            //------------------------------------------------------------
+            // LEFT TRACK LIST
+            //------------------------------------------------------------
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
             ImGui::BeginChild("TrackListSmall", ImVec2(leftTrackWidth, 0), true);
+            ImGui::PopStyleVar();
 
-            ImGui::Text("Notifies");
-            ImGui::Separator();
-            ImGui::Text("Curves");
-            ImGui::Separator();
-            ImGui::Text("Attributes");
-            ImGui::Separator();
+            float RowHeight = 24.0f;
+            std::vector<std::string> LeftRows;
+
+            // 0: Notifies
+            LeftRows.push_back("Notifies");
+
+            // ---------------------------------------
+            // Notifies 펼쳐져 있을 때만 NotifyTracks 표시
+            // ---------------------------------------
+            int NotifyTrackStartIndex = LeftRows.size();
+            if (!ActiveState->bFoldNotifies)
+            {
+                for (auto& Track : ActiveState->NotifyTracks)
+                    LeftRows.push_back(Track.Name);
+            }
+
+            // Curves, Attributes
+            LeftRows.push_back("Curves");
+            LeftRows.push_back("Attributes");
+
+            // 최종 row 개수
+            int RowCount = LeftRows.size();
+
+            // RowMapping: Row index → NotifyTrack index (-1 = not a notify track)
+            std::vector<int> RowToNotifyIndex;
+            RowToNotifyIndex.reserve(RowCount);
+
+            // Row0 = Notifies header
+            RowToNotifyIndex.push_back(-1);
+
+            // Notify Tracks only if unfolded
+            if (!ActiveState->bFoldNotifies)
+            {
+                for (int i = 0; i < ActiveState->NotifyTracks.size(); i++)
+                    RowToNotifyIndex.push_back(i);
+            }
+
+            // Curves
+            RowToNotifyIndex.push_back(-1);
+            // Attributes
+            RowToNotifyIndex.push_back(-1);
+
+            // --------------------
+            // Row Rendering Loop
+            // --------------------
+            for (int i = 0; i < RowCount; i++)
+            {
+                ImVec2 rowPos = ImGui::GetCursorScreenPos();
+
+                ImGui::InvisibleButton(
+                    ("TrackListRowBtn_" + std::to_string(i)).c_str(),
+                    ImVec2(leftTrackWidth - 2, RowHeight)
+                );
+
+                ImDrawList* DL = ImGui::GetWindowDrawList();
+
+                // ============================
+                // 0번 Row (Notifies) — 폴더블 UI
+                // ============================
+                if (i == 0)
+                {
+                    const char* arrow = ActiveState->bFoldNotifies ? "▶" : "▼";
+
+                    DL->AddText(
+                        ImVec2(rowPos.x + 4, rowPos.y + 4),
+                        IM_COL32(255, 255, 255, 255),
+                        arrow
+                    );
+
+                    DL->AddText(
+                        ImVec2(rowPos.x + 20, rowPos.y + 4),
+                        IM_COL32(230, 230, 230, 255),
+                        "Notifies"
+                    );
+
+                    if (ImGui::IsItemClicked())
+                    {
+                        ActiveState->bFoldNotifies = !ActiveState->bFoldNotifies;
+                    }
+
+                    if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+                        ImGui::OpenPopup("NotifiesContextMenu");
+                }
+                else
+                {
+                    float indent = 0.0f;
+
+                    // Track rows only (i inside notify track area)
+                    if (!ActiveState->bFoldNotifies &&
+                        i >= 1 &&
+                        i <= ActiveState->NotifyTracks.size())
+                    {
+                        indent = 16.0f;
+                    }
+
+                    // 일반 Row (Track, Curves, Attributes)
+                    DL->AddText(
+                        ImVec2(rowPos.x + 4 + indent, rowPos.y + 4),
+                        IM_COL32(230, 230, 230, 255),
+                        LeftRows[i].c_str()
+                    );
+                }
+
+                // Divider
+                DL->AddLine(
+                    ImVec2(rowPos.x, rowPos.y + RowHeight),
+                    ImVec2(rowPos.x + leftTrackWidth, rowPos.y + RowHeight),
+                    IM_COL32(80, 80, 80, 200)
+                );
+            }
+
+            // --------------------
+            // Popup must be OUTSIDE the loop
+            // --------------------
+            if (ImGui::BeginPopup("NotifiesContextMenu"))
+            {
+                if (ImGui::MenuItem("Add Notify Track"))
+                {
+                    int idx = ActiveState->NotifyTracks.size();
+                    ActiveState->NotifyTracks.push_back(FNotifyTrack("Track " + std::to_string(idx)));
+                }
+                ImGui::EndPopup();
+            }
 
             ImGui::EndChild();
 
             ImGui::SameLine();
 
-            //======== RIGHT TIMELINE GRID ========//
+            //------------------------------------------------------------
+            // RIGHT TIMELINE GRID
+            //------------------------------------------------------------
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
             ImGui::BeginChild("TimelineGridSmall", ImVec2(rightTimelineWidth, 0), true);
+            ImGui::PopStyleVar();
 
-            ImGui::Text("Timeline:");
-            ImGui::PushItemWidth(-1);
-            if (ImGui::SliderFloat("##TimelineScrubSmall", &ActiveState->CurrentTime, 0.0f, ActiveState->TotalTime))
-            {
-                ActiveState->bIsScrubbing = true;
-            }
-            ImGui::PopItemWidth();
-
-            ImGui::Separator();
-
-            // Draw timeline grid
             ImDrawList* draw = ImGui::GetWindowDrawList();
-            ImVec2 p0 = ImGui::GetCursorScreenPos();
-            ImVec2 sz = ImGui::GetContentRegionAvail();
+            ImVec2 gridOrigin = ImGui::GetCursorScreenPos();
+            ImVec2 gridAvail = ImGui::GetContentRegionAvail();
 
-            // background
-            draw->AddRectFilled(p0, ImVec2(p0.x + sz.x, p0.y + sz.y), IM_COL32(40, 40, 40, 255));
+            float TotalHeight = RowCount * RowHeight;
 
-            const int frameCount = 50;   // compact version
+            // 배경
+            draw->AddRectFilled(
+                gridOrigin,
+                ImVec2(gridOrigin.x + gridAvail.x, gridOrigin.y + TotalHeight),
+                IM_COL32(40, 40, 40, 255)
+            );
+
+            // 세로 frame 라인
+            const int frameCount = 50;
             for (int i = 0; i < frameCount; i++)
             {
-                float x = p0.x + (float)i * (sz.x / frameCount);
-                draw->AddLine(ImVec2(x, p0.y), ImVec2(x, p0.y + sz.y), IM_COL32(80, 80, 80, 180));
+                float x = gridOrigin.x + (float)i * (gridAvail.x / frameCount);
+                draw->AddLine(
+                    ImVec2(x, gridOrigin.y),
+                    ImVec2(x, gridOrigin.y + TotalHeight),
+                    IM_COL32(60, 60, 60, 160)
+                );
             }
 
-            // Red playhead
-            float playheadX = p0.x;
-            if (ActiveState && ActiveState->TotalTime > 0.0f)
+            //-----------------------------
+            // Track Rows + Right-Click Menu
+            //-----------------------------
+            for (int row = 0; row < RowCount; row++)
             {
-                playheadX = p0.x + (ActiveState->CurrentTime / ActiveState->TotalTime) * sz.x;
-            }
-            draw->AddLine(ImVec2(playheadX, p0.y),
-                ImVec2(playheadX, p0.y + sz.y),
-                IM_COL32(255, 0, 0, 255),
-                2.0f);
+                float y0 = gridOrigin.y + row * RowHeight;
+                float y1 = y0 + RowHeight;
 
-            ImGui::EndChild();  // TimelineGridSmall
-            ImGui::EndChild();  // TrackLayoutInner
+                // Row bottom line
+                draw->AddLine(
+                    ImVec2(gridOrigin.x, y1),
+                    ImVec2(gridOrigin.x + gridAvail.x, y1),
+                    IM_COL32(90, 90, 90, 160)
+                );
+
+                // Hitbox
+                ImGui::SetCursorScreenPos(ImVec2(gridOrigin.x, y0));
+                ImGui::InvisibleButton(
+                    ("GridRowBtn_" + std::to_string(row)).c_str(),
+                    ImVec2(gridAvail.x, RowHeight)
+                );
+
+                // ============================
+                //  ROW → NotifyTrack 매핑 사용
+                // ============================
+                int NotifyIndex = RowToNotifyIndex[row];
+
+                // NotifyTrackRow라면 우클릭 메뉴 활성화
+                if (NotifyIndex != -1)
+                {
+                    if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+                    {
+                        ImGui::OpenPopup(("GridRowPopup_" + std::to_string(row)).c_str());
+                        ImGui::ClearActiveID();
+                    }
+                }
+
+                // Popup — Only begin for valid notify rows
+                if (NotifyIndex != -1)
+                {
+                    if (ImGui::BeginPopup(("GridRowPopup_" + std::to_string(row)).c_str()))
+                    {
+                        if (ImGui::MenuItem("Add Notify"))
+                        {
+                            // TODO: ActiveState->NotifyTracks[NotifyIndex].AddNotify(...)
+                        }
+                        ImGui::EndPopup();
+                    }
+                }
+            }
+
+            //=========================
+            // Playhead / Scrubbing
+            //=========================
+
+            float xMin = gridOrigin.x;
+            float xMax = gridOrigin.x + gridAvail.x;
+
+            float playheadX = xMin;
+            if (ActiveState->TotalTime > 0)
+                playheadX = xMin + (ActiveState->CurrentTime / ActiveState->TotalTime) * (xMax - xMin);
+
+            // red line
+            draw->AddLine(
+                ImVec2(playheadX, gridOrigin.y),
+                ImVec2(playheadX, gridOrigin.y + TotalHeight),
+                IM_COL32(255, 40, 40, 255), 2.0f
+            );
+
+            // handle triangle
+            float handleY = gridOrigin.y - 8;
+            draw->AddTriangleFilled(
+                ImVec2(playheadX - 6, handleY),
+                ImVec2(playheadX + 6, handleY),
+                ImVec2(playheadX, handleY + 10),
+                IM_COL32(255, 40, 40, 255)
+            );
+
+            // hitbox
+            ImGui::SetCursorScreenPos(ImVec2(playheadX - 8, gridOrigin.y - 12));
+            ImGui::InvisibleButton("PlayheadHandle", ImVec2(16, TotalHeight + 12));
+
+            bool dragging = ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left);
+
+            if (dragging)
+            {
+                ActiveState->bIsScrubbing = true;
+
+                float mouseX = ImGui::GetIO().MousePos.x;
+                mouseX = std::clamp(mouseX, xMin, xMax);
+
+                float norm = (mouseX - xMin) / (xMax - xMin);
+                ActiveState->CurrentTime = norm * ActiveState->TotalTime;
+
+                if (auto* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+                {
+                    MeshComp->SetAnimationPosition(ActiveState->CurrentTime);
+                    MeshComp->TickComponent(0.f);
+                }
+            }
+            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+                ActiveState->bIsScrubbing = false;
+
             ImGui::EndChild();
+
+            ImGui::EndChild();
+            ImGui::EndChild();  // TimelineGridSmall
         }
         ImGui::EndChild();
 

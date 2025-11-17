@@ -2,6 +2,11 @@
 
 class UWorld; class FViewport; class FViewportClient; class ASkeletalMeshActor; class USkeletalMesh; class UAnimSequence;
 
+struct FNotifyTrack
+{
+    FString Name;
+};
+
 class ViewerState
 {
 public:
@@ -46,4 +51,10 @@ public:
 
     TArray<UAnimSequence*> CompatibleAnimations;
     bool bShowOnlyCompatible = false;
+    
+    TArray<FNotifyTrack> NotifyTracks;
+
+    bool bFoldNotifies = false;
+    bool bFoldCurves = false;
+    bool bFoldAttributes = false;
 };
