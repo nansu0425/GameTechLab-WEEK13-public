@@ -132,9 +132,9 @@ float FGPUTimer::GetElapsedTimeMS(ID3D11DeviceContext* DeviceContext)
 		return -1.0f;
 	}
 
-	// N-3 프레임의 쿼리 결과 읽기 (비동기 처리, GPU가 충분히 완료할 시간 제공)
-	// CurrentQueryIndex는 다음에 쓸 인덱스이므로, -3이 3프레임 전에 완료된 쿼리
-	int ReadIndex = (CurrentQueryIndex - 3 + NUM_QUERIES) % NUM_QUERIES;
+	// N-7 프레임의 쿼리 결과 읽기 (비동기 처리, GPU가 충분히 완료할 시간 제공)
+	// CurrentQueryIndex는 다음에 쓸 인덱스이므로, -7이 7프레임 전에 완료된 쿼리
+	int ReadIndex = (CurrentQueryIndex - 7 + NUM_QUERIES) % NUM_QUERIES;
 
 	// 비동기 쿼리 결과 대기 (제한된 재시도)
 	UINT64 BeginTime = 0;

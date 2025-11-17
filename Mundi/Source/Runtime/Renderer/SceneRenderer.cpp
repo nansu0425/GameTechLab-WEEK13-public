@@ -904,11 +904,8 @@ void FSceneRenderer::RenderOpaquePass(EViewMode InRenderViewMode)
 	MeshBatchElements.Sort();
 
 	// --- 3. 그리기 (Draw) ---
-	// GPU 타이머 시작 - Opaque Pass의 Draw Time 측정
-	FSkinningStatManager::GetInstance().BeginGPUTimer(RHIDevice->GetDeviceContext());
+	// GPU 타이머는 Renderer::BeginFrame/EndFrame에서 프레임 레벨로 측정됨
 	DrawMeshBatches(MeshBatchElements, true);
-	// GPU 타이머 종료
-	FSkinningStatManager::GetInstance().EndGPUTimer(RHIDevice->GetDeviceContext());
 }
 
 void FSceneRenderer::RenderDecalPass()

@@ -63,8 +63,9 @@ public:
 
 private:
 	// 링버퍼 크기 (비동기 GPU 타이머 처리를 위한 충분한 레이턴시 제공)
-	// 최소 4개: N-3 프레임 결과를 읽을 때 GPU가 완료할 충분한 시간 확보
-	static constexpr int NUM_QUERIES = 4;
+	// 8개: N-7 프레임 결과를 읽을 때 GPU가 완료할 충분한 시간 확보
+	// 다중 뷰어 환경에서 쿼리 슬롯 재사용 시 경고 방지
+	static constexpr int NUM_QUERIES = 8;
 
 	// GPU 타임스탬프 쿼리 링버퍼 (시작/끝)
 	ID3D11Query* QueryBegin[NUM_QUERIES] = {};

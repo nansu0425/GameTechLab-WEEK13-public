@@ -350,16 +350,16 @@ void USkinnedMeshComponent::PerformSkinning(bool bUseGPU)
       // NOTE: GPU 셰이더 실행 시간은 현재 구조상 측정 불가
       // (Begin/End 사이에 실제 Draw call이 없음, 별도의 렌더링 파이프라인 통합 필요)
 
-      // 통계에 추가 (실제 할당된 버퍼 크기 사용)
+      // 통계에 추가 (실제 할당된 본 버퍼 크기 사용)
       const uint64 BoneBufferSize = CurrentBoneBufferSize;
-      StatManager.AddGPUMesh(NumVertices, NumBones, BoneBufferSize);
+      StatManager.AddMesh(NumVertices, NumBones, BoneBufferSize);
 
       // TimeProfile 시스템에 GPU 스키닝 시간 추가
       FScopeCycleCounter::AddTimeProfile(TStatId("GPU_BoneCalc"), LastBoneMatrixCalcTimeMS);
       FScopeCycleCounter::AddTimeProfile(TStatId("GPU_BoneUpload"), BoneUploadTimeMS);
 
-      StatManager.AddGPUBoneMatrixCalcTime(LastBoneMatrixCalcTimeMS); // 본 행렬 계산 시간 추가
-      StatManager.AddGPUBoneBufferUploadTime(BoneUploadTimeMS);
+      StatManager.AddBoneMatrixCalcTime(LastBoneMatrixCalcTimeMS); // 본 행렬 계산 시간 추가
+      StatManager.AddBufferUploadTime(BoneUploadTimeMS); // 본 버퍼 업로드 시간
 
       bSkinningMatricesDirty = false;
    }
@@ -403,18 +403,18 @@ void USkinnedMeshComponent::PerformSkinning(bool bUseGPU)
       uint64 BufferUploadEnd = FWindowsPlatformTime::Cycles64();
       double BufferUploadTimeMS = FWindowsPlatformTime::ToMilliseconds(BufferUploadEnd - BufferUploadStart);
 
-      // 통계에 추가
+      // 통계에 추가 (버텍스 버퍼 크기 사용)
       const uint64 VertexBufferSize = sizeof(FNormalVertex) * NumVertices;
-      StatManager.AddCPUMesh(NumVertices, NumBones, VertexBufferSize);
+      StatManager.AddMesh(NumVertices, NumBones, VertexBufferSize);
 
       // TimeProfile 시스템에 CPU 스키닝 시간 추가
       FScopeCycleCounter::AddTimeProfile(TStatId("CPU_BoneCalc"), LastBoneMatrixCalcTimeMS);
       FScopeCycleCounter::AddTimeProfile(TStatId("CPU_VertexSkinning"), VertexSkinningTimeMS);
       FScopeCycleCounter::AddTimeProfile(TStatId("CPU_BufferUpload"), BufferUploadTimeMS);
 
-      StatManager.AddCPUBoneMatrixCalcTime(LastBoneMatrixCalcTimeMS); // 본 행렬 계산 시간 추가
-      StatManager.AddCPUVertexSkinningTime(VertexSkinningTimeMS);
-      StatManager.AddCPUBufferUploadTime(BufferUploadTimeMS);
+      StatManager.AddBoneMatrixCalcTime(LastBoneMatrixCalcTimeMS); // 본 행렬 계산 시간 추가
+      StatManager.AddVertexSkinningTime(VertexSkinningTimeMS); // 버텍스 스키닝 시간 (CPU만)
+      StatManager.AddBufferUploadTime(BufferUploadTimeMS); // 버텍스 버퍼 업로드 시간
 
       bSkinningMatricesDirty = false;
    }
