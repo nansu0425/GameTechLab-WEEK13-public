@@ -385,6 +385,13 @@ FSkeletalMeshData* UFbxLoader::LoadFbxMeshAsset(const FString& FilePath)
 	}
 #endif // USE_OBJ_CACHE
 
+	// FbxScene 리소스 해제
+	if (Scene)
+	{
+		Scene->Destroy();
+		Scene = nullptr;
+	}
+
 	return MeshData;
 }
 
@@ -1368,8 +1375,13 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 			UE_LOG("UFbxLoader::LoadFbxAnimation: Deleting corrupt cache and forcing regeneration.");
 
 			std::filesystem::remove(AnimCacheFileName);
-			// UObject는 ObjectFactory가 관리하므로 수동 delete 금지
-			DataModel = nullptr;
+
+			// 캐시 로드 실패 시 생성된 DataModel 정리
+			if (DataModel)
+			{
+				ObjectFactory::DeleteObject(DataModel);
+				DataModel = nullptr;
+			}
 			bLoadedFromCache = false;
 		}
 	}
