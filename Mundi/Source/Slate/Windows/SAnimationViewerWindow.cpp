@@ -98,7 +98,7 @@ void SAnimationViewerWindow::OnRender()
 
         // +-+-+ Center panel +-+-+
         // : draw with border to see the viewport area
-        ImGui::BeginChild("CenterPanel", ImVec2(centerWidth, totalHeight), true, ImGuiWindowFlags_NoScrollbar);
+        ImGui::BeginChild("CenterPanel", ImVec2(centerWidth, totalHeight), false, ImGuiWindowFlags_NoScrollbar);
         RenderCenterPanel();
         ImGui::EndChild();
 
@@ -478,8 +478,8 @@ void SAnimationViewerWindow::RenderCenterPanel()
 {
     float contentHeight = ImGui::GetContentRegionAvail().y;
     float itemSpacingY = ImGui::GetStyle().ItemSpacing.y;
-    float viewportHeight = (contentHeight - itemSpacingY) * 0.75f;
-    float timelineHeight = (contentHeight - itemSpacingY) * 0.25f;
+    float viewportHeight = (contentHeight - itemSpacingY) * 0.7f;
+    float timelineHeight = (contentHeight - itemSpacingY) * 0.3f;
     float innerWidth = ImGui::GetContentRegionAvail().x;
     
     RenderViewportArea(innerWidth, viewportHeight);
