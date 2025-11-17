@@ -788,6 +788,9 @@
     <ClCompile Include="Generated\UCharacterMovementComponent.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
+    <ClCompile Include="Generated\ACharacter.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Generated\USkinnedMeshComponent.generated.h">
@@ -1665,6 +1668,9 @@
       <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UCharacterMovementComponent.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\ACharacter.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
   </ItemGroup>

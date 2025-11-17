@@ -4,10 +4,8 @@
 // ────────────────────────────────────────────────────────────────────────────
 #include "pch.h"
 #include "CharacterMovementComponent.h"
+#include "Character.h"
 #include "SceneComponent.h"
-
-// 전방 선언 (Character는 4단계에서 구현 예정)
-class ACharacter;
 
 // ────────────────────────────────────────────────────────────────────────────
 // 생성자 / 소멸자
@@ -48,9 +46,8 @@ void UCharacterMovementComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// TODO: 4단계에서 Character 구현 후 활성화
 	// Owner를 Character로 캐스팅
-	// CharacterOwner = Cast<ACharacter>(Owner);
+	CharacterOwner = Cast<ACharacter>(Owner);
 }
 
 void UCharacterMovementComponent::TickComponent(float DeltaTime)
