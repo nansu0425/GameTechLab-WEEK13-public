@@ -37,6 +37,7 @@ public:
     UAnimSequence* CurrentAnimation = nullptr;
     bool bIsPlaying = false;
     bool bIsLooping = true;
+    bool bReversePlay = false;
     float PlaybackSpeed = 1.0f;
     float CurrentTime = 0.0f;
     float TotalTime = 0.0f;

@@ -149,19 +149,39 @@ void SAnimationViewerWindow::OnRender()
             // -- Controls Row --
             ImGui::Spacing();
 
+            if (ImGui::Button("|<<")) { AnimJumpToStart(); }
+            ImGui::SameLine();
+            if (ImGui::Button("<")) { AnimStep(false); }
+            ImGui::SameLine();
+
             if (ActiveState->bIsPlaying)
             {
-                if (ImGui::Button("Pause", ImVec2(55, 24)))
-                {
-                    ActiveState->bIsPlaying = false;
-                }
+                if (ImGui::Button("Pause")) { ActiveState->bIsPlaying = false; }
             }
             else
             {
-                if (ImGui::Button("Play", ImVec2(55, 24)))
-                {
-                    ActiveState->bIsPlaying = true;
-                }
+                if (ImGui::Button("Play"))  { ActiveState->bIsPlaying = true; }
+            }
+
+            ImGui::SameLine();
+            if (ImGui::Button(">")) { AnimStep(true); }
+            ImGui::SameLine();
+            if (ImGui::Button(">>|")) { AnimJumpToEnd(); }
+            ImGui::SameLine();
+
+            bool bHighlighted = ActiveState->bReversePlay;
+            if (bHighlighted)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.6f, 0.9f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.7f, 1.0f, 1.0f));
+            }
+            if (ImGui::Button("Reverse"))
+            {
+                ActiveState->bReversePlay = !ActiveState->bReversePlay;
+            }
+            if (bHighlighted)
+            {
+                ImGui::PopStyleColor(2);
             }
 
             ImGui::SameLine();
@@ -322,14 +342,17 @@ void SAnimationViewerWindow::OnUpdate(float DeltaSeconds)
     }
 
     // Synchronize play rate and loop setting
-    SingleAnimInstance->SetPlayRate(ActiveState->PlaybackSpeed);
+    float FinalPlayRate = ActiveState->bReversePlay ? -ActiveState->PlaybackSpeed : ActiveState->PlaybackSpeed;
+    SingleAnimInstance->SetPlayRate(FinalPlayRate);
     SingleAnimInstance->SetLooping(ActiveState->bIsLooping);
 
     // Control time slider (UI to Engine)
     // Update the component's animation position only when the user is dragging the slider
     if (ActiveState->bIsScrubbing)
     {
+        MeshComp->PlayAnimation(ActiveState->CurrentAnimation, ActiveState->bIsLooping, 0.0f);
         MeshComp->SetAnimationPosition(ActiveState->CurrentTime);
+        ActiveState->bBoneLinesDirty = true;
         if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
         {
             ActiveState->bIsScrubbing = false;
@@ -486,5 +509,60 @@ void SAnimationViewerWindow::RenderAnimationBrowser()
             }
         }
         ImGui::EndListBox();
+    }
+}
+
+void SAnimationViewerWindow::AnimJumpToStart()
+{
+    if (!ActiveState || !ActiveState->PreviewActor) return;
+
+    ActiveState->bIsPlaying = false;
+    ActiveState->CurrentTime = 0.0f;
+
+    if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+    {
+        MeshComp->PlayAnimation(ActiveState->CurrentAnimation, ActiveState->bIsLooping, 0.0f);
+        MeshComp->SetAnimationPosition(ActiveState->CurrentTime);
+        MeshComp->TickComponent(0.0f);
+    }
+    ActiveState->bBoneLinesDirty = true;
+}
+
+void SAnimationViewerWindow::AnimJumpToEnd()
+{
+    if (!ActiveState || !ActiveState->PreviewActor) return;
+
+    ActiveState->bIsPlaying = false;
+    ActiveState->CurrentTime = ActiveState->TotalTime;
+
+    if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+    {
+        MeshComp->PlayAnimation(ActiveState->CurrentAnimation, ActiveState->bIsLooping, 0.0f);
+        MeshComp->SetAnimationPosition(ActiveState->CurrentTime);
+        MeshComp->TickComponent(0.0f);
+    }
+    ActiveState->bBoneLinesDirty = true;
+}
+
+void SAnimationViewerWindow::AnimStep(bool bForward)
+{
+    if (!ActiveState || !ActiveState->PreviewActor) return;
+
+    ActiveState->bIsPlaying = false;
+    const float FrameTime = 1.0f / 30.0f;
+
+    if (bForward)
+    {
+        ActiveState->CurrentTime = FMath::Min(ActiveState->TotalTime, ActiveState->CurrentTime + FrameTime);
+    }
+    else
+    {
+        ActiveState->CurrentTime = FMath::Max(0.0f, ActiveState->CurrentTime - FrameTime);
+    }
+
+    if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+    {
+        MeshComp->PlayAnimation(ActiveState->CurrentAnimation, ActiveState->bIsLooping, 0.0f);
+        MeshComp->SetAnimationPosition(ActiveState->CurrentTime);
     }
 }
