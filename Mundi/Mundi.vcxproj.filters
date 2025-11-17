@@ -107,6 +107,9 @@
     <ClCompile Include="Source\Runtime\Engine\Animation\AnimSequenceBase.cpp">
       <Filter>Source\Runtime\Engine\Animation</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Animation\AnimSequencePlayer.cpp">
+      <Filter>Source\Runtime\Engine\Animation</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\Components\SkeletalMeshComponent.cpp">
       <Filter>Source\Runtime\Engine\Components</Filter>
     </ClCompile>
@@ -810,6 +813,9 @@
     </ClInclude>
     <ClInclude Include="pch.h" />
     <ClInclude Include="Source\Runtime\Engine\Animation\AnimStateMachine.h">
+      <Filter>Source\Runtime\Engine\Animation</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Animation\AnimSequencePlayer.h">
       <Filter>Source\Runtime\Engine\Animation</Filter>
     </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\Animation\AnimTestUtil.h">
