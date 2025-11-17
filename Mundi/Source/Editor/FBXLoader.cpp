@@ -190,6 +190,10 @@ FSkeletalMeshData* UFbxLoader::LoadFbxMeshAsset(const FString& FilePath)
 			MeshData = new FSkeletalMeshData();
 			MeshData->PathFileName = NormalizedPath;
 
+			// FBX 파일의 이름을 스켈레톤 이름으로 사용
+			std::filesystem::path p(NormalizedPath);
+			MeshData->Skeleton.Name = p.stem().string();
+
 			FWindowsBinReader Reader(BinPathFileName);
 			if (!Reader.IsOpen())
 			{
@@ -297,6 +301,10 @@ FSkeletalMeshData* UFbxLoader::LoadFbxMeshAsset(const FString& FilePath)
 
 	MeshData = new FSkeletalMeshData();
 	MeshData->PathFileName = NormalizedPath;
+
+	// FBX 파일의 이름을 스켈레톤 이름으로 사용
+	std::filesystem::path p(NormalizedPath);
+	MeshData->Skeleton.Name = p.stem().string();
 
 	// Fbx파일에 씬은 하나만 존재하고 씬에 매쉬, 라이트, 카메라 등등의 element들이 트리 구조로 저장되어 있음.
 	// 씬 Export 시에 루트 노드 말고 Child 노드만 저장됨. 노드 하나가 여러 Element를 저장할 수 있고 Element는 FbxNodeAttribute 클래스로 정의되어 있음.
@@ -1705,6 +1713,11 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 		}
 	}
 #endif // USE_OBJ_CACHE
+
+	if (TargetSkeleton)
+	{
+		AnimSequence->SetSkeletonName(TargetSkeleton->Name);
+	}
 
 	return AnimSequence;
 }
