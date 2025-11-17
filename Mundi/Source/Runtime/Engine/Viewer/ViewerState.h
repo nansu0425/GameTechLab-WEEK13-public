@@ -32,4 +32,13 @@ public:
     bool bBoneTransformChanged = false;
     bool bBoneRotationEditing = false;
     bool bRequestScrollToBone = false;
+
+    // Animation State
+    UAnimSequence* CurrentAnimation = nullptr;
+    bool bIsPlaying = false;
+    bool bIsLooping = true;
+    float PlaybackSpeed = 1.0f;
+    float CurrentTime = 0.0f;
+
+    TArray<UAnimSequence*> CompatibleAnimations;
 };

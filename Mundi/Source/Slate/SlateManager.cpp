@@ -185,12 +185,13 @@ void USlateManager::OpenAssetViewer(UEditorAssetPreviewContext* Context)
         if (SViewerWindow* ExistingViewer = dynamic_cast<SViewerWindow*>(Window))
         {
             // Check if the viewer's Context is valid and if both the type and asset path match
-            if (ExistingViewer->Context &&
-                ExistingViewer->Context->ViewerType == Context->ViewerType &&
-                ExistingViewer->Context->AssetPath == Context->AssetPath)
+            UEditorAssetPreviewContext* ExistingContext = ExistingViewer->GetContext();
+            if (ExistingContext &&
+                ExistingContext->ViewerType == Context->ViewerType &&
+                ExistingContext->AssetPath == Context->AssetPath)
             {
                 // If the window already exists, focus it instead of creating a new one
-                ExistingViewer->bRequestFocus = true;
+                ExistingViewer->RequestFocus();
                 UE_LOG("Focusing existing asset viewer for: %s", Context->AssetPath.c_str());
                 return;
             }
@@ -217,8 +218,8 @@ void USlateManager::OpenAssetViewer(UEditorAssetPreviewContext* Context)
         // Open as a detached window at a default size and position
         const float toolbarHeight = 50.0f;
         const float availableHeight = Rect.GetHeight() - toolbarHeight;
-        const float w = Rect.GetWidth() * 0.6f;
-        const float h = availableHeight * 0.7f;
+        const float w = Rect.GetWidth() * 0.8f;
+        const float h = availableHeight * 0.9f;
         const float x = Rect.Left + (Rect.GetWidth() - w) * 0.5f;
         const float y = Rect.Top + toolbarHeight + (availableHeight - h) * 0.5f;
 

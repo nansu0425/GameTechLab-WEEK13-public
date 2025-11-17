@@ -13,24 +13,23 @@ public:
 		ID3D11Device* InDevice, UEditorAssetPreviewContext* InContext);
 
 	// SWindow overrides
-	virtual void OnRender() override;
 	virtual void OnUpdate(float DeltaSeconds) override;
 	virtual void OnMouseMove(FVector2D MousePos) override;
 	virtual void OnMouseDown(FVector2D MousePos, uint32 Button) override;
 	virtual void OnMouseUp(FVector2D MousePos, uint32 Button) override;
 
+	void RequestFocus() { bRequestFocus = true; }
 	void OnRenderViewport();
 	virtual void PreRenderViewportUpdate() {}
 
 	// Accessors (active tab)
 	FViewport* GetViewport() const { return ActiveState ? ActiveState->Viewport : nullptr; }
 	FViewportClient* GetViewportClient() const { return ActiveState ? ActiveState->Client : nullptr; }
-	
-	UEditorAssetPreviewContext* Context = nullptr;
-	bool bRequestFocus = false;		// Request focus on first open
+	UEditorAssetPreviewContext* GetContext() const { return Context; }
 
 protected:
 	// Per-tab state
+	UEditorAssetPreviewContext* Context = nullptr;
 	ViewerState* ActiveState = nullptr;
 	TArray<ViewerState*> Tabs;
 	int ActiveTabIndex = -1;
@@ -49,16 +48,24 @@ protected:
 	// Whether we've applied the initial ImGui window placement
 	bool bInitialPlacementDone = false;
 
+	// Request focus on first open
+	bool bRequestFocus = false;
+
 	// Window open state
 	bool bIsOpen = true;
 	FString WindowTitle;
-
+	bool bHasBottomPanel = true;
+	
 	void OpenNewTab(const char* Name = "Viewer");
 	void CloseTab(int Index);
 	
 	virtual ViewerState* CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context) = 0;
 	virtual void DestroyViewerState(ViewerState*& State) = 0;
 	virtual FString GetWindowTitle() const = 0;
+
+	virtual void RenderLeftPanel(float PanelWidth);
+	virtual void RenderRightPanel();
+	virtual void RenderBottomPanel() {};
 
 	void UpdateBoneTransformFromSkeleton(ViewerState* State);
 	void ApplyBoneTransform(ViewerState* State);

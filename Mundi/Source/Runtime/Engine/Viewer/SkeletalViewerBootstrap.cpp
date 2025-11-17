@@ -5,10 +5,6 @@
 #include "FViewport.h"
 #include "SkeletalViewerViewportClient.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
-// --- for testing ---
-#include "Source/Editor/FBXLoader.h"
-#include "Source/Runtime/Engine/Animation/AnimSequence.h"
-// -------------------
 
 ViewerState* SkeletalViewerBootstrap::CreateViewerState(const char* Name, UWorld* InWorld, ID3D11Device* InDevice)
 {
@@ -46,36 +42,6 @@ ViewerState* SkeletalViewerBootstrap::CreateViewerState(const char* Name, UWorld
     {
         ASkeletalMeshActor* Preview = State->World->SpawnActor<ASkeletalMeshActor>();
         State->PreviewActor = Preview;
-
-        // -------- TEST --------
-        
-        // Load default DancingRacer mesh + its animation for a rich default preview.
-        // If loading fails, fall back to simple playback later when a mesh is assigned.
-        if (Preview && Preview->GetSkeletalMeshComponent())
-        {
-            // If there is already a mesh with skeleton, build sequence to match; otherwise build generic.
-            const USkeletalMesh* Mesh = Preview->GetSkeletalMeshComponent()->GetSkeletalMesh();
-            const FSkeleton* Skel = Mesh ? Mesh->GetSkeleton() : nullptr;
-            // Try to load a default mesh + animation from the Data folder
-            FString DefaultFBXPath = GDataDir + "/DancingRacer.fbx";
-            Preview->SetSkeletalMesh(DefaultFBXPath);
-            Skel = Preview->GetSkeletalMeshComponent()->GetSkeletalMesh() ? Preview->GetSkeletalMeshComponent()->GetSkeletalMesh()->GetSkeleton() : nullptr;
-            if (Skel)
-            {
-                // PreLoad()에서 이미 로드된 애니메이션을 리소스 매니저에서 가져오기
-                // 리소스 키 형식: {파일경로(확장자 제외)}_{AnimStack명}
-                UAnimSequence* TestAnimation = UResourceManager::GetInstance().Get<UAnimSequence>("Data/DancingRacer_mixamo.com");
-                if (TestAnimation)
-                {
-                    Preview->GetSkeletalMeshComponent()->PlayAnimation(TestAnimation, true, 1.0f);
-                }
-                else
-                {
-                    UE_LOG("SkeletalViewerBootstrap: Failed to load test animation 'Data/DancingRacer_mixamo.com'");
-                }
-            }
-        }
-        // ------ END OF TEST ------
     }
 
     return State;
