@@ -1,6 +1,7 @@
 ﻿#include "pch.h"
 #include "EditorEngine.h"
 #include "PlatformCrashHandler.h"
+#include <exception>
 
 #if defined(_MSC_VER) && defined(_DEBUG)
 #   define _CRTDBG_MAP_ALLOC
@@ -21,11 +22,37 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     _CrtSetBreakAlloc(0);
 #endif
 
-    if (!GEngine.Startup(hInstance))
-        return -1;
+    try
+    {
+        if (!GEngine.Startup(hInstance))
+            return -1;
 
-    GEngine.MainLoop();
-    GEngine.Shutdown();
+        GEngine.MainLoop();
+        GEngine.Shutdown();
+    }
+    catch (const std::exception& e)
+    {
+        // C++ 표준 예외 처리 (std::runtime_error, std::logic_error 등)
+        char msg[512];
+        sprintf_s(msg, "C++ Exception caught:\n\n%s\n\nGenerating MiniDump...", e.what());
+        MessageBoxA(nullptr, msg, "C++ Exception", MB_OK | MB_ICONERROR);
+
+        // MiniDump 생성
+        FPlatformCrashHandler::GenerateMiniDump();
+        return -1;
+    }
+    catch (...)
+    {
+        // 알 수 없는 예외 처리 (throw int, throw custom_type 등)
+        MessageBoxA(nullptr,
+            "Unknown C++ exception caught!\n\nGenerating MiniDump...",
+            "Unknown Exception",
+            MB_OK | MB_ICONERROR);
+
+        // MiniDump 생성
+        FPlatformCrashHandler::GenerateMiniDump();
+        return -1;
+    }
 
     return 0;
 }
