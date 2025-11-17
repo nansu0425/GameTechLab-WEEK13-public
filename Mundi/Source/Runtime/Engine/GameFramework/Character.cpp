@@ -5,8 +5,8 @@
 #include "pch.h"
 #include "Character.h"
 #include "CharacterMovementComponent.h"
-#include "SceneComponent.h"
-#include "StaticMeshComponent.h"
+#include "CapsuleComponent.h"
+#include "SkeletalMeshComponent.h"
 #include "InputComponent.h"
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -15,27 +15,27 @@
 
 ACharacter::ACharacter()
 	: CharacterMovement(nullptr)
+	, CapsuleComponent(nullptr)
 	, MeshComponent(nullptr)
-	, StaticMeshComponent(nullptr)
 	, bIsCrouched(false)
 	, CrouchedHeightRatio(0.5f)
 {
+	// CapsuleComponent 생성 (RootComponent, 충돌 및 물리)
+	CapsuleComponent = CreateDefaultSubobject<UCapsuleComponent>("CapsuleComponent");
+	if (CapsuleComponent)
+	{
+		SetRootComponent(CapsuleComponent);
+	}
+
+	// SkeletalMeshComponent 생성 (애니메이션)
+	MeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>("MeshComponent");
+	if (MeshComponent && CapsuleComponent)
+	{
+		MeshComponent->SetupAttachment(CapsuleComponent);
+	}
+
 	// CharacterMovementComponent 생성
 	CharacterMovement = CreateDefaultSubobject<UCharacterMovementComponent>("CharacterMovement");
-
-	// Mesh 컴포넌트 생성 (일단 빈 SceneComponent)
-	MeshComponent = CreateDefaultSubobject<USceneComponent>("MeshComponent");
-	if (MeshComponent)
-	{
-		SetRootComponent(MeshComponent);
-	}
-
-	// StaticMesh 컴포넌트 생성 (시각적 표현용)
-	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>("StaticMesh");
-	if (StaticMeshComponent && MeshComponent)
-	{
-		StaticMeshComponent->SetupAttachment(MeshComponent);
-	}
 }
 
 ACharacter::~ACharacter()
@@ -211,14 +211,14 @@ void ACharacter::DuplicateSubObjects()
 		{
 			CharacterMovement = Movement;
 		}
-		else if (UStaticMeshComponent* StaticMesh = Cast<UStaticMeshComponent>(Component))
+		else if (USkeletalMeshComponent* SkeletalMesh = Cast<USkeletalMeshComponent>(Component))
 		{
-			StaticMeshComponent = StaticMesh;
+			MeshComponent = SkeletalMesh;
 		}
 	}
 
-	// MeshComponent는 RootComponent
-	MeshComponent = Cast<USceneComponent>(RootComponent);
+	// CapsuleComponent는 RootComponent
+	CapsuleComponent = Cast<UCapsuleComponent>(RootComponent);
 }
 
 void ACharacter::Serialize(const bool bInIsLoading, JSON& InOutHandle)

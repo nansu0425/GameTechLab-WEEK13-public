@@ -9,8 +9,8 @@
 
 // 전방 선언
 class UCharacterMovementComponent;
-class USceneComponent;
-class UStaticMeshComponent;
+class UCapsuleComponent;
+class USkeletalMeshComponent;
 
 /**
  * ACharacter
@@ -42,11 +42,11 @@ public:
 	UFUNCTION(LuaBind, DisplayName="GetCharacterMovement")
 	UCharacterMovementComponent* GetCharacterMovement() const { return CharacterMovement; }
 
-	UFUNCTION(LuaBind, DisplayName="GetMesh")
-	USceneComponent* GetMesh() const { return MeshComponent; }
+	UFUNCTION(LuaBind, DisplayName="GetCapsuleComponent")
+	UCapsuleComponent* GetCapsuleComponent() const { return CapsuleComponent; }
 
-	UFUNCTION(LuaBind, DisplayName="GetStaticMesh")
-	UStaticMeshComponent* GetStaticMesh() const { return StaticMeshComponent; }
+	UFUNCTION(LuaBind, DisplayName="GetMesh")
+	USkeletalMeshComponent* GetMesh() const { return MeshComponent; }
 
 	// ────────────────────────────────────────────────
 	// 이동 입력 처리 (APawn 오버라이드)
@@ -164,11 +164,11 @@ protected:
 	/** Character 이동 컴포넌트 */
 	UCharacterMovementComponent* CharacterMovement;
 
-	/** Mesh 컴포넌트 (나중에 SkeletalMeshComponent로 교체) */
-	USceneComponent* MeshComponent;
+	/** 캡슐 컴포넌트 (충돌 및 물리) */
+	UCapsuleComponent* CapsuleComponent;
 
-	/** StaticMesh 컴포넌트 (시각적 표현) */
-	UStaticMeshComponent* StaticMeshComponent;
+	/** 스켈레탈 메시 컴포넌트 (애니메이션) */
+	USkeletalMeshComponent* MeshComponent;
 
 	/** 웅크리기 상태 */
 	bool bIsCrouched;
