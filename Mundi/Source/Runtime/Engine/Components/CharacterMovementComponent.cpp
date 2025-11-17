@@ -18,16 +18,16 @@ UCharacterMovementComponent::UCharacterMovementComponent()
 	, TimeInAir(0.0f)
 	, bIsJumping(false)
 	// 이동 설정
-	, MaxWalkSpeed(600.0f)           // 6 m/s
-	, MaxAcceleration(2048.0f)       // 20.48 m/s²
+	, MaxWalkSpeed(6.0f)
+	, MaxAcceleration(20.480f)
 	, GroundFriction(8.0f)
 	, AirControl(0.05f)
-	, BrakingDeceleration(2048.0f)
+	, BrakingDeceleration(20.480f)
 	// 중력 설정
 	, GravityScale(1.0f)
 	, GravityDirection(0.0f, 0.0f, -1.0f) // 기본값: 아래 방향
 	// 점프 설정
-	, JumpZVelocity(420.0f)          // 4.2 m/s
+	, JumpZVelocity(4.200f)
 	, MaxAirTime(5.0f)
 	, bCanJump(true)
 {
