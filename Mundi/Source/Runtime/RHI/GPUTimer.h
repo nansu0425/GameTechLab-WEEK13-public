@@ -81,6 +81,9 @@ private:
 
 	// 마지막으로 측정된 시간 (캐시)
 	float LastElapsedMS = 0.0f;
+
+	// Begin/End 중복 호출 방지 플래그
+	bool bIsActive = false;
 };
 
 

@@ -64,6 +64,12 @@ void FGPUTimer::Begin(ID3D11DeviceContext* DeviceContext)
 		return;
 	}
 
+	// 중복 Begin 방지 (여러 뷰포트가 동일 타이머 공유 시)
+	if (bIsActive)
+	{
+		return; // 이미 Begin 상태이면 무시
+	}
+
 	// 현재 쿼리 인덱스의 쿼리 사용
 	int Index = CurrentQueryIndex;
 
@@ -81,11 +87,20 @@ void FGPUTimer::Begin(ID3D11DeviceContext* DeviceContext)
 
 	// 시작 타임스탬프 기록
 	DeviceContext->End(QueryBegin[Index]);
+
+	// Begin 상태로 설정
+	bIsActive = true;
 }
 
 void FGPUTimer::End(ID3D11DeviceContext* DeviceContext)
 {
 	if (!bInitialized || !DeviceContext)
+	{
+		return;
+	}
+
+	// Begin이 호출되지 않았으면 End도 무시
+	if (!bIsActive)
 	{
 		return;
 	}
@@ -101,6 +116,9 @@ void FGPUTimer::End(ID3D11DeviceContext* DeviceContext)
 
 	// 다음 프레임을 위해 인덱스 증가 (링버퍼)
 	CurrentQueryIndex = (CurrentQueryIndex + 1) % NUM_QUERIES;
+
+	// Begin 상태 해제
+	bIsActive = false;
 }
 
 float FGPUTimer::GetElapsedTimeMS(ID3D11DeviceContext* DeviceContext)
