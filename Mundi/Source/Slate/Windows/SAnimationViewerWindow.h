@@ -30,4 +30,24 @@ private:
     void AnimJumpToStart();
     void AnimJumpToEnd();
     void AnimStep(bool bForward);
+
+    // High-level layout
+    void RenderTabBar();
+    void RenderCenterPanel();
+
+    // Center Panel Subsections
+    void RenderViewportArea(float width, float height);
+    void RenderTimelineArea(float width, float height);
+
+    // Timeline Components
+    void RenderTimelineControls();
+    void RenderTrackAndGridLayout();
+    void RenderLeftTrackList(float width, float RowHeight, float HeaderHeight, const TArray<FString>& LeftRows, const TArray<int>& RowToNotifyIndex);
+    void RenderRightTimeline(float width, float RowHeight, float HeaderHeight, const TArray<FString>& LeftRows, const TArray<int>& RowToNotifyIndex);
+    void RenderTimelineHeader(float height);
+    void RenderTimelineGridBody(float RowHeight, const TArray<FString>& LeftRows, const TArray<int>& RowToNotifyIndex);
+
+    // Timeline Helpers
+    void BuildLeftRows(TArray<FString>& OutRows);
+    void BuildRowToNotifyIndex(const TArray<FString>& InRows, TArray<int>& OutMapping);
 };
