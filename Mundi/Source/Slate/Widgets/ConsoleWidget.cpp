@@ -5,6 +5,7 @@
 #include "StatsOverlayD2D.h"
 #include "USlateManager.h"
 #include "SkinnedMeshComponent.h"
+#include "PlatformCrashHandler.h"
 #include <windows.h>
 #include <cstdarg>
 #include <cctype>
@@ -56,6 +57,8 @@ void UConsoleWidget::Initialize()
 	HelpCommandList.Add("STAT NONE");
 	HelpCommandList.Add("STAT LIGHT");
 	HelpCommandList.Add("STAT SHADOW");
+	HelpCommandList.Add("MINIDUMP");
+	HelpCommandList.Add("CAUSECRASH");
 
 	// Add welcome messages
 	AddLog("=== Console Widget Initialized ===");
@@ -461,6 +464,26 @@ void UConsoleWidget::ExecCommand(const char* command_line)
 		{
 			AddLog("ERROR: Could not find any World");
 		}
+	}
+	else if (Stricmp(command_line, "MINIDUMP") == 0)
+	{
+		AddLog("Generating MiniDump...");
+		if (FPlatformCrashHandler::GenerateMiniDump())
+		{
+			AddLog("MiniDump generated successfully!");
+		}
+		else
+		{
+			AddLog("Failed to generate MiniDump.");
+		}
+	}
+	else if (Stricmp(command_line, "CAUSECRASH") == 0)
+	{
+		AddLog("WARNING: Triggering intentional crash!");
+		AddLog("This will create a MiniDump file and terminate the application.");
+
+		// 잠시 후 크래시 발생 (로그가 표시될 시간을 줌)
+		FPlatformCrashHandler::CauseIntentionalCrash();
 	}
 	else
 	{

@@ -452,6 +452,9 @@
     <ClCompile Include="Source\Editor\PlatformProcess.cpp">
       <Filter>Source\Editor</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Editor\PlatformCrashHandler.cpp">
+      <Filter>Source\Editor</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Editor\ObjManager.cpp">
       <Filter>Source\Editor</Filter>
     </ClCompile>
@@ -1158,6 +1161,9 @@
       <Filter>Source\Runtime\RHI</Filter>
     </ClInclude>
     <ClInclude Include="Source\Editor\PlatformProcess.h">
+      <Filter>Source\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\PlatformCrashHandler.h">
       <Filter>Source\Editor</Filter>
     </ClInclude>
     <ClInclude Include="Source\Editor\ImGuiConsole.h">
