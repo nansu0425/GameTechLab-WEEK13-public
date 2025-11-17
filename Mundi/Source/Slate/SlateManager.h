@@ -5,12 +5,14 @@
 #include "Windows/SSplitterH.h"
 #include "Windows/SViewportWindow.h"
 #include "Windows/SSkeletalMeshViewerWindow.h"
+#include "Windows/SAnimationViewerWindow.h"
 
 class SSceneIOWindow; // 새로 추가할 UI
 class SDetailsWindow;
 class UMainToolbarWidget;
 class UConsoleWindow; // 오버레이 콘솔 윈도우
 class UContentBrowserWindow;
+class UEditorAssetPreviewContext;
 
 // 중앙 레이아웃/입력 라우팅/뷰포트 관리 매니저 (위젯 아님)
 class USlateManager : public UObject
@@ -73,11 +75,10 @@ public:
     void ToggleContentBrowser();
     bool IsContentBrowserVisible() const;
 
-    // Temp: open/close Skeletal Mesh Viewer (detached window)
-    void OpenSkeletalMeshViewer();
-    void OpenSkeletalMeshViewerWithFile(const char* FilePath);
-    void CloseSkeletalMeshViewer();
-    bool IsSkeletalMeshViewerOpen() const { return SkeletalViewerWindow != nullptr; }
+    // Open/Close Viewer (detached window)
+    void OpenAssetViewer(UEditorAssetPreviewContext* Context);
+    void CloseDetachedWindow(SWindow* WindowToClose);
+    void RequestCloseDetachedWindow(SWindow* WindowToClose);
 
 private:
     FRect Rect; // 이전엔 SWindow로부터 상속받던 영역 정보
@@ -130,8 +131,9 @@ private:
     const float ConsoleMinHeight = 150.0f; // 최소 콘솔 높이
     const float ConsoleMaxHeightRatio = 0.8f; // 최대 콘솔 높이 비율
 
-    // Detached skeletal mesh viewer window
-    SSkeletalMeshViewerWindow* SkeletalViewerWindow = nullptr;
+    // Detached viewer window
+    TArray<SWindow*> DetachedWindows;
+    TArray<SWindow*> PendingCloseWindows;
 
     // Content Browser (Bottom panel overlay with animation)
     UContentBrowserWindow* ContentBrowserWindow = nullptr;

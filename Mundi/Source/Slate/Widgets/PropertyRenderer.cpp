@@ -17,8 +17,9 @@
 #include "SpotLightComponent.h"
 #include "PlatformProcess.h"
 #include "SkeletalMeshComponent.h"
-#include "USlateManager.h"
+#include "SlateManager.h"
 #include "ImGui/imgui_curve.hpp"
+#include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 
 // 정적 멤버 변수 초기화
 TArray<FString> UPropertyRenderer::CachedSkeletalMeshPaths;
@@ -1052,22 +1053,24 @@ bool UPropertyRenderer::RenderSkeletalMeshProperty(const FProperty& Prop, void* 
 
 	if (ImGui::Button("Skeletal Viewer"))
 	{
-		if (!USlateManager::GetInstance().IsSkeletalMeshViewerOpen())
-		{
-			// Open viewer with the currently selected skeletal mesh if available
-			if (!CurrentPath.empty())
-			{
-				USlateManager::GetInstance().OpenSkeletalMeshViewerWithFile(CurrentPath.c_str());
-			}
-			else
-			{
-				USlateManager::GetInstance().OpenSkeletalMeshViewer();
-			}
-		}
-		else
-		{
-			USlateManager::GetInstance().CloseSkeletalMeshViewer();
-		}
+		// Create a context to store asset info
+		UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
+		Context->ViewerType = EViewerType::Skeletal;
+		Context->AssetPath = CurrentPath;
+
+		// Request USlateManager to open the viewer
+		USlateManager::GetInstance().OpenAssetViewer(Context);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Anim Viewer"))
+	{
+		// Create a context to store asset info
+		UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
+		Context->ViewerType = EViewerType::Animation;
+		Context->AssetPath = CurrentPath;
+
+		// Request USlateManager to open the viewer
+		USlateManager::GetInstance().OpenAssetViewer(Context);
 	}
 
 	ImGui::SetNextItemWidth(240);

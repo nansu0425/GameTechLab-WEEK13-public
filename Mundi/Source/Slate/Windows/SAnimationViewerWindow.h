@@ -7,18 +7,18 @@ class FViewportClient;
 class UWorld;
 struct ID3D11Device;
 
-class SSkeletalMeshViewerWindow : public SViewerWindow
+class SAnimationViewerWindow : public SViewerWindow
 {
 public:
-    SSkeletalMeshViewerWindow();
-    virtual ~SSkeletalMeshViewerWindow();
+    SAnimationViewerWindow();
+    virtual ~SAnimationViewerWindow();
 
     virtual void PreRenderViewportUpdate() override;
 
 protected:
     virtual ViewerState* CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context) override;
     virtual void DestroyViewerState(ViewerState*& State) override;
-    virtual FString GetWindowTitle() const override { return "Skeletal Mesh Viewer"; }
+    virtual FString GetWindowTitle() const override { return "Animation Viewer"; }
 
 private:
     // Load a skeletal mesh into the active tab

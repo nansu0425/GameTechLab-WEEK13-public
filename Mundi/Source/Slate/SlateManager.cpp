@@ -1,5 +1,5 @@
 ﻿#include "pch.h"
-#include "USlateManager.h"
+#include "SlateManager.h"
 
 #include "CameraActor.h"
 #include "Windows/SWindow.h"
@@ -17,6 +17,7 @@
 #include "UIManager.h"
 #include "GlobalConsole.h"
 #include "ThumbnailManager.h"
+#include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 
 IMPLEMENT_CLASS(USlateManager)
 
@@ -29,7 +30,6 @@ USlateManager& USlateManager::GetInstance()
     }
     return *Instance;
 }
-#include "FViewportClient.h"
 
 extern float CLIENTWIDTH;
 extern float CLIENTHEIGHT;
@@ -175,44 +175,79 @@ void USlateManager::Initialize(ID3D11Device* InDevice, UWorld* InWorld, const FR
     }
 }
 
-void USlateManager::OpenSkeletalMeshViewer()
+void USlateManager::OpenAssetViewer(UEditorAssetPreviewContext* Context)
 {
-    if (SkeletalViewerWindow)
+    if (!Context)    return;
+
+    // Check if a viewer for this Context is already open
+    for (SWindow* Window : DetachedWindows)
+    {
+        if (SViewerWindow* ExistingViewer = dynamic_cast<SViewerWindow*>(Window))
+        {
+            // Check if the viewer's Context is valid and if both the type and asset path match
+            if (ExistingViewer->Context &&
+                ExistingViewer->Context->ViewerType == Context->ViewerType &&
+                ExistingViewer->Context->AssetPath == Context->AssetPath)
+            {
+                // If the window already exists, focus it instead of creating a new one
+                ExistingViewer->bRequestFocus = true;
+                UE_LOG("Focusing existing asset viewer for: %s", Context->AssetPath.c_str());
+                return;
+            }
+        }
+    }
+
+    // If no window is open, create a new one
+    SViewerWindow* NewViewer = nullptr;
+    switch (Context->ViewerType)
+    {
+    case EViewerType::Skeletal:
+        NewViewer = new SSkeletalMeshViewerWindow();
+        break;
+    case EViewerType::Animation:
+        NewViewer = new SAnimationViewerWindow();
+        break;
+    default:
+        UE_LOG("ERROR: Unsupported asset type for viewer.");
         return;
-
-    SkeletalViewerWindow = new SSkeletalMeshViewerWindow();
-
-    // Open as a detached window at a default size and position
-    const float toolbarHeight = 50.0f;
-    const float availableHeight = Rect.GetHeight() - toolbarHeight;
-    const float w = Rect.GetWidth() * 0.6f;
-    const float h = availableHeight * 0.7f;
-    const float x = Rect.Left + (Rect.GetWidth() - w) * 0.5f;
-    const float y = Rect.Top + toolbarHeight + (availableHeight - h) * 0.5f;
-    SkeletalViewerWindow->Initialize(x, y, w, h, World, Device);
-}
-
-void USlateManager::OpenSkeletalMeshViewerWithFile(const char* FilePath)
-{
-    // 뷰어가 이미 열려있으면 그냥 사용, 아니면 새로 열기
-    if (!SkeletalViewerWindow)
-    {
-        OpenSkeletalMeshViewer();
     }
 
-    // Load the skeletal mesh into the viewer
-    if (SkeletalViewerWindow && FilePath && FilePath[0] != '\0')
+    if (NewViewer)
     {
-        SkeletalViewerWindow->LoadSkeletalMesh(FilePath);
-        UE_LOG("Opening SkeletalMeshViewer with file: %s", FilePath);
+        // Open as a detached window at a default size and position
+        const float toolbarHeight = 50.0f;
+        const float availableHeight = Rect.GetHeight() - toolbarHeight;
+        const float w = Rect.GetWidth() * 0.6f;
+        const float h = availableHeight * 0.7f;
+        const float x = Rect.Left + (Rect.GetWidth() - w) * 0.5f;
+        const float y = Rect.Top + toolbarHeight + (availableHeight - h) * 0.5f;
+
+        NewViewer->Initialize(x, y, w, h, World, Device, Context);
+        DetachedWindows.Add(NewViewer);
+        UE_LOG("Opened a new asset viewer for asset: %s", Context->AssetPath);
     }
 }
 
-void USlateManager::CloseSkeletalMeshViewer()
+void USlateManager::CloseDetachedWindow(SWindow* WindowToClose)
 {
-    if (!SkeletalViewerWindow) return;
-    delete SkeletalViewerWindow;
-    SkeletalViewerWindow = nullptr;
+    if (!WindowToClose) return;
+
+    // Find 'window to close' in DetachedWindows array
+    int32 IndexToRemove = DetachedWindows.Find(WindowToClose);
+    if (IndexToRemove != -1)
+    {
+        DetachedWindows.RemoveAt(IndexToRemove);
+        delete WindowToClose;
+        // The caller will null its pointer.
+    }
+}
+
+void USlateManager::RequestCloseDetachedWindow(SWindow* WindowToClose)
+{
+    if (PendingCloseWindows.Find(WindowToClose) == -1)
+    {
+        PendingCloseWindows.Add(WindowToClose);
+    }
 }
 
 void USlateManager::SwitchLayout(EViewportLayoutMode NewMode)
@@ -474,17 +509,20 @@ void USlateManager::Render()
     }
     
     // Render detached viewer on top
-    if (SkeletalViewerWindow)
+    for (SWindow* Window : DetachedWindows)
     {
-        SkeletalViewerWindow->OnRender();
+        Window->OnRender();
     }
 }
 
 void USlateManager::RenderAfterUI()
 {
-    if (SkeletalViewerWindow)
+    for (SWindow* Window : DetachedWindows)
     {
-        SkeletalViewerWindow->OnRenderViewport();
+        if (SViewerWindow* ViewerWindow = dynamic_cast<SViewerWindow*>(Window))
+        {
+            ViewerWindow->OnRenderViewport();
+        }
     }
 }
 
@@ -502,9 +540,9 @@ void USlateManager::Update(float DeltaSeconds)
         TopPanel->OnUpdate(DeltaSeconds);
     }
 
-    if (SkeletalViewerWindow)
+    for (SWindow* Window : DetachedWindows)
     {
-        SkeletalViewerWindow->OnUpdate(DeltaSeconds);
+        Window->OnUpdate(DeltaSeconds);
     }
 
     // 콘솔 애니메이션 업데이트
@@ -567,23 +605,59 @@ void USlateManager::Update(float DeltaSeconds)
 void USlateManager::ProcessInput()
 {
     const FVector2D MousePosition = INPUT.GetMousePosition();
+    SWindow* HoveredDetachedWindow = nullptr;
 
-    // Process input for SkeletalViewerWindow if hovered
-    if (SkeletalViewerWindow && SkeletalViewerWindow->Rect.Contains(MousePosition))
+    // Find the detached window that the mouse is hovering over
+    for (SWindow* Window : DetachedWindows)
     {
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+        if (Window && Window->Rect.Contains(MousePosition))
+        {
+            HoveredDetachedWindow = Window;
+            break;
+        }
+    }
+
+    // Process input for window if hovered
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+    {
+        if (HoveredDetachedWindow)
+        {
+            HoveredDetachedWindow->OnMouseDown(MousePosition, 0);
+        }
+        else
         {
             OnMouseDown(MousePosition, 0);
         }
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+    }
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+    {
+        if (HoveredDetachedWindow)
+        {
+            HoveredDetachedWindow->OnMouseDown(MousePosition, 1);
+        }
+        else
         {
             OnMouseDown(MousePosition, 1);
         }
-        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+    }
+    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+    {
+        if (HoveredDetachedWindow)
+        {
+            HoveredDetachedWindow->OnMouseUp(MousePosition, 0);
+        }
+        else
         {
             OnMouseUp(MousePosition, 0);
         }
-        if (ImGui::IsMouseReleased(ImGuiMouseButton_Right))
+    }
+    if (ImGui::IsMouseReleased(ImGuiMouseButton_Right))
+    {
+        if (HoveredDetachedWindow)
+        {
+            HoveredDetachedWindow->OnMouseUp(MousePosition, 1);
+        }
+        else
         {
             OnMouseUp(MousePosition, 1);
         }
@@ -633,24 +707,39 @@ void USlateManager::ProcessInput()
         ToggleContentBrowser();
     }
 
-    // ESC closes the Skeletal Mesh Viewer if open
-    if (ImGui::IsKeyPressed(ImGuiKey_Escape) && SkeletalViewerWindow)
+    // ESC closes the most recently opened detached window
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape))
     {
-        CloseSkeletalMeshViewer();
+        if (!DetachedWindows.IsEmpty())
+        {
+            SWindow* WindowToClose = DetachedWindows.Last();
+            CloseDetachedWindow(WindowToClose);
+        }
     }
 
     // 단축키로 기즈모 모드 변경
     if (World->GetGizmoActor())
         World->GetGizmoActor()->ProcessGizmoModeSwitch();
+
+    if (!PendingCloseWindows.IsEmpty())
+    {
+        for (SWindow* Window : PendingCloseWindows)
+        {
+            CloseDetachedWindow(Window);
+        }
+        PendingCloseWindows.Empty();
+    }
 }
 
 void USlateManager::OnMouseMove(FVector2D MousePos)
 {
-    // Route to detached viewer if hovered
-    if (SkeletalViewerWindow && SkeletalViewerWindow->IsHover(MousePos))
+    for (SWindow* Window : DetachedWindows)
     {
-        SkeletalViewerWindow->OnMouseMove(MousePos);
-        return;
+        if (Window && Window->IsHover(MousePos))
+        {
+            Window->OnMouseMove(MousePos);
+            return;
+        }
     }
 
     if (ActiveViewport)
@@ -665,12 +754,6 @@ void USlateManager::OnMouseMove(FVector2D MousePos)
 
 void USlateManager::OnMouseDown(FVector2D MousePos, uint32 Button)
 {
-    if (SkeletalViewerWindow && SkeletalViewerWindow->Rect.Contains(MousePos))
-    {
-        SkeletalViewerWindow->OnMouseDown(MousePos, Button);
-        return;
-    }
-    
     if (ActiveViewport)
     {
     }
@@ -705,13 +788,7 @@ void USlateManager::OnMouseUp(FVector2D MousePos, uint32 Button)
         INPUT.SetCursorVisible(true);
         INPUT.ReleaseCursor();
     }
-
-    if (SkeletalViewerWindow && SkeletalViewerWindow->Rect.Contains(MousePos))
-    {
-        SkeletalViewerWindow->OnMouseUp(MousePos, Button);
-        // do not return; still allow panels to finish mouse up
-    }
-
+    
     if (ActiveViewport)
     {
         ActiveViewport->OnMouseUp(MousePos, Button);
@@ -773,11 +850,11 @@ void USlateManager::Shutdown()
     MainViewport = nullptr;
     ActiveViewport = nullptr;
 
-    if (SkeletalViewerWindow)
+    for (SWindow* Window : DetachedWindows)
     {
-        delete SkeletalViewerWindow;
-        SkeletalViewerWindow = nullptr;
+        delete Window;
     }
+    DetachedWindows.Empty();
 }
 
 void USlateManager::SetPIEWorld(UWorld* InWorld)

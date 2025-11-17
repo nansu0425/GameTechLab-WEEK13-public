@@ -1,6 +1,6 @@
 ﻿#include "pch.h"
 #include "GameEngine.h"
-#include "USlateManager.h"
+#include "SlateManager.h"
 #include "SelectionManager.h"
 #include "FViewport.h"
 #include "PlayerCameraManager.h"

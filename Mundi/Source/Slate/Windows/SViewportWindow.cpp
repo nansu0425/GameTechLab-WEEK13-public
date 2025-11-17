@@ -2,7 +2,7 @@
 #include "SViewportWindow.h"
 #include "World.h"
 #include "ImGui/imgui.h"
-#include "USlateManager.h"
+#include "SlateManager.h"
 
 #include "FViewport.h"
 #include "FViewportClient.h"
@@ -14,7 +14,6 @@
 #include "StatsOverlayD2D.h"
 
 #include "StaticMeshActor.h"
-//#include "SkeletalMeshActor.h"
 #include "ResourceManager.h"
 #include <filesystem>
 

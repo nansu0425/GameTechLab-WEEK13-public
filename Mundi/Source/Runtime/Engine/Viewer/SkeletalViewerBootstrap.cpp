@@ -1,9 +1,9 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "SkeletalViewerBootstrap.h"
 #include "CameraActor.h"
-#include "Source/Runtime/Engine/SkeletalViewer/ViewerState.h"
+#include "Source/Runtime/Engine/Viewer/ViewerState.h"
 #include "FViewport.h"
-#include "FSkeletalViewerViewportClient.h"
+#include "SkeletalViewerViewportClient.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 // --- for testing ---
 #include "Source/Editor/FBXLoader.h"
@@ -62,9 +62,16 @@ ViewerState* SkeletalViewerBootstrap::CreateViewerState(const char* Name, UWorld
             Skel = Preview->GetSkeletalMeshComponent()->GetSkeletalMesh() ? Preview->GetSkeletalMeshComponent()->GetSkeletalMesh()->GetSkeleton() : nullptr;
             if (Skel)
             {
-                if (UAnimSequence* TestAnimation = UFbxLoader::GetInstance().LoadFbxAnimation(DefaultFBXPath, Skel))
+                // PreLoad()에서 이미 로드된 애니메이션을 리소스 매니저에서 가져오기
+                // 리소스 키 형식: {파일경로(확장자 제외)}_{AnimStack명}
+                UAnimSequence* TestAnimation = UResourceManager::GetInstance().Get<UAnimSequence>("Data/DancingRacer_mixamo.com");
+                if (TestAnimation)
                 {
                     Preview->GetSkeletalMeshComponent()->PlayAnimation(TestAnimation, true, 1.0f);
+                }
+                else
+                {
+                    UE_LOG("SkeletalViewerBootstrap: Failed to load test animation 'Data/DancingRacer_mixamo.com'");
                 }
             }
         }

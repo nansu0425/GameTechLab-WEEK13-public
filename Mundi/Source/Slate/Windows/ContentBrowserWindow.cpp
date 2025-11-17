@@ -4,7 +4,7 @@
 #include "ContentBrowserWindow.h"
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_internal.h"
-#include "USlateManager.h"
+#include "SlateManager.h"
 #include "ThumbnailManager.h"
 #include <algorithm>
 
@@ -442,7 +442,7 @@ void UContentBrowserWindow::HandleDoubleClick(FFileEntry& Entry)
 	{
 		// SkeletalMeshViewer 열기
 		std::string pathStr = Entry.Path.string();
-		USlateManager::GetInstance().OpenSkeletalMeshViewerWithFile(pathStr.c_str());
+		//USlateManager::GetInstance().OpenSkeletalMeshViewerWithFile(pathStr.c_str());
 		UE_LOG("Opening SkeletalMeshViewer for: %s", Entry.FileName.c_str());
 	}
 	else if (ext == ".obj")

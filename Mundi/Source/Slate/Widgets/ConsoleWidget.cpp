@@ -3,7 +3,7 @@
 #include "ObjectFactory.h"
 #include "GlobalConsole.h"
 #include "StatsOverlayD2D.h"
-#include "USlateManager.h"
+#include "SlateManager.h"
 #include "SkinnedMeshComponent.h"
 #include "PlatformCrashHandler.h"
 #include <windows.h>

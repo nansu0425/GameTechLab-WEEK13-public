@@ -1,27 +1,27 @@
 ﻿#include "pch.h"
-#include "SSkeletalMeshViewerWindow.h"
-#include "Source/Runtime/Engine/Viewer/SkeletalViewerBootstrap.h"
+#include "SAnimationViewerWindow.h"
+#include "Source/Runtime/Engine/Viewer/AnimationViewerBootstrap.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 #include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 
-SSkeletalMeshViewerWindow::SSkeletalMeshViewerWindow()
+SAnimationViewerWindow::SAnimationViewerWindow()
 {
     CenterRect = FRect(0, 0, 0, 0);
 }
 
-SSkeletalMeshViewerWindow::~SSkeletalMeshViewerWindow()
+SAnimationViewerWindow::~SAnimationViewerWindow()
 {
     // Clean up tabs if any
     for (int i = 0; i < Tabs.Num(); ++i)
     {
         ViewerState* State = Tabs[i];
-        SkeletalViewerBootstrap::DestroyViewerState(State);
+        AnimationViewerBootstrap::DestroyViewerState(State);
     }
     Tabs.Empty();
     ActiveState = nullptr;
 }
 
-void SSkeletalMeshViewerWindow::PreRenderViewportUpdate()
+void SAnimationViewerWindow::PreRenderViewportUpdate()
 {
     // Reconstruct bone overlay
     if (ActiveState->bShowBones)
@@ -39,9 +39,9 @@ void SSkeletalMeshViewerWindow::PreRenderViewportUpdate()
     }
 }
 
-ViewerState* SSkeletalMeshViewerWindow::CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context)
+ViewerState* SAnimationViewerWindow::CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context)
 {
-    ViewerState* NewState = SkeletalViewerBootstrap::CreateViewerState(Name, World, Device);
+    ViewerState* NewState = AnimationViewerBootstrap::CreateViewerState(Name, World, Device);
     if (!NewState) return nullptr;
 
     if (Context && !Context->AssetPath.empty())
@@ -51,12 +51,12 @@ ViewerState* SSkeletalMeshViewerWindow::CreateViewerState(const char* Name, UEdi
     return NewState;
 }
 
-void SSkeletalMeshViewerWindow::DestroyViewerState(ViewerState*& State)
+void SAnimationViewerWindow::DestroyViewerState(ViewerState*& State)
 {
-    SkeletalViewerBootstrap::DestroyViewerState(State);
+    AnimationViewerBootstrap::DestroyViewerState(State);
 }
 
-void SSkeletalMeshViewerWindow::LoadSkeletalMesh(ViewerState* State, const FString& Path)
+void SAnimationViewerWindow::LoadSkeletalMesh(ViewerState* State, const FString& Path)
 {
     if (!State || Path.empty())
         return;
@@ -100,10 +100,10 @@ void SSkeletalMeshViewerWindow::LoadSkeletalMesh(ViewerState* State, const FStri
             LineComp->SetLineVisible(State->bShowBones);
         }
 
-        UE_LOG("SSkeletalMeshViewerWindow: Loaded skeletal mesh from %s", Path.c_str());
+        UE_LOG("SAnimationViewerWindow: Loaded skeletal mesh from %s", Path.c_str());
     }
     else
     {
-        UE_LOG("SSkeletalMeshViewerWindow: Failed to load skeletal mesh from %s", Path.c_str());
+        UE_LOG("SAnimationViewerWindow: Failed to load skeletal mesh from %s", Path.c_str());
     }
 }

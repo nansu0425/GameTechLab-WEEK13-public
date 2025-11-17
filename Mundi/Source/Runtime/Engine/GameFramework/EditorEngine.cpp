@@ -1,11 +1,10 @@
 ﻿#include "pch.h"
 #include "EditorEngine.h"
-#include "USlateManager.h"
+#include "SlateManager.h"
 #include "SelectionManager.h"
 #include "FAudioDevice.h"
 #include "FbxLoader.h"
 #include <ObjManager.h>
-
 
 float UEditorEngine::ClientWidth = 1024.0f;
 float UEditorEngine::ClientHeight = 1024.0f;

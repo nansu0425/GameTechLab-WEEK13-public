@@ -8,7 +8,7 @@
 #include "TextRenderComponent.h"
 #include "FViewport.h"
 #include "Windows/SViewportWindow.h"
-#include "USlateManager.h"
+#include "SlateManager.h"
 #include "StaticMesh.h"
 #include "ObjManager.h"
 #include "WorldPartitionManager.h"
