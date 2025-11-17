@@ -4,28 +4,12 @@
 // ────────────────────────────────────────────────────────────────────────────
 #include "pch.h"
 #include "PlayerController.h"
-// #include "Pawn.h"  // TODO: 2단계에서 Pawn 구현 후 주석 해제
-// #include "InputComponent.h"  // TODO: 2단계에서 InputComponent 구현 후 주석 해제
+#include "Pawn.h"
+#include "InputComponent.h"
 #include "InputManager.h"
 #include "PlayerCameraManager.h"
 #include "CameraComponent.h"
 #include "World.h"
-
-// 임시 전방 선언 (빌드를 위해)
-class APawn
-{
-public:
-	virtual void PossessedBy(class AController* NewController) {}
-	virtual void UnPossessed() {}
-	class UInputComponent* GetInputComponent() const { return nullptr; }
-	void SetupPlayerInputComponent(class UInputComponent* InComp) {}
-};
-
-class UInputComponent
-{
-public:
-	void ProcessInput() {}
-};
 
 APlayerController::APlayerController()
 	: InputManager(nullptr)
