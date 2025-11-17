@@ -4,8 +4,8 @@
 
 class UAnimInstance;
 class UAnimationAsset;
-class UAnimStateMachineInstance;
 class UAnimSequence;
+class UAnimStateMachineInstance;
 
 UCLASS(DisplayName="스켈레탈 메시 컴포넌트", Description="스켈레탈 메시를 렌더링하는 컴포넌트입니다")
 class USkeletalMeshComponent : public USkinnedMeshComponent
@@ -31,42 +31,12 @@ public:
     float GetAnimationPosition();
     bool IsPlayingAnimation() const;
 
-    //==== Lua-friendly Animation State Machine helpers ====
+    //==== Minimal Lua-friendly helper to switch to a state machine anim instance ====
     UFUNCTION(LuaBind, DisplayName="UseStateMachine")
     void UseStateMachine();
 
-    UFUNCTION(LuaBind, DisplayName="AnimSM_Clear")
-    void AnimSM_Clear();
-
-    UFUNCTION(LuaBind, DisplayName="AnimSM_IsActive")
-    bool AnimSM_IsActive() const;
-
-    UFUNCTION(LuaBind, DisplayName="AnimSM_AddState")
-    int32 AnimSM_AddState(const FString& Name, const FString& AssetPath, float Rate, bool bLooping);
-
-    UFUNCTION(LuaBind, DisplayName="AnimSM_AddTransitionByName")
-    void AnimSM_AddTransitionByName(const FString& FromName, const FString& ToName, float BlendTime);
-
-    UFUNCTION(LuaBind, DisplayName="AnimSM_SetState")
-    void AnimSM_SetState(const FString& Name, float BlendTime);
-
-    UFUNCTION(LuaBind, DisplayName="AnimSM_GetCurrentStateName")
-    FString AnimSM_GetCurrentStateName() const;
-
-    UFUNCTION(LuaBind, DisplayName="AnimSM_GetStateIndex")
-    int32 AnimSM_GetStateIndex(const FString& Name) const;
-
-    UFUNCTION(LuaBind, DisplayName="AnimSM_SetStatePlayRate")
-    void AnimSM_SetStatePlayRate(const FString& Name, float Rate);
-
-    UFUNCTION(LuaBind, DisplayName="AnimSM_SetStateLooping")
-    void AnimSM_SetStateLooping(const FString& Name, bool bLooping);
-
-    UFUNCTION(LuaBind, DisplayName="AnimSM_GetStateTime")
-    float AnimSM_GetStateTime(const FString& Name) const;
-
-    UFUNCTION(LuaBind, DisplayName="AnimSM_SetStateTime")
-    void AnimSM_SetStateTime(const FString& Name, float TimeSeconds);
+    UFUNCTION(LuaBind, DisplayName="GetOrCreateStateMachine")
+    UAnimStateMachineInstance* GetOrCreateStateMachine();
 
 // Editor Section
 public:

@@ -161,6 +161,14 @@ void FAnimNode_StateMachine::EnsureTransitionBuckets()
     }
 }
 
+void FAnimNode_StateMachine::Reset()
+{
+    States.Empty();
+    Transitions.Empty();
+    TransitionsByFrom.Empty();
+    Runtime = FAnimSMRuntime{};
+}
+
 void FAnimNode_StateMachine::Update(FAnimationBaseContext& Context)
 {
     const float DeltaSeconds = Context.GetDeltaSeconds();
@@ -236,7 +244,6 @@ void FAnimNode_StateMachine::Evaluate(FPoseContext& Output)
         Output.LocalSpacePose = PoseA.LocalSpacePose;
     }
 }
-
 
 
 

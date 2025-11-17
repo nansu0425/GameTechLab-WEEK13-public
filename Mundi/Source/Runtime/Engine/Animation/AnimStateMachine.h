@@ -37,6 +37,8 @@ struct FAnimSMRuntime
 // Graph node: state machine
 struct FAnimNode_StateMachine : public FAnimNode_Base
 {
+    // Maintenance
+    void Reset();
     // Authoring API
     int32 AddState(const FAnimState& State, UAnimSequenceBase* Sequence);
     void AddTransition(const FAnimTransition& Transition);

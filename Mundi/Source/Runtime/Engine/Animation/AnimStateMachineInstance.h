@@ -25,6 +25,40 @@ public:
     float GetStateTime(int32 Index) const { return StateMachine.GetStateTime(Index); }
     bool SetStateTime(int32 Index, float TimeSeconds) { return StateMachine.SetStateTime(Index, TimeSeconds); }
 
+    // ==== Lua-facing API (moved from SkeletalMeshComponent) ====
+    UFUNCTION(LuaBind, DisplayName="Clear")
+    void Clear();
+
+    UFUNCTION(LuaBind, DisplayName="IsActive")
+    bool Lua_IsActive() const { return IsPlaying(); }
+
+    UFUNCTION(LuaBind, DisplayName="AddState")
+    int32 Lua_AddState(const FString& Name, const FString& AssetPath, float Rate, bool bLooping);
+
+    UFUNCTION(LuaBind, DisplayName="AddTransitionByName")
+    void Lua_AddTransitionByName(const FString& FromName, const FString& ToName, float BlendTime);
+
+    UFUNCTION(LuaBind, DisplayName="SetState")
+    void Lua_SetState(const FString& Name, float BlendTime);
+
+    UFUNCTION(LuaBind, DisplayName="GetCurrentStateName")
+    FString Lua_GetCurrentStateName() const;
+
+    UFUNCTION(LuaBind, DisplayName="GetStateIndex")
+    int32 Lua_GetStateIndex(const FString& Name) const;
+
+    UFUNCTION(LuaBind, DisplayName="SetStatePlayRate")
+    void Lua_SetStatePlayRate(const FString& Name, float Rate);
+
+    UFUNCTION(LuaBind, DisplayName="SetStateLooping")
+    void Lua_SetStateLooping(const FString& Name, bool bLooping);
+
+    UFUNCTION(LuaBind, DisplayName="GetStateTime")
+    float Lua_GetStateTime(const FString& Name) const;
+
+    UFUNCTION(LuaBind, DisplayName="SetStateTime")
+    void Lua_SetStateTime(const FString& Name, float TimeSeconds);
+
     // UAnimInstance overrides
     void NativeUpdateAnimation(float DeltaSeconds) override;
     void EvaluateAnimation(FPoseContext& Output) override;
