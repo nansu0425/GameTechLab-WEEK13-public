@@ -28,6 +28,10 @@ public:
 	UEditorAssetPreviewContext* GetContext() const { return Context; }
 	ViewerState* GetActiveState() const { return ActiveState; }
 
+	// 윈도우 상태 접근자
+	bool IsWindowHovered() const { return bIsWindowHovered; }
+	bool IsWindowFocused() const { return bIsWindowFocused; }
+
 protected:
 	// Per-tab state
 	UEditorAssetPreviewContext* Context = nullptr;
@@ -56,6 +60,10 @@ protected:
 	bool bIsOpen = true;
 	FString WindowTitle;
 	bool bHasBottomPanel = true;
+
+	// 윈도우 hover/focus 상태 (매 프레임 업데이트됨)
+	bool bIsWindowHovered = false;
+	bool bIsWindowFocused = false;
 	
 	void OpenNewTab(const char* Name = "Viewer");
 	void CloseTab(int Index);

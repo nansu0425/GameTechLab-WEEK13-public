@@ -54,6 +54,11 @@ void SSkeletalMeshViewerWindow::OnRender()
     if (ImGui::Begin(UniqueTitle, &bIsOpen, flags))
     {
         bViewerVisible = true;
+
+        // 입력 라우팅을 위한 hover/focus 상태 캡처
+        bIsWindowHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
+        bIsWindowFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+
         // Render tab bar and switch active state
         if (ImGui::BeginTabBar("SkeletalViewerTabs", ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
         {
@@ -143,6 +148,8 @@ void SSkeletalMeshViewerWindow::OnRender()
     {
         CenterRect = FRect(0, 0, 0, 0);
         CenterRect.UpdateMinMax();
+        bIsWindowHovered = false;
+        bIsWindowFocused = false;
     }
 
     // If window was closed via X button, notify the manager to clean up

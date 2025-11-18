@@ -59,6 +59,10 @@ void SAnimationViewerWindow::OnRender()
     {
         bViewerVisible = true;
 
+        // 입력 라우팅을 위한 hover/focus 상태 캡처
+        bIsWindowHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
+        bIsWindowFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+
         //=====================================================
         // Tab Bar : Render tab bar and switch active state
         //=====================================================
@@ -132,6 +136,8 @@ void SAnimationViewerWindow::OnRender()
     {
         CenterRect = FRect(0, 0, 0, 0);
         CenterRect.UpdateMinMax();
+        bIsWindowHovered = false;
+        bIsWindowFocused = false;
     }
 
     // If window was closed via X button, notify the manager to clean up
