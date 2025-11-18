@@ -5,6 +5,7 @@
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 #include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 #include "AnimSingleNodeInstance.h"
+#include "Source/Runtime/Renderer/FViewport.h"
 
 SAnimationViewerWindow::SAnimationViewerWindow()
 {
@@ -488,22 +489,26 @@ void SAnimationViewerWindow::RenderCenterPanel()
 
 void SAnimationViewerWindow::RenderViewportArea(float width, float height)
 {
-    // Remove all padding, spacing, rounding
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::BeginChild("ViewportArea", ImVec2(width, height), false,
-        ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar);
-    ImGui::PopStyleVar();
+    // 뷰포트가 그려질 위치 저장
+    ImVec2 Pos = ImGui::GetCursorScreenPos();
 
-    ImVec2 Pos = ImGui::GetCursorScreenPos();      // inner top-left
-    ImVec2 Size = ImGui::GetContentRegionAvail();  // usable area
+    // 공간만 차지 (아무것도 렌더링하지 않음)
+    ImGui::Dummy(ImVec2(width, height));
 
+    // 뷰포트 영역 설정
     CenterRect.Left   = Pos.x;
     CenterRect.Top    = Pos.y;
-    CenterRect.Right  = Pos.x + Size.x;
-    CenterRect.Bottom = Pos.y + Size.y;
+    CenterRect.Right  = Pos.x + width;
+    CenterRect.Bottom = Pos.y + height;
     CenterRect.UpdateMinMax();
 
-    ImGui::EndChild();
+    // ImGui draw list에 뷰포트 렌더링 콜백 등록
+    // 이 콜백은 ImGui 렌더링 중 이 시점에서 호출됨
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    drawList->AddCallback(ViewportRenderCallback, this);
+
+    // 콜백 후 ImGui 렌더 상태 복원
+    drawList->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
 }
 
 void SAnimationViewerWindow::RenderTimelineArea(float width, float height)
@@ -1038,4 +1043,47 @@ void SAnimationViewerWindow::BuildRowToNotifyIndex(const TArray<FString>& InRows
 
     OutMapping.push_back(-1);     // Curves
     OutMapping.push_back(-1);     // Attributes
+}
+
+// ImGui draw callback - Direct3D 뷰포트 렌더링
+void SAnimationViewerWindow::ViewportRenderCallback(const ImDrawList* parent_list, const ImDrawCmd* cmd)
+{
+    // UserCallbackData로 전달된 this 포인터 가져오기
+    SAnimationViewerWindow* window = (SAnimationViewerWindow*)cmd->UserCallbackData;
+
+    if (window && window->ActiveState && window->ActiveState->Viewport)
+    {
+        FViewport* viewport = window->ActiveState->Viewport;
+
+        // D3D 디바이스 컨텍스트 가져오기
+        ID3D11Device* device = window->Device;
+        ID3D11DeviceContext* context = nullptr;
+        device->GetImmediateContext(&context);
+
+        if (context)
+        {
+            // ImGui가 변경한 D3D 상태를 뷰포트 렌더링에 맞게 초기화
+            // 1. Viewport 설정
+            D3D11_VIEWPORT d3dViewport = {};
+            d3dViewport.Width = static_cast<float>(viewport->GetSizeX());
+            d3dViewport.Height = static_cast<float>(viewport->GetSizeY());
+            d3dViewport.MinDepth = 0.0f;
+            d3dViewport.MaxDepth = 1.0f;
+            d3dViewport.TopLeftX = static_cast<float>(viewport->GetStartX());
+            d3dViewport.TopLeftY = static_cast<float>(viewport->GetStartY());
+            context->RSSetViewports(1, &d3dViewport);
+
+            // 2. D3D 렌더 상태 복구 (ImGui → 3D 렌더링용)
+            float blendFactor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+            context->OMSetBlendState(nullptr, blendFactor, 0xffffffff);  // 블렌딩 비활성화
+            context->OMSetDepthStencilState(nullptr, 0);                  // 기본 깊이 테스트
+            context->RSSetState(nullptr);                                 // 기본 래스터라이저
+            context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+            // 3. 뷰포트 렌더링 실행
+            window->OnRenderViewport();
+
+            context->Release();
+        }
+    }
 }

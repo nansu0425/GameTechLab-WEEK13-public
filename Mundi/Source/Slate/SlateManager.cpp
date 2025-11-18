@@ -518,13 +518,9 @@ void USlateManager::Render()
 
 void USlateManager::RenderAfterUI()
 {
-    for (SWindow* Window : DetachedWindows)
-    {
-        if (SViewerWindow* ViewerWindow = dynamic_cast<SViewerWindow*>(Window))
-        {
-            ViewerWindow->OnRenderViewport();
-        }
-    }
+    // 뷰포트 렌더링은 이제 ImGui draw callback에서 처리됨
+    // (SAnimationViewerWindow::ViewportRenderCallback 참조)
+    // 따라서 여기서는 아무것도 하지 않음
 }
 
 void USlateManager::Update(float DeltaSeconds)

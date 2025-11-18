@@ -4,6 +4,7 @@
 #include "Source/Runtime/Engine/Viewer/SkeletalViewerBootstrap.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 #include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
+#include "Source/Runtime/Renderer/FViewport.h"
 
 SSkeletalMeshViewerWindow::SSkeletalMeshViewerWindow()
 {
@@ -103,14 +104,25 @@ void SSkeletalMeshViewerWindow::OnRender()
 
         ImGui::SameLine(0, 0); // No spacing between panels
 
-        // Center panel (viewport area) — draw with border to see the viewport area
-        ImGui::BeginChild("SkeletalMeshViewport", ImVec2(centerWidth, totalHeight), true, ImGuiWindowFlags_NoScrollbar);
-        ImVec2 childPos = ImGui::GetWindowPos();
-        ImVec2 childSize = ImGui::GetWindowSize();
-        ImVec2 rectMin = childPos;
-        ImVec2 rectMax(childPos.x + childSize.x, childPos.y + childSize.y);
-        CenterRect.Left = rectMin.x; CenterRect.Top = rectMin.y; CenterRect.Right = rectMax.x; CenterRect.Bottom = rectMax.y; CenterRect.UpdateMinMax();
-        ImGui::EndChild();
+        // Center panel (viewport area)
+        ImVec2 viewportPos = ImGui::GetCursorScreenPos();
+
+        // 공간만 차지 (아무것도 렌더링하지 않음)
+        ImGui::Dummy(ImVec2(centerWidth, totalHeight));
+
+        // 뷰포트 영역 설정
+        CenterRect.Left = viewportPos.x;
+        CenterRect.Top = viewportPos.y;
+        CenterRect.Right = viewportPos.x + centerWidth;
+        CenterRect.Bottom = viewportPos.y + totalHeight;
+        CenterRect.UpdateMinMax();
+
+        // ImGui draw list에 뷰포트 렌더링 콜백 등록
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        drawList->AddCallback(ViewportRenderCallback, this);
+
+        // 콜백 후 ImGui 렌더 상태 복원
+        drawList->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
 
         ImGui::SameLine(0, 0); // No spacing between panels
 
@@ -227,5 +239,48 @@ void SSkeletalMeshViewerWindow::LoadSkeletalMesh(ViewerState* State, const FStri
     else
     {
         UE_LOG("SSkeletalMeshViewerWindow: Failed to load skeletal mesh from %s", Path.c_str());
+    }
+}
+
+// ImGui draw callback - Direct3D 뷰포트 렌더링
+void SSkeletalMeshViewerWindow::ViewportRenderCallback(const ImDrawList* parent_list, const ImDrawCmd* cmd)
+{
+    // UserCallbackData로 전달된 this 포인터 가져오기
+    SSkeletalMeshViewerWindow* window = (SSkeletalMeshViewerWindow*)cmd->UserCallbackData;
+
+    if (window && window->ActiveState && window->ActiveState->Viewport)
+    {
+        FViewport* viewport = window->ActiveState->Viewport;
+
+        // D3D 디바이스 컨텍스트 가져오기
+        ID3D11Device* device = window->Device;
+        ID3D11DeviceContext* context = nullptr;
+        device->GetImmediateContext(&context);
+
+        if (context)
+        {
+            // ImGui가 변경한 D3D 상태를 뷰포트 렌더링에 맞게 초기화
+            // 1. Viewport 설정
+            D3D11_VIEWPORT d3dViewport = {};
+            d3dViewport.Width = static_cast<float>(viewport->GetSizeX());
+            d3dViewport.Height = static_cast<float>(viewport->GetSizeY());
+            d3dViewport.MinDepth = 0.0f;
+            d3dViewport.MaxDepth = 1.0f;
+            d3dViewport.TopLeftX = static_cast<float>(viewport->GetStartX());
+            d3dViewport.TopLeftY = static_cast<float>(viewport->GetStartY());
+            context->RSSetViewports(1, &d3dViewport);
+
+            // 2. D3D 렌더 상태 복구 (ImGui → 3D 렌더링용)
+            float blendFactor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+            context->OMSetBlendState(nullptr, blendFactor, 0xffffffff);  // 블렌딩 비활성화
+            context->OMSetDepthStencilState(nullptr, 0);                  // 기본 깊이 테스트
+            context->RSSetState(nullptr);                                 // 기본 래스터라이저
+            context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+            // 3. 뷰포트 렌더링 실행
+            window->OnRenderViewport();
+
+            context->Release();
+        }
     }
 }
