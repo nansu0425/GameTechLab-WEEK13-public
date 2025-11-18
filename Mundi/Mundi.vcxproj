@@ -547,6 +547,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\Lua\lib\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Generated\USpringArmComponent.generated.cpp" />
     <ClCompile Include="Generated\AGameModeBase.generated.cpp" />
     <ClCompile Include="Generated\AGameStateBase.generated.cpp" />
+    <ClCompile Include="Generated\UAnimBlendSpaceInstance.generated.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\Common\LightingBuffers.hlsl">
@@ -974,6 +975,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\Lua\lib\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Generated\USpringArmComponent.generated.h" />
     <ClInclude Include="Generated\AGameModeBase.generated.h" />
     <ClInclude Include="Generated\AGameStateBase.generated.h" />
+    <ClInclude Include="Generated\UAnimBlendSpaceInstance.generated.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="BuildTools\CodeGenerator\generate.py" />

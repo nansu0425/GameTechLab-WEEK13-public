@@ -45,6 +45,11 @@ struct FAnimNode_BlendSpace2D : public FAnimNode_Base
     const TArray<FBlendSample2D>& GetSamples() const { return Samples; }
     const TArray<FBlendTriangle>& GetTriangles() const { return Triangles; }
 
+    // Edits (for editor tooling)
+    bool SetSamplePosition(int32 Index, const FVector2D& NewPos);
+    bool SetSampleParams(int32 Index, float NewRateScale, bool bNewLooping);
+    void ClearTriangles() { Triangles.Empty(); }
+
     // FAnimNode_Base overrides
     void Update(FAnimationBaseContext& Context) override;
     void Evaluate(FPoseContext& Output) override;
@@ -71,4 +76,3 @@ private:
     bool bLooping = true;
     int32 DriverSampleIndex = 0; // source of normalized time (phase)
 };
-

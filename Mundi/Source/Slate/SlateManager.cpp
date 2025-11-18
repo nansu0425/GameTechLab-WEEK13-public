@@ -9,6 +9,7 @@
 #include "Windows/ControlPanelWindow.h"
 #include "Windows/SViewportWindow.h"
 #include "Windows/SViewerWindow.h"
+#include "Windows/SBlendSpaceEditorWindow.h"
 #include "Windows/SSkeletalMeshViewerWindow.h"
 #include "Windows/ConsoleWindow.h"
 #include "Windows/ContentBrowserWindow.h"
@@ -208,6 +209,9 @@ void USlateManager::OpenAssetViewer(UEditorAssetPreviewContext* Context)
         break;
     case EViewerType::Animation:
         NewViewer = new SAnimationViewerWindow();
+        break;
+    case EViewerType::BlendSpace:
+        NewViewer = new SBlendSpaceEditorWindow();
         break;
     default:
         UE_LOG("ERROR: Unsupported asset type for viewer.");

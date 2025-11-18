@@ -181,3 +181,17 @@ void FAnimNode_BlendSpace2D::Evaluate(FPoseContext& Output)
     FAnimationRuntime::ConvertComponentToLocalSpace(*Skeleton, CompOut, Output.LocalSpacePose);
 }
 
+bool FAnimNode_BlendSpace2D::SetSamplePosition(int32 Index, const FVector2D& NewPos)
+{
+    if (Index < 0 || Index >= Samples.Num()) return false;
+    Samples[Index].Position = NewPos;
+    return true;
+}
+
+bool FAnimNode_BlendSpace2D::SetSampleParams(int32 Index, float NewRateScale, bool bNewLooping)
+{
+    if (Index < 0 || Index >= Samples.Num()) return false;
+    Samples[Index].RateScale = NewRateScale;
+    Samples[Index].bLooping = bNewLooping;
+    return true;
+}

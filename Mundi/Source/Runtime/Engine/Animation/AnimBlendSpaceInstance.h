@@ -23,6 +23,12 @@ public:
     void SetLooping(bool bInLooping) { BlendSpace.SetLooping(bInLooping); }
     void SetDriverIndex(int32 Idx) { BlendSpace.SetDriverIndex(Idx); }
 
+    const TArray<FBlendSample2D>& GetSamples() const { return BlendSpace.GetSamples(); }
+    const TArray<FBlendTriangle>& GetTriangles() const { return BlendSpace.GetTriangles(); }
+    bool SetSamplePosition(int32 Index, const FVector2D& Pos) { return BlendSpace.SetSamplePosition(Index, Pos); }
+    bool SetSampleParams(int32 Index, float RateScale, bool bLooping) { return BlendSpace.SetSampleParams(Index, RateScale, bLooping); }
+    void ClearTriangles() { BlendSpace.ClearTriangles(); }
+
     // Lua-facing API
     UFUNCTION(LuaBind, DisplayName="Clear")
     void Lua_Clear();
@@ -56,4 +62,3 @@ public:
 private:
     FAnimNode_BlendSpace2D BlendSpace;
 };
-
