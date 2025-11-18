@@ -737,30 +737,36 @@ void SAnimationViewerWindow::RenderTimelineArea(float width, float height)
     ImGui::EndChild();  // TimelineGridSmall
 }
 
+
 void SAnimationViewerWindow::RenderTimelineControls()
 {
     ImGui::Spacing();
 
-    if (ImGui::Button("|<<")) { AnimJumpToStart(); }
+    // -------------------------------------------------------------------------
+    // Left-Aligned Animation Controls
+    // -------------------------------------------------------------------------
+    if (ImGui::Button("|<<")) AnimJumpToStart();
     ImGui::SameLine();
-    if (ImGui::Button("<")) { AnimStep(false); }
+    if (ImGui::Button("<")) AnimStep(false);
     ImGui::SameLine();
 
     if (ActiveState->bIsPlaying)
     {
-        if (ImGui::Button("Pause")) { ActiveState->bIsPlaying = false; }
+        if (ImGui::Button("Pause")) ActiveState->bIsPlaying = false;
     }
     else
     {
-        if (ImGui::Button("Play")) { ActiveState->bIsPlaying = true; }
+        if (ImGui::Button("Play")) ActiveState->bIsPlaying = true;
     }
 
     ImGui::SameLine();
-    if (ImGui::Button(">")) { AnimStep(true); }
+    if (ImGui::Button(">")) AnimStep(true);
     ImGui::SameLine();
-    if (ImGui::Button(">>|")) { AnimJumpToEnd(); }
+    if (ImGui::Button(">>|")) AnimJumpToEnd();
+
     ImGui::SameLine();
 
+    // Reverse Button with highlight
     bool bHighlighted = ActiveState->bReversePlay;
     if (bHighlighted)
     {
@@ -768,30 +774,187 @@ void SAnimationViewerWindow::RenderTimelineControls()
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.7f, 1.0f, 1.0f));
     }
     if (ImGui::Button("Reverse"))
-    {
         ActiveState->bReversePlay = !ActiveState->bReversePlay;
-    }
-    if (bHighlighted)
-    {
-        ImGui::PopStyleColor(2);
-    }
+    if (bHighlighted) ImGui::PopStyleColor(2);
 
     ImGui::SameLine();
     ImGui::Checkbox("Loop", &ActiveState->bIsLooping);
 
     ImGui::SameLine();
-    ImGui::Text("Speed:");
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(70);
-    ImGui::SliderFloat("##AnimSpeed", &ActiveState->PlaybackSpeed, 0.1f, 3.0f, "%.1fx");
-
-    ImGui::SameLine();
     ImGui::Text("Time:");
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(100);
-    if (ImGui::SliderFloat("##AnimTime", &ActiveState->CurrentTime, 0.0f, ActiveState->TotalTime, "%.2f"))
+
+    // -------------------------------------------------------------------------
+    // Timeline Scrubber (Slider)
+    // -------------------------------------------------------------------------
+    const float windowRightEdge = ImGui::GetWindowContentRegionMax().x;
+    const float speedButtonWidth = 80.0f;
+    const float rightButtonStartX = windowRightEdge - speedButtonWidth;
+    float sliderWidth = rightButtonStartX - ImGui::GetCursorPosX() - 10.0f;
+
+    if (sliderWidth > 50.0f)
     {
-        ActiveState->bIsScrubbing = true;
+        ImGui::SetNextItemWidth(sliderWidth);
+        if (ImGui::SliderFloat("##AnimTime",
+            &ActiveState->CurrentTime, 0.0f, ActiveState->TotalTime, "%.2f"))
+        {
+            ActiveState->bIsScrubbing = true;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Playback Speed Combo Button (Transparent)
+    // -------------------------------------------------------------------------
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(rightButtonStartX);
+
+    char speedLabel[32];
+    float v = ActiveState->PlaybackSpeed;
+
+    // Check second decimal digit
+    int secondDigit = (int)(v * 100) % 10;
+
+    if (secondDigit == 0)   sprintf_s(speedLabel, "x%.1f", v);   // x1.5 → x1.5
+    else                    sprintf_s(speedLabel, "x%.2f", v);   // x1.23 → x1.23
+
+    if (ImGui::Button(speedLabel, ImVec2(speedButtonWidth, 0)))
+        ImGui::OpenPopup("PlaybackSpeedPopup");
+
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Playback Speed Options");
+
+    // -------------------------------------------------------------------------
+    // Playback Speed Popup
+    // -------------------------------------------------------------------------
+    ImGui::SetNextWindowSize(ImVec2(200, 0));
+    if (ImGui::BeginPopup("PlaybackSpeedPopup"))
+    {
+        // Lighter hover/select background for rows
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.25f, 0.25f, 0.25f, 0.3f));
+        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.30f, 0.30f, 0.30f, 0.6f));
+
+        ImGui::TextDisabled("PLAYBACK SPEED");
+        ImGui::Separator();
+        ImGui::Dummy(ImVec2(0, 4));
+
+        const float presets[] = { 0.1f, 0.25f, 0.5f, 1.0f, 1.5f, 2.0f, 5.0f, 10.0f };
+        float currentSpeed = ActiveState->PlaybackSpeed;
+        bool bCustomIsSelected = true;
+
+        for (float s : presets)
+        {
+            if (fabs(currentSpeed - s) < 0.001f)
+            {
+                bCustomIsSelected = false;
+                break;
+            }
+        }
+
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        const float radioRadius = 4.0f;
+
+        // ---------------------------------------------------------------------
+        // Preset Rows
+        // ---------------------------------------------------------------------
+        for (int i = 0; i < IM_ARRAYSIZE(presets); i++)
+        {
+            float s = presets[i];
+            bool isSelected = (fabs(currentSpeed - s) < 0.001f);
+
+            ImGui::PushID(i);
+
+            // Selectable row (label suppressed)
+            if (ImGui::Selectable("     ", isSelected, ImGuiSelectableFlags_DontClosePopups))
+            {
+                ActiveState->PlaybackSpeed = s;
+
+                float mouseX = ImGui::GetMousePos().x;
+                float itemMinX = ImGui::GetItemRectMin().x;
+
+                if (mouseX > itemMinX + 30.0f)
+                    ImGui::CloseCurrentPopup();
+            }
+
+            // Row rect
+            ImVec2 rMin = ImGui::GetItemRectMin();
+            ImVec2 rMax = ImGui::GetItemRectMax();
+            float centerY = (rMin.y + rMax.y) * 0.5f;
+
+            // Radio indicator
+            ImVec2 c(rMin.x + 12.0f, centerY);
+            if (isSelected)
+                dl->AddCircleFilled(c, radioRadius, ImGui::GetColorU32(ImGuiCol_Text));
+            else
+                dl->AddCircle(c, radioRadius, ImGui::GetColorU32(ImGuiCol_TextDisabled));
+
+            // Label text
+            char txt[32];
+            sprintf_s(txt, "x%.1f", s);
+
+            ImVec2 tSize = ImGui::CalcTextSize(txt);
+            float tX = rMin.x + 24.0f;
+            float tY = centerY - tSize.y * 0.5f - 2.0f;
+
+            dl->AddText(ImVec2(tX, tY), ImGui::GetColorU32(ImGuiCol_Text), txt);
+
+            ImGui::PopID();
+        }
+
+        ImGui::Separator();
+        ImGui::Dummy(ImVec2(0, 4));
+
+        // ---------------------------------------------------------------------
+        // Custom Speed Row
+        // ---------------------------------------------------------------------
+        {
+            ImGui::PushID("CustomSpeed");
+
+            if (ImGui::Selectable("     ", bCustomIsSelected, ImGuiSelectableFlags_DontClosePopups))
+            {
+                float mouseX = ImGui::GetMousePos().x;
+                float itemMinX = ImGui::GetItemRectMin().x;
+
+                if (mouseX > itemMinX + 30.0f)
+                    ImGui::CloseCurrentPopup();
+            }
+
+            ImVec2 rMin = ImGui::GetItemRectMin();
+            ImVec2 rMax = ImGui::GetItemRectMax();
+            float centerY = (rMin.y + rMax.y) * 0.5f;
+
+            // Radio
+            ImVec2 c(rMin.x + 12.0f, centerY);
+            if (bCustomIsSelected)
+                dl->AddCircleFilled(c, radioRadius, ImGui::GetColorU32(ImGuiCol_Text));
+            else
+                dl->AddCircle(c, radioRadius, ImGui::GetColorU32(ImGuiCol_TextDisabled));
+
+            // Text
+            const char* txt = "Custom";
+            ImVec2 tSize = ImGui::CalcTextSize(txt);
+            float tX = rMin.x + 24.0f;
+            float tY = centerY - tSize.y * 0.5f - 1.0f;
+            dl->AddText(ImVec2(tX, tY), ImGui::GetColorU32(ImGuiCol_Text), txt);
+
+            // Slider
+            ImGui::Dummy(ImVec2(0, 4));
+            ImGui::Indent(25.0f);
+
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 1));
+            ImGui::SetNextItemWidth(-1);
+
+            float tempSpeed = ActiveState->PlaybackSpeed;
+            if (ImGui::SliderFloat("##CustomSlider", &tempSpeed, 0.1f, 5.0f, "%.2f"))
+                ActiveState->PlaybackSpeed = tempSpeed;
+
+            ImGui::PopStyleVar();
+            ImGui::Unindent(25.0f);
+
+            ImGui::PopID();
+        }
+
+        ImGui::PopStyleColor(2);
+        ImGui::EndPopup();
     }
 }
 
