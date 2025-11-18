@@ -22,6 +22,19 @@ SViewerWindow::~SViewerWindow()
 {
 }
 
+static inline FString GetBaseFilenameFromPath(const FString& InPath)
+{
+    const size_t lastSlash = InPath.find_last_of("/\\");
+    FString filename = (lastSlash == FString::npos) ? InPath : InPath.substr(lastSlash + 1);
+
+    const size_t lastDot = filename.find_last_of('.');
+    if (lastDot != FString::npos)
+    {
+        filename = filename.substr(0, lastDot);
+    }
+    return filename;
+}
+
 bool SViewerWindow::Initialize(float StartX, float StartY, float Width, float Height, UWorld* InWorld, ID3D11Device* InDevice, UEditorAssetPreviewContext* InContext)
 {
     World = InWorld;
@@ -48,7 +61,13 @@ bool SViewerWindow::Initialize(float StartX, float StartY, float Width, float He
     LoadViewerToolbarIcons(Device);
 
     // Create first tab/state
-    OpenNewTab("Viewer 1");
+    FString InitialTabName = "Viewer 1";    // Default name
+    if (Context && !Context->AssetPath.empty())
+    {
+        InitialTabName = GetBaseFilenameFromPath(Context->AssetPath);
+    }
+    OpenNewTab(InitialTabName.c_str());
+
     if (ActiveState && ActiveState->Viewport)
     {
         ActiveState->Viewport->Resize((uint32)StartX, (uint32)StartY, (uint32)Width, (uint32)Height);
@@ -227,6 +246,42 @@ void SViewerWindow::OnMouseUp(FVector2D MousePos, uint32 Button)
             INPUT.ReleaseCursor();
             bRightMousePressed = false;
         }
+    }
+}
+
+
+
+void SViewerWindow::OpenOrFocusTab(UEditorAssetPreviewContext* Context)
+{
+    if (!Context || Context->AssetPath.empty())
+    {
+        char label[32];
+        sprintf_s(label, "Viewer %d", Tabs.Num() + 1);
+        OpenNewTab(label);
+        return;
+    }
+
+    for (int i = 0; i < Tabs.Num(); ++i)
+    {
+        ViewerState* State = Tabs[i];
+        if (State && State->LoadedMeshPath == Context->AssetPath)
+        {
+            ActiveTabIndex = i;
+            ActiveState = Tabs[i];
+            UE_LOG("SViewerWindow: Found existing tab for %s. Switching to it.", Context->AssetPath.c_str());
+            return;
+        }
+    }
+
+    UE_LOG("SViewerWindow: No existing tab for %s. Creating a new one.", Context->AssetPath.c_str());
+    FString AssetName = GetBaseFilenameFromPath(Context->AssetPath);
+    ViewerState* NewState = CreateViewerState(AssetName.c_str(), Context);
+
+    if (NewState)
+    {
+        Tabs.Add(NewState);
+        ActiveTabIndex = Tabs.Num() - 1;
+        ActiveState = NewState;
     }
 }
 
