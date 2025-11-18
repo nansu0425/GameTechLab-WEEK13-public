@@ -52,4 +52,7 @@ private:
     // Timeline Helpers
     void BuildLeftRows(TArray<FString>& OutRows);
     void BuildRowToNotifyIndex(const TArray<FString>& InRows, TArray<int>& OutMapping);
+
+    // ImGui draw callback for viewport rendering
+    static void ViewportRenderCallback(const ImDrawList* parent_list, const ImDrawCmd* cmd);
 };

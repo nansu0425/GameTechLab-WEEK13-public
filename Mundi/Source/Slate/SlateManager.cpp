@@ -8,6 +8,7 @@
 #include "Windows/SControlPanel.h"
 #include "Windows/ControlPanelWindow.h"
 #include "Windows/SViewportWindow.h"
+#include "Windows/SViewerWindow.h"
 #include "Windows/SSkeletalMeshViewerWindow.h"
 #include "Windows/ConsoleWindow.h"
 #include "Windows/ContentBrowserWindow.h"
@@ -182,7 +183,7 @@ void USlateManager::OpenAssetViewer(UEditorAssetPreviewContext* Context)
     // Check if a viewer for this Context is already open
     for (SWindow* Window : DetachedWindows)
     {
-        if (SViewerWindow* ExistingViewer = dynamic_cast<SViewerWindow*>(Window))
+        if (SViewerWindow* ExistingViewer = static_cast<SViewerWindow*>(Window))
         {
             // Check if the viewer's Context is valid and if both the type and asset path match
             UEditorAssetPreviewContext* ExistingContext = ExistingViewer->GetContext();
@@ -518,13 +519,9 @@ void USlateManager::Render()
 
 void USlateManager::RenderAfterUI()
 {
-    for (SWindow* Window : DetachedWindows)
-    {
-        if (SViewerWindow* ViewerWindow = dynamic_cast<SViewerWindow*>(Window))
-        {
-            ViewerWindow->OnRenderViewport();
-        }
-    }
+    // 뷰포트 렌더링은 이제 ImGui draw callback에서 처리됨
+    // (SAnimationViewerWindow::ViewportRenderCallback 참조)
+    // 따라서 여기서는 아무것도 하지 않음
 }
 
 void USlateManager::Update(float DeltaSeconds)
@@ -606,37 +603,98 @@ void USlateManager::Update(float DeltaSeconds)
 void USlateManager::ProcessInput()
 {
     const FVector2D MousePosition = INPUT.GetMousePosition();
+
+    // ImGui가 마우스 입력을 사용 중인지 체크
+    ImGuiIO& io = ImGui::GetIO();
+    bool bImGuiWantsMouse = io.WantCaptureMouse;
+
     SWindow* HoveredDetachedWindow = nullptr;
 
-    // Find the detached window that the mouse is hovering over
-    for (SWindow* Window : DetachedWindows)
+    // 마우스가 올라가 있는 분리된 윈도우 찾기
+    // 역순으로 순회 (z-order: 마지막 = 최상단)
+    for (int i = DetachedWindows.Num() - 1; i >= 0; --i)
     {
+        SWindow* Window = DetachedWindows[i];
         if (Window && Window->Rect.Contains(MousePosition))
         {
+            // 뷰어 윈도우인 경우 추가 체크: collapsed 상태면 스킵
+            SViewerWindow* ViewerWindow = dynamic_cast<SViewerWindow*>(Window);
+            if (ViewerWindow)
+            {
+                // 뷰어가 접혀있으면(collapsed) IsWindowHovered가 false
+                // 접혀있는 뷰어는 메인 뷰포트 입력을 막지 않도록 스킵
+                if (!ViewerWindow->IsWindowHovered())
+                {
+                    continue;  // 다음 윈도우 체크
+                }
+            }
+
+            // 영역 안에 마우스가 있으면 해당 윈도우 선택
             HoveredDetachedWindow = Window;
             break;
         }
     }
 
-    // Process input for window if hovered
-    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+    // 클릭 감지
+    bool bLeftClicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+    bool bRightClicked = ImGui::IsMouseClicked(ImGuiMouseButton_Right);
+
+    // 뷰어 윈도우 클릭 시 최상단으로 가져오기 (언리얼 엔진처럼)
+    if ((bLeftClicked || bRightClicked) && HoveredDetachedWindow)
+    {
+        SViewerWindow* ClickedViewer = dynamic_cast<SViewerWindow*>(HoveredDetachedWindow);
+
+        bool bShouldBringToFront = false;
+        if (ClickedViewer)
+        {
+            // 뷰어 윈도우: 어디를 클릭하든 항상 bring-to-front (언리얼 엔진처럼)
+            // 패널 클릭, 뷰포트 클릭 상관없이 뷰어를 클릭하면 최상단으로
+            bShouldBringToFront = true;
+        }
+        else
+        {
+            // 뷰어가 아닌 윈도우: ImGui가 마우스를 원하지 않을 때만
+            bShouldBringToFront = !bImGuiWantsMouse;
+        }
+
+        if (bShouldBringToFront)
+        {
+            // 배열에서 해당 윈도우의 위치 찾기
+            int32 WindowIndex = DetachedWindows.Find(HoveredDetachedWindow);
+            if (WindowIndex != -1 && WindowIndex != DetachedWindows.Num() - 1)
+            {
+                // 배열에서 제거하고 마지막에 다시 추가 (z-order 최상단)
+                DetachedWindows.RemoveAt(WindowIndex);
+                DetachedWindows.Add(HoveredDetachedWindow);
+
+                // ImGui 포커스 요청
+                if (ClickedViewer)
+                {
+                    ClickedViewer->RequestFocus();
+                }
+            }
+        }
+    }
+
+    // 호버된 윈도우에 입력 처리
+    if (bLeftClicked)
     {
         if (HoveredDetachedWindow)
         {
             HoveredDetachedWindow->OnMouseDown(MousePosition, 0);
         }
-        else
+        else if (!bImGuiWantsMouse)
         {
             OnMouseDown(MousePosition, 0);
         }
     }
-    if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+    if (bRightClicked)
     {
         if (HoveredDetachedWindow)
         {
             HoveredDetachedWindow->OnMouseDown(MousePosition, 1);
         }
-        else
+        else if (!bImGuiWantsMouse)
         {
             OnMouseDown(MousePosition, 1);
         }
@@ -647,7 +705,7 @@ void USlateManager::ProcessInput()
         {
             HoveredDetachedWindow->OnMouseUp(MousePosition, 0);
         }
-        else
+        else if (!bImGuiWantsMouse)
         {
             OnMouseUp(MousePosition, 0);
         }
@@ -658,43 +716,21 @@ void USlateManager::ProcessInput()
         {
             HoveredDetachedWindow->OnMouseUp(MousePosition, 1);
         }
-        else
+        else if (!bImGuiWantsMouse)
         {
             OnMouseUp(MousePosition, 1);
         }
     }
-    else    // Otherwise, process general viewport input
+
+    // 마우스 이동 이벤트를 호버된 윈도우에 전달
+    if (HoveredDetachedWindow)
     {
-        if (INPUT.IsMouseButtonPressed(LeftButton))
-        {
-            const FVector2D MousePosition = INPUT.GetMousePosition();
-            {
-                OnMouseDown(MousePosition, 0);
-            }
-        }
-        if (INPUT.IsMouseButtonPressed(RightButton))
-        {
-            const FVector2D MousePosition = INPUT.GetMousePosition();
-            {
-                OnMouseDown(MousePosition, 1);
-            }
-        }
-        if (INPUT.IsMouseButtonReleased(LeftButton))
-        {
-            const FVector2D MousePosition = INPUT.GetMousePosition();
-            {
-                OnMouseUp(MousePosition, 0);
-            }
-        }
-        if (INPUT.IsMouseButtonReleased(RightButton))
-        {
-            const FVector2D MousePosition = INPUT.GetMousePosition();
-            {
-                OnMouseUp(MousePosition, 1);
-            }
-        }
+        HoveredDetachedWindow->OnMouseMove(MousePosition);
     }
-    OnMouseMove(MousePosition);
+    else
+    {
+        OnMouseMove(MousePosition);
+    }
 
     // Alt + ` (억음 부호 키)로 콘솔 토글
     if (ImGui::IsKeyPressed(ImGuiKey_GraveAccent) && ImGui::GetIO().KeyAlt)
@@ -734,10 +770,23 @@ void USlateManager::ProcessInput()
 
 void USlateManager::OnMouseMove(FVector2D MousePos)
 {
-    for (SWindow* Window : DetachedWindows)
+    // 역순으로 순회 (z-order: 마지막 = 최상단)
+    for (int i = DetachedWindows.Num() - 1; i >= 0; --i)
     {
+        SWindow* Window = DetachedWindows[i];
         if (Window && Window->IsHover(MousePos))
         {
+            // 뷰어 윈도우인 경우: collapsed 상태면 스킵
+            SViewerWindow* ViewerWindow = dynamic_cast<SViewerWindow*>(Window);
+            if (ViewerWindow)
+            {
+                // 뷰어가 접혀있으면 메인 뷰포트로 입력 전달
+                if (!ViewerWindow->IsWindowHovered())
+                {
+                    continue;  // 다음 윈도우 체크
+                }
+            }
+
             Window->OnMouseMove(MousePos);
             return;
         }
@@ -755,19 +804,16 @@ void USlateManager::OnMouseMove(FVector2D MousePos)
 
 void USlateManager::OnMouseDown(FVector2D MousePos, uint32 Button)
 {
-    if (ActiveViewport)
-    {
-    }
-    else if (TopPanel)
+    if (TopPanel)
     {
         TopPanel->OnMouseDown(MousePos, Button);
 
-        // 어떤 뷰포트 안에서 눌렸는지 확인
+        // 항상 마우스 아래에 있는 뷰포트를 체크 (이전 ActiveViewport에 고정되지 않음)
         for (auto* VP : Viewports)
         {
             if (VP && VP->Rect.Contains(MousePos))
             {
-                ActiveViewport = VP; // 고정
+                ActiveViewport = VP;
 
                 // 우클릭인 경우 커서 숨김 및 잠금
                 if (Button == 1)
