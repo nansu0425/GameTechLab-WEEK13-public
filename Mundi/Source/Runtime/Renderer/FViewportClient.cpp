@@ -15,6 +15,7 @@
 #include "InputManager.h"
 #include "PlayerCameraManager.h"
 #include "SceneView.h"
+#include "SlateManager.h"
 
 // 언리얼 방식: 모든 직교 뷰포트가 하나의 3D 위치를 공유
 FVector FViewportClient::CameraAddPosition{};
@@ -322,7 +323,28 @@ void FViewportClient::MouseWheel(float DeltaSeconds)
 
 	UCameraComponent* CameraComponent = Camera->GetCameraComponent();
 	if (!CameraComponent) return;
+
+	// OwnerWindow가 설정된 경우(메인 에디터 뷰포트)만 체크
+	if (OwnerWindow != nullptr)
+	{
+		// ImGui가 마우스 입력을 캡처 중이면 뷰포트에서 마우스 휠 처리 안 함
+		ImGuiIO& io = ImGui::GetIO();
+		if (io.WantCaptureMouse)
+			return;
+
+		// ActiveViewport가 설정되어 있고, 자신이 아니면 처리 안 함
+		// (다른 뷰포트에서 우클릭 드래그 중일 때 줌 인/아웃 방지)
+		if (USlateManager::ActiveViewport != nullptr && USlateManager::ActiveViewport != OwnerWindow)
+			return;
+	}
+	// 뷰어 창(OwnerWindow == nullptr)은 WantCaptureMouse 체크 안 함
+	// (뷰어는 ImGui 윈도우 내부에 있어서 항상 WantCaptureMouse가 true이므로)
+
 	float WheelDelta = UInputManager::GetInstance().GetMouseWheelDelta();
+
+	// 마우스 휠이 움직이지 않았으면 처리 안 함
+	if (WheelDelta == 0.0f)
+		return;
 
 	// 우클릭이 눌려있을 때: 카메라 이동 속도 조절
 	if (bIsMouseRightButtonDown)

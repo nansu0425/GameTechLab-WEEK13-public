@@ -116,6 +116,7 @@ bool SViewportWindow::Initialize(float StartX, float StartY, float Width, float 
 	ViewportClient = new FViewportClient();
 	ViewportClient->SetViewportType(ViewportType);
 	ViewportClient->SetWorld(World); // 전역 월드 연결 (이미 있다고 가정)
+	ViewportClient->SetOwnerWindow(this); // OwnerWindow 설정
 
 	// 양방향 연결
 	Viewport->SetViewportClient(ViewportClient);

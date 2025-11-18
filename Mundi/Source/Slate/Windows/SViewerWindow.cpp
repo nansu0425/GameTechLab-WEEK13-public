@@ -76,6 +76,17 @@ void SViewerWindow::OnUpdate(float DeltaSeconds)
     if (ActiveState && ActiveState->Client)
     {
         ActiveState->Client->Tick(DeltaSeconds);
+
+        // 뷰어 윈도우가 호버되어 있고 마우스 휠이 움직였을 때 ViewportClient에 전달
+        // (ImGui 윈도우 내부의 마우스 휠 입력을 ViewportClient로 전달)
+        ImGuiIO& io = ImGui::GetIO();
+        if (bIsWindowHovered && io.MouseWheel != 0.0f)
+        {
+            // InputManager에 마우스 휠 델타 설정 (ViewportClient::MouseWheel에서 사용)
+            UInputManager& InputMgr = UInputManager::GetInstance();
+            // MouseWheel은 양수/음수로 방향을 나타냄, InputManager에 전달
+            InputMgr.ProcessMessage(nullptr, WM_MOUSEWHEEL, MAKEWPARAM(0, (short)(io.MouseWheel * WHEEL_DELTA)), 0);
+        }
     }
 }
 

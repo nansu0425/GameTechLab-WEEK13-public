@@ -5,6 +5,7 @@
 class FViewport;
 class UWorld;
 class UCameraComponent;
+class SViewportWindow;
 
 
 /**
@@ -38,6 +39,9 @@ public:
     void SetCamera(ACameraActor* InCamera) { Camera = InCamera; }
     ACameraActor* GetCamera() const { return Camera; }
 
+    void SetOwnerWindow(SViewportWindow* InOwner) { OwnerWindow = InOwner; }
+    SViewportWindow* GetOwnerWindow() const { return OwnerWindow; }
+
     // 카메라 매트릭스 계산
     FMatrix GetViewMatrix() const;
 
@@ -52,6 +56,7 @@ protected:
     EViewportType ViewportType = EViewportType::Perspective;
     UWorld* World = nullptr;
     ACameraActor* Camera = nullptr;
+    SViewportWindow* OwnerWindow = nullptr;
     int32 MouseLastX{};
     int32 MouseLastY{};
     bool bIsMouseButtonDown = false;
