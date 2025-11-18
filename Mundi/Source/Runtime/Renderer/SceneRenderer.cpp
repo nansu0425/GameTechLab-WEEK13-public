@@ -151,6 +151,9 @@ void FSceneRenderer::Render()
 
 void FSceneRenderer::RenderLitPath()
 {
+	// 래스터라이저 상태를 Solid로 명시적으로 설정 (이전 렌더 패스의 와이어프레임 상태가 남지 않도록)
+	RHIDevice->RSSetState(ERasterizerMode::Solid);
+
     RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithId);
 
 	// 이 뷰의 rect 영역에 대해 Scene Color를 클리어하여 불투명한 배경을 제공함
@@ -176,15 +179,32 @@ void FSceneRenderer::RenderLitPath()
 
 void FSceneRenderer::RenderWireframePath()
 {
-	// 깊이 버퍼 초기화 후 ID만 그리기
+	// 래스터라이저 상태를 Solid로 명시적으로 설정
 	RHIDevice->RSSetState(ERasterizerMode::Solid);
+
+	// 깊이 버퍼 초기화 후 ID만 그리기
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneIdTarget);
 	RenderOpaquePass(EViewMode::VMI_Unlit);
 
     // Wireframe으로 그리기
-    RHIDevice->ClearDepthBuffer(1.0f, 0);
     RHIDevice->RSSetState(ERasterizerMode::Wireframe);
     RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTarget);
+
+	// 이 뷰의 rect 영역에 대해 Scene Color를 클리어하여 불투명한 배경을 제공함
+	// 이렇게 해야 에디터 뷰포트 여러 개를 동시에 겹치게 띄워도 서로의 렌더링이 섞이지 않는다
+    {
+        D3D11_VIEWPORT vp = {};
+        vp.TopLeftX = (float)View->ViewRect.MinX;
+        vp.TopLeftY = (float)View->ViewRect.MinY;
+        vp.Width    = (float)View->ViewRect.Width();
+        vp.Height   = (float)View->ViewRect.Height();
+        vp.MinDepth = 0.0f; vp.MaxDepth = 1.0f;
+        RHIDevice->GetDeviceContext()->RSSetViewports(1, &vp);
+        const float bg[4] = { 0.0f, 0.0f, 0.0f, 1.00f };
+        RHIDevice->GetDeviceContext()->ClearRenderTargetView(RHIDevice->GetCurrentTargetRTV(), bg);
+        RHIDevice->ClearDepthBuffer(1.0f, 0);
+    }
+
     RenderOpaquePass(EViewMode::VMI_Unlit);
 
 	// 상태 복구
@@ -193,6 +213,9 @@ void FSceneRenderer::RenderWireframePath()
 
 void FSceneRenderer::RenderSceneDepthPath()
 {
+	// 래스터라이저 상태를 Solid로 명시적으로 설정
+	RHIDevice->RSSetState(ERasterizerMode::Solid);
+
 	// ✅ 디버그: SceneRTV 전환 전 viewport 확인
 	D3D11_VIEWPORT vpBefore;
 	UINT numVP = 1;

@@ -617,11 +617,19 @@ void USlateManager::ProcessInput()
         SWindow* Window = DetachedWindows[i];
         if (Window && Window->Rect.Contains(MousePosition))
         {
-            // 뷰어 윈도우인 경우 추가 체크: collapsed 상태면 스킵
+            // 뷰어 윈도우인 경우 추가 체크
             SViewerWindow* ViewerWindow = dynamic_cast<SViewerWindow*>(Window);
             if (ViewerWindow)
             {
-                // 뷰어가 접혀있으면(collapsed) IsWindowHovered가 false
+                // 마우스가 뷰포트 영역(CenterRect)에 있으면 무조건 입력 전달
+                // (드롭다운 팝업이 열려있어도 뷰포트 조작 가능하도록)
+                if (ViewerWindow->GetCenterRect().Contains(MousePosition))
+                {
+                    HoveredDetachedWindow = Window;
+                    break;
+                }
+
+                // 뷰포트 영역 밖이고, 뷰어가 접혀있으면(collapsed) IsWindowHovered가 false
                 // 접혀있는 뷰어는 메인 뷰포트 입력을 막지 않도록 스킵
                 if (!ViewerWindow->IsWindowHovered())
                 {
@@ -682,6 +690,8 @@ void USlateManager::ProcessInput()
         if (HoveredDetachedWindow)
         {
             HoveredDetachedWindow->OnMouseDown(MousePosition, 0);
+            // 좌클릭 시작 - 드래그 시작 (뷰포트 밖으로 나가도 입력 계속 전달하기 위해)
+            DraggingWindow = HoveredDetachedWindow;
         }
         else if (!bImGuiWantsMouse)
         {
@@ -701,7 +711,13 @@ void USlateManager::ProcessInput()
     }
     if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
     {
-        if (HoveredDetachedWindow)
+        // 드래그 중이었으면 드래그 중인 윈도우에 전달 (뷰포트 밖에서 놓아도 처리)
+        if (DraggingWindow)
+        {
+            DraggingWindow->OnMouseUp(MousePosition, 0);
+            DraggingWindow = nullptr;  // 드래그 종료
+        }
+        else if (HoveredDetachedWindow)
         {
             HoveredDetachedWindow->OnMouseUp(MousePosition, 0);
         }
@@ -722,8 +738,13 @@ void USlateManager::ProcessInput()
         }
     }
 
-    // 마우스 이동 이벤트를 호버된 윈도우에 전달
-    if (HoveredDetachedWindow)
+    // 마우스 이동 이벤트 전달
+    // 드래그 중이면 드래그 중인 윈도우에 우선 전달 (뷰포트 밖으로 나가도 기즈모 조작 유지)
+    if (DraggingWindow)
+    {
+        DraggingWindow->OnMouseMove(MousePosition);
+    }
+    else if (HoveredDetachedWindow)
     {
         HoveredDetachedWindow->OnMouseMove(MousePosition);
     }

@@ -82,7 +82,8 @@ void SViewerWindow::OnMouseMove(FVector2D MousePos)
 {
     if (!ActiveState || !ActiveState->Viewport) return;
 
-    if (CenterRect.Contains(MousePos))
+    // 드래그 중이면 뷰포트 밖으로 나가도 입력 계속 전달 (기즈모 조작 유지)
+    if (bLeftMousePressed || CenterRect.Contains(MousePos))
     {
         FVector2D LocalPos = MousePos - FVector2D(CenterRect.Left, CenterRect.Top);
         ActiveState->Viewport->ProcessMouseMove((int32)LocalPos.X, (int32)LocalPos.Y);
@@ -175,6 +176,12 @@ void SViewerWindow::OnMouseDown(FVector2D MousePos, uint32 Button)
             }
         }
 
+        // 좌클릭: 드래그 시작 (기즈모 조작 또는 본 선택)
+        if (Button == 0)
+        {
+            bLeftMousePressed = true;
+        }
+
         // 우클릭: 카메라 조작 시작 (커서 숨김 및 잠금)
         if (Button == 1)
         {
@@ -189,10 +196,17 @@ void SViewerWindow::OnMouseUp(FVector2D MousePos, uint32 Button)
 {
     if (!ActiveState || !ActiveState->Viewport) return;
 
-    if (CenterRect.Contains(MousePos))
+    // 드래그 중이었으면 뷰포트 밖에서 마우스를 놓아도 처리 (기즈모 해제 위해)
+    if (bLeftMousePressed || bRightMousePressed || CenterRect.Contains(MousePos))
     {
         FVector2D LocalPos = MousePos - FVector2D(CenterRect.Left, CenterRect.Top);
         ActiveState->Viewport->ProcessMouseButtonUp((int32)LocalPos.X, (int32)LocalPos.Y, (int32)Button);
+
+        // 좌클릭 해제: 드래그 종료
+        if (Button == 0 && bLeftMousePressed)
+        {
+            bLeftMousePressed = false;
+        }
 
         // 우클릭 해제: 커서 복원 및 잠금 해제
         if (Button == 1 && bRightMousePressed)
@@ -751,6 +765,26 @@ void SViewerWindow::LoadViewerToolbarIcons(ID3D11Device* Device)
 
     IconLocalSpace = NewObject<UTexture>();
     IconLocalSpace->Load(GDataDir + "/Icon/Viewport_Toolbar_LocalSpace.png", Device);
+
+    // 카메라 모드 아이콘 로드
+    IconCamera = NewObject<UTexture>();
+    IconCamera->Load(GDataDir + "/Icon/Viewport_Mode_Camera.png", Device);
+
+    IconPerspective = NewObject<UTexture>();
+    IconPerspective->Load(GDataDir + "/Icon/Viewport_Mode_Perspective.png", Device);
+
+    // 뷰모드 아이콘 로드
+    IconViewMode_Lit = NewObject<UTexture>();
+    IconViewMode_Lit->Load(GDataDir + "/Icon/Viewport_ViewMode_Lit.png", Device);
+
+    IconViewMode_Unlit = NewObject<UTexture>();
+    IconViewMode_Unlit->Load(GDataDir + "/Icon/Viewport_ViewMode_Unlit.png", Device);
+
+    IconViewMode_Wireframe = NewObject<UTexture>();
+    IconViewMode_Wireframe->Load(GDataDir + "/Icon/Viewport_Toolbar_WorldSpace.png", Device);
+
+    IconViewMode_BufferVis = NewObject<UTexture>();
+    IconViewMode_BufferVis->Load(GDataDir + "/Icon/Viewport_ViewMode_BufferVis.png", Device);
 }
 
 AGizmoActor* SViewerWindow::GetGizmoActor()
@@ -991,5 +1025,394 @@ void SViewerWindow::RenderViewerToolbar()
     ImGui::PopStyleColor(2);
     ImGui::PopStyleVar(2);
 
+    // === 우측 정렬 버튼들 ===
+    // 사용 가능한 전체 너비와 현재 커서 위치
+    float AvailableWidth = ImGui::GetContentRegionAvail().x;
+    float CursorStartX = ImGui::GetCursorPosX();
+    ImVec2 CurrentCursor = ImGui::GetCursorPos();
+
+    const float ButtonSpacing = 8.0f;
+
+    // 현재 뷰모드 이름으로 실제 너비 계산
+    const char* CurrentViewModeName = "뷰모드";
+    if (ActiveState && ActiveState->Client)
+    {
+        EViewMode CurrentViewMode = ActiveState->Client->GetViewMode();
+        switch (CurrentViewMode)
+        {
+        case EViewMode::VMI_Lit_Gouraud:
+        case EViewMode::VMI_Lit_Lambert:
+        case EViewMode::VMI_Lit_Phong:
+            CurrentViewModeName = "라이팅 포함";
+            break;
+        case EViewMode::VMI_Unlit:
+            CurrentViewModeName = "언릿";
+            break;
+        case EViewMode::VMI_Wireframe:
+            CurrentViewModeName = "와이어프레임";
+            break;
+        case EViewMode::VMI_WorldNormal:
+            CurrentViewModeName = "월드 노멀";
+            break;
+        case EViewMode::VMI_SceneDepth:
+            CurrentViewModeName = "씬 뎁스";
+            break;
+        }
+    }
+
+    // ViewMode 버튼의 실제 너비 계산
+    char viewModeText[64];
+    sprintf_s(viewModeText, "%s %s", CurrentViewModeName, "∨");
+    ImVec2 viewModeTextSize = ImGui::CalcTextSize(viewModeText);
+    const float ViewModeButtonWidth = 17.0f + 4.0f + viewModeTextSize.x + 16.0f;
+
+    // Camera 버튼 너비 계산
+    char cameraText[64];
+    sprintf_s(cameraText, "%s %s", "원근", "∨");
+    ImVec2 cameraTextSize = ImGui::CalcTextSize(cameraText);
+    const float CameraButtonWidth = 17.0f + 4.0f + cameraTextSize.x + 16.0f;
+
+    // 오른쪽부터 역순으로 위치 계산
+    // ViewMode는 오른쪽 끝
+    float ViewModeX = CursorStartX + AvailableWidth - ViewModeButtonWidth;
+
+    // Camera는 ViewMode 왼쪽
+    float CameraX = ViewModeX - ButtonSpacing - CameraButtonWidth;
+
+    // 버튼들을 순서대로 그리기
+    ImGui::SetCursorPos(ImVec2(CameraX, CurrentCursor.y));
+    RenderCameraOptionDropdownMenu();
+
+    ImGui::SetCursorPos(ImVec2(ViewModeX, CurrentCursor.y));
+    RenderViewModeDropdownMenu();
+
     ImGui::EndChild();
+}
+
+void SViewerWindow::RenderCameraOptionDropdownMenu()
+{
+    if (!ActiveState || !ActiveState->Client) return;
+
+    ImVec2 cursorPos = ImGui::GetCursorPos();
+    ImGui::SetCursorPosY(cursorPos.y - 0.7f);
+
+    const ImVec2 IconSize(17, 17);
+
+    // 드롭다운 버튼 텍스트 준비
+    char ButtonText[64];
+    sprintf_s(ButtonText, "%s %s", "원근", "∨");
+
+    // 버튼 너비 계산 (아이콘 크기 + 간격 + 텍스트 크기 + 좌우 패딩)
+    ImVec2 TextSize = ImGui::CalcTextSize(ButtonText);
+    const float HorizontalPadding = 8.0f;
+    const float CameraDropdownWidth = IconSize.x + 4.0f + TextSize.x + HorizontalPadding * 2.0f;
+
+    // 드롭다운 버튼 스타일 적용
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.15f, 0.15f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.20f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.25f, 0.25f, 0.25f, 1.00f));
+
+    // 드롭다운 버튼 생성 (카메라 아이콘 + 현재 모드명 + 화살표)
+    ImVec2 ButtonSize(CameraDropdownWidth, ImGui::GetFrameHeight());
+    ImVec2 ButtonCursorPos = ImGui::GetCursorPos();
+
+    // 고유 ID 생성
+    char ButtonID[64];
+    sprintf_s(ButtonID, "##ViewerCameraBtn_%p", this);
+
+    // 버튼 클릭 영역
+    if (ImGui::Button(ButtonID, ButtonSize))
+    {
+        char PopupID[64];
+        sprintf_s(PopupID, "ViewerCameraPopup_%p", this);
+        ImGui::OpenPopup(PopupID);
+    }
+
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("카메라 옵션");
+    }
+
+    // 버튼 위에 내용 렌더링 (아이콘 + 텍스트, 가운데 정렬)
+    float ButtonContentWidth = IconSize.x + 4.0f + TextSize.x;
+    float ButtonContentStartX = ButtonCursorPos.x + (ButtonSize.x - ButtonContentWidth) * 0.5f;
+    ImVec2 ButtonContentCursorPos = ImVec2(ButtonContentStartX, ButtonCursorPos.y + (ButtonSize.y - IconSize.y) * 0.5f);
+    ImGui::SetCursorPos(ButtonContentCursorPos);
+
+    if (IconCamera && IconCamera->GetShaderResourceView())
+    {
+        ImGui::Image((void*)IconCamera->GetShaderResourceView(), IconSize);
+        ImGui::SameLine(0, 4);
+    }
+
+    ImGui::Text("%s", ButtonText);
+
+    ImGui::PopStyleColor(3);
+    ImGui::PopStyleVar(1);
+
+    // ===== 카메라 옵션 드롭다운 팝업 =====
+    char PopupID[64];
+    sprintf_s(PopupID, "ViewerCameraPopup_%p", this);
+    if (ImGui::BeginPopup(PopupID, ImGuiWindowFlags_NoMove))
+    {
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 4));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 8));
+
+        // 선택된 항목의 파란 배경 제거
+        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.3f, 0.3f, 0.3f, 0.6f));
+
+        // --- 섹션: 원근 ---
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "카메라");
+        ImGui::Separator();
+
+        // 원근 모드 선택 항목
+        ImVec2 SelectableSize(180, 20);
+        ImVec2 SelectableCursorPos = ImGui::GetCursorPos();
+
+        if (ImGui::Selectable("##Perspective", true, 0, SelectableSize))
+        {
+            ImGui::CloseCurrentPopup();
+        }
+
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("원근 카메라");
+        }
+
+        // Selectable 위에 내용 렌더링
+        ImVec2 ContentPos = ImVec2(SelectableCursorPos.x + 4, SelectableCursorPos.y + (SelectableSize.y - IconSize.y) * 0.5f);
+        ImGui::SetCursorPos(ContentPos);
+
+        ImGui::Text("●");
+        ImGui::SameLine(0, 4);
+
+        if (IconPerspective && IconPerspective->GetShaderResourceView())
+        {
+            ImGui::Image((void*)IconPerspective->GetShaderResourceView(), IconSize);
+            ImGui::SameLine(0, 4);
+        }
+
+        ImGui::Text("원근");
+
+        ImGui::PopStyleColor(3);
+        ImGui::PopStyleVar(2);
+        ImGui::EndPopup();
+    }
+}
+
+void SViewerWindow::RenderViewModeDropdownMenu()
+{
+    if (!ActiveState || !ActiveState->Client) return;
+
+    ImVec2 cursorPos = ImGui::GetCursorPos();
+    ImGui::SetCursorPosY(cursorPos.y - 1.0f);
+
+    const ImVec2 IconSize(17, 17);
+
+    // 현재 뷰모드 이름 및 아이콘 가져오기
+    EViewMode CurrentViewMode = ActiveState->Client->GetViewMode();
+    const char* CurrentViewModeName = "뷰모드";
+    UTexture* CurrentViewModeIcon = nullptr;
+
+    switch (CurrentViewMode)
+    {
+    case EViewMode::VMI_Lit_Gouraud:
+    case EViewMode::VMI_Lit_Lambert:
+    case EViewMode::VMI_Lit_Phong:
+        CurrentViewModeName = "라이팅 포함";
+        CurrentViewModeIcon = IconViewMode_Lit;
+        break;
+    case EViewMode::VMI_Unlit:
+        CurrentViewModeName = "언릿";
+        CurrentViewModeIcon = IconViewMode_Unlit;
+        break;
+    case EViewMode::VMI_Wireframe:
+        CurrentViewModeName = "와이어프레임";
+        CurrentViewModeIcon = IconViewMode_Wireframe;
+        break;
+    case EViewMode::VMI_WorldNormal:
+        CurrentViewModeName = "월드 노멀";
+        CurrentViewModeIcon = IconViewMode_BufferVis;
+        break;
+    case EViewMode::VMI_SceneDepth:
+        CurrentViewModeName = "씬 뎁스";
+        CurrentViewModeIcon = IconViewMode_BufferVis;
+        break;
+    }
+
+    // 드롭다운 버튼 텍스트 준비
+    char ButtonText[64];
+    sprintf_s(ButtonText, "%s %s", CurrentViewModeName, "∨");
+
+    // 버튼 너비 계산 (아이콘 크기 + 간격 + 텍스트 크기 + 좌우 패딩)
+    ImVec2 TextSize = ImGui::CalcTextSize(ButtonText);
+    const float Padding = 8.0f;
+    const float DropdownWidth = IconSize.x + 4.0f + TextSize.x + Padding * 2.0f;
+
+    // 스타일 적용
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.15f, 0.15f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.20f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.25f, 0.25f, 0.25f, 1.00f));
+
+    // 드롭다운 버튼 생성 (아이콘 + 텍스트)
+    ImVec2 ButtonSize(DropdownWidth, ImGui::GetFrameHeight());
+    ImVec2 ButtonCursorPos = ImGui::GetCursorPos();
+
+    // 고유 ID 생성
+    char ButtonID[64];
+    sprintf_s(ButtonID, "##ViewerViewModeBtn_%p", this);
+
+    // 버튼 클릭 영역
+    if (ImGui::Button(ButtonID, ButtonSize))
+    {
+        char PopupID[64];
+        sprintf_s(PopupID, "ViewerViewModePopup_%p", this);
+        ImGui::OpenPopup(PopupID);
+    }
+
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("뷰모드 선택");
+    }
+
+    // 버튼 위에 내용 렌더링 (아이콘 + 텍스트, 가운데 정렬)
+    float ButtonContentWidth = IconSize.x + 4.0f + TextSize.x;
+    float ButtonContentStartX = ButtonCursorPos.x + (ButtonSize.x - ButtonContentWidth) * 0.5f;
+    ImVec2 ButtonContentCursorPos = ImVec2(ButtonContentStartX, ButtonCursorPos.y + (ButtonSize.y - IconSize.y) * 0.5f);
+    ImGui::SetCursorPos(ButtonContentCursorPos);
+
+    // 현재 뷰모드 아이콘 표시
+    if (CurrentViewModeIcon && CurrentViewModeIcon->GetShaderResourceView())
+    {
+        ImGui::Image((void*)CurrentViewModeIcon->GetShaderResourceView(), IconSize);
+        ImGui::SameLine(0, 4);
+    }
+
+    ImGui::Text("%s", ButtonText);
+
+    ImGui::PopStyleColor(3);
+    ImGui::PopStyleVar(1);
+
+    // ===== 뷰모드 드롭다운 팝업 =====
+    char PopupID[64];
+    sprintf_s(PopupID, "ViewerViewModePopup_%p", this);
+    if (ImGui::BeginPopup(PopupID, ImGuiWindowFlags_NoMove))
+    {
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 4));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 8));
+
+        // 선택된 항목의 파란 배경 제거
+        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.3f, 0.3f, 0.3f, 0.6f));
+
+        // --- 섹션: 뷰모드 ---
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "뷰모드");
+        ImGui::Separator();
+
+        // ===== Lit 메뉴 =====
+        bool bIsLitMode = (CurrentViewMode == EViewMode::VMI_Lit_Phong);
+        const char* LitRadioIcon = bIsLitMode ? "●" : "○";
+
+        ImVec2 LitSelectableSize(180, IconSize.y);
+        ImVec2 LitCursorPos = ImGui::GetCursorPos();
+
+        if (ImGui::Selectable("##Lit", bIsLitMode, 0, LitSelectableSize))
+        {
+            ActiveState->Client->SetViewMode(EViewMode::VMI_Lit_Phong);
+            ImGui::CloseCurrentPopup();
+        }
+
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("라이팅 포함 (Phong 셰이딩)");
+        }
+
+        // Selectable 위에 내용 렌더링
+        ImVec2 ContentPos = ImVec2(LitCursorPos.x + 4, LitCursorPos.y + (LitSelectableSize.y - IconSize.y) * 0.5f);
+        ImGui::SetCursorPos(ContentPos);
+
+        ImGui::Text("%s", LitRadioIcon);
+        ImGui::SameLine(0, 4);
+
+        if (IconViewMode_Lit && IconViewMode_Lit->GetShaderResourceView())
+        {
+            ImGui::Image((void*)IconViewMode_Lit->GetShaderResourceView(), IconSize);
+            ImGui::SameLine(0, 4);
+        }
+
+        ImGui::Text("라이팅포함");
+
+        // ===== Unlit =====
+        bool bIsUnlit = (CurrentViewMode == EViewMode::VMI_Unlit);
+        const char* UnlitRadioIcon = bIsUnlit ? "●" : "○";
+
+        ImVec2 UnlitSelectableSize(180, IconSize.y);
+        ImVec2 UnlitCursorPos = ImGui::GetCursorPos();
+
+        if (ImGui::Selectable("##Unlit", bIsUnlit, 0, UnlitSelectableSize))
+        {
+            ActiveState->Client->SetViewMode(EViewMode::VMI_Unlit);
+            ImGui::CloseCurrentPopup();
+        }
+
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("라이팅 제외");
+        }
+
+        ContentPos = ImVec2(UnlitCursorPos.x + 4, UnlitCursorPos.y + (UnlitSelectableSize.y - IconSize.y) * 0.5f);
+        ImGui::SetCursorPos(ContentPos);
+
+        ImGui::Text("%s", UnlitRadioIcon);
+        ImGui::SameLine(0, 4);
+
+        if (IconViewMode_Unlit && IconViewMode_Unlit->GetShaderResourceView())
+        {
+            ImGui::Image((void*)IconViewMode_Unlit->GetShaderResourceView(), IconSize);
+            ImGui::SameLine(0, 4);
+        }
+
+        ImGui::Text("언릿");
+
+        // ===== Wireframe =====
+        bool bIsWireframe = (CurrentViewMode == EViewMode::VMI_Wireframe);
+        const char* WireframeRadioIcon = bIsWireframe ? "●" : "○";
+
+        ImVec2 WireframeSelectableSize(180, IconSize.y);
+        ImVec2 WireframeCursorPos = ImGui::GetCursorPos();
+
+        if (ImGui::Selectable("##Wireframe", bIsWireframe, 0, WireframeSelectableSize))
+        {
+            ActiveState->Client->SetViewMode(EViewMode::VMI_Wireframe);
+            ImGui::CloseCurrentPopup();
+        }
+
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("와이어프레임");
+        }
+
+        ContentPos = ImVec2(WireframeCursorPos.x + 4, WireframeCursorPos.y + (WireframeSelectableSize.y - IconSize.y) * 0.5f);
+        ImGui::SetCursorPos(ContentPos);
+
+        ImGui::Text("%s", WireframeRadioIcon);
+        ImGui::SameLine(0, 4);
+
+        if (IconViewMode_Wireframe && IconViewMode_Wireframe->GetShaderResourceView())
+        {
+            ImGui::Image((void*)IconViewMode_Wireframe->GetShaderResourceView(), IconSize);
+            ImGui::SameLine(0, 4);
+        }
+
+        ImGui::Text("와이어프레임");
+
+        ImGui::PopStyleColor(3);
+        ImGui::PopStyleVar(2);
+        ImGui::EndPopup();
+    }
 }

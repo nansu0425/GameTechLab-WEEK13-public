@@ -66,8 +66,9 @@ protected:
 	bool bIsWindowHovered = false;
 	bool bIsWindowFocused = false;
 
-	// 우클릭 카메라 조작 상태
-	bool bRightMousePressed = false;
+	// 마우스 드래그 상태 추적
+	bool bLeftMousePressed = false;   // 좌클릭 드래그 (기즈모 조작)
+	bool bRightMousePressed = false;  // 우클릭 드래그 (카메라 조작)
 
 	void OpenNewTab(const char* Name = "Viewer");
 	void CloseTab(int Index);
@@ -89,6 +90,8 @@ protected:
 	void RenderViewerToolbar();
 	void RenderViewerGizmoButtons();
 	void RenderViewerGizmoSpaceButton();
+	void RenderCameraOptionDropdownMenu();
+	void RenderViewModeDropdownMenu();
 	class AGizmoActor* GetGizmoActor();
 
 private:
@@ -104,4 +107,14 @@ private:
 	class UTexture* IconScale = nullptr;
 	class UTexture* IconWorldSpace = nullptr;
 	class UTexture* IconLocalSpace = nullptr;
+
+	// 카메라 모드 아이콘
+	class UTexture* IconCamera = nullptr;
+	class UTexture* IconPerspective = nullptr;
+
+	// 뷰모드 아이콘
+	class UTexture* IconViewMode_Lit = nullptr;
+	class UTexture* IconViewMode_Unlit = nullptr;
+	class UTexture* IconViewMode_Wireframe = nullptr;
+	class UTexture* IconViewMode_BufferVis = nullptr;
 };
