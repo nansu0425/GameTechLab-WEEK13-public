@@ -235,53 +235,62 @@ void SViewerWindow::RenderLeftPanel(float PanelWidth)
 {
     if (!ActiveState)   return;
 
-    // Asset Browser Section
-    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.25f, 0.35f, 0.50f, 0.8f));
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4);
-    ImGui::Indent(8.0f);
-    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
-    ImGui::Text("Asset Browser");
-    ImGui::PopFont();
-    ImGui::Unindent(8.0f);
-    ImGui::PopStyleColor();
+    ImGuiStyle& style = ImGui::GetStyle();
+    float spacing = style.ItemSpacing.y;
 
+    // Asset Browser Section
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6);
+    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.30f, 0.30f, 0.30f, 0.8f));
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
+    ImGui::Text("ASSET BROWSER");
+    ImGui::PopFont();
+    ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 6));
     ImGui::Spacing();
-    ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.35f, 0.45f, 0.60f, 0.7f));
+    ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.35f, 0.35f, 0.35f, 0.6f));
     ImGui::Separator();
     ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 6));
     ImGui::Spacing();
 
     // Mesh path section
     ImGui::BeginGroup();
-    ImGui::Text("Mesh Path:");
     ImGui::PushItemWidth(-1.0f);
     ImGui::InputTextWithHint("##MeshPath", "Browse for FBX file...", ActiveState->MeshPathBuffer, sizeof(ActiveState->MeshPathBuffer));
     ImGui::PopItemWidth();
-
+    ImGui::Dummy(ImVec2(0, 4));
     ImGui::Spacing();
 
     // Buttons
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.28f, 0.40f, 0.55f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.35f, 0.50f, 0.70f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.25f, 0.35f, 0.50f, 1.0f));
+    float innerPadding = 8.0f;  // 좌우 여백
+    float availWidth = PanelWidth - innerPadding * 2.0f;
+    float buttonHeight = 30.0f;
+    float buttonWidth = (availWidth - 6.0f) * 0.5f;
 
-    float buttonWidth = (PanelWidth - 24.0f) * 0.5f - 4.0f;
-    if (ImGui::Button("Browse...", ImVec2(buttonWidth, 32)))
+    // Browse...
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.23f, 0.25f, 0.27f, 1.00f)); // #3A3F45
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.28f, 0.32f, 0.34f, 1.00f)); // #485057
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.18f, 0.20f, 0.21f, 1.00f)); // #2E3337
+    if (ImGui::Button("Browse...", ImVec2(buttonWidth, buttonHeight)))
     {
-        auto widePath = FPlatformProcess::OpenLoadFileDialog(UTF8ToWide(GDataDir), L"fbx", L"FBX Files");
+        auto widePath = FPlatformProcess::OpenLoadFileDialog(
+            UTF8ToWide(GDataDir), L"fbx", L"FBX Files");
+
         if (!widePath.empty())
         {
             std::string s = widePath.string();
-            strncpy_s(ActiveState->MeshPathBuffer, s.c_str(), sizeof(ActiveState->MeshPathBuffer) - 1);
+            strncpy_s(ActiveState->MeshPathBuffer, s.c_str(),
+                sizeof(ActiveState->MeshPathBuffer) - 1);
         }
     }
 
-    ImGui::SameLine();
+    ImGui::PopStyleColor(3);
+    ImGui::SameLine(0.0f, 4.0f);
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.29f, 0.44f, 0.63f, 1.00f)); // #4A6FA0
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.36f, 0.51f, 0.72f, 1.00f)); // #5B82B8
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.22f, 0.36f, 0.51f, 1.00f)); // #385B82
 
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.20f, 0.60f, 0.40f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.70f, 0.50f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.50f, 0.30f, 1.0f));
-    if (ImGui::Button("Load FBX", ImVec2(buttonWidth, 32)))
+    if (ImGui::Button("Load FBX", ImVec2(buttonWidth, buttonHeight)))
     {
         FString Path = ActiveState->MeshPathBuffer;
         if (!Path.empty())
@@ -305,7 +314,9 @@ void SViewerWindow::RenderLeftPanel(float PanelWidth)
                         ActiveState->bIsPlaying = true;
 
                         // Use the settings of ActiveState
-                        ActiveState->PreviewActor->GetSkeletalMeshComponent()->PlayAnimation(Anim, ActiveState->bIsLooping, ActiveState->PlaybackSpeed);
+                        ActiveState->PreviewActor
+                            ->GetSkeletalMeshComponent()
+                            ->PlayAnimation(Anim, ActiveState->bIsLooping, ActiveState->PlaybackSpeed);
                     }
                     for (int32 i = 0; i < Skeleton->Bones.size(); ++i)
                     {
@@ -327,54 +338,62 @@ void SViewerWindow::RenderLeftPanel(float PanelWidth)
             }
         }
     }
-    ImGui::PopStyleColor(6);
+    ImGui::PopStyleColor(3);
     ImGui::EndGroup();
 
-    ImGui::Spacing();
-    ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.35f, 0.45f, 0.60f, 0.7f));
+    // Section divider
+    ImGui::Dummy(ImVec2(0, 4));
+    ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.40f, 0.40f, 0.40f, 0.80f));
     ImGui::Separator();
     ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 8));
     ImGui::Spacing();
 
     // Display Options
     ImGui::BeginGroup();
-    ImGui::Text("Display Options:");
-    ImGui::Spacing();
 
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.25f, 0.30f, 0.35f, 0.8f));
-    ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.40f, 0.70f, 1.00f, 1.0f));
+    // Title
+    ImGui::Text("DISPLAY OPTIONS");
+    ImGui::Dummy(ImVec2(0, 4));
+    // Checkbox Style
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1.5, 1.5));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.23f, 0.25f, 0.27f, 0.80f)); // #3A3F45 계열
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.28f, 0.30f, 0.33f, 0.90f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.20f, 0.22f, 0.25f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.75f, 0.80f, 0.90f, 1.00f));
 
+    // Checkboxes
     if (ImGui::Checkbox("Show Mesh", &ActiveState->bShowMesh))
     {
-        if (ActiveState->PreviewActor && ActiveState->PreviewActor->GetSkeletalMeshComponent())
-        {
-            ActiveState->PreviewActor->GetSkeletalMeshComponent()->SetVisibility(ActiveState->bShowMesh);
-        }
+        if (auto* comp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+            comp->SetVisibility(ActiveState->bShowMesh);
     }
 
-    ImGui::SameLine();
+    ImGui::SameLine(0.0f, 12.0f);
+
     if (ImGui::Checkbox("Show Bones", &ActiveState->bShowBones))
     {
-        if (ActiveState->PreviewActor && ActiveState->PreviewActor->GetBoneLineComponent())
-        {
-            ActiveState->PreviewActor->GetBoneLineComponent()->SetLineVisible(ActiveState->bShowBones);
-        }
+        if (auto* lineComp = ActiveState->PreviewActor->GetBoneLineComponent())
+            lineComp->SetLineVisible(ActiveState->bShowBones);
+
         if (ActiveState->bShowBones)
-        {
             ActiveState->bBoneLinesDirty = true;
-        }
     }
-    ImGui::PopStyleColor(2);
+
+    ImGui::PopStyleColor(4);
+    ImGui::PopStyleVar();
     ImGui::EndGroup();
 
-    ImGui::Spacing();
-    ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.35f, 0.45f, 0.60f, 0.7f));
+    // Section divider
+    ImGui::Dummy(ImVec2(0, 8));
+    ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.40f, 0.40f, 0.40f, 0.75f));
     ImGui::Separator();
     ImGui::PopStyleColor();
-    ImGui::Spacing();
+    ImGui::Dummy(ImVec2(0, 8));
 
     // Bone Hierarchy Section
-    ImGui::Text("Bone Hierarchy:");
+    ImGui::Text("BONE HIERARCHY");
+    ImGui::Dummy(ImVec2(0, 2));
     ImGui::Spacing();
 
     if (!ActiveState->CurrentMesh)
@@ -513,18 +532,21 @@ void SViewerWindow::RenderRightPanel()
 {
     if (!ActiveState)   return;
 
+    ImGuiStyle& style = ImGui::GetStyle();
+    
     // Panel header
-    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.25f, 0.35f, 0.50f, 0.8f));
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4);
-    ImGui::Indent(8.0f);
-    ImGui::Text("Bone Properties");
-    ImGui::Unindent(8.0f);
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6);
+    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.30f, 0.30f, 0.30f, 0.8f));
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
+    ImGui::Text("BONE PROPERTIES");
+    ImGui::PopFont();
     ImGui::PopStyleColor();
-
+    ImGui::Dummy(ImVec2(0, 6));
     ImGui::Spacing();
-    ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.35f, 0.45f, 0.60f, 0.7f));
+    ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.35f, 0.35f, 0.35f, 0.6f));
     ImGui::Separator();
     ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 6));
     ImGui::Spacing();
 
     // === 선택된 본의 트랜스폼 편집 UI ===
