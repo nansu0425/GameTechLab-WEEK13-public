@@ -803,6 +803,9 @@
     <ClCompile Include="Generated\AGameStateBase.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
+    <ClCompile Include="Generated\APlayerCharacter.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Generated\USkinnedMeshComponent.generated.h">
@@ -1695,6 +1698,9 @@
       <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Generated\AGameStateBase.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\APlayerCharacter.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
   </ItemGroup>
