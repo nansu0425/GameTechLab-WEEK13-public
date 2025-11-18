@@ -5,6 +5,7 @@
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 #include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 #include "AnimSingleNodeInstance.h"
+#include "Source/Runtime/Engine/Components/AudioComponent.h"
 
 SAnimationViewerWindow::SAnimationViewerWindow()
 {
@@ -199,6 +200,97 @@ void SAnimationViewerWindow::OnUpdate(float DeltaSeconds)
     {
         ActiveState->TotalTime = ActiveState->CurrentAnimation->GetSequenceLength();
     }
+
+    // If a bone is selected, update the gizmo's position to follow the bone's transform every frame
+    if (ActiveState->SelectedBoneIndex >= 0)
+    {
+        ActiveState->PreviewActor->RepositionAnchorToBone(ActiveState->SelectedBoneIndex);
+    }
+
+    // Notify Trigger Logic
+    float PreviousTime = ActiveState->PreviousTime;
+    if (ActiveState->CurrentTime < PreviousTime)
+    {
+        // If looped or jumped back: check from the beginning
+        PreviousTime = 0.0f;
+    }
+
+    if (ActiveState->bIsPlaying && ActiveState->TotalTime > 0.0f)
+    {
+        // use track/notify index
+        for (int32 trackIndex = 0; trackIndex < (int32)ActiveState->NotifyTracks.size(); ++trackIndex)
+        {
+            FNotifyTrack& track = ActiveState->NotifyTracks[trackIndex];
+            for (int32 notifyIndex = 0; notifyIndex < (int32)track.Notifies.size(); ++notifyIndex)
+            {
+                FAnimNotifyEvent& notify = track.Notifies[notifyIndex];
+                const float start = notify.TriggerTime;
+                const float end = (notify.Duration > 0.0f)
+                    ? (notify.TriggerTime + notify.Duration)
+                    : notify.TriggerTime;
+
+                const bool justTriggered = (start > PreviousTime && start <= ActiveState->CurrentTime);
+
+                // Check the range so it remains true for the duration
+                const bool inActiveRange = (notify.Duration > 0.0f &&
+                        ActiveState->CurrentTime >= start &&
+                        ActiveState->CurrentTime <= end);
+
+                // 1) Log and play sound at the moment of trigger
+                if (justTriggered)
+                {
+                    UE_LOG("[Notify] Track %d, Notify %d, '%s' START (t=%.3f, dur=%.3f)",
+                        trackIndex,
+                        notifyIndex,
+                        notify.NotifyName.ToString().c_str(),
+                        start,
+                        notify.Duration
+                    );
+
+                    // If a sound is specified, play it once
+                    if (!notify.SoundPath.empty() && ActiveState->PreviewActor)
+                    {
+                        UAudioComponent* AudioComp = (UAudioComponent*)ActiveState->PreviewActor->GetComponent(UAudioComponent::StaticClass());
+                        if (AudioComp)
+                        {
+                            USound* SoundToPlay = UResourceManager::GetInstance().Load<USound>(notify.SoundPath);
+                            if (SoundToPlay)
+                            {
+                                UE_LOG("[Notify] Play sound '%s'", notify.SoundPath.c_str());
+                                AudioComp->SetSound(SoundToPlay);
+                                AudioComp->Play();
+                            }
+                            else
+                            {
+                                UE_LOG("[Notify] Failed to load sound '%s'", notify.SoundPath.c_str());
+                            }
+                        }
+                        else
+                        {
+                            UE_LOG("[Notify] AudioComponent not found on PreviewActor");
+                        }
+                    }
+                }
+
+                // 2) Log every frame during the duration
+                if (inActiveRange)
+                {
+                    UE_LOG("[Notify] Track %d, Notify %d, '%s' ACTIVE (t=%.3f in [%.3f, %.3f])",
+                        trackIndex,
+                        notifyIndex,
+                        notify.NotifyName.ToString().c_str(),
+                        ActiveState->CurrentTime,
+                        start,
+                        end
+                    );
+                }
+
+                // If Duration is 0, it's just a 'momentary event', 
+                // so only the justTriggered log above will be printed
+            }
+        }
+    }
+    ActiveState->PreviousTime = ActiveState->CurrentTime;
 }
 
 void SAnimationViewerWindow::PreRenderViewportUpdate()
@@ -468,6 +560,34 @@ void SAnimationViewerWindow::RenderNotifyProperties()
 
     // 색상 편집
     ImGui::ColorEdit4("Color", (float*)&notify.Color);
+
+    ImGui::Spacing();
+    ImGui::Text("Sound");
+
+    const TArray<USound*>& AllSounds = UResourceManager::GetInstance().GetAll<USound>();
+    const char* CurrentSoundName = notify.SoundPath.empty() ? "None" : notify.SoundPath.c_str();
+
+    if (ImGui::BeginCombo("##SoundCombo", CurrentSoundName))
+    {
+        if (ImGui::Selectable("None", notify.SoundPath.empty()))
+        {
+            notify.SoundPath.clear();
+        }
+        for (USound* Sound : AllSounds)
+        {
+            if (!Sound) continue;
+            bool IsSelected = (notify.SoundPath == Sound->GetFilePath());
+            if (ImGui::Selectable(Sound->GetFilePath().c_str(), IsSelected))
+            {
+                notify.SoundPath = Sound->GetFilePath();
+            }
+            if (IsSelected)
+            {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
 }
 
 void SAnimationViewerWindow::AnimJumpToStart()
@@ -999,28 +1119,31 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
         );
 
         // If right-clicked anywhere in the row → Add Notify popup
-        if (ImGui::BeginPopupContextItem(("RowPopup_" + std::to_string(row)).c_str()))
+        if (NotifyIndex != -1)
         {
-            if (ImGui::MenuItem("Add Notify"))
+            if (ImGui::BeginPopupContextItem(("RowPopup_" + std::to_string(row)).c_str()))
             {
-                float mouseX = ImGui::GetMousePos().x - gridOrigin.x;
-                float newTime = (mouseX / gridAvail.x) * ActiveState->TotalTime;
-                newTime = std::clamp(newTime, 0.0f, ActiveState->TotalTime);
+                if (ImGui::MenuItem("Add Notify"))
+                {
+                    float mouseX = ImGui::GetMousePos().x - gridOrigin.x;
+                    float newTime = (mouseX / gridAvail.x) * ActiveState->TotalTime;
+                    newTime = std::clamp(newTime, 0.0f, ActiveState->TotalTime);
 
-                FAnimNotifyEvent newNotify;
-                newNotify.TriggerTime = newTime;
-                newNotify.Duration = 0.0f;
+                    FAnimNotifyEvent newNotify;
+                    newNotify.TriggerTime = newTime;
+                    newNotify.Duration = 0.0f;
 
-                int notifyCount = 0;
-                for (const auto& track : ActiveState->NotifyTracks)
-                    notifyCount += track.Notifies.size();
+                    int notifyCount = 0;
+                    for (const auto& track : ActiveState->NotifyTracks)
+                        notifyCount += track.Notifies.size();
 
-                newNotify.NotifyName = FName("NewNotify_" + std::to_string(notifyCount + 1));
+                    newNotify.NotifyName = FName("NewNotify_" + std::to_string(notifyCount + 1));
 
-                ActiveState->NotifyTracks[NotifyIndex].Notifies.Add(newNotify);
+                    ActiveState->NotifyTracks[NotifyIndex].Notifies.Add(newNotify);
+                }
+
+                ImGui::EndPopup();
             }
-
-            ImGui::EndPopup();
         }
     }
 

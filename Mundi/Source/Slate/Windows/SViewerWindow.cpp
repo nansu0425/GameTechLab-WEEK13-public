@@ -550,117 +550,88 @@ void SViewerWindow::RenderRightPanel()
     ImGui::Spacing();
 
     // === 선택된 본의 트랜스폼 편집 UI ===
-    if (ActiveState->SelectedBoneIndex >= 0 && ActiveState->CurrentMesh)
+    if (ActiveState->SelectedBoneIndex < 0 || !ActiveState->CurrentMesh)
     {
-        const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
-        if (Skeleton && ActiveState->SelectedBoneIndex < Skeleton->Bones.size())
-        {
-            const FBone& SelectedBone = Skeleton->Bones[ActiveState->SelectedBoneIndex];
-
-            // Selected bone header with icon-like prefix
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.90f, 0.40f, 1.0f));
-            ImGui::Text("> Selected Bone");
-            ImGui::PopStyleColor();
-
-            ImGui::Spacing();
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.90f, 0.95f, 1.00f, 1.0f));
-            ImGui::TextWrapped("%s", SelectedBone.Name.c_str());
-            ImGui::PopStyleColor();
-
-            ImGui::Spacing();
-            ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.45f, 0.55f, 0.70f, 0.8f));
-            ImGui::Separator();
-            ImGui::PopStyleColor();
-
-            // 본의 현재 트랜스폼 가져오기 (편집 중이 아닐 때만)
-            if (!ActiveState->bBoneRotationEditing)
-            {
-                UpdateBoneTransformFromSkeleton(ActiveState);
-            }
-
-            ImGui::Spacing();
-
-            // Location 편집
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.5f, 1.0f));
-            ImGui::Text("Location");
-            ImGui::PopStyleColor();
-
-            ImGui::PushItemWidth(-1);
-            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.28f, 0.20f, 0.20f, 0.6f));
-            bool bLocationChanged = false;
-            bLocationChanged |= ImGui::DragFloat("##BoneLocX", &ActiveState->EditBoneLocation.X, 0.1f, 0.0f, 0.0f, "X: %.3f");
-            bLocationChanged |= ImGui::DragFloat("##BoneLocY", &ActiveState->EditBoneLocation.Y, 0.1f, 0.0f, 0.0f, "Y: %.3f");
-            bLocationChanged |= ImGui::DragFloat("##BoneLocZ", &ActiveState->EditBoneLocation.Z, 0.1f, 0.0f, 0.0f, "Z: %.3f");
-            ImGui::PopStyleColor();
-            ImGui::PopItemWidth();
-
-            if (bLocationChanged)
-            {
-                ApplyBoneTransform(ActiveState);
-                ActiveState->bBoneLinesDirty = true;
-            }
-
-            ImGui::Spacing();
-
-            // Rotation 편집
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 1.0f, 0.5f, 1.0f));
-            ImGui::Text("Rotation");
-            ImGui::PopStyleColor();
-
-            ImGui::PushItemWidth(-1);
-            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.20f, 0.28f, 0.20f, 0.6f));
-            bool bRotationChanged = false;
-
-            if (ImGui::IsAnyItemActive())
-            {
-                ActiveState->bBoneRotationEditing = true;
-            }
-
-            bRotationChanged |= ImGui::DragFloat("##BoneRotX", &ActiveState->EditBoneRotation.X, 0.5f, -180.0f, 180.0f, "X: %.2f°");
-            bRotationChanged |= ImGui::DragFloat("##BoneRotY", &ActiveState->EditBoneRotation.Y, 0.5f, -180.0f, 180.0f, "Y: %.2f°");
-            bRotationChanged |= ImGui::DragFloat("##BoneRotZ", &ActiveState->EditBoneRotation.Z, 0.5f, -180.0f, 180.0f, "Z: %.2f°");
-            ImGui::PopStyleColor();
-            ImGui::PopItemWidth();
-
-            if (!ImGui::IsAnyItemActive())
-            {
-                ActiveState->bBoneRotationEditing = false;
-            }
-
-            if (bRotationChanged)
-            {
-                ApplyBoneTransform(ActiveState);
-                ActiveState->bBoneLinesDirty = true;
-            }
-
-            ImGui::Spacing();
-
-            // Scale 편집
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 1.0f, 1.0f));
-            ImGui::Text("Scale");
-            ImGui::PopStyleColor();
-
-            ImGui::PushItemWidth(-1);
-            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.20f, 0.20f, 0.28f, 0.6f));
-            bool bScaleChanged = false;
-            bScaleChanged |= ImGui::DragFloat("##BoneScaleX", &ActiveState->EditBoneScale.X, 0.01f, 0.001f, 100.0f, "X: %.3f");
-            bScaleChanged |= ImGui::DragFloat("##BoneScaleY", &ActiveState->EditBoneScale.Y, 0.01f, 0.001f, 100.0f, "Y: %.3f");
-            bScaleChanged |= ImGui::DragFloat("##BoneScaleZ", &ActiveState->EditBoneScale.Z, 0.01f, 0.001f, 100.0f, "Z: %.3f");
-            ImGui::PopStyleColor();
-            ImGui::PopItemWidth();
-
-            if (bScaleChanged)
-            {
-                ApplyBoneTransform(ActiveState);
-                ActiveState->bBoneLinesDirty = true;
-            }
-        }
+        ImGui::TextWrapped("Select a bone from the hierarchy to edit.");
+        return;
     }
-    else
-    {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
-        ImGui::TextWrapped("Select a bone from the hierarchy to edit its transform properties.");
-        ImGui::PopStyleColor();
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton || ActiveState->SelectedBoneIndex >= Skeleton->Bones.size())
+        return;
+
+    const FBone& SelectedBone = Skeleton->Bones[ActiveState->SelectedBoneIndex];
+
+    // Bone Name
+    ImGui::Text("Selected Bone");
+    ImGui::Separator();
+    ImGui::TextWrapped("%s", SelectedBone.Name.c_str());
+    ImGui::Dummy(ImVec2(0, 4));
+
+    // Current Transform
+    if (!ActiveState->bBoneRotationEditing)
+        UpdateBoneTransformFromSkeleton(ActiveState);
+
+    // ------------------------------------------
+    // LOCATION
+    // ------------------------------------------
+    ImGui::Text("Location");
+    bool bLocChanged = false;
+
+    ImGui::PushItemWidth(-1);
+    bLocChanged |= ImGui::DragFloat("X##loc", &ActiveState->EditBoneLocation.X, 0.1f);
+    bLocChanged |= ImGui::DragFloat("Y##loc", &ActiveState->EditBoneLocation.Y, 0.1f);
+    bLocChanged |= ImGui::DragFloat("Z##loc", &ActiveState->EditBoneLocation.Z, 0.1f);
+    ImGui::PopItemWidth();
+
+    if (bLocChanged) {
+        ApplyBoneTransform(ActiveState);
+        ActiveState->bBoneLinesDirty = true;
+    }
+
+    ImGui::Dummy(ImVec2(0, 8));
+
+    // ------------------------------------------
+    // ROTATION
+    // ------------------------------------------
+    ImGui::Text("Rotation");
+
+    bool bRotChanged = false;
+
+    if (ImGui::IsAnyItemActive())
+        ActiveState->bBoneRotationEditing = true;
+
+    ImGui::PushItemWidth(-1);
+    bRotChanged |= ImGui::DragFloat("X##rot", &ActiveState->EditBoneRotation.X, 0.5f, -180.0f, 180.0f);
+    bRotChanged |= ImGui::DragFloat("Y##rot", &ActiveState->EditBoneRotation.Y, 0.5f, -180.0f, 180.0f);
+    bRotChanged |= ImGui::DragFloat("Z##rot", &ActiveState->EditBoneRotation.Z, 0.5f, -180.0f, 180.0f);
+    ImGui::PopItemWidth();
+
+    if (!ImGui::IsAnyItemActive())
+        ActiveState->bBoneRotationEditing = false;
+
+    if (bRotChanged) {
+        ApplyBoneTransform(ActiveState);
+        ActiveState->bBoneLinesDirty = true;
+    }
+
+    ImGui::Dummy(ImVec2(0, 8));
+
+    // ------------------------------------------
+    // SCALE
+    // ------------------------------------------
+    ImGui::Text("Scale");
+
+    bool bScaleChanged = false;
+    ImGui::PushItemWidth(-1);
+    bScaleChanged |= ImGui::DragFloat("X##scale", &ActiveState->EditBoneScale.X, 0.01f, 0.001f, 100.f);
+    bScaleChanged |= ImGui::DragFloat("Y##scale", &ActiveState->EditBoneScale.Y, 0.01f, 0.001f, 100.f);
+    bScaleChanged |= ImGui::DragFloat("Z##scale", &ActiveState->EditBoneScale.Z, 0.01f, 0.001f, 100.f);
+    ImGui::PopItemWidth();
+
+    if (bScaleChanged) {
+        ApplyBoneTransform(ActiveState);
+        ActiveState->bBoneLinesDirty = true;
     }
 }
 
