@@ -116,7 +116,7 @@ void SAnimationViewerWindow::OnRender()
             ImGui::BeginChild("BonePropertiesArea", ImVec2(0, bonePropsHeight), false);
             RenderRightPanel();
             ImGui::EndChild();
-
+            
             ImGui::BeginChild("AnimationBrowserArea", ImVec2(0, 0), false);
             RenderAnimationBrowser();
             ImGui::EndChild();
@@ -306,10 +306,37 @@ void SAnimationViewerWindow::RenderAnimationBrowser()
 {
     if (!ActiveState)   return;
 
+    ImGuiStyle& style = ImGui::GetStyle();
+
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6);
+    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.30f, 0.30f, 0.30f, 0.8f));
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
+    ImGui::Text("ANIMATION BROWSER");
+    ImGui::PopFont();
+    ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 6));
+    ImGui::Spacing();
+    ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.35f, 0.35f, 0.35f, 0.6f));
     ImGui::Separator();
-    ImGui::Text("Animation Browser");
+    ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 6));
+    ImGui::Spacing();
+    
+    // Checkbox Style
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.5, 0.5));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.23f, 0.25f, 0.27f, 0.80f)); // #3A3F45 계열
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.28f, 0.30f, 0.33f, 0.90f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.20f, 0.22f, 0.25f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.75f, 0.80f, 0.90f, 1.00f));
+
+    ImGui::PushItemWidth(-1.0f);
     ImGui::Checkbox("Show Only Compatible", &ActiveState->bShowOnlyCompatible);
-    ImGui::Separator();
+    ImGui::PopItemWidth();
+    ImGui::PopStyleColor(4);
+    ImGui::PopStyleVar();
+
+    ImGui::Dummy(ImVec2(0, 6));
+    ImGui::Spacing();
 
     const TArray<UAnimSequence*>& AnimsToShow = ActiveState->bShowOnlyCompatible
         ? ActiveState->CompatibleAnimations
@@ -323,36 +350,90 @@ void SAnimationViewerWindow::RenderAnimationBrowser()
         return;
     }
 
-    if (ImGui::BeginListBox("##AnimBrowser", ImVec2(-1, -1)))
+    // Table row highlight colors
+    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.2f, 0.2f, 0.2f, 0.5f)); // selected bg
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.2f)); // hover bg
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.2f, 0.2f, 0.2f, 0.5f)); // selected active bg
+
+    // table row colors (transparent OK)
+    ImGui::PushStyleColor(ImGuiCol_TableRowBg, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8, 4));
+
+    // Table flags (Sortable disabled)
+    ImGuiTableFlags flags = ImGuiTableFlags_Borders
+        | ImGuiTableFlags_RowBg
+        | ImGuiTableFlags_Resizable
+        | ImGuiTableFlags_ScrollY
+        | ImGuiTableFlags_SizingStretchProp;
+
+    if (ImGui::BeginTable("AnimBrowserTable", 2, flags, ImVec2(-1, -1)))
     {
-        for (UAnimSequence* Anim : AnimsToShow)
+        // Setup columns (NoSort 플래그 추가)
+        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_NoSort, 0.4f);
+        ImGui::TableSetupColumn("Path", ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_NoSort, 0.6f);
+        ImGui::TableSetupScrollFreeze(0, 1); // Freeze header row
+        ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8, 2)); // y padding 줄이기
+        ImGui::TableHeadersRow();
+        ImGui::PopStyleVar();
+
+        // Table rows
+        ImGuiListClipper clipper;
+        clipper.Begin(AnimsToShow.size());
+
+        while (clipper.Step())
         {
-            if (!Anim)  continue;
-
-            bool isSelected = (ActiveState->CurrentAnimation == Anim);
-            if (ImGui::Selectable(Anim->GetName().c_str(), isSelected))
+            for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
             {
-                if (ActiveState->PreviewActor)
-                {
-                    ActiveState->CurrentAnimation = Anim;
-                    ActiveState->TotalTime = Anim->GetSequenceLength();
-                    ActiveState->CurrentTime = 0.0f;
-                    ActiveState->bIsPlaying = true;
+                UAnimSequence* Anim = AnimsToShow[row];
+                if (!Anim) continue;
 
-                    USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
-                    if (MeshComp)
+                bool isSelected = (ActiveState->CurrentAnimation == Anim);
+
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+
+                // Selectable spans entire row
+                ImGui::PushID(row);
+                if (ImGui::Selectable(("##row" + std::to_string(row)).c_str(),
+                    isSelected,
+                    ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap))
+                {
+                    if (ActiveState->PreviewActor)
                     {
-                        MeshComp->PlayAnimation(Anim, ActiveState->bIsLooping, ActiveState->PlaybackSpeed);
+                        ActiveState->CurrentAnimation = Anim;
+                        ActiveState->TotalTime = Anim->GetSequenceLength();
+                        ActiveState->CurrentTime = 0.0f;
+                        ActiveState->bIsPlaying = true;
+                        USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+                        if (MeshComp)
+                        {
+                            MeshComp->PlayAnimation(Anim, ActiveState->bIsLooping, ActiveState->PlaybackSpeed);
+                        }
                     }
                 }
-            }
-            if (isSelected)
-            {
-                ImGui::SetItemDefaultFocus();
+                ImGui::PopID();
+
+                // Name column
+                ImGui::SameLine();
+                ImGui::Text("%s", Anim->GetName().c_str());
+
+                // Path column
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextDisabled("%s", Anim->GetFilePath().c_str());
+
+                if (isSelected)
+                {
+                    ImGui::SetScrollHereY();
+                }
             }
         }
-        ImGui::EndListBox();
+
+        ImGui::EndTable();
     }
+
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor(5);
 }
 
 void SAnimationViewerWindow::RenderNotifyProperties()
@@ -764,10 +845,11 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
 
     const int RowCount = LeftRows.size();
     float TotalHeight = RowCount * RowHeight;
+    float FullHeight = gridAvail.y;
 
     draw->AddRectFilled(
         gridOrigin,
-        ImVec2(gridOrigin.x + gridAvail.x, gridOrigin.y + TotalHeight),
+        ImVec2(gridOrigin.x + gridAvail.x, gridOrigin.y + FullHeight),
         IM_COL32(40, 40, 40, 255)
     );
 
@@ -778,7 +860,7 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
         float x = gridOrigin.x + (float)i * (gridAvail.x / frameCount);
         draw->AddLine(
             ImVec2(x, gridOrigin.y),
-            ImVec2(x, gridOrigin.y + TotalHeight),
+            ImVec2(x, gridOrigin.y + FullHeight),
             IM_COL32(60, 60, 60, 160)
         );
     }
@@ -956,7 +1038,7 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
     // red line
     draw->AddLine(
         ImVec2(playheadX_Grid, gridOrigin.y),
-        ImVec2(playheadX_Grid, gridOrigin.y + TotalHeight),
+        ImVec2(playheadX_Grid, gridOrigin.y + FullHeight),
         IM_COL32(255, 40, 40, 255), 2.0f
     );
 
@@ -971,7 +1053,7 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
 
     // hitbox
     ImGui::SetCursorScreenPos(ImVec2(playheadX_Grid - 8, gridOrigin.y - 12));
-    ImGui::InvisibleButton("UnifiedPlayheadHandle", ImVec2(16, TotalHeight + 12));
+    ImGui::InvisibleButton("UnifiedPlayheadHandle", ImVec2(16, FullHeight + 12));
 
     bool dragging = ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left);
 
