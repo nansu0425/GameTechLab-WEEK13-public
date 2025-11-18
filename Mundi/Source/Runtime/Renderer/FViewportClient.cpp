@@ -109,9 +109,10 @@ void FViewportClient::Draw(FViewport* Viewport)
 				FMinimalViewInfo* MinimalViewInfo = PlayerCameraManager->GetCurrentViewInfo();
 				TArray<FPostProcessModifier> Modifiers = PlayerCameraManager->GetModifiers();
 
+				World->GetRenderSettings().SetViewMode(ViewMode);
+
 				FSceneView CurrentViewInfo(MinimalViewInfo, &World->GetRenderSettings());
 				CurrentViewInfo.Modifiers = Modifiers;
-				World->GetRenderSettings().SetViewMode(ViewMode);
 
 				// 더 명확한 이름의 함수를 호출
 				Renderer->RenderSceneForView(World, &CurrentViewInfo, Viewport);
@@ -136,10 +137,10 @@ void FViewportClient::Draw(FViewport* Viewport)
 	}
 	}
 
-	FSceneView RenderView(Camera->GetCameraComponent(), Viewport, &World->GetRenderSettings());
-
-	// 2. 렌더링 호출은 뷰 타입 설정이 모두 끝난 후 마지막에 한 번만 수행
+	// 2. ViewMode를 먼저 설정한 후 FSceneView를 생성해야 올바른 셰이더 매크로가 생성됨
 	World->GetRenderSettings().SetViewMode(ViewMode);
+
+	FSceneView RenderView(Camera->GetCameraComponent(), Viewport, &World->GetRenderSettings());
 
 	// 더 명확한 이름의 함수를 호출
 	Renderer->RenderSceneForView(World, &RenderView, Viewport);
@@ -328,7 +329,7 @@ void FViewportClient::MouseWheel(float DeltaSeconds)
 	{
 		float currentSpeed = Camera->GetCameraSpeed();
 		// 휠 업(양수): 속도 증가, 휠 다운(음수): 속도 감소
-		currentSpeed += WheelDelta * 5.0f;
+		currentSpeed += WheelDelta * 1.0f;
 		// 속도 범위 제한 (1.0 ~ 100.0)
 		currentSpeed = std::max(1.0f, std::min(100.0f, currentSpeed));
 		Camera->SetCameraSpeed(currentSpeed);
