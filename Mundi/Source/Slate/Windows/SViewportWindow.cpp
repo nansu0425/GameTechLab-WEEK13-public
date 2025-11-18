@@ -945,13 +945,13 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 
 			float farClip = camComp->GetFarClip();
 			ImGui::SetNextItemWidth(180);
-			if (ImGui::SliderFloat("##FarClip", &farClip, 10.0f, 1000.0f, "%.0f"))
+			if (ImGui::SliderFloat("##FarClip", &farClip, 10.0f, 10000.0f, "%.0f"))
 			{
 				camComp->SetClipPlanes(camComp->GetNearClip(), farClip);
 			}
 			if (ImGui::IsItemHovered())
 			{
-				ImGui::SetTooltip("카메라에서 가장 먼 렌더링 거리 (100-10000)\n이 값보다 먼 오브젝트는 보이지 않습니다");
+				ImGui::SetTooltip("카메라에서 가장 먼 렌더링 거리 (10-10000)\n이 값보다 먼 오브젝트는 보이지 않습니다");
 			}
 		}
 

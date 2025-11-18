@@ -112,6 +112,20 @@ private:
 	class UTexture* IconCamera = nullptr;
 	class UTexture* IconPerspective = nullptr;
 
+	// 직교 모드 아이콘
+	class UTexture* IconTop = nullptr;
+	class UTexture* IconBottom = nullptr;
+	class UTexture* IconLeft = nullptr;
+	class UTexture* IconRight = nullptr;
+	class UTexture* IconFront = nullptr;
+	class UTexture* IconBack = nullptr;
+
+	// 카메라 설정 아이콘
+	class UTexture* IconSpeed = nullptr;
+	class UTexture* IconFOV = nullptr;
+	class UTexture* IconNearClip = nullptr;
+	class UTexture* IconFarClip = nullptr;
+
 	// 뷰모드 아이콘
 	class UTexture* IconViewMode_Lit = nullptr;
 	class UTexture* IconViewMode_Unlit = nullptr;

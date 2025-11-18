@@ -56,8 +56,9 @@ protected:
     int32 MouseLastY{};
     bool bIsMouseButtonDown = false;
     bool bIsMouseRightButtonDown = false;
-    static FVector CameraAddPosition;
 
+    // 언리얼 방식: 모든 직교 뷰포트가 하나의 3D 위치를 공유 (연동되어 움직임)
+    static FVector CameraAddPosition;
 
     // 직교 뷰용 카메라 설정
     uint32 OrthographicAddXPosition;

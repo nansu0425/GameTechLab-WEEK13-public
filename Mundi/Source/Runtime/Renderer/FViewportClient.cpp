@@ -16,6 +16,7 @@
 #include "PlayerCameraManager.h"
 #include "SceneView.h"
 
+// 언리얼 방식: 모든 직교 뷰포트가 하나의 3D 위치를 공유
 FVector FViewportClient::CameraAddPosition{};
 
 FViewportClient::FViewportClient()
@@ -156,12 +157,14 @@ void FViewportClient::SetupCameraMode()
 		Camera->GetCameraComponent()->SetClipPlanes(0.1f, 2000.0f);
 		break;
 	case EViewportType::Orthographic_Top:
-
-		Camera->SetActorLocation({ CameraAddPosition.X, CameraAddPosition.Y, 1000 });
+	{
+		FVector newPos = { CameraAddPosition.X, CameraAddPosition.Y, 1000 };
+		Camera->SetActorLocation(newPos);
 		Camera->SetActorRotation(FQuat::MakeFromEulerZYX({ 0, 90, 0 }));
 		Camera->GetCameraComponent()->SetFOV(100);
 		Camera->GetCameraComponent()->SetClipPlanes(0.1f, 2000.0f);
 		break;
+	}
 	case EViewportType::Orthographic_Bottom:
 
 		Camera->SetActorLocation({ CameraAddPosition.X, CameraAddPosition.Y, -1000 });
@@ -208,10 +211,13 @@ void FViewportClient::MouseMove(FViewport* Viewport, int32 X, int32 Y)
 	{
 		if (ViewportType != EViewportType::Perspective)
 		{
-			int32 deltaX = X - MouseLastX;
-			int32 deltaY = Y - MouseLastY;
+			// 마우스가 숨겨져 있을 때는 InputManager의 MouseDelta를 사용
+			UInputManager& InputManager = UInputManager::GetInstance();
+			FVector2D MouseDelta = InputManager.GetMouseDelta();
+			float deltaX = MouseDelta.X;
+			float deltaY = MouseDelta.Y;
 
-			if (Camera && (deltaX != 0 || deltaY != 0))
+			if (Camera && (deltaX != 0.0f || deltaY != 0.0f))
 			{
 				// 기준 픽셀→월드 스케일
 				const float basePixelToWorld = 0.05f;
@@ -230,9 +236,6 @@ void FViewportClient::MouseMove(FViewport* Viewport, int32 X, int32 Y)
 
 				SetupCameraMode();
 			}
-
-			MouseLastX = X;
-			MouseLastY = Y;
 		}
 		else if (ViewportType == EViewportType::Perspective)
 		{
@@ -285,7 +288,7 @@ void FViewportClient::MouseButtonDown(FViewport* Viewport, int32 X, int32 Y, int
 	}
 	else if (Button == 1)
 	{
-		//우클릭시 
+		//우클릭시
 		bIsMouseRightButtonDown = true;
 		MouseLastX = X;
 		MouseLastY = Y;
