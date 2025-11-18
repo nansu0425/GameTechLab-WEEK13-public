@@ -67,7 +67,10 @@ void SAnimationViewerWindow::OnRender()
         //=====================================================
         // Tab Bar : Render tab bar and switch active state
         //=====================================================
-        RenderTabBar();
+        /*if (!ImGui::BeginTabBar("AnimationViewerTabs",
+            ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
+            return;*/
+        RenderTabsAndToolbar(EViewerType::Animation);
 
         //===============================
         // Update window rect
@@ -651,36 +654,6 @@ void SAnimationViewerWindow::AnimStep(bool bForward)
         MeshComp->PlayAnimation(ActiveState->CurrentAnimation, ActiveState->bIsLooping, 0.0f);
         MeshComp->SetAnimationPosition(ActiveState->CurrentTime);
     }
-}
-
-void SAnimationViewerWindow::RenderTabBar()
-{
-    if (!ImGui::BeginTabBar("SkeletalViewerTabs",
-        ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
-        return;
-
-    for (int i = 0; i < Tabs.Num(); ++i)
-    {
-        ViewerState* State = Tabs[i];
-        bool open = true;
-        if (ImGui::BeginTabItem(State->Name.ToString().c_str(), &open))
-        {
-            ActiveTabIndex = i;
-            ActiveState = State;
-            ImGui::EndTabItem();
-        }
-        if (!open)
-        {
-            CloseTab(i);
-            break;
-        }
-    }
-    if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing))
-    {
-        char label[32]; sprintf_s(label, "Viewer %d", Tabs.Num() + 1);
-        OpenNewTab(label);
-    }
-    ImGui::EndTabBar();
 }
 
 void SAnimationViewerWindow::RenderCenterPanel()

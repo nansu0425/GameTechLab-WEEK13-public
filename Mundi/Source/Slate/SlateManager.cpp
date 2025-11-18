@@ -225,7 +225,7 @@ void USlateManager::OpenAssetViewer(UEditorAssetPreviewContext* Context)
         const float y = Rect.Top + toolbarHeight + (availableHeight - h) * 0.5f;
 
         NewViewer->Initialize(x, y, w, h, World, Device, Context);
-        DetachedWindows.Add(NewViewer);
+        PendingOpenWindows.Add(NewViewer);
         UE_LOG("Opened a new asset viewer for asset: %s", Context->AssetPath.c_str());
     }
 }
@@ -797,6 +797,15 @@ void USlateManager::ProcessInput()
             CloseDetachedWindow(Window);
         }
         PendingCloseWindows.Empty();
+    }
+
+    if (!PendingOpenWindows.IsEmpty())
+    {
+        for (SWindow* Window : PendingOpenWindows)
+        {
+            DetachedWindows.Add(Window);
+        }
+        PendingOpenWindows.Empty();
     }
 }
 

@@ -261,6 +261,106 @@ void SViewerWindow::OnRenderViewport()
     }
 }
 
+void SViewerWindow::RenderTabBar()
+{
+    for (int i = 0; i < Tabs.Num(); ++i)
+    {
+        ViewerState* State = Tabs[i];
+        bool open = true;
+        if (ImGui::BeginTabItem(State->Name.ToString().c_str(), &open))
+        {
+            ActiveTabIndex = i;
+            ActiveState = State;
+            ImGui::EndTabItem();
+        }
+        if (!open)
+        {
+            CloseTab(i);
+            break;
+        }
+    }
+    if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing))
+    {
+        char label[32]; sprintf_s(label, "Viewer %d", Tabs.Num() + 1);
+        OpenNewTab(label);
+    }
+    ImGui::EndTabBar();
+}
+
+void SViewerWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
+{
+    if (!ImGui::BeginTabBar("ViewerTabs", 
+        ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
+        return;
+
+    for (int i = 0; i < Tabs.Num(); ++i)
+    {
+        ViewerState* State = Tabs[i];
+        bool open = true;
+        if (ImGui::BeginTabItem(State->Name.ToString().c_str(), &open))
+        {
+            ActiveTabIndex = i;
+            ActiveState = State;
+            ImGui::EndTabItem();
+        }
+        if (!open)
+        {
+            CloseTab(i);
+            ImGui::EndTabBar();
+            return;
+        }
+    }
+    if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing))
+    {
+        char label[32]; sprintf_s(label, "Viewer %d", Tabs.Num() + 1);
+        OpenNewTab(label);
+    }
+
+    const float SkelButtonWidth = 120.0f;
+    const float AnimButtonWidth = 135.0f;
+    const float spacing = ImGui::GetStyle().ItemSpacing.x;
+    const float totalButtonsWidth = (SkelButtonWidth + AnimButtonWidth) + spacing;
+
+    ImGui::SameLine();
+    float availableWidth = ImGui::GetContentRegionAvail().x;
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + availableWidth - totalButtonsWidth);
+
+    // Skeletal Viewer Button
+    bool bSkeletalDisabled = (CurrentViewerType == EViewerType::Skeletal);
+    if (bSkeletalDisabled)  ImGui::BeginDisabled();
+
+    if (ImGui::Button("Skeletal Viewer", ImVec2(SkelButtonWidth, 0)))
+    {
+        if (ActiveState && ActiveState->CurrentMesh)
+        {
+            UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
+            Context->ViewerType = EViewerType::Skeletal;
+            Context->AssetPath = ActiveState->LoadedMeshPath;
+            USlateManager::GetInstance().OpenAssetViewer(Context);
+        }
+    }
+    if (bSkeletalDisabled)  ImGui::EndDisabled();
+    ImGui::SameLine();
+
+    // Animation Viewer Button
+    bool bAnimDisabled = (CurrentViewerType == EViewerType::Animation);
+    if (bAnimDisabled)  ImGui::BeginDisabled();
+
+    if (ImGui::Button("Animation Viewer", ImVec2(AnimButtonWidth, 0)))
+    {
+        if (ActiveState && ActiveState->CurrentMesh)
+        {
+            UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
+            Context->ViewerType = EViewerType::Animation;
+            Context->AssetPath = ActiveState->LoadedMeshPath;
+            USlateManager::GetInstance().OpenAssetViewer(Context);
+        }
+    }
+    if (bAnimDisabled)  ImGui::EndDisabled();
+
+    ImGui::EndTabBar();
+}
+
 void SViewerWindow::OpenNewTab(const char* Name)
 {
     ViewerState* State = CreateViewerState(Name, Context);
