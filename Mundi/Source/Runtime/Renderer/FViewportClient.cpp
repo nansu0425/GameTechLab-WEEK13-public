@@ -15,7 +15,9 @@
 #include "InputManager.h"
 #include "PlayerCameraManager.h"
 #include "SceneView.h"
+#include "SlateManager.h"
 
+// 언리얼 방식: 모든 직교 뷰포트가 하나의 3D 위치를 공유
 FVector FViewportClient::CameraAddPosition{};
 
 FViewportClient::FViewportClient()
@@ -108,9 +110,10 @@ void FViewportClient::Draw(FViewport* Viewport)
 				FMinimalViewInfo* MinimalViewInfo = PlayerCameraManager->GetCurrentViewInfo();
 				TArray<FPostProcessModifier> Modifiers = PlayerCameraManager->GetModifiers();
 
+				World->GetRenderSettings().SetViewMode(ViewMode);
+
 				FSceneView CurrentViewInfo(MinimalViewInfo, &World->GetRenderSettings());
 				CurrentViewInfo.Modifiers = Modifiers;
-				World->GetRenderSettings().SetViewMode(ViewMode);
 
 				// 더 명확한 이름의 함수를 호출
 				Renderer->RenderSceneForView(World, &CurrentViewInfo, Viewport);
@@ -135,10 +138,10 @@ void FViewportClient::Draw(FViewport* Viewport)
 	}
 	}
 
-	FSceneView RenderView(Camera->GetCameraComponent(), Viewport, &World->GetRenderSettings());
-
-	// 2. 렌더링 호출은 뷰 타입 설정이 모두 끝난 후 마지막에 한 번만 수행
+	// 2. ViewMode를 먼저 설정한 후 FSceneView를 생성해야 올바른 셰이더 매크로가 생성됨
 	World->GetRenderSettings().SetViewMode(ViewMode);
+
+	FSceneView RenderView(Camera->GetCameraComponent(), Viewport, &World->GetRenderSettings());
 
 	// 더 명확한 이름의 함수를 호출
 	Renderer->RenderSceneForView(World, &RenderView, Viewport);
@@ -156,12 +159,14 @@ void FViewportClient::SetupCameraMode()
 		Camera->GetCameraComponent()->SetClipPlanes(0.1f, 2000.0f);
 		break;
 	case EViewportType::Orthographic_Top:
-
-		Camera->SetActorLocation({ CameraAddPosition.X, CameraAddPosition.Y, 1000 });
+	{
+		FVector newPos = { CameraAddPosition.X, CameraAddPosition.Y, 1000 };
+		Camera->SetActorLocation(newPos);
 		Camera->SetActorRotation(FQuat::MakeFromEulerZYX({ 0, 90, 0 }));
 		Camera->GetCameraComponent()->SetFOV(100);
 		Camera->GetCameraComponent()->SetClipPlanes(0.1f, 2000.0f);
 		break;
+	}
 	case EViewportType::Orthographic_Bottom:
 
 		Camera->SetActorLocation({ CameraAddPosition.X, CameraAddPosition.Y, -1000 });
@@ -208,10 +213,13 @@ void FViewportClient::MouseMove(FViewport* Viewport, int32 X, int32 Y)
 	{
 		if (ViewportType != EViewportType::Perspective)
 		{
-			int32 deltaX = X - MouseLastX;
-			int32 deltaY = Y - MouseLastY;
+			// 마우스가 숨겨져 있을 때는 InputManager의 MouseDelta를 사용
+			UInputManager& InputManager = UInputManager::GetInstance();
+			FVector2D MouseDelta = InputManager.GetMouseDelta();
+			float deltaX = MouseDelta.X;
+			float deltaY = MouseDelta.Y;
 
-			if (Camera && (deltaX != 0 || deltaY != 0))
+			if (Camera && (deltaX != 0.0f || deltaY != 0.0f))
 			{
 				// 기준 픽셀→월드 스케일
 				const float basePixelToWorld = 0.05f;
@@ -230,9 +238,6 @@ void FViewportClient::MouseMove(FViewport* Viewport, int32 X, int32 Y)
 
 				SetupCameraMode();
 			}
-
-			MouseLastX = X;
-			MouseLastY = Y;
 		}
 		else if (ViewportType == EViewportType::Perspective)
 		{
@@ -285,7 +290,7 @@ void FViewportClient::MouseButtonDown(FViewport* Viewport, int32 X, int32 Y, int
 	}
 	else if (Button == 1)
 	{
-		//우클릭시 
+		//우클릭시
 		bIsMouseRightButtonDown = true;
 		MouseLastX = X;
 		MouseLastY = Y;
@@ -318,11 +323,45 @@ void FViewportClient::MouseWheel(float DeltaSeconds)
 
 	UCameraComponent* CameraComponent = Camera->GetCameraComponent();
 	if (!CameraComponent) return;
+
+	// OwnerWindow가 설정된 경우(메인 에디터 뷰포트)만 체크
+	if (OwnerWindow != nullptr)
+	{
+		// ImGui가 마우스 입력을 캡처 중이면 뷰포트에서 마우스 휠 처리 안 함
+		ImGuiIO& io = ImGui::GetIO();
+		if (io.WantCaptureMouse)
+			return;
+
+		// ActiveViewport가 설정되어 있고, 자신이 아니면 처리 안 함
+		// (다른 뷰포트에서 우클릭 드래그 중일 때 줌 인/아웃 방지)
+		if (USlateManager::ActiveViewport != nullptr && USlateManager::ActiveViewport != OwnerWindow)
+			return;
+	}
+	// 뷰어 창(OwnerWindow == nullptr)은 WantCaptureMouse 체크 안 함
+	// (뷰어는 ImGui 윈도우 내부에 있어서 항상 WantCaptureMouse가 true이므로)
+
 	float WheelDelta = UInputManager::GetInstance().GetMouseWheelDelta();
 
-	float zoomFactor = CameraComponent->GetZoomFactor();
-	zoomFactor *= (1.0f - WheelDelta * DeltaSeconds * 100.0f);
+	// 마우스 휠이 움직이지 않았으면 처리 안 함
+	if (WheelDelta == 0.0f)
+		return;
 
-	CameraComponent->SetZoomFactor(zoomFactor);
+	// 우클릭이 눌려있을 때: 카메라 이동 속도 조절
+	if (bIsMouseRightButtonDown)
+	{
+		float currentSpeed = Camera->GetCameraSpeed();
+		// 휠 업(양수): 속도 증가, 휠 다운(음수): 속도 감소
+		currentSpeed += WheelDelta * 1.0f;
+		// 속도 범위 제한 (1.0 ~ 100.0)
+		currentSpeed = std::max(1.0f, std::min(100.0f, currentSpeed));
+		Camera->SetCameraSpeed(currentSpeed);
+	}
+	// 우클릭이 안 눌려있을 때: 줌 조절
+	else
+	{
+		float zoomFactor = CameraComponent->GetZoomFactor();
+		zoomFactor *= (1.0f - WheelDelta * DeltaSeconds * 100.0f);
+		CameraComponent->SetZoomFactor(zoomFactor);
+	}
 }
 

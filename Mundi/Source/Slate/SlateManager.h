@@ -138,6 +138,9 @@ private:
     TArray<SWindow*> DetachedWindows;
     TArray<SWindow*> PendingCloseWindows;
 
+    // 드래그 중인 윈도우 추적 (마우스가 윈도우 밖으로 나가도 입력 전달하기 위해)
+    SWindow* DraggingWindow = nullptr;
+
     // Content Browser (Bottom panel overlay with animation)
     UContentBrowserWindow* ContentBrowserWindow = nullptr;
     bool bIsContentBrowserVisible = false;
