@@ -66,8 +66,9 @@ protected:
 	bool bIsWindowHovered = false;
 	bool bIsWindowFocused = false;
 
-	// 우클릭 카메라 조작 상태
-	bool bRightMousePressed = false;
+	// 마우스 드래그 상태 추적
+	bool bLeftMousePressed = false;   // 좌클릭 드래그 (기즈모 조작)
+	bool bRightMousePressed = false;  // 우클릭 드래그 (카메라 조작)
 
 	void OpenNewTab(const char* Name = "Viewer");
 	void CloseTab(int Index);
@@ -84,9 +85,50 @@ protected:
 	void ApplyBoneTransform(ViewerState* State);
 	void ExpandToSelectedBone(ViewerState* State, int32 BoneIndex);
 
+	// 뷰어 툴바 관련 메서드
+	void LoadViewerToolbarIcons(ID3D11Device* Device);
+	void RenderViewerToolbar();
+	void RenderViewerGizmoButtons();
+	void RenderViewerGizmoSpaceButton();
+	void RenderCameraOptionDropdownMenu();
+	void RenderViewModeDropdownMenu();
+	class AGizmoActor* GetGizmoActor();
+
 private:
 	bool IsOpen() const { return bIsOpen; }
 	void Close() { bIsOpen = false; }
 
 	// TODO: check functions .. (not used by inherited class)
+
+	// 뷰어 툴바 아이콘 텍스처
+	class UTexture* IconSelect = nullptr;
+	class UTexture* IconMove = nullptr;
+	class UTexture* IconRotate = nullptr;
+	class UTexture* IconScale = nullptr;
+	class UTexture* IconWorldSpace = nullptr;
+	class UTexture* IconLocalSpace = nullptr;
+
+	// 카메라 모드 아이콘
+	class UTexture* IconCamera = nullptr;
+	class UTexture* IconPerspective = nullptr;
+
+	// 직교 모드 아이콘
+	class UTexture* IconTop = nullptr;
+	class UTexture* IconBottom = nullptr;
+	class UTexture* IconLeft = nullptr;
+	class UTexture* IconRight = nullptr;
+	class UTexture* IconFront = nullptr;
+	class UTexture* IconBack = nullptr;
+
+	// 카메라 설정 아이콘
+	class UTexture* IconSpeed = nullptr;
+	class UTexture* IconFOV = nullptr;
+	class UTexture* IconNearClip = nullptr;
+	class UTexture* IconFarClip = nullptr;
+
+	// 뷰모드 아이콘
+	class UTexture* IconViewMode_Lit = nullptr;
+	class UTexture* IconViewMode_Unlit = nullptr;
+	class UTexture* IconViewMode_Wireframe = nullptr;
+	class UTexture* IconViewMode_BufferVis = nullptr;
 };

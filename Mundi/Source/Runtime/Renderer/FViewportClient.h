@@ -5,6 +5,7 @@
 class FViewport;
 class UWorld;
 class UCameraComponent;
+class SViewportWindow;
 
 
 /**
@@ -38,6 +39,9 @@ public:
     void SetCamera(ACameraActor* InCamera) { Camera = InCamera; }
     ACameraActor* GetCamera() const { return Camera; }
 
+    void SetOwnerWindow(SViewportWindow* InOwner) { OwnerWindow = InOwner; }
+    SViewportWindow* GetOwnerWindow() const { return OwnerWindow; }
+
     // 카메라 매트릭스 계산
     FMatrix GetViewMatrix() const;
 
@@ -52,12 +56,14 @@ protected:
     EViewportType ViewportType = EViewportType::Perspective;
     UWorld* World = nullptr;
     ACameraActor* Camera = nullptr;
+    SViewportWindow* OwnerWindow = nullptr;
     int32 MouseLastX{};
     int32 MouseLastY{};
     bool bIsMouseButtonDown = false;
     bool bIsMouseRightButtonDown = false;
-    static FVector CameraAddPosition;
 
+    // 언리얼 방식: 모든 직교 뷰포트가 하나의 3D 위치를 공유 (연동되어 움직임)
+    static FVector CameraAddPosition;
 
     // 직교 뷰용 카메라 설정
     uint32 OrthographicAddXPosition;

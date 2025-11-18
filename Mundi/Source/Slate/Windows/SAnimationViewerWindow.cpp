@@ -73,16 +73,24 @@ void SAnimationViewerWindow::OnRender()
         //===============================
         ImVec2 pos = ImGui::GetWindowPos();
         ImVec2 size = ImGui::GetWindowSize();
-        Rect.Left = pos.x; Rect.Top = pos.y; Rect.Right = pos.x + size.x; Rect.Bottom = pos.y + size.y; 
+        Rect.Left = pos.x; Rect.Top = pos.y; Rect.Right = pos.x + size.x; Rect.Bottom = pos.y + size.y;
         Rect.UpdateMinMax();
 
         ImVec2 contentAvail = ImGui::GetContentRegionAvail();
         float totalWidth = contentAvail.x;
         float totalHeight = contentAvail.y;
 
+        float splitterWidth = 4.0f; // 분할선 두께
+
         float leftWidth = totalWidth * LeftPanelRatio;
         float rightWidth = totalWidth * RightPanelRatio;
-        float centerWidth = totalWidth - leftWidth - rightWidth;
+        float centerWidth = totalWidth - leftWidth - rightWidth - (splitterWidth * 2);
+
+        // 중앙 패널이 음수가 되지 않도록 보정 (안전장치)
+        if (centerWidth < 0.0f)
+        {
+            centerWidth = 0.0f;
+        }
 
         //======================================
         // Top panels (Left / Center / Right)
@@ -101,11 +109,68 @@ void SAnimationViewerWindow::OnRender()
 
         ImGui::SameLine(0, 0); // No spacing between panels
 
-        // +-+-+ Center panel +-+-+
-        // : draw with border to see the viewport area
-        ImGui::BeginChild("CenterPanel", ImVec2(centerWidth, totalHeight), false, ImGuiWindowFlags_NoScrollbar);
-        RenderCenterPanel();
-        ImGui::EndChild();
+        // Left splitter (드래그 가능한 분할선)
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.7f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 0.9f));
+        ImGui::Button("##LeftSplitter", ImVec2(splitterWidth, totalHeight));
+        ImGui::PopStyleColor(3);
+
+        if (ImGui::IsItemHovered())
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+
+        if (ImGui::IsItemActive())
+        {
+            float delta = ImGui::GetIO().MouseDelta.x;
+            if (delta != 0.0f)
+            {
+                float newLeftRatio = LeftPanelRatio + delta / totalWidth;
+                // 좌측 패널 최소 10%, 우측 패널과 겹치지 않도록 제한
+                float maxLeftRatio = 1.0f - RightPanelRatio - (splitterWidth * 2) / totalWidth;
+                LeftPanelRatio = std::max(0.1f, std::min(newLeftRatio, maxLeftRatio));
+            }
+        }
+
+        ImGui::SameLine(0, 0); // No spacing between panels
+
+        // +-+-+ Center panel +-+-+ - 완전히 가려진 경우 렌더링하지 않음
+        if (centerWidth > 0.0f)
+        {
+            ImGui::BeginChild("CenterPanel", ImVec2(centerWidth, totalHeight), false,
+                ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus);
+            RenderCenterPanel();
+            ImGui::EndChild();
+
+            ImGui::SameLine(0, 0); // No spacing between panels
+        }
+        else
+        {
+            // 중앙 패널이 완전히 가려진 경우 뷰포트 영역 초기화
+            CenterRect = FRect(0, 0, 0, 0);
+            CenterRect.UpdateMinMax();
+        }
+
+        // Right splitter (드래그 가능한 분할선)
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.7f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 0.9f));
+        ImGui::Button("##RightSplitter", ImVec2(splitterWidth, totalHeight));
+        ImGui::PopStyleColor(3);
+
+        if (ImGui::IsItemHovered())
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+
+        if (ImGui::IsItemActive())
+        {
+            float delta = ImGui::GetIO().MouseDelta.x;
+            if (delta != 0.0f)
+            {
+                float newRightRatio = RightPanelRatio - delta / totalWidth;
+                // 우측 패널 최소 10%, 좌측 패널과 겹치지 않도록 제한
+                float maxRightRatio = 1.0f - LeftPanelRatio - (splitterWidth * 2) / totalWidth;
+                RightPanelRatio = std::max(0.1f, std::min(newRightRatio, maxRightRatio));
+            }
+        }
 
         ImGui::SameLine(0, 0); // No spacing between panels
 
@@ -564,12 +629,16 @@ void SAnimationViewerWindow::RenderTabBar()
 
 void SAnimationViewerWindow::RenderCenterPanel()
 {
+    // 툴바 렌더링 (뷰포트 상단)
+    RenderViewerToolbar();
+
+    // 툴바 아래 남은 공간 계산
     float contentHeight = ImGui::GetContentRegionAvail().y;
     float itemSpacingY = ImGui::GetStyle().ItemSpacing.y;
     float viewportHeight = (contentHeight - itemSpacingY) * 0.7f;
     float timelineHeight = (contentHeight - itemSpacingY) * 0.3f;
     float innerWidth = ImGui::GetContentRegionAvail().x;
-    
+
     RenderViewportArea(innerWidth, viewportHeight);
     RenderTimelineArea(innerWidth, timelineHeight);
 }
@@ -600,7 +669,8 @@ void SAnimationViewerWindow::RenderViewportArea(float width, float height)
 
 void SAnimationViewerWindow::RenderTimelineArea(float width, float height)
 {
-    ImGui::BeginChild("TimelineArea", ImVec2(width, height), true);
+    ImGui::BeginChild("TimelineArea", ImVec2(width, height), true,
+        ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus);
 
     RenderTimelineControls();
     ImGui::Separator();

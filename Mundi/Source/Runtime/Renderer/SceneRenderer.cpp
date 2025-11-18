@@ -143,6 +143,14 @@ void FSceneRenderer::Render()
 
     // BackBuffer 위에 라인 오버레이(항상 위)를 그린다
     RenderFinalOverlayLines();
+
+	// 렌더 타겟 스왑 상태를 원래대로 복구
+	// CompositeToBackBuffer()가 렌더 타겟을 스왑하고 Commit하므로,
+	// 다음 뷰포트가 올바른 초기 상태에서 시작할 수 있도록 다시 스왑하여 되돌림
+	{
+		FSwapGuard RestoreSwap(RHIDevice, 0, 0);
+		// Commit하지 않고 소멸되면 자동으로 스왑을 되돌림
+	}
 }
 
 //====================================================================================
@@ -151,6 +159,9 @@ void FSceneRenderer::Render()
 
 void FSceneRenderer::RenderLitPath()
 {
+	// 래스터라이저 상태를 Solid로 명시적으로 설정 (이전 렌더 패스의 와이어프레임 상태가 남지 않도록)
+	RHIDevice->RSSetState(ERasterizerMode::Solid);
+
     RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithId);
 
 	// 이 뷰의 rect 영역에 대해 Scene Color를 클리어하여 불투명한 배경을 제공함
@@ -176,63 +187,74 @@ void FSceneRenderer::RenderLitPath()
 
 void FSceneRenderer::RenderWireframePath()
 {
-	// 깊이 버퍼 초기화 후 ID만 그리기
+	// 래스터라이저 상태를 Solid로 명시적으로 설정
 	RHIDevice->RSSetState(ERasterizerMode::Solid);
+
+	// 깊이 버퍼 초기화 후 ID만 그리기
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneIdTarget);
 	RenderOpaquePass(EViewMode::VMI_Unlit);
 
     // Wireframe으로 그리기
-    RHIDevice->ClearDepthBuffer(1.0f, 0);
     RHIDevice->RSSetState(ERasterizerMode::Wireframe);
     RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTarget);
+
+	// 이 뷰의 rect 영역에 대해 Scene Color를 클리어하여 불투명한 배경을 제공함
+	// 이렇게 해야 에디터 뷰포트 여러 개를 동시에 겹치게 띄워도 서로의 렌더링이 섞이지 않는다
+    {
+        D3D11_VIEWPORT vp = {};
+        vp.TopLeftX = (float)View->ViewRect.MinX;
+        vp.TopLeftY = (float)View->ViewRect.MinY;
+        vp.Width    = (float)View->ViewRect.Width();
+        vp.Height   = (float)View->ViewRect.Height();
+        vp.MinDepth = 0.0f; vp.MaxDepth = 1.0f;
+        RHIDevice->GetDeviceContext()->RSSetViewports(1, &vp);
+        const float bg[4] = { 0.0f, 0.0f, 0.0f, 1.00f };
+        RHIDevice->GetDeviceContext()->ClearRenderTargetView(RHIDevice->GetCurrentTargetRTV(), bg);
+        RHIDevice->ClearDepthBuffer(1.0f, 0);
+    }
+
     RenderOpaquePass(EViewMode::VMI_Unlit);
 
 	// 상태 복구
 	RHIDevice->RSSetState(ERasterizerMode::Solid);
+	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithId);
 }
 
 void FSceneRenderer::RenderSceneDepthPath()
 {
-	// ✅ 디버그: SceneRTV 전환 전 viewport 확인
-	D3D11_VIEWPORT vpBefore;
-	UINT numVP = 1;
-	RHIDevice->GetDeviceContext()->RSGetViewports(&numVP, &vpBefore);
-	UE_LOG("[RenderSceneDepthPath] BEFORE OMSetRenderTargets(Scene): Viewport(%.1f x %.1f) at (%.1f, %.1f)",
-		vpBefore.Width, vpBefore.Height, vpBefore.TopLeftX, vpBefore.TopLeftY);
+	// 래스터라이저 상태를 Solid로 명시적으로 설정
+	RHIDevice->RSSetState(ERasterizerMode::Solid);
 
 	// 1. Scene RTV와 Depth Buffer Clear
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithId);
 
-	// ✅ 디버그: SceneRTV 전환 후 viewport 확인
-	D3D11_VIEWPORT vpAfter;
-	RHIDevice->GetDeviceContext()->RSGetViewports(&numVP, &vpAfter);
-	UE_LOG("[RenderSceneDepthPath] AFTER OMSetRenderTargets(Scene): Viewport(%.1f x %.1f) at (%.1f, %.1f)",
-		vpAfter.Width, vpAfter.Height, vpAfter.TopLeftX, vpAfter.TopLeftY);
-
-	float ClearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-	RHIDevice->GetDeviceContext()->ClearRenderTargetView(RHIDevice->GetCurrentTargetRTV(), ClearColor);
-	RHIDevice->ClearDepthBuffer(1.0f, 0);
+	// 이 뷰의 rect 영역에 대해 뷰포트 설정 및 클리어
+	{
+		D3D11_VIEWPORT vp = {};
+		vp.TopLeftX = (float)View->ViewRect.MinX;
+		vp.TopLeftY = (float)View->ViewRect.MinY;
+		vp.Width = (float)View->ViewRect.Width();
+		vp.Height = (float)View->ViewRect.Height();
+		vp.MinDepth = 0.0f; vp.MaxDepth = 1.0f;
+		RHIDevice->GetDeviceContext()->RSSetViewports(1, &vp);
+		const float bg[4] = { 0.0f, 0.0f, 0.0f, 1.00f };
+		RHIDevice->GetDeviceContext()->ClearRenderTargetView(RHIDevice->GetCurrentTargetRTV(), bg);
+		RHIDevice->ClearDepthBuffer(1.0f, 0);
+	}
 
 	// 2. Base Pass - Scene에 메시 그리기
 	RenderOpaquePass(EViewMode::VMI_Unlit);
 
-	// ✅ 디버그: BackBuffer 전환 전 viewport 확인
-	RHIDevice->GetDeviceContext()->RSGetViewports(&numVP, &vpBefore);
-	UE_LOG("[RenderSceneDepthPath] BEFORE OMSetRenderTargets(BackBuffer): Viewport(%.1f x %.1f)",
-		vpBefore.Width, vpBefore.Height);
-
-	// 3. BackBuffer Clear
-	RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithoutDepth);
-	RHIDevice->GetDeviceContext()->ClearRenderTargetView(RHIDevice->GetBackBufferRTV(), ClearColor);
-
-	// ✅ 디버그: BackBuffer 전환 후 viewport 확인
-	RHIDevice->GetDeviceContext()->RSGetViewports(&numVP, &vpAfter);
-	UE_LOG("[RenderSceneDepthPath] AFTER OMSetRenderTargets(BackBuffer): Viewport(%.1f x %.1f)",
-		vpAfter.Width, vpAfter.Height);
-
-	// 4. SceneDepth Post 프로세싱 처리
+	// 3. SceneDepth Post 프로세싱 처리
 	RenderSceneDepthPostProcess();
 
+	// 4. 렌더 타겟 버퍼를 원래 상태로 복구
+	// RenderSceneDepthPostProcess에서 SwapGuard가 Commit되어 버퍼가 스왑된 상태이므로,
+	// 다음 뷰포트를 위해 다시 스왑하여 원래 상태로 복구
+	{
+		FSwapGuard RestoreSwap(RHIDevice, 0, 0);
+		// Commit하지 않고 소멸되면 자동으로 스왑을 되돌림
+	}
 }
 
 //====================================================================================
@@ -1069,6 +1091,17 @@ void FSceneRenderer::RenderSceneDepthPostProcess()
 
 	// 렌더 타겟 설정 (Depth 없이 BackBuffer에만 그리기)
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithoutDepth);
+
+	// 뷰포트 설정
+	{
+		D3D11_VIEWPORT vp = {};
+		vp.TopLeftX = (float)View->ViewRect.MinX;
+		vp.TopLeftY = (float)View->ViewRect.MinY;
+		vp.Width = (float)View->ViewRect.Width();
+		vp.Height = (float)View->ViewRect.Height();
+		vp.MinDepth = 0.0f; vp.MaxDepth = 1.0f;
+		RHIDevice->GetDeviceContext()->RSSetViewports(1, &vp);
+	}
 
 	// Depth State: Depth Test/Write 모두 OFF
 	RHIDevice->OMSetDepthStencilState(EComparisonFunc::Always);
