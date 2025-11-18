@@ -323,9 +323,22 @@ void FViewportClient::MouseWheel(float DeltaSeconds)
 	if (!CameraComponent) return;
 	float WheelDelta = UInputManager::GetInstance().GetMouseWheelDelta();
 
-	float zoomFactor = CameraComponent->GetZoomFactor();
-	zoomFactor *= (1.0f - WheelDelta * DeltaSeconds * 100.0f);
-
-	CameraComponent->SetZoomFactor(zoomFactor);
+	// 우클릭이 눌려있을 때: 카메라 이동 속도 조절
+	if (bIsMouseRightButtonDown)
+	{
+		float currentSpeed = Camera->GetCameraSpeed();
+		// 휠 업(양수): 속도 증가, 휠 다운(음수): 속도 감소
+		currentSpeed += WheelDelta * 5.0f;
+		// 속도 범위 제한 (1.0 ~ 100.0)
+		currentSpeed = std::max(1.0f, std::min(100.0f, currentSpeed));
+		Camera->SetCameraSpeed(currentSpeed);
+	}
+	// 우클릭이 안 눌려있을 때: 줌 조절
+	else
+	{
+		float zoomFactor = CameraComponent->GetZoomFactor();
+		zoomFactor *= (1.0f - WheelDelta * DeltaSeconds * 100.0f);
+		CameraComponent->SetZoomFactor(zoomFactor);
+	}
 }
 
