@@ -305,6 +305,59 @@ struct FSkeleton
     }
 };
 
+/**
+ * Compute a 64-bit signature for skeleton structure
+ * Validates: bone count, hierarchy (parent indices), bone names, bone order
+ * @param Skeleton The skeleton to compute signature for
+ * @return 64-bit hash representing skeleton structure
+ */
+static uint64 ComputeSkeletonSignature(const FSkeleton& Skeleton)
+{
+    if (Skeleton.Bones.empty())
+        return 0;
+
+    // Use FNV-1a 64-bit hash algorithm
+    uint64 Hash = 14695981039346656037ULL; // FNV offset basis
+    const uint64 FnvPrime = 1099511628211ULL;
+
+    auto HashBytes = [&Hash, FnvPrime](const void* Data, size_t Length) {
+        const uint8* Bytes = static_cast<const uint8*>(Data);
+        for (size_t i = 0; i < Length; ++i) {
+            Hash ^= Bytes[i];
+            Hash *= FnvPrime;
+        }
+    };
+
+    auto HashString = [&HashBytes](const FString& Str) {
+        HashBytes(Str.data(), Str.size());
+    };
+
+    auto HashInt32 = [&HashBytes](int32 Value) {
+        HashBytes(&Value, sizeof(int32));
+    };
+
+    // 1. Hash bone count (structure size validation)
+    int32 BoneCount = static_cast<int32>(Skeleton.Bones.size());
+    HashInt32(BoneCount);
+
+    // 2. Hash each bone's structural properties IN ORDER
+    for (int32 i = 0; i < BoneCount; ++i)
+    {
+        const FBone& Bone = Skeleton.Bones[i];
+
+        // Hash bone index (ensures order matters)
+        HashInt32(i);
+
+        // Hash bone name (ensures naming matters)
+        HashString(Bone.Name);
+
+        // Hash parent index (ensures hierarchy matches)
+        HashInt32(Bone.ParentIndex);
+    }
+
+    return Hash;
+}
+
 struct FVertexWeight
 {
     uint32 VertexIndex; // 정점 인덱스

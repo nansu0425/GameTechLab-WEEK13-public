@@ -151,6 +151,40 @@ function SetupAnimationStateMachine()
     StateMachine:AddTransitionByName(STATE_STRAFE_LEFT, STATE_STRAFE_RIGHT, 0.2)
     StateMachine:AddTransitionByName(STATE_STRAFE_RIGHT, STATE_STRAFE_LEFT, 0.2)
 
+    -- Running <-> Walking Backwards
+    StateMachine:AddTransitionByName(STATE_RUNNING, STATE_WALKING_BACKWARDS, 0.2)
+    StateMachine:AddTransitionByName(STATE_WALKING_BACKWARDS, STATE_RUNNING, 0.2)
+
+    -- Walking Backwards <-> Strafing (Walking)
+    StateMachine:AddTransitionByName(STATE_WALKING_BACKWARDS, STATE_STRAFE_LEFT_WALK, 0.2)
+    StateMachine:AddTransitionByName(STATE_STRAFE_LEFT_WALK, STATE_WALKING_BACKWARDS, 0.2)
+    StateMachine:AddTransitionByName(STATE_WALKING_BACKWARDS, STATE_STRAFE_RIGHT_WALK, 0.2)
+    StateMachine:AddTransitionByName(STATE_STRAFE_RIGHT_WALK, STATE_WALKING_BACKWARDS, 0.2)
+
+    -- Walking Backwards <-> Strafing (Running)
+    StateMachine:AddTransitionByName(STATE_WALKING_BACKWARDS, STATE_STRAFE_LEFT, 0.2)
+    StateMachine:AddTransitionByName(STATE_STRAFE_LEFT, STATE_WALKING_BACKWARDS, 0.2)
+    StateMachine:AddTransitionByName(STATE_WALKING_BACKWARDS, STATE_STRAFE_RIGHT, 0.2)
+    StateMachine:AddTransitionByName(STATE_STRAFE_RIGHT, STATE_WALKING_BACKWARDS, 0.2)
+
+    -- Walking <-> Strafing (cross-speed: Walking to Running Strafe)
+    StateMachine:AddTransitionByName(STATE_WALKING, STATE_STRAFE_LEFT, 0.2)
+    StateMachine:AddTransitionByName(STATE_STRAFE_LEFT, STATE_WALKING, 0.2)
+    StateMachine:AddTransitionByName(STATE_WALKING, STATE_STRAFE_RIGHT, 0.2)
+    StateMachine:AddTransitionByName(STATE_STRAFE_RIGHT, STATE_WALKING, 0.2)
+
+    -- Running <-> Strafing (cross-speed: Running to Walking Strafe)
+    StateMachine:AddTransitionByName(STATE_RUNNING, STATE_STRAFE_LEFT_WALK, 0.2)
+    StateMachine:AddTransitionByName(STATE_STRAFE_LEFT_WALK, STATE_RUNNING, 0.2)
+    StateMachine:AddTransitionByName(STATE_RUNNING, STATE_STRAFE_RIGHT_WALK, 0.2)
+    StateMachine:AddTransitionByName(STATE_STRAFE_RIGHT_WALK, STATE_RUNNING, 0.2)
+
+    -- Cross-strafing (Left Walk <-> Right Run)
+    StateMachine:AddTransitionByName(STATE_STRAFE_LEFT_WALK, STATE_STRAFE_RIGHT, 0.2)
+    StateMachine:AddTransitionByName(STATE_STRAFE_RIGHT, STATE_STRAFE_LEFT_WALK, 0.2)
+    StateMachine:AddTransitionByName(STATE_STRAFE_RIGHT_WALK, STATE_STRAFE_LEFT, 0.2)
+    StateMachine:AddTransitionByName(STATE_STRAFE_LEFT, STATE_STRAFE_RIGHT_WALK, 0.2)
+
     -- Any -> Jumping
     StateMachine:AddTransitionByName(STATE_IDLE, STATE_JUMPING, 0.1)
     StateMachine:AddTransitionByName(STATE_WALKING, STATE_JUMPING, 0.1)
@@ -232,24 +266,74 @@ function HandleMovementInput(DeltaTime)
     -- 따라서 W/S는 Right, A/D는 Forward를 사용
 
     local speed = bIsRunning and RunSpeed or MovementSpeed
+    local forwardInput = 0.0
+    local rightInput = 0.0
 
-    -- 우선순위: W/S (전진/후진) > A/D (좌/우 스트레이프)
+    -- 전후 입력 처리 (W/S)
     if InputManager:IsKeyDown('W') then
-        Character:MoveRight(speed)
+        rightInput = rightInput + 1.0
+    end
+    if InputManager:IsKeyDown('S') then
+        rightInput = rightInput - 1.0
+    end
+
+    -- 좌우 입력 처리 (A/D)
+    if InputManager:IsKeyDown('A') then
+        forwardInput = forwardInput - 1.0
+    end
+    if InputManager:IsKeyDown('D') then
+        forwardInput = forwardInput + 1.0
+    end
+
+    -- 입력이 있으면 이동 처리
+    if forwardInput ~= 0.0 or rightInput ~= 0.0 then
         bIsMoving = true
-        MoveDirection = MOVE_FORWARD
-    elseif InputManager:IsKeyDown('S') then
-        Character:MoveRight(-speed)
-        bIsMoving = true
-        MoveDirection = MOVE_BACKWARD
-    elseif InputManager:IsKeyDown('A') then
-        Character:MoveForward(-speed)
-        bIsMoving = true
-        MoveDirection = MOVE_LEFT
-    elseif InputManager:IsKeyDown('D') then
-        Character:MoveForward(speed)
-        bIsMoving = true
-        MoveDirection = MOVE_RIGHT
+
+        -- 대각선 이동 시 속도 정규화 (√2로 나눔)
+        local inputMagnitude = math.sqrt(forwardInput * forwardInput + rightInput * rightInput)
+        if inputMagnitude > 1.0 then
+            forwardInput = forwardInput / inputMagnitude
+            rightInput = rightInput / inputMagnitude
+        end
+
+        -- 이동 적용
+        if forwardInput ~= 0.0 then
+            Character:MoveForward(forwardInput * speed)
+        end
+        if rightInput ~= 0.0 then
+            Character:MoveRight(rightInput * speed)
+        end
+
+        -- 애니메이션을 위한 주 방향 결정
+        if rightInput > 0 then
+            -- 전진 중: 주 방향에 따라 애니메이션 결정 (달리기 가능)
+            if math.abs(rightInput) > math.abs(forwardInput) then
+                MoveDirection = MOVE_FORWARD
+            else
+                if forwardInput > 0 then
+                    MoveDirection = MOVE_RIGHT
+                else
+                    MoveDirection = MOVE_LEFT
+                end
+            end
+        elseif rightInput < 0 then
+            -- 후진 중: 좌우 스트레이프 걷기 사용 (달리기 불가)
+            bIsRunning = false  -- 후진 대각선 이동 시 달리기 방지
+            if forwardInput > 0 then
+                MoveDirection = MOVE_LEFT  -- 오른쪽(D) 입력 시 왼쪽을 봄
+            elseif forwardInput < 0 then
+                MoveDirection = MOVE_RIGHT  -- 왼쪽(A) 입력 시 오른쪽을 봄
+            else
+                MoveDirection = MOVE_BACKWARD
+            end
+        else
+            -- 좌우만 이동 (달리기 가능)
+            if forwardInput > 0 then
+                MoveDirection = MOVE_RIGHT
+            else
+                MoveDirection = MOVE_LEFT
+            end
+        end
     else
         bIsMoving = false
         MoveDirection = MOVE_NONE

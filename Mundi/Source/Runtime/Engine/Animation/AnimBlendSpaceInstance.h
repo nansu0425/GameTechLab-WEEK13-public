@@ -27,6 +27,7 @@ public:
     const TArray<FBlendTriangle>& GetTriangles() const { return BlendSpace.GetTriangles(); }
     bool SetSamplePosition(int32 Index, const FVector2D& Pos) { return BlendSpace.SetSamplePosition(Index, Pos); }
     bool SetSampleParams(int32 Index, float RateScale, bool bLooping) { return BlendSpace.SetSampleParams(Index, RateScale, bLooping); }
+    bool RemoveSample(int32 Index) { return BlendSpace.RemoveSample(Index); }
     void ClearTriangles() { BlendSpace.ClearTriangles(); }
 
     // Lua-facing API

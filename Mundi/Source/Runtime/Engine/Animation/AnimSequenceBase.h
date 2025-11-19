@@ -42,6 +42,30 @@ public:
 	void SetSkeletonName(const FString& InName) { SkeletonName = InName; }
 
 	/**
+	 * Get skeleton signature for compatibility checking
+	 * @return 64-bit skeleton structure hash
+	 */
+	uint64 GetSkeletonSignature() const { return SkeletonSignature; }
+
+	/**
+	 * Set skeleton signature when animation is loaded
+	 * @param InSignature Computed skeleton signature
+	 */
+	void SetSkeletonSignature(uint64 InSignature) { SkeletonSignature = InSignature; }
+
+	/**
+	 * Get bone count from target skeleton
+	 * @return Number of bones
+	 */
+	int32 GetSkeletonBoneCount() const { return SkeletonBoneCount; }
+
+	/**
+	 * Set skeleton bone count
+	 * @param InBoneCount Number of bones in skeleton
+	 */
+	void SetSkeletonBoneCount(int32 InBoneCount) { SkeletonBoneCount = InBoneCount; }
+
+	/**
 	 * 스켈레톤 기준 로컬 포즈를 추출합니다.
 	 * @param Skeleton 평가할 스켈레톤
 	 * @param Time 시간(초)
@@ -57,4 +81,10 @@ protected:
 
 	/** 이 애니메이션과 연결된 스켈레톤 이름 (참조용) */
 	FString SkeletonName;
+
+	/** Skeleton signature for strict compatibility checking */
+	uint64 SkeletonSignature = 0;
+
+	/** Number of bones in target skeleton */
+	int32 SkeletonBoneCount = 0;
 };

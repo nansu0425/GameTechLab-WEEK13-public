@@ -261,6 +261,12 @@ void USlateManager::CloseDetachedWindow(SWindow* WindowToClose)
     int32 IndexToRemove = DetachedWindows.Find(WindowToClose);
     if (IndexToRemove != -1)
     {
+        // Clear DraggingWindow if it points to the window being closed
+        if (DraggingWindow == WindowToClose)
+        {
+            DraggingWindow = nullptr;
+        }
+
         DetachedWindows.RemoveAt(IndexToRemove);
         delete WindowToClose;
         // The caller will null its pointer.
@@ -538,6 +544,13 @@ void USlateManager::Render()
     {
         Window->OnRender();
     }
+
+    // Process pending close windows
+    for (SWindow* Window : PendingCloseWindows)
+    {
+        CloseDetachedWindow(Window);
+    }
+    PendingCloseWindows.Empty();
 }
 
 void USlateManager::RenderAfterUI()

@@ -195,3 +195,41 @@ bool FAnimNode_BlendSpace2D::SetSampleParams(int32 Index, float NewRateScale, bo
     Samples[Index].bLooping = bNewLooping;
     return true;
 }
+
+bool FAnimNode_BlendSpace2D::RemoveSample(int32 Index)
+{
+    if (Index < 0 || Index >= Samples.Num()) return false;
+
+    // Remove the sample
+    Samples.RemoveAt(Index);
+
+    // Update all triangle indices that reference samples after the removed index
+    for (int32 i = Triangles.Num() - 1; i >= 0; --i)
+    {
+        FBlendTriangle& T = Triangles[i];
+
+        // Remove triangles that reference the deleted sample
+        if (T.I0 == Index || T.I1 == Index || T.I2 == Index)
+        {
+            Triangles.RemoveAt(i);
+            continue;
+        }
+
+        // Decrement indices that are greater than the removed index
+        if (T.I0 > Index) T.I0--;
+        if (T.I1 > Index) T.I1--;
+        if (T.I2 > Index) T.I2--;
+    }
+
+    // Adjust driver index if needed
+    if (DriverSampleIndex == Index)
+    {
+        DriverSampleIndex = 0; // Reset to first sample
+    }
+    else if (DriverSampleIndex > Index)
+    {
+        DriverSampleIndex--;
+    }
+
+    return true;
+}

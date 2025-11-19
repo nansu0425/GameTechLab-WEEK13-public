@@ -1446,6 +1446,14 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 			AnimSequence->SetSkeletonName(TargetSkeleton->Name);
 			AnimSequence->SetAnimDataModel(DataModel);
 
+			// Compute and store skeleton signature for strict compatibility checking
+			uint64 Signature = ComputeSkeletonSignature(*TargetSkeleton);
+			AnimSequence->SetSkeletonSignature(Signature);
+			AnimSequence->SetSkeletonBoneCount(static_cast<int32>(TargetSkeleton->Bones.size()));
+
+			UE_LOG("UFbxLoader::LoadFbxAnimation: Skeleton '%s' signature = 0x%016llX (%d bones)",
+				TargetSkeleton->Name.c_str(), Signature, static_cast<int32>(TargetSkeleton->Bones.size()));
+
 			// 리소스 매니저에 등록 (ResourceKey 사용)
 			UResourceManager::GetInstance().Add<UAnimSequence>(ResourceKey, AnimSequence);
 
@@ -1787,6 +1795,11 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 	AnimSequence->SetSkeletonName(TargetSkeleton->Name);
 	AnimSequence->SetAnimDataModel(DataModel);
 
+	// Compute and store skeleton signature for strict compatibility checking
+	uint64 Signature = ComputeSkeletonSignature(*TargetSkeleton);
+	AnimSequence->SetSkeletonSignature(Signature);
+	AnimSequence->SetSkeletonBoneCount(static_cast<int32>(TargetSkeleton->Bones.size()));
+
 	// 17. 씬 정리
 	Scene->Destroy();
 
@@ -1829,6 +1842,11 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 	if (TargetSkeleton)
 	{
 		AnimSequence->SetSkeletonName(TargetSkeleton->Name);
+
+		// Compute and store skeleton signature for strict compatibility checking
+		uint64 Signature = ComputeSkeletonSignature(*TargetSkeleton);
+		AnimSequence->SetSkeletonSignature(Signature);
+		AnimSequence->SetSkeletonBoneCount(static_cast<int32>(TargetSkeleton->Bones.size()));
 	}
 
 	return AnimSequence;
