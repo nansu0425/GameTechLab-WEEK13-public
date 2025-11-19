@@ -116,6 +116,9 @@ void SViewerWindow::OnMouseMove(FVector2D MousePos)
 {
     if (!ActiveState || !ActiveState->Viewport) return;
 
+    // 드래그 중이 아니면 현재 뷰포트가 호버되어 있어야 입력 처리 (Z-order 고려)
+    if (!bLeftMousePressed && !ActiveState->Viewport->IsViewportHovered()) return;
+
     // 드래그 중이면 뷰포트 밖으로 나가도 입력 계속 전달 (기즈모 조작 유지)
     if (bLeftMousePressed || CenterRect.Contains(MousePos))
     {
@@ -127,6 +130,9 @@ void SViewerWindow::OnMouseMove(FVector2D MousePos)
 void SViewerWindow::OnMouseDown(FVector2D MousePos, uint32 Button)
 {
     if (!ActiveState || !ActiveState->Viewport) return;
+
+    // 현재 뷰포트가 호버되어 있어야 마우스 다운 처리 (Z-order 고려)
+    if (!ActiveState->Viewport->IsViewportHovered()) return;
 
     if (CenterRect.Contains(MousePos))
     {
@@ -252,7 +258,10 @@ void SViewerWindow::OnMouseUp(FVector2D MousePos, uint32 Button)
     }
 }
 
-
+bool SViewerWindow::IsViewportHovered() const
+{
+    return ActiveState && ActiveState->Viewport && ActiveState->Viewport->IsViewportHovered();
+}
 
 void SViewerWindow::OpenOrFocusTab(UEditorAssetPreviewContext* Context)
 {
@@ -292,29 +301,22 @@ void SViewerWindow::OnRenderViewport()
 {
     if (ActiveState && ActiveState->Viewport && CenterRect.GetWidth() > 0 && CenterRect.GetHeight() > 0)
     {
-        // Clamp viewport to window bounds to prevent integer wraparound and corruption
-        extern float CLIENTWIDTH;
-        extern float CLIENTHEIGHT;
+        // ImGui::Image 방식에서는 텍스처에 렌더링하므로 StartX/Y = 0
+        const uint32 NewStartX = 0;
+        const uint32 NewStartY = 0;
+        const uint32 NewWidth = static_cast<uint32>(CenterRect.GetWidth());
+        const uint32 NewHeight = static_cast<uint32>(CenterRect.GetHeight());
 
-        float ClampedLeft = std::max(0.0f, CenterRect.Left);
-        float ClampedTop = std::max(0.0f, CenterRect.Top);
-        float ClampedRight = std::min(CLIENTWIDTH, CenterRect.Right);
-        float ClampedBottom = std::min(CLIENTHEIGHT, CenterRect.Bottom);
-
-        // Skip rendering if viewport is completely outside window bounds
-        if (ClampedLeft >= ClampedRight || ClampedTop >= ClampedBottom)
+        // Skip rendering if size is invalid
+        if (NewWidth == 0 || NewHeight == 0)
             return;
 
-        const uint32 NewStartX = static_cast<uint32>(ClampedLeft);
-        const uint32 NewStartY = static_cast<uint32>(ClampedTop);
-        const uint32 NewWidth = static_cast<uint32>(ClampedRight - ClampedLeft);
-        const uint32 NewHeight = static_cast<uint32>(ClampedBottom - ClampedTop);
         ActiveState->Viewport->Resize(NewStartX, NewStartY, NewWidth, NewHeight);
 
         // Child class specific update logic
         PreRenderViewportUpdate();
 
-        // Viewport rendering (before ImGui)
+        // Viewport rendering (to texture)
         ActiveState->Viewport->Render();
     }
 }

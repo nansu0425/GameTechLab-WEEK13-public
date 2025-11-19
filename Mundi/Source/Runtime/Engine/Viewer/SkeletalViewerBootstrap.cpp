@@ -25,6 +25,8 @@ ViewerState* SkeletalViewerBootstrap::CreateViewerState(const char* Name, UWorld
     State->Viewport = new FViewport();
     // 프레임 마다 initial size가 바꿜 것이다
     State->Viewport->Initialize(0, 0, 1, 1, InDevice);
+    // ImGui::Image 방식으로 렌더링 (뷰어용)
+    State->Viewport->SetUseRenderTarget(true);
 
     auto* Client = new FSkeletalViewerViewportClient();
     Client->SetWorld(State->World);

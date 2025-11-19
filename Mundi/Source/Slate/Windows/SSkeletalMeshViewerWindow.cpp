@@ -137,9 +137,6 @@ void SSkeletalMeshViewerWindow::OnRender()
             float remainingWidth = ImGui::GetContentRegionAvail().x;
             float remainingHeight = ImGui::GetContentRegionAvail().y;
 
-            // 공간만 차지 (아무것도 렌더링하지 않음)
-            ImGui::Dummy(ImVec2(remainingWidth, remainingHeight));
-
             // 뷰포트 영역 설정
             CenterRect.Left = viewportPos.x;
             CenterRect.Top = viewportPos.y;
@@ -147,12 +144,29 @@ void SSkeletalMeshViewerWindow::OnRender()
             CenterRect.Bottom = viewportPos.y + remainingHeight;
             CenterRect.UpdateMinMax();
 
-            // ImGui draw list에 뷰포트 렌더링 콜백 등록
-            ImDrawList* drawList = ImGui::GetWindowDrawList();
-            drawList->AddCallback(ViewportRenderCallback, this);
+            // 뷰포트 렌더링 (텍스처에)
+            OnRenderViewport();
 
-            // 콜백 후 ImGui 렌더 상태 복원
-            drawList->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
+            // ImGui::Image로 결과 텍스처 표시
+            if (ActiveState && ActiveState->Viewport)
+            {
+                ID3D11ShaderResourceView* SRV = ActiveState->Viewport->GetSRV();
+                if (SRV)
+                {
+                    ImGui::Image((void*)SRV, ImVec2(remainingWidth, remainingHeight));
+                    // ImGui의 Z-order를 고려한 정확한 hover 체크
+                    ActiveState->Viewport->SetViewportHovered(ImGui::IsItemHovered());
+                }
+                else
+                {
+                    ImGui::Dummy(ImVec2(remainingWidth, remainingHeight));
+                    ActiveState->Viewport->SetViewportHovered(false);
+                }
+            }
+            else
+            {
+                ImGui::Dummy(ImVec2(remainingWidth, remainingHeight));
+            }
 
             ImGui::EndChild(); // CenterPanel
 

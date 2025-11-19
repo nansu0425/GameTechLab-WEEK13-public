@@ -34,6 +34,8 @@ public:
 	bool IsWindowFocused() const { return bIsWindowFocused; }
 	const FRect& GetCenterRect() const { return CenterRect; }
 
+	// 뷰포트가 실제로 호버되어 있는지 (ImGui Z-order 고려)
+	bool IsViewportHovered() const;
 	// 뷰어 툴
 	void RenderAnimationBrowser(
 		std::function<void(UAnimSequence*)> OnAnimationSelected = nullptr,

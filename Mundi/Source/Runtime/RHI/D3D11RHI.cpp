@@ -429,15 +429,43 @@ void D3D11RHI::OMSetCustomRenderTargets(UINT NumRTVs, ID3D11RenderTargetView** R
     DeviceContext->OMSetRenderTargets(NumRTVs, RTVs, DSV);
 }
 
+void D3D11RHI::SetViewportRenderTargetOverride(ID3D11RenderTargetView* RTV, ID3D11DepthStencilView* DSV)
+{
+    ViewportRTVOverride = RTV;
+    ViewportDSVOverride = DSV;
+}
+
+void D3D11RHI::ClearViewportRenderTargetOverride()
+{
+    ViewportRTVOverride = nullptr;
+    ViewportDSVOverride = nullptr;
+}
+
 void D3D11RHI::OMSetRenderTargets(ERTVMode RTVMode)
 {
     switch (RTVMode)
     {
     case ERTVMode::BackBufferWithDepth:
-        DeviceContext->OMSetRenderTargets(1, &BackBufferRTV, DepthStencilView);
+        // 뷰포트 렌더 타겟 오버라이드가 설정되어 있으면 그것을 사용
+        if (ViewportRTVOverride)
+        {
+            DeviceContext->OMSetRenderTargets(1, &ViewportRTVOverride, ViewportDSVOverride);
+        }
+        else
+        {
+            DeviceContext->OMSetRenderTargets(1, &BackBufferRTV, DepthStencilView);
+        }
         break;
     case ERTVMode::BackBufferWithoutDepth:
-        DeviceContext->OMSetRenderTargets(1, &BackBufferRTV, nullptr);
+        // 뷰포트 렌더 타겟 오버라이드가 설정되어 있으면 그것을 사용
+        if (ViewportRTVOverride)
+        {
+            DeviceContext->OMSetRenderTargets(1, &ViewportRTVOverride, nullptr);
+        }
+        else
+        {
+            DeviceContext->OMSetRenderTargets(1, &BackBufferRTV, nullptr);
+        }
         break;
     case ERTVMode::SceneColorTarget:
     {
