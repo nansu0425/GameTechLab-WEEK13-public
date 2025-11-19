@@ -279,12 +279,6 @@ void SAnimationViewerWindow::OnUpdate(float DeltaSeconds)
         ActiveState->TotalTime = ActiveState->CurrentAnimation->GetSequenceLength();
     }
 
-    // If a bone is selected, update the gizmo's position to follow the bone's transform every frame
-    if (ActiveState->SelectedBoneIndex >= 0)
-    {
-        ActiveState->PreviewActor->RepositionAnchorToBone(ActiveState->SelectedBoneIndex);
-    }
-
     // Notify Trigger Logic
     float PreviousTime = ActiveState->PreviousTime;
     if (ActiveState->CurrentTime < PreviousTime)
@@ -376,18 +370,26 @@ void SAnimationViewerWindow::PreRenderViewportUpdate()
     if (!ActiveState || !ActiveState->PreviewActor) return;
 
     // Apply any manual bone transform offsets on top of the base animation pose
-    if (!ActiveState->BoneAdditiveTransforms.IsEmpty())
+    if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
     {
-        if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+        if (!ActiveState->BoneAdditiveTransforms.IsEmpty())
         {
             MeshComp->ApplyAdditiveTransforms(ActiveState->BoneAdditiveTransforms);
         }
     }
 
     // If a bone is selected, update the gizmo's position to follow the bone's final transform
-    if (ActiveState->SelectedBoneIndex >= 0)
+    if (ActiveState->SelectedBoneIndex >= 0 && ActiveState->World)
     {
-        ActiveState->PreviewActor->RepositionAnchorToBone(ActiveState->SelectedBoneIndex);
+        AGizmoActor* Gizmo = ActiveState->World->GetGizmoActor();
+        if (Gizmo && Gizmo->GetbIsDragging())
+        {
+            UpdateBoneTransformFromGizmo(ActiveState);
+        }
+        else
+        {
+            ActiveState->PreviewActor->RepositionAnchorToBone(ActiveState->SelectedBoneIndex);
+        }
     }
 
     // Reconstruct bone overlay

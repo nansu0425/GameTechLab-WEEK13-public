@@ -878,6 +878,47 @@ void SViewerWindow::UpdateBoneTransformFromSkeleton(ViewerState* State)
     State->EditBoneScale = FinalLocalTransform.Scale3D;
 }
 
+void SViewerWindow::UpdateBoneTransformFromGizmo(ViewerState* State)
+{
+    if (!State || State->SelectedBoneIndex < 0 || !State->PreviewActor || !State->CurrentMesh)
+        return;
+
+    USkeletalMeshComponent* MeshComp = State->PreviewActor->GetSkeletalMeshComponent();
+    USceneComponent* Anchor = State->PreviewActor->GetBoneGizmoAnchor();
+    const FSkeleton* Skeleton = State->CurrentMesh->GetSkeleton();
+
+    if (!MeshComp || !Anchor || !Skeleton)
+        return;
+
+    // Get the world transform of the anchor manipulated by the gizmo
+    const FTransform& AnchorWorldTransform = Anchor->GetWorldTransform();
+
+    // Convert this world transform into the bone's local space (relative to the parent bone)
+    const int32 ParentIndex = Skeleton->Bones[State->SelectedBoneIndex].ParentIndex;
+    FTransform ParentWorldTransform;
+    if (ParentIndex != -1)
+    {
+        // Get the parent bone's final world transform
+        ParentWorldTransform = MeshComp->GetBoneWorldTransform(ParentIndex);
+    }
+    else
+    {
+        // For the root bone, the parent is the skeletal mesh component itself
+        ParentWorldTransform = MeshComp->GetWorldTransform();
+    }
+
+    // Calculate the desired local transform relative to the parent's world transform
+    FTransform DesiredLocalTransform = ParentWorldTransform.GetRelativeTransform(AnchorWorldTransform);
+
+    // Update the state's editable bone transform parameters using the calculated local transform
+    State->EditBoneLocation = DesiredLocalTransform.Translation;
+    State->EditBoneRotation = DesiredLocalTransform.Rotation.ToEulerZYXDeg();
+    State->EditBoneScale = DesiredLocalTransform.Scale3D;
+
+    // Apply the updated local bone transform to the additive transform map
+    ApplyBoneTransform(State);
+}
+
 void SViewerWindow::ApplyBoneTransform(ViewerState* State)
 {
     if (!State || !State->CurrentMesh || State->SelectedBoneIndex < 0)

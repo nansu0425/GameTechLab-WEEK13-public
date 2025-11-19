@@ -85,6 +85,7 @@ protected:
 	virtual void RenderBottomPanel() {};
 
 	void UpdateBoneTransformFromSkeleton(ViewerState* State);
+	void UpdateBoneTransformFromGizmo(ViewerState* State);
 	void ApplyBoneTransform(ViewerState* State);
 	void ExpandToSelectedBone(ViewerState* State, int32 BoneIndex);
 
