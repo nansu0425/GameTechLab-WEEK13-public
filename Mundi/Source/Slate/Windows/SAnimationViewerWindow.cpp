@@ -923,22 +923,27 @@ void SAnimationViewerWindow::RenderTimelineControls()
     const ImVec4 BgColor(0, 0, 0, 0);
     const ImVec4 TintColor(1, 1, 1, 1);
 
-    // ToFront & ToPrevious Button
+    // To Front Button
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
     if (ImGui::ImageButton("##JumpToStart", (void*)IconJumpToStart->GetShaderResourceView(), IconSize, ImVec2(0, 0), ImVec2(1, 1), BgColor, TintColor)) { AnimJumpToStart(); }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("To Front");
     ImGui::SameLine();
+
+    // ToPrevious Button 
     if (ImGui::ImageButton("##StepBack", (void*)IconStepBack->GetShaderResourceView(), IconSize, ImVec2(0, 0), ImVec2(1, 1), BgColor, TintColor)) { AnimStep(false); }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("To Previous");
     ImGui::SameLine();
 
     // Reverse Button
     if (ActiveState->bReversePlay)
     {
         if (ImGui::ImageButton("##ReversePause", (void*)IconPause->GetShaderResourceView(), IconSize, ImVec2(0, 0), ImVec2(1, 1), BgColor, TintColor)) { ActiveState->bReversePlay = false; }
-
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Pause Reverse");
     }
     else
     {
         if (ImGui::ImageButton("##ReversePlay", (void*)IconReverse->GetShaderResourceView(), IconSize, ImVec2(0, 0), ImVec2(1, 1), BgColor, TintColor)) { ActiveState->bReversePlay = true; ActiveState->bIsPlaying = false; }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Reverse");
     }
     ImGui::SameLine();
 
@@ -946,27 +951,33 @@ void SAnimationViewerWindow::RenderTimelineControls()
     if (ActiveState->bIsPlaying)
     {
         if (ImGui::ImageButton("##Pause", (void*)IconPause->GetShaderResourceView(), IconSize, ImVec2(0, 0), ImVec2(1, 1), BgColor, TintColor)) { ActiveState->bIsPlaying = false; }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Pause");
     }
     else
     {
         if (ImGui::ImageButton("##Play", (void*)IconPlay->GetShaderResourceView(), IconSize, ImVec2(0, 0), ImVec2(1, 1), BgColor, TintColor)) { ActiveState->bIsPlaying = true; }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Play");
     }
     ImGui::SameLine();
 
     // ToNext & ToEnd Button
     if (ImGui::ImageButton("##StepForward", (void*)IconStepForward->GetShaderResourceView(), IconSize, ImVec2(0, 0), ImVec2(1, 1), BgColor, TintColor)) { AnimStep(true); }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("To Next");
     ImGui::SameLine();
     if (ImGui::ImageButton("##JumpToEnd", (void*)IconJumpToEnd->GetShaderResourceView(), IconSize, ImVec2(0, 0), ImVec2(1, 1), BgColor, TintColor)) { AnimJumpToEnd(); }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("To End");
     ImGui::SameLine();
     
     // Looping Button
     if (ActiveState->bIsLooping)
     {
         if (ImGui::ImageButton("##Looping", (void*)IconLooping->GetShaderResourceView(), IconSize, ImVec2(0, 0), ImVec2(1, 1), BgColor, TintColor)) { ActiveState->bIsLooping = false; }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Looping");
     }
     else
     {
         if (ImGui::ImageButton("##NoLooping", (void*)IconNoLooping->GetShaderResourceView(), IconSize, ImVec2(0, 0), ImVec2(1, 1), BgColor, TintColor)) { ActiveState->bIsLooping = true; }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("No Looping");
     }
 
     ImGui::PopStyleColor();
@@ -1270,7 +1281,8 @@ void SAnimationViewerWindow::RenderTimelineHeader(float height)
         IM_COL32(30, 30, 30, 255));
 
     // Frame markers
-    const int frameCount = 50;
+    const int frameCount = 31;
+    ImGui::SetWindowFontScale(0.85f);
     for (int f = 0; f < frameCount; f++)
     {
         float x = headerPos.x + (headerWidth / frameCount) * f;
@@ -1279,8 +1291,9 @@ void SAnimationViewerWindow::RenderTimelineHeader(float height)
 
         char buf[16];
         sprintf_s(buf, "%d", f);
-        DL->AddText(ImVec2(x + 2, headerPos.y + 4), IM_COL32(200, 200, 200, 255), buf);
+        DL->AddText(ImVec2(x + 2, headerPos.y + 4), IM_COL32(165, 165, 165, 200), buf);
     }
+    ImGui::SetWindowFontScale(1.0f);
 
     // Playhead handle
     float norm = ActiveState->TotalTime > 0 ? ActiveState->CurrentTime / ActiveState->TotalTime : 0.0f;
@@ -1336,7 +1349,7 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
     );
 
     // Frame columns
-    const int frameCount = 50;
+    const int frameCount = 31;
     for (int i = 0; i < frameCount; i++)
     {
         float x = gridOrigin.x + (float)i * (gridAvail.x / frameCount);
@@ -1503,6 +1516,15 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
             ("GridRowBtn_" + std::to_string(row)).c_str(),
             ImVec2(gridAvail.x, RowHeight)
         );
+
+        if (ImGui::IsItemHovered())
+        {
+            draw->AddRectFilled(
+                ImVec2(gridOrigin.x, y0),
+                ImVec2(gridOrigin.x + gridAvail.x, y1),
+                IM_COL32(50, 50, 50, 50)   // Hover시 배경
+            );
+        }
 
         // If right-clicked anywhere in the row → Add Notify popup
         if (NotifyIndex != -1)

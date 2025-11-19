@@ -349,10 +349,13 @@ void SViewerWindow::RenderTabBar()
 
 void SViewerWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
 {
-    if (!ImGui::BeginTabBar("ViewerTabs", 
+    if (!ImGui::BeginTabBar("ViewerTabs",
         ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
         return;
 
+    // ============================================
+    // Viewer Tab 버튼
+    // ============================================
     for (int i = 0; i < Tabs.Num(); ++i)
     {
         ViewerState* State = Tabs[i];
@@ -370,123 +373,183 @@ void SViewerWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
             return;
         }
     }
+
     if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing))
     {
         char label[32]; sprintf_s(label, "Viewer %d", Tabs.Num() + 1);
         OpenNewTab(label);
     }
 
-    const float SkelButtonWidth = 120.0f;
-    const float AnimButtonWidth = 135.0f;
-    const float BlendSpaceButtonWidth = 145.0f;
-    const float spacing = ImGui::GetStyle().ItemSpacing.x;
-    const float totalButtonsWidth = (SkelButtonWidth + AnimButtonWidth + BlendSpaceButtonWidth) + (spacing * 2);
+    const ImVec2 IconSizeVec(22, 22);
+
+    const float framePaddingX = ImGui::GetStyle().FramePadding.x;
+    const float spacingX = ImGui::GetStyle().ItemSpacing.x;
+
+    const float singleButtonTotalWidth = IconSizeVec.x + framePaddingX * 2;
+    const float totalButtonsWidth = (singleButtonTotalWidth * 3) + (spacingX * 2);
 
     ImGui::SameLine();
     float availableWidth = ImGui::GetContentRegionAvail().x;
-    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + availableWidth - totalButtonsWidth);
+    float RightPadding = 14.0f;
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + availableWidth - totalButtonsWidth - RightPadding);
 
+    // ============================================
+    // UMainToolbarWidget
+    // ============================================
+
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 4));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 0));
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 0.7f));
+
+    ImGui::BeginGroup();
+
+    // ----------------------------------------------------
     // Skeletal Viewer Button
-    bool bSkeletalDisabled = (CurrentViewerType == EViewerType::Skeletal);
-    if (bSkeletalDisabled)  ImGui::BeginDisabled();
-
-    if (ImGui::Button("Skeletal Viewer", ImVec2(SkelButtonWidth, 0)))
+    // ----------------------------------------------------
     {
-        // Find existing skeletal viewer window and focus it
-        SViewerWindow* TargetWindow = nullptr;
-        for (SWindow* Window : USlateManager::GetInstance().GetDetachedWindows())
+        bool disabled = (CurrentViewerType == EViewerType::Skeletal);
+        if (disabled) ImGui::BeginDisabled();
+
+        if (ImGui::ImageButton("##SkelViewBtn",
+            (void*)IconSkeletalViewer->GetShaderResourceView(), IconSizeVec))
         {
-            if (dynamic_cast<SSkeletalMeshViewerWindow*>(Window))
+            SViewerWindow* TargetWindow = nullptr;
+            for (SWindow* Window : USlateManager::GetInstance().GetDetachedWindows())
             {
-                TargetWindow = static_cast<SViewerWindow*>(Window);
-                break;
+                if (dynamic_cast<SSkeletalMeshViewerWindow*>(Window))
+                {
+                    TargetWindow = static_cast<SViewerWindow*>(Window);
+                    break;
+                }
+            }
+
+            if (TargetWindow)
+            {
+                TargetWindow->RequestFocus();
+            }
+            else if (ActiveState && ActiveState->CurrentMesh)
+            {
+                UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
+                Context->ViewerType = EViewerType::Skeletal;
+                Context->AssetPath = ActiveState->LoadedMeshPath;
+                USlateManager::GetInstance().OpenAssetViewer(Context);
             }
         }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Skeletal Mesh Viewer");
 
-        if (TargetWindow)
-        {
-            // Just focus the existing window
-            TargetWindow->RequestFocus();
-        }
-        else if (ActiveState && ActiveState->CurrentMesh)
-        {
-            // Create new window only if none exists
-            UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
-            Context->ViewerType = EViewerType::Skeletal;
-            Context->AssetPath = ActiveState->LoadedMeshPath;
-            USlateManager::GetInstance().OpenAssetViewer(Context);
-        }
+        if (disabled) ImGui::EndDisabled();
     }
-    if (bSkeletalDisabled)  ImGui::EndDisabled();
+
     ImGui::SameLine();
 
+    // ----------------------------------------------------
     // Animation Viewer Button
-    bool bAnimDisabled = (CurrentViewerType == EViewerType::Animation);
-    if (bAnimDisabled)  ImGui::BeginDisabled();
-
-    if (ImGui::Button("Animation Viewer", ImVec2(AnimButtonWidth, 0)))
+    // ----------------------------------------------------
     {
-        // Find existing animation viewer window and focus it
-        SViewerWindow* TargetWindow = nullptr;
-        for (SWindow* Window : USlateManager::GetInstance().GetDetachedWindows())
+        bool disabled = (CurrentViewerType == EViewerType::Animation);
+        if (disabled) ImGui::BeginDisabled();
+
+        if (ImGui::ImageButton("##AnimViewBtn",
+            (void*)IconAnimationViewer->GetShaderResourceView(), IconSizeVec))
         {
-            if (dynamic_cast<SAnimationViewerWindow*>(Window))
+            SViewerWindow* TargetWindow = nullptr;
+            for (SWindow* Window : USlateManager::GetInstance().GetDetachedWindows())
             {
-                TargetWindow = static_cast<SViewerWindow*>(Window);
-                break;
+                if (dynamic_cast<SAnimationViewerWindow*>(Window))
+                {
+                    TargetWindow = static_cast<SViewerWindow*>(Window);
+                    break;
+                }
+            }
+
+            if (TargetWindow)
+            {
+                TargetWindow->RequestFocus();
+            }
+            else if (ActiveState && ActiveState->CurrentMesh)
+            {
+                UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
+                Context->ViewerType = EViewerType::Animation;
+                Context->AssetPath = ActiveState->LoadedMeshPath;
+                USlateManager::GetInstance().OpenAssetViewer(Context);
             }
         }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Animation Viewer");
 
-        if (TargetWindow)
-        {
-            // Just focus the existing window
-            TargetWindow->RequestFocus();
-        }
-        else if (ActiveState && ActiveState->CurrentMesh)
-        {
-            // Create new window only if none exists
-            UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
-            Context->ViewerType = EViewerType::Animation;
-            Context->AssetPath = ActiveState->LoadedMeshPath;
-            USlateManager::GetInstance().OpenAssetViewer(Context);
-        }
+        if (disabled) ImGui::EndDisabled();
     }
-    if (bAnimDisabled)  ImGui::EndDisabled();
+
     ImGui::SameLine();
 
-    // Blend Space Editor Button
-    bool bBlendSpaceDisabled = (CurrentViewerType == EViewerType::BlendSpace);
-    if (bBlendSpaceDisabled)  ImGui::BeginDisabled();
-
-    if (ImGui::Button("BlendSpace Editor", ImVec2(BlendSpaceButtonWidth, 0)))
+    // ----------------------------------------------------
+    // BlendSpace Viewer Button
+    // ----------------------------------------------------
     {
-        // Find existing blend space editor window and focus it
-        SViewerWindow* TargetWindow = nullptr;
-        for (SWindow* Window : USlateManager::GetInstance().GetDetachedWindows())
+        bool disabled = (CurrentViewerType == EViewerType::BlendSpace);
+        if (disabled) ImGui::BeginDisabled();
+
+        if (ImGui::ImageButton("##BlendSpaceBtn",
+            (void*)IconBlendSpaceEditor->GetShaderResourceView(), IconSizeVec))
         {
-            if (dynamic_cast<SBlendSpaceEditorWindow*>(Window))
+            SViewerWindow* TargetWindow = nullptr;
+            for (SWindow* Window : USlateManager::GetInstance().GetDetachedWindows())
             {
-                TargetWindow = static_cast<SViewerWindow*>(Window);
-                break;
+                if (dynamic_cast<SBlendSpaceEditorWindow*>(Window))
+                {
+                    TargetWindow = static_cast<SViewerWindow*>(Window);
+                    break;
+                }
+            }
+
+            if (TargetWindow)
+            {
+                TargetWindow->RequestFocus();
+            }
+            else if (ActiveState && ActiveState->CurrentMesh)
+            {
+                UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
+                Context->ViewerType = EViewerType::BlendSpace;
+                Context->AssetPath = ActiveState->LoadedMeshPath;
+                USlateManager::GetInstance().OpenAssetViewer(Context);
             }
         }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("BlendSpace Editor");
 
-        if (TargetWindow)
-        {
-            // Just focus the existing window
-            TargetWindow->RequestFocus();
-        }
-        else if (ActiveState && ActiveState->CurrentMesh)
-        {
-            // Create new window only if none exists
-            UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
-            Context->ViewerType = EViewerType::BlendSpace;
-            Context->AssetPath = ActiveState->LoadedMeshPath;
-            USlateManager::GetInstance().OpenAssetViewer(Context);
-        }
+        if (disabled) ImGui::EndDisabled();
     }
-    if (bBlendSpaceDisabled)  ImGui::EndDisabled();
 
+    ImGui::EndGroup();
+
+    ImVec2 groupMin = ImGui::GetItemRectMin();
+    ImVec2 groupMax = ImGui::GetItemRectMax();
+
+    const float Padding = 1.0f;
+    groupMin.x -= Padding;
+    groupMin.y -= Padding;
+    groupMax.x += Padding;
+    groupMax.y += Padding;
+
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+    drawList->AddRect(
+        groupMin,
+        groupMax,
+        ImGui::GetColorU32(ImVec4(0.4f, 0.45f, 0.5f, 0.8f)),
+        4.0f,
+        0,
+        1.3f
+    );
+
+    ImGui::PopStyleColor(3);
+    ImGui::PopStyleVar(3);
+
+    // ============================================
     ImGui::EndTabBar();
 }
 
@@ -1232,6 +1295,19 @@ void SViewerWindow::LoadViewerToolbarIcons(ID3D11Device* Device)
 
     IconViewMode_BufferVis = NewObject<UTexture>();
     IconViewMode_BufferVis->Load(GDataDir + "/Icon/Viewport_ViewMode_BufferVis.png", Device);
+
+	IconBone = NewObject<UTexture>();
+	IconBone->Load(GDataDir + "/Icon/Bone.png", Device);
+
+    // 뷰어 아이콘 로드
+    IconSkeletalViewer = NewObject<UTexture>();
+    IconSkeletalViewer->Load(GDataDir + "/Icon/Skeletal_Viewer.png", Device);
+
+    IconAnimationViewer = NewObject<UTexture>();
+    IconAnimationViewer->Load(GDataDir + "/Icon/Animation_Viewer.png", Device);
+
+    IconBlendSpaceEditor = NewObject<UTexture>();
+    IconBlendSpaceEditor->Load(GDataDir + "/Icon/BlendSpace_Editor.png", Device);
 }
 
 AGizmoActor* SViewerWindow::GetGizmoActor()

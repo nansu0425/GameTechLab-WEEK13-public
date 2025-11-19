@@ -69,4 +69,7 @@ private:
     UTexture* IconLooping = nullptr;
     UTexture* IconNoLooping = nullptr;
     bool bIconsLoaded = false;
+
+    float TimelineZoom = 1.0f;      // 1.0 = 기본 축척
+    float TimelineScroll = 0.0f;    // 타임라인 좌/우 스크롤용 오프셋
 };

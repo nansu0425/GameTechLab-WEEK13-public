@@ -113,6 +113,8 @@ protected:
 	void RenderViewModeDropdownMenu();
 	class AGizmoActor* GetGizmoActor();
 
+	void EndButtonGroup();
+
 private:
 	bool IsOpen() const { return bIsOpen; }
 	void Close() { bIsOpen = false; }
@@ -150,4 +152,12 @@ private:
 	class UTexture* IconViewMode_Unlit = nullptr;
 	class UTexture* IconViewMode_Wireframe = nullptr;
 	class UTexture* IconViewMode_BufferVis = nullptr;
+
+	// 본 계층 구조 아이콘
+	class UTexture* IconBone = nullptr;
+
+	// 뷰어 아이콘
+	class UTexture* IconSkeletalViewer = nullptr;
+	class UTexture* IconAnimationViewer = nullptr;
+	class UTexture* IconBlendSpaceEditor = nullptr;
 };
