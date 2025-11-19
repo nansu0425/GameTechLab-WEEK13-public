@@ -452,6 +452,27 @@ void SAnimationViewerWindow::LoadSkeletalMesh(ViewerState* State, const FString&
         State->PreviewActor->SetSkeletalMesh(Path);
         State->CurrentMesh = Mesh;
 
+        // Update compatible animation list
+        State->CompatibleAnimations.Empty();
+        if (const FSkeleton* CurrentSkeleton = State->CurrentMesh->GetSkeleton())
+        {
+            const FString& MeshSkeletonName = CurrentSkeleton->Name;
+            const auto& AllAnimations = UResourceManager::GetInstance().GetAnimations();
+            for (UAnimSequence* Anim : AllAnimations)
+            {
+                if (Anim && Anim->GetSkeletonName() == MeshSkeletonName)
+                {
+                    State->CompatibleAnimations.Add(Anim);
+                }
+            }
+        }
+
+        // Reset current animation state
+        State->CurrentAnimation = nullptr;
+        State->TotalTime = 0.0f;
+        State->CurrentTime = 0.0f;
+        State->bIsPlaying = false;
+
         // Expand all bone nodes by default on mesh load
         State->ExpandedBoneIndices.clear();
         if (const FSkeleton* Skeleton = State->CurrentMesh->GetSkeleton())
@@ -489,140 +510,6 @@ void SAnimationViewerWindow::LoadSkeletalMesh(ViewerState* State, const FString&
     {
         UE_LOG("SAnimationViewerWindow: Failed to load skeletal mesh from %s", Path.c_str());
     }
-}
-
-void SAnimationViewerWindow::RenderAnimationBrowser()
-{
-    if (!ActiveState)   return;
-
-    ImGuiStyle& style = ImGui::GetStyle();
-
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6);
-    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.30f, 0.30f, 0.30f, 0.8f));
-    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
-    ImGui::Text("ANIMATION BROWSER");
-    ImGui::PopFont();
-    ImGui::PopStyleColor();
-    ImGui::Dummy(ImVec2(0, 6));
-    ImGui::Spacing();
-    ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.35f, 0.35f, 0.35f, 0.6f));
-    ImGui::Separator();
-    ImGui::PopStyleColor();
-    ImGui::Dummy(ImVec2(0, 6));
-    ImGui::Spacing();
-    
-    // Checkbox Style
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.5, 0.5));
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.23f, 0.25f, 0.27f, 0.80f)); // #3A3F45 계열
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.28f, 0.30f, 0.33f, 0.90f));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.20f, 0.22f, 0.25f, 1.00f));
-    ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.75f, 0.80f, 0.90f, 1.00f));
-
-    ImGui::PushItemWidth(-1.0f);
-    ImGui::Checkbox("Show Only Compatible", &ActiveState->bShowOnlyCompatible);
-    ImGui::PopItemWidth();
-    ImGui::PopStyleColor(4);
-    ImGui::PopStyleVar();
-
-    ImGui::Dummy(ImVec2(0, 6));
-    ImGui::Spacing();
-
-    const TArray<UAnimSequence*>& AnimsToShow = ActiveState->bShowOnlyCompatible
-        ? ActiveState->CompatibleAnimations
-        : UResourceManager::GetInstance().GetAnimations();
-
-    if (AnimsToShow.IsEmpty())
-    {
-        ImGui::Text(ActiveState->bShowOnlyCompatible
-            ? "No compatible animations found."
-            : "No animations loaded in ResourceManager.");
-        return;
-    }
-
-    // Table row highlight colors
-    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.2f, 0.2f, 0.2f, 0.5f)); // selected bg
-    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.2f)); // hover bg
-    ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.2f, 0.2f, 0.2f, 0.5f)); // selected active bg
-
-    // table row colors (transparent OK)
-    ImGui::PushStyleColor(ImGuiCol_TableRowBg, ImVec4(0, 0, 0, 0));
-    ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, ImVec4(0, 0, 0, 0));
-    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8, 4));
-
-    // Table flags (Sortable disabled)
-    ImGuiTableFlags flags = ImGuiTableFlags_Borders
-        | ImGuiTableFlags_RowBg
-        | ImGuiTableFlags_Resizable
-        | ImGuiTableFlags_ScrollY
-        | ImGuiTableFlags_SizingStretchProp;
-
-    if (ImGui::BeginTable("AnimBrowserTable", 2, flags, ImVec2(-1, -1)))
-    {
-        // Setup columns (NoSort 플래그 추가)
-        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_NoSort, 0.4f);
-        ImGui::TableSetupColumn("Path", ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_NoSort, 0.6f);
-        ImGui::TableSetupScrollFreeze(0, 1); // Freeze header row
-        ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8, 2)); // y padding 줄이기
-        ImGui::TableHeadersRow();
-        ImGui::PopStyleVar();
-
-        // Table rows
-        ImGuiListClipper clipper;
-        clipper.Begin(AnimsToShow.size());
-
-        while (clipper.Step())
-        {
-            for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
-            {
-                UAnimSequence* Anim = AnimsToShow[row];
-                if (!Anim) continue;
-
-                bool isSelected = (ActiveState->CurrentAnimation == Anim);
-
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-
-                // Selectable spans entire row
-                ImGui::PushID(row);
-                if (ImGui::Selectable(("##row" + std::to_string(row)).c_str(),
-                    isSelected,
-                    ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap))
-                {
-                    if (ActiveState->PreviewActor)
-                    {
-                        ActiveState->CurrentAnimation = Anim;
-                        ActiveState->TotalTime = Anim->GetSequenceLength();
-                        ActiveState->CurrentTime = 0.0f;
-                        ActiveState->bIsPlaying = true;
-                        USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
-                        if (MeshComp)
-                        {
-                            MeshComp->PlayAnimation(Anim, ActiveState->bIsLooping, ActiveState->PlaybackSpeed);
-                        }
-                    }
-                }
-                ImGui::PopID();
-
-                // Name column
-                ImGui::SameLine();
-                ImGui::Text("%s", Anim->GetName().c_str());
-
-                // Path column
-                ImGui::TableSetColumnIndex(1);
-                ImGui::TextDisabled("%s", Anim->GetFilePath().c_str());
-
-                if (isSelected)
-                {
-                    ImGui::SetScrollHereY();
-                }
-            }
-        }
-
-        ImGui::EndTable();
-    }
-
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor(5);
 }
 
 void SAnimationViewerWindow::RenderNotifyProperties()
@@ -1049,6 +936,9 @@ void SAnimationViewerWindow::RenderLeftTrackList(float width, float RowHeight, f
 
     int RowCount = LeftRows.size();
     ImDrawList* DL = ImGui::GetWindowDrawList();
+    ImVec2 childMin = ImGui::GetWindowPos();
+    ImVec2 childMax = ImVec2(childMin.x + width, childMin.y + ImGui::GetWindowSize().y);
+    DL->AddRectFilled(childMin, childMax, IM_COL32(28, 28, 28, 255));
 
     // Row Rendering Loop
     for (int i = 0; i < RowCount; i++)
@@ -1209,7 +1099,7 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
     draw->AddRectFilled(
         gridOrigin,
         ImVec2(gridOrigin.x + gridAvail.x, gridOrigin.y + FullHeight),
-        IM_COL32(40, 40, 40, 255)
+        IM_COL32(20, 20, 20, 255)
     );
 
     // Frame columns
