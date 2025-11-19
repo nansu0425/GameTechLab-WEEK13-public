@@ -17,6 +17,7 @@ protected:
     ViewerState* CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context) override;
     void DestroyViewerState(ViewerState*& State) override;
     FString GetWindowTitle() const override { return "Blend Space 2D Editor"; }
+    void OnSkeletalMeshLoaded(ViewerState* State, const FString& Path) override;
     void PreRenderViewportUpdate() override;
 
 private:

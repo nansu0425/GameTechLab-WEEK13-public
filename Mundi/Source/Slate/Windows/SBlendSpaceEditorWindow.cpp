@@ -371,6 +371,71 @@ void SBlendSpaceEditorWindow::DestroyViewerState(ViewerState*& State)
     BlendSpaceEditorBootstrap::DestroyViewerState(State);
 }
 
+void SBlendSpaceEditorWindow::OnSkeletalMeshLoaded(ViewerState* State, const FString& Path)
+{
+    if (!State || !State->CurrentMesh)
+        return;
+
+    // Update compatible animation list with STRICT skeleton structure matching
+    State->CompatibleAnimations.Empty();
+    if (const FSkeleton* CurrentSkeleton = State->CurrentMesh->GetSkeleton())
+    {
+        // Compute signature for current mesh skeleton
+        uint64 MeshSignature = ComputeSkeletonSignature(*CurrentSkeleton);
+        int32 MeshBoneCount = static_cast<int32>(CurrentSkeleton->Bones.size());
+        const FString& MeshSkeletonName = CurrentSkeleton->Name;
+
+        UE_LOG("SBlendSpaceEditorWindow: Mesh skeleton '%s' signature = 0x%016llX (%d bones)",
+            MeshSkeletonName.c_str(), MeshSignature, MeshBoneCount);
+
+        const auto& AllAnimations = UResourceManager::GetInstance().GetAnimations();
+        int32 CompatibleCount = 0;
+
+        for (UAnimSequence* Anim : AllAnimations)
+        {
+            if (!Anim) continue;
+
+            // STRICT COMPATIBILITY CHECK:
+            // 1. Skeleton signature must match (structure, hierarchy, names, order)
+            // 2. Bone count must match
+            // 3. Skeleton name should match (optional warning if different)
+
+            bool bSignatureMatch = (Anim->GetSkeletonSignature() == MeshSignature);
+            bool bBoneCountMatch = (Anim->GetSkeletonBoneCount() == MeshBoneCount);
+            bool bNameMatch = (Anim->GetSkeletonName() == MeshSkeletonName);
+
+            if (bSignatureMatch && bBoneCountMatch)
+            {
+                State->CompatibleAnimations.Add(Anim);
+                CompatibleCount++;
+
+                // Log warning if structure matches but name differs (unusual case)
+                if (!bNameMatch)
+                {
+                    UE_LOG("SBlendSpaceEditorWindow: Warning - Animation '%s' has matching structure "
+                           "but different skeleton name ('%s' vs '%s')",
+                        Anim->GetFilePath().c_str(),
+                        Anim->GetSkeletonName().c_str(),
+                        MeshSkeletonName.c_str());
+                }
+            }
+            else if (bNameMatch && (!bSignatureMatch || !bBoneCountMatch))
+            {
+                // Log incompatible animations that have matching names (helps debugging)
+                UE_LOG("SBlendSpaceEditorWindow: Animation '%s' has matching skeleton name '%s' "
+                       "but incompatible structure (sig: %s, bones: %s)",
+                    Anim->GetFilePath().c_str(),
+                    MeshSkeletonName.c_str(),
+                    bSignatureMatch ? "OK" : "MISMATCH",
+                    bBoneCountMatch ? "OK" : "MISMATCH");
+            }
+        }
+
+        UE_LOG("SBlendSpaceEditorWindow: Found %d compatible animations for skeleton '%s'",
+            CompatibleCount, MeshSkeletonName.c_str());
+    }
+}
+
 void SBlendSpaceEditorWindow::LoadSkeletalMesh(ViewerState* State, const FString& Path)
 {
     if (!State || Path.empty())
@@ -393,6 +458,9 @@ void SBlendSpaceEditorWindow::LoadSkeletalMesh(ViewerState* State, const FString
                 State->ExpandedBoneIndices.insert(i);
             }
         }
+
+        // Call the hook to update compatible animations
+        OnSkeletalMeshLoaded(State, Path);
 
         State->LoadedMeshPath = Path;  // Track for resource unloading
 

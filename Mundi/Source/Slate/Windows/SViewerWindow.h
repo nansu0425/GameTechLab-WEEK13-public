@@ -91,6 +91,14 @@ protected:
 	virtual void RenderRightPanel();
 	virtual void RenderBottomPanel() {};
 
+	/**
+	 * Virtual hook called after a skeletal mesh is successfully loaded from the asset browser
+	 * Derived classes can override this to perform custom post-load processing
+	 * @param State The viewer state that loaded the mesh
+	 * @param Path The file path of the loaded mesh
+	 */
+	virtual void OnSkeletalMeshLoaded(ViewerState* State, const FString& Path) {}
+
 	void UpdateBoneTransformFromSkeleton(ViewerState* State);
 	void UpdateBoneTransformFromGizmo(ViewerState* State);
 	void ApplyBoneTransform(ViewerState* State);
