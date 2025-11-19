@@ -620,6 +620,15 @@ void SBlendSpaceEditorWindow::RenderBlendCanvas(float Width, float Height)
         UI_BlendX = p.X; UI_BlendY = p.Y;
     }
 
+    // Delete selected sample with DEL key
+    if (SelectedSample >= 0 && SelectedSample < Samples.Num() && ImGui::IsKeyPressed(ImGuiKey_Delete))
+    {
+        BlendInst->RemoveSample(SelectedSample);
+        SelectedSample = -1; // Clear selection after deletion
+        RebuildTriangles();
+        UE_LOG("BlendSpace: Deleted sample at index %d", SelectedSample);
+    }
+
     // Draw current blend position
     ImVec2 bp = ParamToScreen(FVector2D(UI_BlendX, UI_BlendY));
     dl->AddCircle(bp, 6.0f, ImColor(100, 220, 120), 0, 2.0f);
