@@ -34,6 +34,13 @@ void SBlendSpaceEditorWindow::OnRender()
 {
     if (!ImGui::GetCurrentContext()) return;
 
+    // If window is closed, request cleanup and don't render
+    if (!bIsOpen)
+    {
+        USlateManager::GetInstance().RequestCloseDetachedWindow(this);
+        return;
+    }
+
     if (!bInitialPlacementDone)
     {
         ImGui::SetNextWindowPos(ImVec2(Rect.Left, Rect.Top));
@@ -60,6 +67,14 @@ void SBlendSpaceEditorWindow::OnRender()
 
         // Render tabs and toolbar (synced with other viewers)
         RenderTabsAndToolbar(EViewerType::BlendSpace);
+
+        // 마지막 탭을 닫은 경우 렌더링 중단
+        if (!bIsOpen)
+        {
+            USlateManager::GetInstance().RequestCloseDetachedWindow(this);
+            ImGui::End();
+            return;
+        }
 
         ImVec2 pos = ImGui::GetWindowPos();
         ImVec2 size = ImGui::GetWindowSize();

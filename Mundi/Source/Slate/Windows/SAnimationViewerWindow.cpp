@@ -30,9 +30,12 @@ SAnimationViewerWindow::~SAnimationViewerWindow()
 
 void SAnimationViewerWindow::OnRender()
 {
-    // If window is closed, don't render
+    // If window is closed, request cleanup and don't render
     if (!bIsOpen)
+    {
+        USlateManager::GetInstance().RequestCloseDetachedWindow(this);
         return;
+    }
 
     // Parent detachable window (movable, top-level) with solid background
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoSavedSettings;
@@ -71,6 +74,14 @@ void SAnimationViewerWindow::OnRender()
             ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
             return;*/
         RenderTabsAndToolbar(EViewerType::Animation);
+
+        // 마지막 탭을 닫은 경우 렌더링 중단
+        if (!bIsOpen)
+        {
+            USlateManager::GetInstance().RequestCloseDetachedWindow(this);
+            ImGui::End();
+            return;
+        }
 
         //===============================
         // Update window rect
