@@ -74,6 +74,9 @@ public:
     void ApplyAdditiveTransforms(const TMap<int32, FTransform>& AdditiveTransforms);
     TArray<FTransform> RefPose;
 
+    // Notify
+    void TriggerAnimNotify(const FAnimNotifyEvent& NotifyEvent);
+
 protected:
     /**
      * @brief CurrentLocalSpacePose의 변경사항을 ComponentSpace -> FinalMatrices 계산까지 모두 수행

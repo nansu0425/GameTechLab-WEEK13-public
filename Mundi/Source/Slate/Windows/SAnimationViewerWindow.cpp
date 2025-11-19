@@ -991,6 +991,7 @@ void SAnimationViewerWindow::RenderLeftTrackList(float width, float RowHeight, f
         {
             int idx = ActiveState->NotifyTracks.size();
             ActiveState->NotifyTracks.push_back(FNotifyTrack("Track " + std::to_string(idx)));
+            SyncNotifyTracksToDataModel();
         }
         ImGui::EndPopup();
     }
@@ -1205,7 +1206,10 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
                 if (ImGui::BeginPopup(("NotifyPopup_" + std::to_string(row) + "_" + std::to_string(i)).c_str()))
                 {
                     if (ImGui::MenuItem("Delete"))
+                    {
                         Track.Notifies.erase(Track.Notifies.begin() + i);
+                        SyncNotifyTracksToDataModel();
+                    }
 
                     if (ImGui::MenuItem("Add Duration +0.2s"))
                         Track.Notifies[i].Duration += 0.2f;
@@ -1223,6 +1227,10 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
 
                     float norm = (mouseX - gridOrigin.x) / gridAvail.x;
                     Track.Notifies[i].TriggerTime = norm * ActiveState->TotalTime;
+                }
+                if (ImGui::IsItemDeactivatedAfterEdit())
+                {
+                    SyncNotifyTracksToDataModel();
                 }
             }
         }
@@ -1256,6 +1264,7 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
                     newNotify.NotifyName = FName("NewNotify_" + std::to_string(notifyCount + 1));
 
                     ActiveState->NotifyTracks[NotifyIndex].Notifies.Add(newNotify);
+                    SyncNotifyTracksToDataModel();
                 }
 
                 ImGui::EndPopup();
@@ -1359,6 +1368,14 @@ void SAnimationViewerWindow::BuildRowToNotifyIndex(const TArray<FString>& InRows
 
     OutMapping.push_back(-1);     // Curves
     OutMapping.push_back(-1);     // Attributes
+}
+
+void SAnimationViewerWindow::SyncNotifyTracksToDataModel()
+{
+    if (ActiveState && ActiveState->CurrentAnimation && ActiveState->CurrentAnimation->GetDataModel())
+    {
+        ActiveState->CurrentAnimation->GetDataModel()->NotifyTracks = ActiveState->NotifyTracks;
+    }
 }
 
 // ImGui draw callback - Direct3D 뷰포트 렌더링

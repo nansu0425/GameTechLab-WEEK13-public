@@ -329,3 +329,12 @@ void USkeletalMeshComponent::ApplyAdditiveTransforms(const TMap<int32, FTransfor
     // Recompute the final pose once after all additives are applied
     ForceRecomputePose();
 }
+
+void USkeletalMeshComponent::TriggerAnimNotify(const FAnimNotifyEvent& NotifyEvent)
+{
+    AActor* Owner = GetOwner();
+    if (Owner)
+    {
+        Owner->HandleAnimNotify(NotifyEvent);
+    }
+}

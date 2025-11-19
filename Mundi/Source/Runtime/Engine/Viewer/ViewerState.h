@@ -16,6 +16,7 @@ struct FNotifyTrack
     FString Name;
     TArray<FAnimNotifyEvent> Notifies;
 
+    FNotifyTrack() = default;
     FNotifyTrack(const FString& InName) : Name(InName) {}
 };
 
