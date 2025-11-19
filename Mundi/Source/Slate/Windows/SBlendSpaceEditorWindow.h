@@ -51,6 +51,7 @@ private:
     bool      bDraggingBlendPoint = false;
     FVector2D DragStartParam = FVector2D(0,0);
     FVector2D DragStartPan = FVector2D(0,0);
+    float     CanvasHeightRatio = 0.35f;
 
     void RenderBlendCanvas(float Width, float Height);
     void RebuildTriangles();

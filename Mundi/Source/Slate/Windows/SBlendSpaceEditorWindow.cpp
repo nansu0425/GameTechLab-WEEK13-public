@@ -13,8 +13,9 @@
 SBlendSpaceEditorWindow::SBlendSpaceEditorWindow()
 {
     CenterRect = FRect(0, 0, 0, 0);
-    LeftPanelRatio = 0.22f;
-    RightPanelRatio = 0.22f;
+    LeftPanelRatio = 0.18f;
+    RightPanelRatio = 0.18f;
+    CanvasHeightRatio = 0.35f;
 }
 
 SBlendSpaceEditorWindow::~SBlendSpaceEditorWindow()
@@ -70,6 +71,12 @@ void SBlendSpaceEditorWindow::OnRender()
         const float totalW = avail.x;
         const float totalH = avail.y;
         const float splitter = 4.f;
+
+        // Calculate heights for top and bottom sections
+        const float canvasH = totalH * CanvasHeightRatio;
+        const float topH = totalH - canvasH - splitter;
+
+        // Top section widths
         float leftW = totalW * LeftPanelRatio;
         float rightW = totalW * RightPanelRatio;
         float centerW = totalW - leftW - rightW - (splitter * 2);
@@ -77,9 +84,11 @@ void SBlendSpaceEditorWindow::OnRender()
 
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 
+        // ===== TOP SECTION: Left Panel | Viewport | Right Panel =====
+
         // Left panel: attach + sample/triangle authoring
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-        ImGui::BeginChild("LeftPanel", ImVec2(leftW, totalH), true, ImGuiWindowFlags_NoScrollbar);
+        ImGui::BeginChild("LeftPanel", ImVec2(leftW, topH), true, ImGuiWindowFlags_NoScrollbar);
         ImGui::PopStyleVar();
         ImGui::TextUnformatted("Preview Binding");
         ImGui::Separator();
@@ -156,16 +165,6 @@ void SBlendSpaceEditorWindow::OnRender()
             RebuildTriangles();
         }
 
-        // ===== Blend Space 2D Canvas =====
-        ImGui::Dummy(ImVec2(0, 6));
-        ImGui::TextUnformatted("Blend Space Canvas");
-        ImGui::Separator();
-        float canvasSize = std::min(leftW - 12.0f, totalH * 0.6f);
-        if (canvasSize < 150.0f) canvasSize = 150.0f;
-        ImGui::BeginChild("BlendCanvas", ImVec2(canvasSize, canvasSize), true, ImGuiWindowFlags_NoScrollbar);
-        RenderBlendCanvas(canvasSize, canvasSize);
-        ImGui::EndChild();
-
         ImGui::EndChild();
 
         ImGui::SameLine(0, 0);
@@ -173,7 +172,7 @@ void SBlendSpaceEditorWindow::OnRender()
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.7f));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 0.9f));
-        ImGui::Button("##LeftSplitter", ImVec2(splitter, totalH));
+        ImGui::Button("##LeftSplitter", ImVec2(splitter, topH));
         ImGui::PopStyleColor(3);
 
         if (ImGui::IsItemHovered())
@@ -189,12 +188,12 @@ void SBlendSpaceEditorWindow::OnRender()
         // Center viewport - skip if completely collapsed
         if (centerW > 0.0f)
         {
-            ImGui::BeginChild("CenterPanel", ImVec2(centerW, totalH), true, ImGuiWindowFlags_NoScrollbar);
+            ImGui::BeginChild("CenterPanel", ImVec2(centerW, topH), true, ImGuiWindowFlags_NoScrollbar);
             if (ActiveState)
             {
                 PreRenderViewportUpdate();
             }
-            RenderCenterViewport(centerW, totalH);
+            RenderCenterViewport(centerW, topH);
             ImGui::EndChild();
         }
         else
@@ -209,7 +208,7 @@ void SBlendSpaceEditorWindow::OnRender()
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.7f));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 0.9f));
-        ImGui::Button("##RightSplitter", ImVec2(splitter, totalH));
+        ImGui::Button("##RightSplitter", ImVec2(splitter, topH));
         ImGui::PopStyleColor(3);
 
         if (ImGui::IsItemHovered())
@@ -224,7 +223,7 @@ void SBlendSpaceEditorWindow::OnRender()
         ImGui::SameLine(0, 0);
         // Right panel: live controls
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-        ImGui::BeginChild("RightPanel", ImVec2(rightW, totalH), true, ImGuiWindowFlags_NoScrollbar);
+        ImGui::BeginChild("RightPanel", ImVec2(rightW, topH), true, ImGuiWindowFlags_NoScrollbar);
         ImGui::PopStyleVar();
         ImGui::TextUnformatted("Blend Controls");
         ImGui::Separator();
@@ -242,7 +241,39 @@ void SBlendSpaceEditorWindow::OnRender()
         }
         ImGui::EndChild();
 
+        // End the ItemSpacing override from the top section
         ImGui::PopStyleVar();
+
+        // ===== BOTTOM SECTION: Blend Space Canvas =====
+        // Horizontal splitter between top and bottom
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.7f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 0.9f));
+        ImGui::Button("##CanvasSplitter", ImVec2(totalW, splitter));
+        ImGui::PopStyleColor(3);
+
+        if (ImGui::IsItemHovered())
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+
+        if (ImGui::IsItemActive())
+        {
+            float delta = ImGui::GetIO().MouseDelta.y;
+            CanvasHeightRatio = FMath::Clamp(CanvasHeightRatio - delta / totalH, 0.2f, 0.6f);
+        }
+
+        // Canvas at bottom - full width
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
+        ImGui::BeginChild("BlendCanvas", ImVec2(totalW, canvasH), true, ImGuiWindowFlags_NoScrollbar);
+        ImGui::PopStyleVar();
+        ImGui::TextUnformatted("Blend Space Canvas");
+        ImGui::Separator();
+        ImVec2 canvasRegion = ImGui::GetContentRegionAvail();
+        float canvasContentW = canvasRegion.x;
+        float canvasContentH = canvasRegion.y;
+        if (canvasContentH < 150.0f) canvasContentH = 150.0f;
+        if (canvasContentW < 150.0f) canvasContentW = 150.0f;
+        RenderBlendCanvas(canvasContentW, canvasContentH);
+        ImGui::EndChild();
     }
     ImGui::End();
 
@@ -347,6 +378,9 @@ void SBlendSpaceEditorWindow::RenderBlendCanvas(float Width, float Height)
     ImDrawList* dl = ImGui::GetWindowDrawList();
     ImVec2 origin = ImGui::GetCursorScreenPos();
     ImVec2 size(Width, Height);
+
+    // Reserve space for the canvas
+    ImGui::InvisibleButton("CanvasArea", size);
 
     // Background and frame
     dl->AddRectFilled(origin, ImVec2(origin.x + size.x, origin.y + size.y), ImColor(28, 28, 28, 255), 6.0f);

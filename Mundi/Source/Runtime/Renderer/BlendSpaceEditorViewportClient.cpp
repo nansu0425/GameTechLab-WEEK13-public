@@ -8,7 +8,7 @@ FBlendSpaceEditorViewportClient::FBlendSpaceEditorViewportClient()
     ViewMode = EViewMode::VMI_Lit_Phong;
 
     // Place camera at a reasonable spot
-    Camera->SetActorLocation(FVector(200.0f, 0.0f, 75.0f));
+    Camera->SetActorLocation(FVector(3.0f, 0.0f, 2.0f));
     Camera->SetActorRotation(FVector(0.0f, 0.0f, 180.0f));
     Camera->SetCameraPitch(0.0f);
     Camera->SetCameraYaw(180.0f);
