@@ -325,7 +325,7 @@ void UShader::CreateInputLayout(ID3D11Device* Device, const FString& InShaderPat
 		}
 	}
 
-	if (bHasGPUSkinning && InShaderPath.find("UberLit") != FString::npos)
+	if (bHasGPUSkinning && (InShaderPath.find("UberLit") != FString::npos || InShaderPath.find("DepthOnly") != FString::npos))
 	{
 		// GPU 스키닝을 위한 추가 입력 요소
 		// FSkinnedVertex: Position(12) + Normal(12) + UV(8) + Tangent(16) + Color(16) + BoneIndices(16) + BoneWeights(16)
