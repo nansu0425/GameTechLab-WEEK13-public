@@ -506,7 +506,12 @@ void SViewerWindow::CloseTab(int Index)
     ViewerState* State = Tabs[Index];
     DestroyViewerState(State);
     Tabs.RemoveAt(Index);
-    if (Tabs.Num() == 0) { ActiveTabIndex = -1; ActiveState = nullptr; }
+    if (Tabs.Num() == 0)
+    {
+        ActiveTabIndex = -1;
+        ActiveState = nullptr;
+        Close();
+    }
     else { ActiveTabIndex = std::min(Index, Tabs.Num() - 1); ActiveState = Tabs[ActiveTabIndex]; }
 }
 

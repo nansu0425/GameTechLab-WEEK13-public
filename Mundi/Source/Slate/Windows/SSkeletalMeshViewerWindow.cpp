@@ -25,9 +25,10 @@ SSkeletalMeshViewerWindow::~SSkeletalMeshViewerWindow()
 
 void SSkeletalMeshViewerWindow::OnRender()
 {
-    // If window is closed, don't render
+    // If window is closed, request cleanup and don't render
     if (!bIsOpen)
     {
+        USlateManager::GetInstance().RequestCloseDetachedWindow(this);
         return;
     }
 
@@ -64,6 +65,14 @@ void SSkeletalMeshViewerWindow::OnRender()
             ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
             return;*/
         RenderTabsAndToolbar(EViewerType::Skeletal);
+
+        // 마지막 탭을 닫은 경우 렌더링 중단
+        if (!bIsOpen)
+        {
+            USlateManager::GetInstance().RequestCloseDetachedWindow(this);
+            ImGui::End();
+            return;
+        }
 
         ImVec2 pos = ImGui::GetWindowPos();
         ImVec2 size = ImGui::GetWindowSize();
