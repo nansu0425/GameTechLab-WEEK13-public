@@ -8,6 +8,7 @@
 #include "Camera/CamMod_Gamma.h"
 #include "SceneView.h"
 #include "CameraActor.h"
+#include "CameraComponent.h"
 #include "World.h"
 #include "FViewport.h"
 #include "RenderSettings.h"
@@ -33,6 +34,19 @@ namespace
 		return (3.0f * OneMinusTSquared * T * P1_y) +
 			(3.0f * OneMinusT * TSquared * P2_y) +
 			(TSquared * T);
+	}
+}
+
+APlayerCameraManager::APlayerCameraManager()
+{
+	ObjectName = "Player Camera Manager";
+
+	// 카메라 컴포넌트 생성
+	UCameraComponent* CameraComp = CreateDefaultSubobject<UCameraComponent>("CameraComponent");
+	if (CameraComp)
+	{
+		SetRootComponent(CameraComp);
+		CurrentViewCamera = CameraComp;
 	}
 }
 

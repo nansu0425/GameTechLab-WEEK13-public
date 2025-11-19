@@ -8,6 +8,9 @@
 #include "CapsuleComponent.h"
 #include "SkeletalMeshComponent.h"
 #include "InputComponent.h"
+#include "World.h"
+#include "PlayerCameraManager.h"
+#include "CameraComponent.h"
 
 // ────────────────────────────────────────────────────────────────────────────
 // 생성자 / 소멸자
@@ -54,6 +57,71 @@ void ACharacter::BeginPlay()
 void ACharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+
+	// 쿼터뷰 카메라 업데이트
+	UpdateQuarterViewCamera(DeltaSeconds);
+}
+
+void ACharacter::UpdateQuarterViewCamera(float DeltaSeconds)
+{
+	// "캐릭터_0" 이름의 액터만 카메라가 따라감
+	if (ObjectName != "캐릭터_0")
+	{
+		return;
+	}
+
+	// World 가져오기
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		UE_LOG("NO World");
+		return;
+	}
+
+	// World의 PlayerCameraManager 가져오기
+	APlayerCameraManager* CameraManager = World->GetPlayerCameraManager();
+	if (!CameraManager)
+	{
+		UE_LOG("NO CM");
+		return;
+	}
+
+	// CameraComponent 가져오기
+	UCameraComponent* CameraComponent = CameraManager->GetViewCamera();
+	if (!CameraComponent)
+	{
+		UE_LOG("NO CC");
+		return;
+	}
+
+	// 쿼터뷰 카메라 설정
+	// 플레이어 뒤쪽 위에서 내려다보는 각도
+	const FVector CameraOffset(-5.0f, 0.0f, 5.0f);  // 플레이어 기준 오프셋
+	const float CameraInterpSpeed = 500.0f;  // 카메라 부드럽게 따라가는 속도
+
+	// 플레이어 위치 가져오기
+	FVector PlayerLocation = GetActorLocation();
+
+	// 목표 카메라 위치 계산 (플레이어 위치 + 오프셋)
+	FVector TargetCameraLocation = PlayerLocation + CameraOffset;
+
+	// 현재 카메라 위치
+	FVector CurrentCameraLocation = CameraComponent->GetWorldLocation();
+
+	// 부드럽게 보간 (Lerp)
+	float Alpha = 1.0f - std::pow(1.0f - FMath::Clamp(CameraInterpSpeed * DeltaSeconds, 0.0f, 1.0f), DeltaSeconds);
+	FVector NewCameraLocation = FMath::Lerp(CurrentCameraLocation, TargetCameraLocation, Alpha);
+
+	// 카메라 위치 설정
+	CameraComponent->SetWorldLocation(NewCameraLocation);
+
+	// 쿼터뷰 카메라 회전 설정 (고정된 각도)
+	// Pitch: -45도 (위에서 아래로), Yaw: 0도 (정면), Roll: 0도
+	FVector EulerAngles(0.0f, 45.0f, 0.0f);
+	FQuat FixedRotation = FQuat::MakeFromEulerZYX(EulerAngles);
+
+	// 카메라 회전 설정 (고정)
+	CameraComponent->SetWorldRotation(FixedRotation);
 }
 
 void ACharacter::HandleAnimNotify(const FAnimNotifyEvent& NotifyEvent)

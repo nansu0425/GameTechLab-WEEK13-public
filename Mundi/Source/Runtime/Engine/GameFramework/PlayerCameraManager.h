@@ -22,7 +22,7 @@ public:
 
 	UPROPERTY(EditAnywhere, Category="트랜지션", Tooltip="카메라 전환에 사용할 이징 곡선입니다. X축:시간, Y축:강도")
 	float TransitionCurve[4] = { 0.47f, 0.0f, 0.745f, 0.715f };
-	APlayerCameraManager() { ObjectName = "Player Camera Manager";  };
+	APlayerCameraManager();
 
 protected:
 	~APlayerCameraManager() override;

@@ -146,6 +146,16 @@ protected:
 	virtual void HandleAnimNotify(const FAnimNotifyEvent& NotifyEvent) override;
 
 	// ────────────────────────────────────────────────
+	// 카메라
+	// ────────────────────────────────────────────────
+
+	/**
+	 * 쿼터뷰 카메라를 업데이트합니다.
+	 * PlayerCameraManager의 카메라를 스프링암처럼 플레이어를 따라가게 합니다.
+	 */
+	void UpdateQuarterViewCamera(float DeltaSeconds);
+
+	// ────────────────────────────────────────────────
 	// 입력 바인딩 (오버라이드)
 	// ────────────────────────────────────────────────
 
