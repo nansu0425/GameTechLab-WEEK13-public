@@ -6,6 +6,7 @@
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 #include "Source/Runtime/Engine/Components/SkeletalMeshComponent.h"
 #include "Source/Runtime/Renderer/FViewport.h"
+#include "Source/Editor/PlatformProcess.h"
 #include "AnimBlendSpaceInstance.h"
 #include "AnimSequence.h"
 #include "ResourceManager.h"
@@ -56,11 +57,8 @@ void SBlendSpaceEditorWindow::OnRender()
         bIsWindowHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
         bIsWindowFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 
-        // Ensure one default tab
-        if (Tabs.Num() == 0)
-        {
-            OpenNewTab("BlendSpace2D");
-        }
+        // Render tabs and toolbar (synced with other viewers)
+        RenderTabsAndToolbar(EViewerType::BlendSpace);
 
         ImVec2 pos = ImGui::GetWindowPos();
         ImVec2 size = ImGui::GetWindowSize();
@@ -86,85 +84,11 @@ void SBlendSpaceEditorWindow::OnRender()
 
         // ===== TOP SECTION: Left Panel | Viewport | Right Panel =====
 
-        // Left panel: attach + sample/triangle authoring
+        // Left panel: Use shared RenderLeftPanel() for asset browser and bone hierarchy
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-        ImGui::BeginChild("LeftPanel", ImVec2(leftW, topH), true, ImGuiWindowFlags_NoScrollbar);
+        ImGui::BeginChild("LeftPanel", ImVec2(leftW, topH), true);
         ImGui::PopStyleVar();
-        ImGui::TextUnformatted("Preview Binding");
-        ImGui::Separator();
-        if (ImGui::Button("Attach to Preview"))
-        {
-            if (ActiveState && ActiveState->PreviewActor && ActiveState->PreviewActor->GetSkeletalMeshComponent())
-            {
-                USkeletalMeshComponent* Comp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
-                Comp->UseBlendSpace2D();
-                BlendInst = Comp->GetOrCreateBlendSpace2D();
-            }
-        }
-        if (BlendInst)
-        {
-            ImGui::SameLine(); ImGui::TextColored(ImVec4(0.4f,1.0f,0.4f,1.0f), "Attached");
-        }
-
-        ImGui::Dummy(ImVec2(0,6));
-        ImGui::TextUnformatted("Add Sample");
-        ImGui::Separator();
-        ImGui::InputFloat("X", &UI_SampleX, 0.05f, 0.1f, "%.2f");
-        ImGui::InputFloat("Y", &UI_SampleY, 0.05f, 0.1f, "%.2f");
-        ImGui::InputText("Path", UI_SamplePath, IM_ARRAYSIZE(UI_SamplePath));
-        ImGui::InputFloat("Rate", &UI_SampleRate, 0.1f, 0.5f, "%.2f");
-        ImGui::Checkbox("Loop", &UI_SampleLoop);
-        // Auto-attach a blend space instance if not attached yet
-        if (!BlendInst && ActiveState && ActiveState->PreviewActor && ActiveState->PreviewActor->GetSkeletalMeshComponent())
-        {
-            USkeletalMeshComponent* Comp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
-            Comp->UseBlendSpace2D();
-            BlendInst = Comp->GetOrCreateBlendSpace2D();
-        }
-        if (ImGui::Button("Add Sample") && BlendInst && UI_SamplePath[0] != '\0')
-        {
-            // Use preloaded resources (no Load here) – matches AnimationViewerBootstrap pattern
-            UAnimSequence* Seq = UResourceManager::GetInstance().Get<UAnimSequence>(UI_SamplePath);
-            if (!Seq)
-            {
-                // Log available animations to help users find the correct key
-                const auto& AllAnims = UResourceManager::GetInstance().GetAnimations();
-                UE_LOG("[BlendSpaceEditor] Failed to get animation: %s", UI_SamplePath);
-                UE_LOG("[BlendSpaceEditor] Available animations:");
-                for (const UAnimSequence* Anim : AllAnims)
-                {
-                    if (Anim)
-                    {
-                        UE_LOG("  - %s", Anim->GetFilePath().c_str());
-                    }
-                }
-            }
-            else
-            {
-                BlendInst->AddSample(FVector2D(UI_SampleX, UI_SampleY), Seq, UI_SampleRate, UI_SampleLoop);
-                RebuildTriangles();
-            }
-        }
-
-        ImGui::Dummy(ImVec2(0,6));
-        ImGui::TextUnformatted("Add Triangle");
-        ImGui::Separator();
-        ImGui::InputInt("I0", &UI_Tri0); ImGui::SameLine(); ImGui::InputInt("I1", &UI_Tri1); ImGui::SameLine(); ImGui::InputInt("I2", &UI_Tri2);
-        if (ImGui::Button("Add Triangle") && BlendInst)
-        {
-            BlendInst->AddTriangle(UI_Tri0, UI_Tri1, UI_Tri2);
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Clear") && BlendInst)
-        {
-            BlendInst->Clear();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Auto Triangulate") && BlendInst)
-        {
-            RebuildTriangles();
-        }
-
+        RenderLeftPanel(leftW);
         ImGui::EndChild();
 
         ImGui::SameLine(0, 0);
@@ -221,10 +145,89 @@ void SBlendSpaceEditorWindow::OnRender()
         }
 
         ImGui::SameLine(0, 0);
-        // Right panel: live controls
+        // Right panel: BlendSpace controls only (no bone properties)
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-        ImGui::BeginChild("RightPanel", ImVec2(rightW, topH), true, ImGuiWindowFlags_NoScrollbar);
+        ImGui::BeginChild("RightPanel", ImVec2(rightW, topH), true);
         ImGui::PopStyleVar();
+
+        // BlendSpace-specific controls
+        ImGui::Dummy(ImVec2(0,6));
+        ImGui::TextUnformatted("Preview Binding");
+        ImGui::Separator();
+        if (ImGui::Button("Attach to Preview"))
+        {
+            if (ActiveState && ActiveState->PreviewActor && ActiveState->PreviewActor->GetSkeletalMeshComponent())
+            {
+                USkeletalMeshComponent* Comp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+                Comp->UseBlendSpace2D();
+                BlendInst = Comp->GetOrCreateBlendSpace2D();
+            }
+        }
+        if (BlendInst)
+        {
+            ImGui::SameLine(); ImGui::TextColored(ImVec4(0.4f,1.0f,0.4f,1.0f), "Attached");
+        }
+
+        ImGui::Dummy(ImVec2(0,6));
+        ImGui::TextUnformatted("Add Sample");
+        ImGui::Separator();
+        ImGui::InputFloat("X", &UI_SampleX, 0.05f, 0.1f, "%.2f");
+        ImGui::InputFloat("Y", &UI_SampleY, 0.05f, 0.1f, "%.2f");
+
+        // Animation browser with custom callback to populate UI_SamplePath
+        RenderAnimationBrowser(
+            // OnAnimationSelected callback
+            [this](UAnimSequence* Anim) {
+                if (Anim)
+                {
+                    // Get the animation file path and copy to UI_SamplePath
+                    FString animPath = Anim->GetFilePath();
+                    strncpy_s(UI_SamplePath, animPath.c_str(), sizeof(UI_SamplePath) - 1);
+                }
+            },
+            // IsAnimationSelected predicate
+            [this](UAnimSequence* Anim) -> bool {
+                if (!Anim || UI_SamplePath[0] == '\0') return false;
+                // Check if this animation's path matches UI_SamplePath
+                return Anim->GetFilePath() == FString(UI_SamplePath);
+            }
+        );
+
+        ImGui::InputFloat("Rate", &UI_SampleRate, 0.1f, 0.5f, "%.2f");
+        ImGui::Checkbox("Loop", &UI_SampleLoop);
+        // Auto-attach a blend space instance if not attached yet
+        if (!BlendInst && ActiveState && ActiveState->PreviewActor && ActiveState->PreviewActor->GetSkeletalMeshComponent())
+        {
+            USkeletalMeshComponent* Comp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+            Comp->UseBlendSpace2D();
+            BlendInst = Comp->GetOrCreateBlendSpace2D();
+        }
+        if (ImGui::Button("Add Sample") && BlendInst && UI_SamplePath[0] != '\0')
+        {
+            // Use preloaded resources (no Load here) – matches AnimationViewerBootstrap pattern
+            UAnimSequence* Seq = UResourceManager::GetInstance().Get<UAnimSequence>(UI_SamplePath);
+            if (!Seq)
+            {
+                // Log available animations to help users find the correct key
+                const auto& AllAnims = UResourceManager::GetInstance().GetAnimations();
+                UE_LOG("[BlendSpaceEditor] Failed to get animation: %s", UI_SamplePath);
+                UE_LOG("[BlendSpaceEditor] Available animations:");
+                for (const UAnimSequence* Anim : AllAnims)
+                {
+                    if (Anim)
+                    {
+                        UE_LOG("  - %s", Anim->GetFilePath().c_str());
+                    }
+                }
+            }
+            else
+            {
+                BlendInst->AddSample(FVector2D(UI_SampleX, UI_SampleY), Seq, UI_SampleRate, UI_SampleLoop);
+                RebuildTriangles();
+            }
+        }
+
+        ImGui::Dummy(ImVec2(0,6));
         ImGui::TextUnformatted("Blend Controls");
         ImGui::Separator();
         ImGui::InputFloat("Param X", &UI_BlendX, 0.01f, 0.1f, "%.2f");
@@ -297,17 +300,23 @@ void SBlendSpaceEditorWindow::OnRender()
 
 void SBlendSpaceEditorWindow::RenderCenterViewport(float Width, float Height)
 {
+    // Render viewer toolbar (synced with other viewers)
+    RenderViewerToolbar();
+
     // Get position where viewport will be rendered
     ImVec2 Pos = ImGui::GetCursorScreenPos();
 
+    // Calculate remaining height after toolbar
+    float RemainingHeight = ImGui::GetContentRegionAvail().y;
+
     // Reserve space (don't render anything here)
-    ImGui::Dummy(ImVec2(Width, Height));
+    ImGui::Dummy(ImVec2(Width, RemainingHeight));
 
     // Update viewport rect for input handling
     CenterRect.Left = Pos.x;
     CenterRect.Top = Pos.y;
     CenterRect.Right = Pos.x + Width;
-    CenterRect.Bottom = Pos.y + Height;
+    CenterRect.Bottom = Pos.y + RemainingHeight;
     CenterRect.UpdateMinMax();
 
     // Register D3D viewport rendering callback
@@ -456,6 +465,26 @@ void SBlendSpaceEditorWindow::RenderBlendCanvas(float Width, float Height)
     ImVec2 ay0 = ParamToScreen(FVector2D(pTL.X, 0));
     ImVec2 ay1 = ParamToScreen(FVector2D(pBR.X, 0));
     dl->AddLine(ay0, ay1, axisCol, 2.0f);
+
+    // Refresh BlendInst pointer to ensure it's still valid after mesh changes
+    if (ActiveState && ActiveState->PreviewActor && ActiveState->PreviewActor->GetSkeletalMeshComponent())
+    {
+        USkeletalMeshComponent* Comp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+        // Only use the blend space instance if it's still the current anim instance
+        if (Comp->GetAnimInstance() && Comp->GetAnimInstance() == BlendInst)
+        {
+            // BlendInst is still valid
+        }
+        else
+        {
+            // AnimInstance changed - need to get the new blend space instance if it exists
+            BlendInst = Cast<UAnimBlendSpaceInstance>(Comp->GetAnimInstance());
+        }
+    }
+    else
+    {
+        BlendInst = nullptr;
+    }
 
     if (!BlendInst)
         return;

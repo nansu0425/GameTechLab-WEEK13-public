@@ -201,6 +201,11 @@ void USlateManager::OpenAssetViewer(UEditorAssetPreviewContext* Context)
             TargetWindow = static_cast<SViewerWindow*>(Window);
             break;
         }
+        if (ViewerType == EViewerType::BlendSpace && dynamic_cast<SBlendSpaceEditorWindow*>(Window))
+        {
+            TargetWindow = static_cast<SViewerWindow*>(Window);
+            break;
+        }
     }
 
     // 2. If a window of the target type already exists, tell it to open or focus a tab.
