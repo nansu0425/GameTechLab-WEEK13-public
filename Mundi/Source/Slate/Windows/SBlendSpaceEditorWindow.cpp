@@ -356,12 +356,71 @@ void SBlendSpaceEditorWindow::RenderCenterViewport(float Width, float Height)
 
 ViewerState* SBlendSpaceEditorWindow::CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context)
 {
-    return BlendSpaceEditorBootstrap::CreateViewerState(Name, World, Device);
+    ViewerState* NewState = BlendSpaceEditorBootstrap::CreateViewerState(Name, World, Device);
+    if (!NewState) return nullptr;
+
+    if (Context && !Context->AssetPath.empty())
+    {
+        LoadSkeletalMesh(NewState, Context->AssetPath);
+    }
+    return NewState;
 }
 
 void SBlendSpaceEditorWindow::DestroyViewerState(ViewerState*& State)
 {
     BlendSpaceEditorBootstrap::DestroyViewerState(State);
+}
+
+void SBlendSpaceEditorWindow::LoadSkeletalMesh(ViewerState* State, const FString& Path)
+{
+    if (!State || Path.empty())
+        return;
+
+    // Load the skeletal mesh using the resource manager
+    USkeletalMesh* Mesh = UResourceManager::GetInstance().Load<USkeletalMesh>(Path);
+    if (Mesh && State->PreviewActor)
+    {
+        // Set the mesh on the preview actor
+        State->PreviewActor->SetSkeletalMesh(Path);
+        State->CurrentMesh = Mesh;
+
+        // Expand all bone nodes by default on mesh load
+        State->ExpandedBoneIndices.clear();
+        if (const FSkeleton* Skeleton = State->CurrentMesh->GetSkeleton())
+        {
+            for (int32 i = 0; i < Skeleton->Bones.size(); ++i)
+            {
+                State->ExpandedBoneIndices.insert(i);
+            }
+        }
+
+        State->LoadedMeshPath = Path;  // Track for resource unloading
+
+        // Update mesh path buffer for display in UI
+        strncpy_s(State->MeshPathBuffer, Path.c_str(), sizeof(State->MeshPathBuffer) - 1);
+
+        // Sync mesh visibility with checkbox state
+        if (auto* Skeletal = State->PreviewActor->GetSkeletalMeshComponent())
+        {
+            Skeletal->SetVisibility(State->bShowMesh);
+        }
+
+        // Mark bone lines as dirty to rebuild on next frame
+        State->bBoneLinesDirty = true;
+
+        // Clear and sync bone line visibility
+        if (auto* LineComp = State->PreviewActor->GetBoneLineComponent())
+        {
+            LineComp->ClearLines();
+            LineComp->SetLineVisible(State->bShowBones);
+        }
+
+        UE_LOG("SBlendSpaceEditorWindow: Loaded skeletal mesh from %s", Path.c_str());
+    }
+    else
+    {
+        UE_LOG("SBlendSpaceEditorWindow: Failed to load skeletal mesh from %s", Path.c_str());
+    }
 }
 
 void SBlendSpaceEditorWindow::PreRenderViewportUpdate()

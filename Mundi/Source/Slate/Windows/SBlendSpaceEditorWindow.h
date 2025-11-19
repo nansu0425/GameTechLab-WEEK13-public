@@ -21,6 +21,7 @@ protected:
 
 private:
     void RenderCenterViewport(float Width, float Height);
+    void LoadSkeletalMesh(ViewerState* State, const FString& Path);
 
 private:
     // Cached instance on preview skeletal mesh component
