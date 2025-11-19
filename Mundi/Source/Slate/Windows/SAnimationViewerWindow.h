@@ -21,6 +21,7 @@ protected:
     virtual ViewerState* CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context) override;
     virtual void DestroyViewerState(ViewerState*& State) override;
     virtual FString GetWindowTitle() const override { return "Animation Viewer"; }
+    virtual void OnSkeletalMeshLoaded(ViewerState* State, const FString& Path) override;
     virtual void RenderRightPanel() override;
 
 private:

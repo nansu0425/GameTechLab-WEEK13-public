@@ -48,6 +48,7 @@ struct FAnimNode_BlendSpace2D : public FAnimNode_Base
     // Edits (for editor tooling)
     bool SetSamplePosition(int32 Index, const FVector2D& NewPos);
     bool SetSampleParams(int32 Index, float NewRateScale, bool bNewLooping);
+    bool RemoveSample(int32 Index);
     void ClearTriangles() { Triangles.Empty(); }
 
     // FAnimNode_Base overrides

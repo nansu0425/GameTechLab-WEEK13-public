@@ -608,6 +608,9 @@ void SViewerWindow::RenderLeftPanel(float PanelWidth)
                     }
                 }
 
+                // Call virtual hook for derived classes to perform post-load processing
+                OnSkeletalMeshLoaded(ActiveState, Path);
+
                 ActiveState->LoadedMeshPath = Path;  // Track for resource unloading
                 if (auto* Skeletal = ActiveState->PreviewActor->GetSkeletalMeshComponent())
                 {
