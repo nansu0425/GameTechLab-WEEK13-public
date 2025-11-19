@@ -928,22 +928,22 @@ void SViewerWindow::UpdateBoneTransformFromSkeleton(ViewerState* State)
         return;
 
     // Get the animated local transform
+    // 중요: ResetToAnimationPose() 및 ApplyBoneTransform()과 동일한 소스를 사용해야 일관성 유지
     FTransform AnimatedLocalTransform;
-    if (State->CurrentAnimation)
+    if (State->PreviewActor && State->PreviewActor->GetSkeletalMeshComponent())
     {
-        TArray<FTransform> AllBoneTransforms;
-        State->CurrentAnimation->ExtractBonePose(*State->CurrentMesh->GetSkeleton(), State->CurrentTime, false, false, AllBoneTransforms);
-        if (State->SelectedBoneIndex < AllBoneTransforms.Num())
+        USkeletalMeshComponent* MeshComp = State->PreviewActor->GetSkeletalMeshComponent();
+
+        // 애니메이션이 있으면 BaseAnimationPose 사용 (TickComponent에서 설정됨)
+        if (State->CurrentAnimation &&
+            State->SelectedBoneIndex < MeshComp->BaseAnimationPose.Num())
         {
-            AnimatedLocalTransform = AllBoneTransforms[State->SelectedBoneIndex];
+            AnimatedLocalTransform = MeshComp->BaseAnimationPose[State->SelectedBoneIndex];
         }
-    }
-    else
-    {
-        if (State->PreviewActor && State->PreviewActor->GetSkeletalMeshComponent() &&
-            State->SelectedBoneIndex < State->PreviewActor->GetSkeletalMeshComponent()->RefPose.Num())
+        // 애니메이션이 없으면 RefPose 사용
+        else if (State->SelectedBoneIndex < MeshComp->RefPose.Num())
         {
-            AnimatedLocalTransform = State->PreviewActor->GetSkeletalMeshComponent()->RefPose[State->SelectedBoneIndex];
+            AnimatedLocalTransform = MeshComp->RefPose[State->SelectedBoneIndex];
         }
     }
 
@@ -987,33 +987,95 @@ void SViewerWindow::UpdateBoneTransformFromGizmo(ViewerState* State)
     if (!MeshComp || !Anchor || !Skeleton)
         return;
 
-    // Get the world transform of the anchor manipulated by the gizmo
+    // 기즈모의 현재 모드 확인
+    AGizmoActor* Gizmo = State->World ? State->World->GetGizmoActor() : nullptr;
+    if (!Gizmo)
+        return;
+
+    EGizmoMode CurrentGizmoMode = Gizmo->GetGizmoMode();
+
+    // 드래그 첫 프레임인지 확인 (부동소수점 오차로 인한 불필요한 업데이트 방지)
+    bool bIsFirstDragFrame = !State->bWasGizmoDragging && Gizmo->GetbIsDragging();
+
+    // 기즈모로 조작한 앵커의 월드 트랜스폼 가져오기
     const FTransform& AnchorWorldTransform = Anchor->GetWorldTransform();
 
-    // Convert this world transform into the bone's local space (relative to the parent bone)
+    // 월드 트랜스폼을 본의 로컬 공간으로 변환 (부모 본 기준)
     const int32 ParentIndex = Skeleton->Bones[State->SelectedBoneIndex].ParentIndex;
     FTransform ParentWorldTransform;
     if (ParentIndex != -1)
     {
-        // Get the parent bone's final world transform
+        // 부모 본의 최종 월드 트랜스폼 가져오기
         ParentWorldTransform = MeshComp->GetBoneWorldTransform(ParentIndex);
     }
     else
     {
-        // For the root bone, the parent is the skeletal mesh component itself
+        // 루트 본의 경우 부모는 스켈레탈 메시 컴포넌트 자체
         ParentWorldTransform = MeshComp->GetWorldTransform();
     }
 
-    // Calculate the desired local transform relative to the parent's world transform
+    // 부모의 월드 트랜스폼 기준 원하는 로컬 트랜스폼 계산
     FTransform DesiredLocalTransform = ParentWorldTransform.GetRelativeTransform(AnchorWorldTransform);
 
-    // Update the state's editable bone transform parameters using the calculated local transform
-    State->EditBoneLocation = DesiredLocalTransform.Translation;
-    State->EditBoneRotation = DesiredLocalTransform.Rotation.ToEulerZYXDeg();
-    State->EditBoneScale = DesiredLocalTransform.Scale3D;
+    // 기즈모 모드에 따라 해당 성분만 업데이트 (쿼터니언-오일러 변환 오차 방지)
+    bool bLocationChanged = false;
+    bool bRotationChanged = false;
+    bool bScaleChanged = false;
 
-    // Apply the updated local bone transform to the additive transform map
-    ApplyBoneTransform(State);
+    // 벡터 비교 헬퍼 람다 (epsilon 허용 오차 비교)
+    auto VectorEquals = [](const FVector& A, const FVector& B, float Tolerance) -> bool
+    {
+        return std::abs(A.X - B.X) <= Tolerance &&
+               std::abs(A.Y - B.Y) <= Tolerance &&
+               std::abs(A.Z - B.Z) <= Tolerance;
+    };
+
+    switch (CurrentGizmoMode)
+    {
+    case EGizmoMode::Translate:
+        {
+            FVector NewLocation = DesiredLocalTransform.Translation;
+            // 실제로 값이 변했을 때만 업데이트 (첫 클릭 시 불필요한 업데이트 방지)
+            if (!VectorEquals(NewLocation, State->EditBoneLocation, 0.001f))
+            {
+                State->EditBoneLocation = NewLocation;
+                bLocationChanged = true;
+            }
+        }
+        break;
+    case EGizmoMode::Rotate:
+        {
+            FVector NewRotation = DesiredLocalTransform.Rotation.ToEulerZYXDeg();
+            // 실제로 값이 변했을 때만 업데이트 (Quat→Euler→Quat 변환 오류 방지)
+            if (!VectorEquals(NewRotation, State->EditBoneRotation, 0.01f))
+            {
+                State->EditBoneRotation = NewRotation;
+                bRotationChanged = true;
+            }
+        }
+        break;
+    case EGizmoMode::Scale:
+        {
+            FVector NewScale = DesiredLocalTransform.Scale3D;
+            // 실제로 값이 변했을 때만 업데이트
+            if (!VectorEquals(NewScale, State->EditBoneScale, 0.001f))
+            {
+                State->EditBoneScale = NewScale;
+                bScaleChanged = true;
+            }
+        }
+        break;
+    default:
+        // Select 모드 등에서는 아무것도 하지 않음
+        return;
+    }
+
+    // 변경된 성분이 있을 때만 additive transform 맵에 적용
+    // 단, 드래그 첫 프레임에서는 건너뜀 (WorldToLocal 변환 오차로 인한 불필요한 업데이트 방지)
+    if ((bLocationChanged || bRotationChanged || bScaleChanged) && !bIsFirstDragFrame)
+    {
+        ApplyBoneTransform(State, bLocationChanged, bRotationChanged, bScaleChanged);
+    }
 }
 
 void SViewerWindow::ApplyBoneTransform(ViewerState* State, bool bLocationChanged, bool bRotationChanged, bool bScaleChanged)
@@ -1022,29 +1084,23 @@ void SViewerWindow::ApplyBoneTransform(ViewerState* State, bool bLocationChanged
         return;
 
     // 현재 애니메이션 포즈에서 본의 트랜스폼을 가져옴 (additive 오프셋 미적용 상태)
+    // 중요: ResetToAnimationPose()와 동일한 소스를 사용해야 일관성 유지
+    // (ExtractBonePose vs EvaluateAnimation의 미세한 차이로 인한 오차 방지)
     FTransform AnimatedLocalTransform;
-    if (State->CurrentAnimation)
+    if (State->PreviewActor && State->PreviewActor->GetSkeletalMeshComponent())
     {
-        TArray<FTransform> AllBoneTransforms;
-        State->CurrentAnimation->ExtractBonePose(
-            *State->CurrentMesh->GetSkeleton(),
-            State->CurrentTime,
-            false, // 루핑 없음
-            false, // 보간 없음
-            AllBoneTransforms);
+        USkeletalMeshComponent* MeshComp = State->PreviewActor->GetSkeletalMeshComponent();
 
-        if (State->SelectedBoneIndex < AllBoneTransforms.Num())
+        // 애니메이션이 있으면 BaseAnimationPose 사용 (TickComponent에서 설정됨)
+        if (State->CurrentAnimation &&
+            State->SelectedBoneIndex < MeshComp->BaseAnimationPose.Num())
         {
-            AnimatedLocalTransform = AllBoneTransforms[State->SelectedBoneIndex];
+            AnimatedLocalTransform = MeshComp->BaseAnimationPose[State->SelectedBoneIndex];
         }
-    }
-    else
-    {
-        // 애니메이션이 없으면 기본 포즈는 참조 포즈
-        if (State->PreviewActor && State->PreviewActor->GetSkeletalMeshComponent() &&
-            State->SelectedBoneIndex < State->PreviewActor->GetSkeletalMeshComponent()->RefPose.Num())
+        // 애니메이션이 없으면 RefPose 사용
+        else if (State->SelectedBoneIndex < MeshComp->RefPose.Num())
         {
-            AnimatedLocalTransform = State->PreviewActor->GetSkeletalMeshComponent()->RefPose[State->SelectedBoneIndex];
+            AnimatedLocalTransform = MeshComp->RefPose[State->SelectedBoneIndex];
         }
     }
 

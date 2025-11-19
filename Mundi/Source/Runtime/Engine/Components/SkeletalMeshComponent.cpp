@@ -36,6 +36,8 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
         AnimInstance->EvaluateAnimation(OutputPose);
 
         // Apply local-space pose to component and rebuild skinning
+        // 애니메이션 포즈를 BaseAnimationPose에 저장 (additive 적용 전 리셋용)
+        BaseAnimationPose = OutputPose.LocalSpacePose;
         CurrentLocalSpacePose = OutputPose.LocalSpacePose;
         ForceRecomputePose();
         return; // skip test code when animation is active
@@ -354,5 +356,19 @@ void USkeletalMeshComponent::ApplyAdditiveTransforms(const TMap<int32, FTransfor
 void USkeletalMeshComponent::ResetToRefPose()
 {
     CurrentLocalSpacePose = RefPose;
+    ForceRecomputePose();
+}
+
+void USkeletalMeshComponent::ResetToAnimationPose()
+{
+    // BaseAnimationPose가 비어있으면 RefPose 사용
+    if (BaseAnimationPose.IsEmpty())
+    {
+        CurrentLocalSpacePose = RefPose;
+    }
+    else
+    {
+        CurrentLocalSpacePose = BaseAnimationPose;
+    }
     ForceRecomputePose();
 }

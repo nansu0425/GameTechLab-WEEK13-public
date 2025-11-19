@@ -79,7 +79,14 @@ public:
      */
     void ResetToRefPose();
 
+    /**
+     * @brief CurrentLocalSpacePose를 BaseAnimationPose로 리셋
+     * 애니메이션이 있는 뷰어에서 additive transform 적용 전에 호출
+     */
+    void ResetToAnimationPose();
+
     TArray<FTransform> RefPose;
+    TArray<FTransform> BaseAnimationPose;
 
 protected:
     /**

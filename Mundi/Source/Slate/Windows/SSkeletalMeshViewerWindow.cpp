@@ -265,14 +265,24 @@ void SSkeletalMeshViewerWindow::PreRenderViewportUpdate()
     if (ActiveState->SelectedBoneIndex >= 0 && ActiveState->World)
     {
         AGizmoActor* Gizmo = ActiveState->World->GetGizmoActor();
-        if (Gizmo && Gizmo->GetbIsDragging())
+        bool bCurrentlyDragging = Gizmo && Gizmo->GetbIsDragging();
+
+        // 드래그 첫 프레임인지 확인 (World→Relative→World 변환 오차 방지)
+        bool bIsFirstDragFrame = bCurrentlyDragging && !ActiveState->bWasGizmoDragging;
+
+        if (bCurrentlyDragging && !bIsFirstDragFrame)
         {
+            // 첫 프레임이 아닐 때만 기즈모로부터 트랜스폼 업데이트
             UpdateBoneTransformFromGizmo(ActiveState);
         }
-        else
+        else if (!bCurrentlyDragging)
         {
             ActiveState->PreviewActor->RepositionAnchorToBone(ActiveState->SelectedBoneIndex);
         }
+        // 첫 프레임에서는 아무것도 하지 않음 (앵커가 아직 움직이지 않았으므로)
+
+        // 드래그 상태 업데이트 (다음 프레임에서 첫 프레임 감지용)
+        ActiveState->bWasGizmoDragging = bCurrentlyDragging;
     }
 
     // Reconstruct bone overlay
