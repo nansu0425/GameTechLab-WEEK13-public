@@ -10,7 +10,6 @@
 // 전방 선언
 class AController;
 class UInputComponent;
-class UCameraComponent;
 
 /**
  * APawn
@@ -31,13 +30,6 @@ public:
 
 	APawn();
 	virtual ~APawn() override;
-
-	// ────────────────────────────────────────────────
-	// 컴포넌트 관련
-	// ────────────────────────────────────────────────
-
-	/** 카메라 컴포넌트를 반환합니다 */
-	UCameraComponent* GetCameraComponent() const { return CameraComponent; }
 
 	// ────────────────────────────────────────────────
 	// Controller 관련
@@ -134,9 +126,6 @@ protected:
 	// ────────────────────────────────────────────────
 	// 멤버 변수
 	// ────────────────────────────────────────────────
-
-	/** 카메라 컴포넌트 */
-	UCameraComponent* CameraComponent;
 
 	/** 이 Pawn을 제어하는 Controller */
 	AController* Controller;
