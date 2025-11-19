@@ -14,8 +14,8 @@
 SBlendSpaceEditorWindow::SBlendSpaceEditorWindow()
 {
     CenterRect = FRect(0, 0, 0, 0);
-    LeftPanelRatio = 0.18f;
-    RightPanelRatio = 0.18f;
+    LeftPanelRatio = 0.2f;   // Match animation viewer
+    RightPanelRatio = 0.2f;  // Match animation viewer
     CanvasHeightRatio = 0.35f;
 }
 
@@ -51,7 +51,8 @@ void SBlendSpaceEditorWindow::OnRender()
     sprintf_s(UniqueTitle, sizeof(UniqueTitle), "%s###%p", Title.c_str(), this);
 
     bool bVisible = false;
-    if (ImGui::Begin(UniqueTitle, &bIsOpen))
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+    if (ImGui::Begin(UniqueTitle, &bIsOpen, flags))
     {
         bVisible = true;
         bIsWindowHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
@@ -70,33 +71,32 @@ void SBlendSpaceEditorWindow::OnRender()
         const float totalH = avail.y;
         const float splitter = 4.f;
 
-        // Calculate heights for top and bottom sections
-        const float canvasH = totalH * CanvasHeightRatio;
-        const float topH = totalH - canvasH - splitter;
-
-        // Top section widths
+        // Panel widths (full height for left and right)
         float leftW = totalW * LeftPanelRatio;
         float rightW = totalW * RightPanelRatio;
         float centerW = totalW - leftW - rightW - (splitter * 2);
         if (centerW < 0.f) centerW = 0.f;
 
+        // Center panel heights (viewport on top, canvas on bottom)
+        const float canvasH = totalH * CanvasHeightRatio;
+        const float viewportH = totalH - canvasH - splitter;
+
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 
-        // ===== TOP SECTION: Left Panel | Viewport | Right Panel =====
-
-        // Left panel: Use shared RenderLeftPanel() for asset browser and bone hierarchy
+        // ===== Left Panel (full height) =====
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-        ImGui::BeginChild("LeftPanel", ImVec2(leftW, topH), true);
+        ImGui::BeginChild("LeftPanel", ImVec2(leftW, totalH), true, ImGuiWindowFlags_NoScrollbar);
         ImGui::PopStyleVar();
         RenderLeftPanel(leftW);
         ImGui::EndChild();
 
         ImGui::SameLine(0, 0);
-        // Left splitter with hover styling
+
+        // Left splitter
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.7f));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 0.9f));
-        ImGui::Button("##LeftSplitter", ImVec2(splitter, topH));
+        ImGui::Button("##LeftSplitter", ImVec2(splitter, totalH));
         ImGui::PopStyleColor(3);
 
         if (ImGui::IsItemHovered())
@@ -109,16 +109,52 @@ void SBlendSpaceEditorWindow::OnRender()
         }
 
         ImGui::SameLine(0, 0);
-        // Center viewport - skip if completely collapsed
+
+        // ===== Center Panel (viewport + canvas) =====
         if (centerW > 0.0f)
         {
-            ImGui::BeginChild("CenterPanel", ImVec2(centerW, topH), true, ImGuiWindowFlags_NoScrollbar);
+            ImGui::BeginGroup();
+
+            // Top: Viewport
+            ImGui::BeginChild("CenterViewport", ImVec2(centerW, viewportH), true, ImGuiWindowFlags_NoScrollbar);
             if (ActiveState)
             {
                 PreRenderViewportUpdate();
             }
-            RenderCenterViewport(centerW, topH);
+            RenderCenterViewport(centerW, viewportH);
             ImGui::EndChild();
+
+            // Horizontal splitter between viewport and canvas
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.7f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 0.9f));
+            ImGui::Button("##CanvasSplitter", ImVec2(centerW, splitter));
+            ImGui::PopStyleColor(3);
+
+            if (ImGui::IsItemHovered())
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+
+            if (ImGui::IsItemActive())
+            {
+                float delta = ImGui::GetIO().MouseDelta.y;
+                CanvasHeightRatio = FMath::Clamp(CanvasHeightRatio - delta / totalH, 0.2f, 0.6f);
+            }
+
+            // Bottom: Canvas
+            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
+            ImGui::BeginChild("BlendCanvas", ImVec2(centerW, canvasH), true, ImGuiWindowFlags_NoScrollbar);
+            ImGui::PopStyleVar();
+            ImGui::TextUnformatted("Blend Space Canvas");
+            ImGui::Separator();
+            ImVec2 canvasRegion = ImGui::GetContentRegionAvail();
+            float canvasContentW = canvasRegion.x;
+            float canvasContentH = canvasRegion.y;
+            if (canvasContentH < 150.0f) canvasContentH = 150.0f;
+            if (canvasContentW < 150.0f) canvasContentW = 150.0f;
+            RenderBlendCanvas(canvasContentW, canvasContentH);
+            ImGui::EndChild();
+
+            ImGui::EndGroup();
         }
         else
         {
@@ -128,11 +164,12 @@ void SBlendSpaceEditorWindow::OnRender()
         }
 
         ImGui::SameLine(0, 0);
-        // Right splitter with hover styling
+
+        // Right splitter
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.7f));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 0.9f));
-        ImGui::Button("##RightSplitter", ImVec2(splitter, topH));
+        ImGui::Button("##RightSplitter", ImVec2(splitter, totalH));
         ImGui::PopStyleColor(3);
 
         if (ImGui::IsItemHovered())
@@ -145,9 +182,10 @@ void SBlendSpaceEditorWindow::OnRender()
         }
 
         ImGui::SameLine(0, 0);
-        // Right panel: BlendSpace controls only (no bone properties)
+
+        // ===== Right Panel (full height) =====
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-        ImGui::BeginChild("RightPanel", ImVec2(rightW, topH), true);
+        ImGui::BeginChild("RightPanel", ImVec2(rightW, totalH), true);
         ImGui::PopStyleVar();
 
         // BlendSpace-specific controls
@@ -169,12 +207,25 @@ void SBlendSpaceEditorWindow::OnRender()
         }
 
         ImGui::Dummy(ImVec2(0,6));
-        ImGui::TextUnformatted("Add Sample");
+        ImGui::TextUnformatted("Blend Controls");
         ImGui::Separator();
-        ImGui::InputFloat("X", &UI_SampleX, 0.05f, 0.1f, "%.2f");
-        ImGui::InputFloat("Y", &UI_SampleY, 0.05f, 0.1f, "%.2f");
+        ImGui::DragFloat("Param X", &UI_BlendX, 0.01f, -FLT_MAX, FLT_MAX, "%.2f");
+        ImGui::DragFloat("Param Y", &UI_BlendY, 0.01f, -FLT_MAX, FLT_MAX, "%.2f");
+        ImGui::DragFloat("Play Rate", &UI_PlayRate, 0.01f, 0.0f, 10.0f, "%.2f");
+        ImGui::Checkbox("Looping", &UI_Looping);
+        ImGui::DragInt("Driver Index", &UI_DriverIndex, 0.1f, 0, 100);
+        if (BlendInst)
+        {
+            BlendInst->SetBlendPosition(FVector2D(UI_BlendX, UI_BlendY));
+            BlendInst->SetPlayRate(UI_PlayRate);
+            BlendInst->SetLooping(UI_Looping);
+            BlendInst->SetDriverIndex(UI_DriverIndex);
+        }
 
-        // Animation browser with custom callback to populate UI_SamplePath
+        ImGui::Separator();
+
+        // Animation browser with height constraint
+        ImGui::BeginChild("AnimBrowserArea", ImVec2(0, 300.0f), false);
         RenderAnimationBrowser(
             // OnAnimationSelected callback
             [this](UAnimSequence* Anim) {
@@ -192,9 +243,12 @@ void SBlendSpaceEditorWindow::OnRender()
                 return Anim->GetFilePath() == FString(UI_SamplePath);
             }
         );
+        ImGui::EndChild();
 
-        ImGui::InputFloat("Rate", &UI_SampleRate, 0.1f, 0.5f, "%.2f");
-        ImGui::Checkbox("Loop", &UI_SampleLoop);
+        ImGui::Separator();
+        ImGui::Dummy(ImVec2(0, 6));
+
+        ImGui::DragFloat("Rate", &UI_SampleRate, 0.01f, 0.0f, 10.0f, "%.2f");
         // Auto-attach a blend space instance if not attached yet
         if (!BlendInst && ActiveState && ActiveState->PreviewActor && ActiveState->PreviewActor->GetSkeletalMeshComponent())
         {
@@ -202,6 +256,9 @@ void SBlendSpaceEditorWindow::OnRender()
             Comp->UseBlendSpace2D();
             BlendInst = Comp->GetOrCreateBlendSpace2D();
         }
+        ImGui::DragFloat("X", &UI_SampleX, 0.01f, -FLT_MAX, FLT_MAX, "%.2f");
+        ImGui::DragFloat("Y", &UI_SampleY, 0.01f, -FLT_MAX, FLT_MAX, "%.2f");
+        ImGui::Checkbox("Loop", &UI_SampleLoop);
         if (ImGui::Button("Add Sample") && BlendInst && UI_SamplePath[0] != '\0')
         {
             // Use preloaded resources (no Load here) – matches AnimationViewerBootstrap pattern
@@ -226,57 +283,11 @@ void SBlendSpaceEditorWindow::OnRender()
                 RebuildTriangles();
             }
         }
-
-        ImGui::Dummy(ImVec2(0,6));
-        ImGui::TextUnformatted("Blend Controls");
-        ImGui::Separator();
-        ImGui::InputFloat("Param X", &UI_BlendX, 0.01f, 0.1f, "%.2f");
-        ImGui::InputFloat("Param Y", &UI_BlendY, 0.01f, 0.1f, "%.2f");
-        ImGui::InputFloat("Play Rate", &UI_PlayRate, 0.1f, 0.5f, "%.2f");
-        ImGui::Checkbox("Looping", &UI_Looping);
-        ImGui::InputInt("Driver Index", &UI_DriverIndex);
-        if (BlendInst)
-        {
-            BlendInst->SetBlendPosition(FVector2D(UI_BlendX, UI_BlendY));
-            BlendInst->SetPlayRate(UI_PlayRate);
-            BlendInst->SetLooping(UI_Looping);
-            BlendInst->SetDriverIndex(UI_DriverIndex);
-        }
+        
         ImGui::EndChild();
 
-        // End the ItemSpacing override from the top section
+        // End the ItemSpacing override
         ImGui::PopStyleVar();
-
-        // ===== BOTTOM SECTION: Blend Space Canvas =====
-        // Horizontal splitter between top and bottom
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.7f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 0.9f));
-        ImGui::Button("##CanvasSplitter", ImVec2(totalW, splitter));
-        ImGui::PopStyleColor(3);
-
-        if (ImGui::IsItemHovered())
-            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
-
-        if (ImGui::IsItemActive())
-        {
-            float delta = ImGui::GetIO().MouseDelta.y;
-            CanvasHeightRatio = FMath::Clamp(CanvasHeightRatio - delta / totalH, 0.2f, 0.6f);
-        }
-
-        // Canvas at bottom - full width
-        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-        ImGui::BeginChild("BlendCanvas", ImVec2(totalW, canvasH), true, ImGuiWindowFlags_NoScrollbar);
-        ImGui::PopStyleVar();
-        ImGui::TextUnformatted("Blend Space Canvas");
-        ImGui::Separator();
-        ImVec2 canvasRegion = ImGui::GetContentRegionAvail();
-        float canvasContentW = canvasRegion.x;
-        float canvasContentH = canvasRegion.y;
-        if (canvasContentH < 150.0f) canvasContentH = 150.0f;
-        if (canvasContentW < 150.0f) canvasContentW = 150.0f;
-        RenderBlendCanvas(canvasContentW, canvasContentH);
-        ImGui::EndChild();
     }
     ImGui::End();
 
@@ -306,17 +317,19 @@ void SBlendSpaceEditorWindow::RenderCenterViewport(float Width, float Height)
     // Get position where viewport will be rendered
     ImVec2 Pos = ImGui::GetCursorScreenPos();
 
-    // Calculate remaining height after toolbar
-    float RemainingHeight = ImGui::GetContentRegionAvail().y;
+    // Get actual available space inside the child window
+    ImVec2 availRegion = ImGui::GetContentRegionAvail();
+    float actualWidth = availRegion.x;
+    float actualHeight = availRegion.y;
 
     // Reserve space (don't render anything here)
-    ImGui::Dummy(ImVec2(Width, RemainingHeight));
+    ImGui::Dummy(ImVec2(actualWidth, actualHeight));
 
     // Update viewport rect for input handling
     CenterRect.Left = Pos.x;
     CenterRect.Top = Pos.y;
-    CenterRect.Right = Pos.x + Width;
-    CenterRect.Bottom = Pos.y + RemainingHeight;
+    CenterRect.Right = Pos.x + actualWidth;
+    CenterRect.Bottom = Pos.y + actualHeight;
     CenterRect.UpdateMinMax();
 
     // Register D3D viewport rendering callback
