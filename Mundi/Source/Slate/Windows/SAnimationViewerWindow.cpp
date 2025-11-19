@@ -763,9 +763,6 @@ void SAnimationViewerWindow::RenderViewportArea(float width, float height)
     // 뷰포트가 그려질 위치 저장
     ImVec2 Pos = ImGui::GetCursorScreenPos();
 
-    // 공간만 차지 (아무것도 렌더링하지 않음)
-    ImGui::Dummy(ImVec2(width, height));
-
     // 뷰포트 영역 설정
     CenterRect.Left   = Pos.x;
     CenterRect.Top    = Pos.y;
@@ -773,13 +770,26 @@ void SAnimationViewerWindow::RenderViewportArea(float width, float height)
     CenterRect.Bottom = Pos.y + height;
     CenterRect.UpdateMinMax();
 
-    // ImGui draw list에 뷰포트 렌더링 콜백 등록
-    // 이 콜백은 ImGui 렌더링 중 이 시점에서 호출됨
-    ImDrawList* drawList = ImGui::GetWindowDrawList();
-    drawList->AddCallback(ViewportRenderCallback, this);
+    // 뷰포트 렌더링 (텍스처에)
+    OnRenderViewport();
 
-    // 콜백 후 ImGui 렌더 상태 복원
-    drawList->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
+    // ImGui::Image로 결과 텍스처 표시
+    if (ActiveState && ActiveState->Viewport)
+    {
+        ID3D11ShaderResourceView* SRV = ActiveState->Viewport->GetSRV();
+        if (SRV)
+        {
+            ImGui::Image((void*)SRV, ImVec2(width, height));
+        }
+        else
+        {
+            ImGui::Dummy(ImVec2(width, height));
+        }
+    }
+    else
+    {
+        ImGui::Dummy(ImVec2(width, height));
+    }
 }
 
 void SAnimationViewerWindow::RenderTimelineArea(float width, float height)

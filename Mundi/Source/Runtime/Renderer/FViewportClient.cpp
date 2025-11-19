@@ -16,6 +16,7 @@
 #include "PlayerCameraManager.h"
 #include "SceneView.h"
 #include "SlateManager.h"
+#include "D3D11RHI.h"
 
 // 언리얼 방식: 모든 직교 뷰포트가 하나의 3D 위치를 공유
 FVector FViewportClient::CameraAddPosition{};
@@ -96,6 +97,18 @@ void FViewportClient::Draw(FViewport* Viewport)
 		return;
 	}
 
+	// 뷰포트 렌더 타겟 오버라이드 설정 (ImGui::Image 방식, 뷰어용)
+	D3D11RHI* RHIDevice = Renderer->GetRHIDevice();
+	if (Viewport->UseRenderTarget())
+	{
+		ID3D11RenderTargetView* ViewportRTV = Viewport->GetRTV();
+		ID3D11DepthStencilView* ViewportDSV = Viewport->GetDSV();
+		if (ViewportRTV && ViewportDSV)
+		{
+			RHIDevice->SetViewportRenderTargetOverride(ViewportRTV, ViewportDSV);
+		}
+	}
+
 	// PIE 중 렌더 호출
 	if (World->bPie)
 	{
@@ -117,6 +130,13 @@ void FViewportClient::Draw(FViewport* Viewport)
 
 				// 더 명확한 이름의 함수를 호출
 				Renderer->RenderSceneForView(World, &CurrentViewInfo, Viewport);
+				// 뷰포트 렌더 타겟 오버라이드 해제 (뷰어용)
+				if (Viewport->UseRenderTarget())
+				{
+					RHIDevice->ClearViewportRenderTargetOverride();
+					// RTV를 언바인딩하여 SRV로 사용 가능하게 함 (D3D11 제약)
+					RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithoutDepth);
+				}
 				return;
 			}
 		}
@@ -145,6 +165,14 @@ void FViewportClient::Draw(FViewport* Viewport)
 
 	// 더 명확한 이름의 함수를 호출
 	Renderer->RenderSceneForView(World, &RenderView, Viewport);
+
+	// 뷰포트 렌더 타겟 오버라이드 해제 (뷰어용)
+	if (Viewport->UseRenderTarget())
+	{
+		RHIDevice->ClearViewportRenderTargetOverride();
+		// RTV를 언바인딩하여 SRV로 사용 가능하게 함 (D3D11 제약)
+		RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithoutDepth);
+	}
 }
 
 void FViewportClient::SetupCameraMode()

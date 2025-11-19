@@ -174,6 +174,11 @@ public:
 
 	void OMSetCustomRenderTargets(UINT NumRTVs, ID3D11RenderTargetView** RTVs, ID3D11DepthStencilView* DSV);
 
+	// 뷰포트 렌더 타겟 오버라이드 설정
+	void SetViewportRenderTargetOverride(ID3D11RenderTargetView* RTV, ID3D11DepthStencilView* DSV);
+	void ClearViewportRenderTargetOverride();
+	bool HasViewportRenderTargetOverride() const { return ViewportRTVOverride != nullptr; }
+
 	// [Enum 으로 SRV, RTV 를 다루는 함수]
 	ID3D11SamplerState* GetSamplerState(RHI_Sampler_Index SamplerIndex) const;
 	void OMSetRenderTargets(ERTVMode RTVMode);
@@ -266,6 +271,10 @@ private:
 
 	ID3D11Texture2D* DepthBuffer = nullptr;
 	ID3D11ShaderResourceView* DepthSRV = nullptr;
+
+	// 뷰포트 렌더 타겟 오버라이드 (ImGui::Image 방식용)
+	ID3D11RenderTargetView* ViewportRTVOverride = nullptr;
+	ID3D11DepthStencilView* ViewportDSVOverride = nullptr;
 
     // 버퍼 핸들
 	CONSTANT_BUFFER_LIST(DECLARE_CONSTANT_BUFFER)
