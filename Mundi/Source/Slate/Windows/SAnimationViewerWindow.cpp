@@ -1036,6 +1036,9 @@ void SAnimationViewerWindow::RenderLeftTrackList(float width, float RowHeight, f
 
     int RowCount = LeftRows.size();
     ImDrawList* DL = ImGui::GetWindowDrawList();
+    ImVec2 childMin = ImGui::GetWindowPos();
+    ImVec2 childMax = ImVec2(childMin.x + width, childMin.y + ImGui::GetWindowSize().y);
+    DL->AddRectFilled(childMin, childMax, IM_COL32(28, 28, 28, 255));
 
     // Row Rendering Loop
     for (int i = 0; i < RowCount; i++)
@@ -1196,7 +1199,7 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
     draw->AddRectFilled(
         gridOrigin,
         ImVec2(gridOrigin.x + gridAvail.x, gridOrigin.y + FullHeight),
-        IM_COL32(40, 40, 40, 255)
+        IM_COL32(20, 20, 20, 255)
     );
 
     // Frame columns
