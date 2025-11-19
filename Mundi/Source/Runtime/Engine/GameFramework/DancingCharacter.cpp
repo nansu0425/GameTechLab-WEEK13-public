@@ -11,7 +11,8 @@ ADancingCharacter::ADancingCharacter()
 		MeshComponent->SetSkeletalMesh(GDataDir + "/SillyDancing.fbx");
 	}
 
-	Sound = UResourceManager::GetInstance().Load<USound>(GDataDir + "/Audio/Die.wav");
+	SorrySound = UResourceManager::GetInstance().Load<USound>(GDataDir + "/Audio/Die.wav");
+	HitSound = UResourceManager::GetInstance().Load<USound>(GDataDir + "/Audio/SHC2.wav");
 }
 
 ADancingCharacter::~ADancingCharacter()
@@ -40,8 +41,15 @@ void ADancingCharacter::HandleAnimNotify(const FAnimNotifyEvent& NotifyEvent)
 	Super::HandleAnimNotify(NotifyEvent);
 
 	UE_LOG("ADancingCharacter: Notify Triggered!");
-	if (Sound)
+
+	FString NotifyName = NotifyEvent.NotifyName.ToString();
+
+	if (NotifyName == "Sorry" && SorrySound)
 	{
-		FAudioDevice::PlaySound3D(Sound, GetActorLocation());
+		FAudioDevice::PlaySound3D(SorrySound, GetActorLocation());
+	}
+	else if (NotifyName == "Hit" && HitSound)
+	{
+		FAudioDevice::PlaySound3D(HitSound, GetActorLocation());
 	}
 }

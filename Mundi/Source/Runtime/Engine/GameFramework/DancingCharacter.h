@@ -19,5 +19,6 @@ protected:
     virtual void HandleAnimNotify(const FAnimNotifyEvent& NotifyEvent) override;
 
 private:
-    USound* Sound;
+    USound* SorrySound;
+    USound* HitSound;
 };

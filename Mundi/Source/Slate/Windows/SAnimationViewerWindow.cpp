@@ -578,64 +578,141 @@ void SAnimationViewerWindow::LoadSkeletalMesh(ViewerState* State, const FString&
 
 void SAnimationViewerWindow::RenderNotifyProperties()
 {
-    // Panel header
-    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.35f, 0.25f, 0.50f, 0.8f));
-    ImGui::Text("Notify Properties");
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4);
-    ImGui::Indent(8.0f);
-    ImGui::Text("Notify Properties");
-    ImGui::Unindent(8.0f);
+    if (!ActiveState || !ActiveState->SelectedNotify.IsValid())
+        return;
+
+    ImGuiStyle& style = ImGui::GetStyle();
+    float spacing = style.ItemSpacing.y;
+
+    // -------------------------
+    // Section Header
+    // -------------------------
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6);
+    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.30f, 0.30f, 0.30f, 0.8f));
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
+    ImGui::Text("NOTIFY PROPERTIES");
+    ImGui::PopFont();
     ImGui::PopStyleColor();
-
-    ImGui::Spacing();
+    ImGui::Dummy(ImVec2(0, 6));
+    ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.35f, 0.35f, 0.35f, 0.6f));
     ImGui::Separator();
+    ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 4));
+
+    // -------------------------
+    // Local ref
+    // -------------------------
+    int trackIdx = ActiveState->SelectedNotify.TrackIndex;
+    int notifyIdx = ActiveState->SelectedNotify.NotifyIndex;
+
+    FAnimNotifyEvent& notify =
+        ActiveState->NotifyTracks[trackIdx].Notifies[notifyIdx];
+
+    // -------------------------
+    // Name
+    // -------------------------
     ImGui::Spacing();
-
-    // 선택된 노티파이에 대한 참조 가져오기
-    FAnimNotifyEvent& notify = ActiveState->NotifyTracks[ActiveState->SelectedNotify.TrackIndex].Notifies[ActiveState->SelectedNotify.NotifyIndex];
-
-    // 이름 편집 (FName은 직접 수정이 어려우므로 char 버퍼 사용)
     char nameBuffer[128];
     strcpy_s(nameBuffer, sizeof(nameBuffer), notify.NotifyName.ToString().c_str());
-    if (ImGui::InputText("Name", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue))
+
+    ImGui::Text("Name");
+    ImGui::Dummy(ImVec2(0, 2));
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+    if (ImGui::InputText("##NotifyName", nameBuffer, sizeof(nameBuffer),
+        ImGuiInputTextFlags_EnterReturnsTrue |
+        ImGuiInputTextFlags_AutoSelectAll))
     {
-        notify.NotifyName = FName(nameBuffer);
+        FName NewName(nameBuffer);
+        notify.NotifyName = NewName;
+
+        if (UAnimSequence* Anim = ActiveState->CurrentAnimation)
+        {
+            if (UAnimDataModel* Model = Anim->GetDataModel())
+            {
+                Model->NotifyTracks[trackIdx].Notifies[notifyIdx].NotifyName = NewName;
+            }
+        }
     }
 
-    // 시간 및 기간 편집
-    ImGui::DragFloat("Trigger Time", &notify.TriggerTime, 0.01f, 0.0f, ActiveState->TotalTime, "%.2f s");
-    ImGui::DragFloat("Duration", &notify.Duration, 0.01f, 0.0f, ActiveState->TotalTime, "%.2f s");
+    ImGui::Dummy(ImVec2(0, 10));
 
-    // 색상 편집
-    ImGui::ColorEdit4("Color", (float*)&notify.Color);
+    // -------------------------
+    // TriggerTime
+    // -------------------------
+    ImGui::Text("Trigger Time");
+    ImGui::Dummy(ImVec2(0, 2));
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+    if (ImGui::DragFloat("##TriggerTime", &notify.TriggerTime,
+        0.01f, 0.0f, ActiveState->TotalTime, "%.2f s"))
+    {
+        notify.TriggerTime = std::clamp(notify.TriggerTime, 0.0f, ActiveState->TotalTime);
+
+        // Model sync
+        if (UAnimSequence* Anim = ActiveState->CurrentAnimation)
+        {
+            if (UAnimDataModel* Model = Anim->GetDataModel())
+            {
+                Model->NotifyTracks[trackIdx].Notifies[notifyIdx].TriggerTime = notify.TriggerTime;
+            }
+        }
+    }
+
+    ImGui::Dummy(ImVec2(0, 8));
+
+    // -------------------------
+    // Duration
+    // -------------------------
+    ImGui::Text("Duration");
+    ImGui::Dummy(ImVec2(0, 2));
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+    if (ImGui::DragFloat("##Duration", &notify.Duration,
+        0.01f, 0.0f, ActiveState->TotalTime, "%.2f s"))
+    {
+        notify.Duration = std::max(0.0f, notify.Duration);
+
+        // Model sync
+        if (UAnimSequence* Anim = ActiveState->CurrentAnimation)
+        {
+            if (UAnimDataModel* Model = Anim->GetDataModel())
+            {
+                Model->NotifyTracks[trackIdx].Notifies[notifyIdx].Duration = notify.Duration;
+            }
+        }
+    }
+
+    ImGui::Dummy(ImVec2(0, 10));
+
+    // -------------------------
+    // Color
+    // -------------------------
+    ImGui::Text("Color");
+    ImGui::Dummy(ImVec2(0, 2));
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+
+    float col[4] = {
+        notify.Color.R,
+        notify.Color.G,
+        notify.Color.B,
+        notify.Color.A
+    };
+
+    if (ImGui::ColorEdit4("##NotifyColor", col,
+        ImGuiColorEditFlags_NoLabel |
+        ImGuiColorEditFlags_DisplayRGB))
+    {
+        notify.Color = FLinearColor(col[0], col[1], col[2], col[3]);
+
+        // Model sync
+        if (UAnimSequence* Anim = ActiveState->CurrentAnimation)
+        {
+            if (UAnimDataModel* Model = Anim->GetDataModel())
+            {
+                Model->NotifyTracks[trackIdx].Notifies[notifyIdx].Color = notify.Color;
+            }
+        }
+    }
 
     ImGui::Spacing();
-    ImGui::Text("Sound");
-
-    const TArray<USound*>& AllSounds = UResourceManager::GetInstance().GetAll<USound>();
-    const char* CurrentSoundName = notify.SoundPath.empty() ? "None" : notify.SoundPath.c_str();
-
-    if (ImGui::BeginCombo("##SoundCombo", CurrentSoundName))
-    {
-        if (ImGui::Selectable("None", notify.SoundPath.empty()))
-        {
-            notify.SoundPath.clear();
-        }
-        for (USound* Sound : AllSounds)
-        {
-            if (!Sound) continue;
-            bool IsSelected = (notify.SoundPath == Sound->GetFilePath());
-            if (ImGui::Selectable(Sound->GetFilePath().c_str(), IsSelected))
-            {
-                notify.SoundPath = Sound->GetFilePath();
-            }
-            if (IsSelected)
-            {
-                ImGui::SetItemDefaultFocus();
-            }
-        }
-        ImGui::EndCombo();
-    }
 }
 
 void SAnimationViewerWindow::AnimJumpToStart()
@@ -1207,6 +1284,8 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
             for (int i = 0; i < Track.Notifies.size(); ++i)
             {
                 const FAnimNotifyEvent& Notify = Track.Notifies[i];
+                bool isSelected = (ActiveState->SelectedNotify.TrackIndex == NotifyIndex &&
+                                   ActiveState->SelectedNotify.NotifyIndex == i);
 
                 float NotifyStartX = gridOrigin.x +
                     (Notify.TriggerTime / ActiveState->TotalTime) * gridAvail.x;
@@ -1250,19 +1329,34 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
                 //--- Duration Bar (if duration > 0) ---
                 if (NotifyEndX > NotifyStartX)
                 {
-                    draw->AddRectFilled(
-                        ImVec2(NotifyStartX, midY - 4),
-                        ImVec2(NotifyEndX, midY + 4),
-                        barColor,
-                        2.0f
-                    );
+                    const float barHalfHeight = 9.0f;
+
+                    ImVec2 barMin(NotifyStartX, midY - barHalfHeight);
+                    ImVec2 barMax(NotifyEndX, midY + barHalfHeight);
+                    ImU32 barFill = IM_COL32(255, 255, 255, 50);
+                    ImU32 barBorder = IM_COL32(0, 0, 0, 200);
+                    
+                    draw->AddRectFilled(barMin, barMax, barFill, 2.5f);     // fill
+                    draw->AddRect(barMin, barMax, barBorder, 2.5f, 0, 1.0f);    // border
                 }
 
                 //--- Draw Diamond ---
+                fillColor = IM_COL32(255, 255, 255, 255);       // White
+                fillHover = IM_COL32(225, 225, 225, 255);       // Slightly gray on hover
+                ImU32 borderColor = IM_COL32(0, 0, 0, 255);     // Black thin border
+
+                //--- Draw Diamond Fill ---
                 draw->AddQuadFilled(
                     d0, d1, d2, d3,
                     hovered ? fillHover : fillColor
                 );
+
+                //--- Draw Diamond Border (thin black) ---
+                if (isSelected)
+                {
+                    ImU32 borderColor = IM_COL32(0, 0, 0, 255);     // Black
+                    draw->AddQuad(d0, d1, d2, d3, borderColor, 1.0f);
+                }
 
                 //--- Text (aligned inside the box or right of diamond) ---
                 std::string label = Notify.NotifyName.ToString();
