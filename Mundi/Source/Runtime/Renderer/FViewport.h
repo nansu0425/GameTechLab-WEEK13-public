@@ -51,6 +51,10 @@ public:
     // ImGui::Image 모드 설정 (뷰어용)
     void SetUseRenderTarget(bool bUse) { bUseRenderTarget = bUse; }
     bool UseRenderTarget() const { return bUseRenderTarget; }
+
+    // 뷰포트 hover 상태 (ImGui::Image용)
+    void SetViewportHovered(bool bHovered) { bViewportHovered = bHovered; }
+    bool IsViewportHovered() const { return bViewportHovered; }
     
     FVector2D GetViewportMousePosition() { return ViewportMousePosition; }
 
@@ -86,5 +90,8 @@ private:
 
     // ImGui::Image 모드 사용 여부 (뷰어용)
     bool bUseRenderTarget = false;
+
+    // 뷰포트 hover 상태 (ImGui::Image용)
+    bool bViewportHovered = false;
 };
 

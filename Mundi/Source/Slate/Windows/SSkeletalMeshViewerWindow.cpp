@@ -154,10 +154,13 @@ void SSkeletalMeshViewerWindow::OnRender()
                 if (SRV)
                 {
                     ImGui::Image((void*)SRV, ImVec2(remainingWidth, remainingHeight));
+                    // ImGui의 Z-order를 고려한 정확한 hover 체크
+                    ActiveState->Viewport->SetViewportHovered(ImGui::IsItemHovered());
                 }
                 else
                 {
                     ImGui::Dummy(ImVec2(remainingWidth, remainingHeight));
+                    ActiveState->Viewport->SetViewportHovered(false);
                 }
             }
             else

@@ -34,6 +34,9 @@ public:
 	bool IsWindowFocused() const { return bIsWindowFocused; }
 	const FRect& GetCenterRect() const { return CenterRect; }
 
+	// 뷰포트가 실제로 호버되어 있는지 (ImGui Z-order 고려)
+	bool IsViewportHovered() const;
+
 protected:
 	// Per-tab state
 	UEditorAssetPreviewContext* Context = nullptr;

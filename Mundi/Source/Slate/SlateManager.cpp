@@ -635,10 +635,16 @@ void USlateManager::ProcessInput()
             SViewerWindow* ViewerWindow = dynamic_cast<SViewerWindow*>(Window);
             if (ViewerWindow)
             {
-                // 마우스가 뷰포트 영역(CenterRect)에 있으면 무조건 입력 전달
+                // 마우스가 뷰포트 영역(CenterRect)에 있으면 입력 전달
                 // (드롭다운 팝업이 열려있어도 뷰포트 조작 가능하도록)
                 if (ViewerWindow->GetCenterRect().Contains(MousePosition))
                 {
+                    // 뷰포트가 실제로 호버되어 있는지 확인 (ImGui Z-order 고려)
+                    // 다른 뷰어의 뷰포트가 위에 있으면 스킵
+                    if (!ViewerWindow->IsViewportHovered())
+                    {
+                        continue;  // 다음 윈도우 체크
+                    }
                     HoveredDetachedWindow = Window;
                     break;
                 }

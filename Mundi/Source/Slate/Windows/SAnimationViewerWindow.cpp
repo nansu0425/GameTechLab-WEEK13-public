@@ -780,10 +780,13 @@ void SAnimationViewerWindow::RenderViewportArea(float width, float height)
         if (SRV)
         {
             ImGui::Image((void*)SRV, ImVec2(width, height));
+            // ImGui의 Z-order를 고려한 정확한 hover 체크
+            ActiveState->Viewport->SetViewportHovered(ImGui::IsItemHovered());
         }
         else
         {
             ImGui::Dummy(ImVec2(width, height));
+            ActiveState->Viewport->SetViewportHovered(false);
         }
     }
     else

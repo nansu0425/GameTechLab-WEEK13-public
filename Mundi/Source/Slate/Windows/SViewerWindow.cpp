@@ -113,6 +113,9 @@ void SViewerWindow::OnMouseMove(FVector2D MousePos)
 {
     if (!ActiveState || !ActiveState->Viewport) return;
 
+    // 드래그 중이 아니면 현재 뷰포트가 호버되어 있어야 입력 처리 (Z-order 고려)
+    if (!bLeftMousePressed && !ActiveState->Viewport->IsViewportHovered()) return;
+
     // 드래그 중이면 뷰포트 밖으로 나가도 입력 계속 전달 (기즈모 조작 유지)
     if (bLeftMousePressed || CenterRect.Contains(MousePos))
     {
@@ -124,6 +127,9 @@ void SViewerWindow::OnMouseMove(FVector2D MousePos)
 void SViewerWindow::OnMouseDown(FVector2D MousePos, uint32 Button)
 {
     if (!ActiveState || !ActiveState->Viewport) return;
+
+    // 현재 뷰포트가 호버되어 있어야 마우스 다운 처리 (Z-order 고려)
+    if (!ActiveState->Viewport->IsViewportHovered()) return;
 
     if (CenterRect.Contains(MousePos))
     {
@@ -249,7 +255,10 @@ void SViewerWindow::OnMouseUp(FVector2D MousePos, uint32 Button)
     }
 }
 
-
+bool SViewerWindow::IsViewportHovered() const
+{
+    return ActiveState && ActiveState->Viewport && ActiveState->Viewport->IsViewportHovered();
+}
 
 void SViewerWindow::OpenOrFocusTab(UEditorAssetPreviewContext* Context)
 {
