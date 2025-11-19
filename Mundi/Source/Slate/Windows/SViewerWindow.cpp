@@ -4,6 +4,9 @@
 #include "FViewportClient.h"
 #include "SelectionManager.h"
 #include "SlateManager.h"
+#include "SSkeletalMeshViewerWindow.h"
+#include "SAnimationViewerWindow.h"
+#include "SBlendSpaceEditorWindow.h"
 #include "Source/Editor/FBXLoader.h"
 #include "Source/Editor/PlatformProcess.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
@@ -387,8 +390,25 @@ void SViewerWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
 
     if (ImGui::Button("Skeletal Viewer", ImVec2(SkelButtonWidth, 0)))
     {
-        if (ActiveState && ActiveState->CurrentMesh)
+        // Find existing skeletal viewer window and focus it
+        SViewerWindow* TargetWindow = nullptr;
+        for (SWindow* Window : USlateManager::GetInstance().GetDetachedWindows())
         {
+            if (dynamic_cast<SSkeletalMeshViewerWindow*>(Window))
+            {
+                TargetWindow = static_cast<SViewerWindow*>(Window);
+                break;
+            }
+        }
+
+        if (TargetWindow)
+        {
+            // Just focus the existing window
+            TargetWindow->RequestFocus();
+        }
+        else if (ActiveState && ActiveState->CurrentMesh)
+        {
+            // Create new window only if none exists
             UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
             Context->ViewerType = EViewerType::Skeletal;
             Context->AssetPath = ActiveState->LoadedMeshPath;
@@ -404,8 +424,25 @@ void SViewerWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
 
     if (ImGui::Button("Animation Viewer", ImVec2(AnimButtonWidth, 0)))
     {
-        if (ActiveState && ActiveState->CurrentMesh)
+        // Find existing animation viewer window and focus it
+        SViewerWindow* TargetWindow = nullptr;
+        for (SWindow* Window : USlateManager::GetInstance().GetDetachedWindows())
         {
+            if (dynamic_cast<SAnimationViewerWindow*>(Window))
+            {
+                TargetWindow = static_cast<SViewerWindow*>(Window);
+                break;
+            }
+        }
+
+        if (TargetWindow)
+        {
+            // Just focus the existing window
+            TargetWindow->RequestFocus();
+        }
+        else if (ActiveState && ActiveState->CurrentMesh)
+        {
+            // Create new window only if none exists
             UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
             Context->ViewerType = EViewerType::Animation;
             Context->AssetPath = ActiveState->LoadedMeshPath;
@@ -421,8 +458,25 @@ void SViewerWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
 
     if (ImGui::Button("BlendSpace Editor", ImVec2(BlendSpaceButtonWidth, 0)))
     {
-        if (ActiveState && ActiveState->CurrentMesh)
+        // Find existing blend space editor window and focus it
+        SViewerWindow* TargetWindow = nullptr;
+        for (SWindow* Window : USlateManager::GetInstance().GetDetachedWindows())
         {
+            if (dynamic_cast<SBlendSpaceEditorWindow*>(Window))
+            {
+                TargetWindow = static_cast<SViewerWindow*>(Window);
+                break;
+            }
+        }
+
+        if (TargetWindow)
+        {
+            // Just focus the existing window
+            TargetWindow->RequestFocus();
+        }
+        else if (ActiveState && ActiveState->CurrentMesh)
+        {
+            // Create new window only if none exists
             UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
             Context->ViewerType = EViewerType::BlendSpace;
             Context->AssetPath = ActiveState->LoadedMeshPath;
