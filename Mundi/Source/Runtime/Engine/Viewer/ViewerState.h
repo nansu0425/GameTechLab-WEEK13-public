@@ -82,4 +82,7 @@ public:
     bool bFoldAttributes = false;
 
     FSelectedNotify SelectedNotify;
+
+    // Additive bone transforms applied on top of animation
+    TMap<int32, FTransform> BoneAdditiveTransforms;
 };

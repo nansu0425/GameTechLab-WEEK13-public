@@ -845,11 +845,37 @@ void SViewerWindow::UpdateBoneTransformFromSkeleton(ViewerState* State)
     if (!State || !State->CurrentMesh || State->SelectedBoneIndex < 0)
         return;
 
-    // 본의 로컬 트랜스폼에서 값 추출
-    const FTransform& BoneTransform = State->PreviewActor->GetSkeletalMeshComponent()->GetBoneLocalTransform(State->SelectedBoneIndex);
-    State->EditBoneLocation = BoneTransform.Translation;
-    State->EditBoneRotation = BoneTransform.Rotation.ToEulerZYXDeg();
-    State->EditBoneScale = BoneTransform.Scale3D;
+    // Get the animated local transform
+    FTransform AnimatedLocalTransform;
+    if (State->CurrentAnimation)
+    {
+        TArray<FTransform> AllBoneTransforms;
+        State->CurrentAnimation->ExtractBonePose(*State->CurrentMesh->GetSkeleton(), State->CurrentTime, false, false, AllBoneTransforms);
+        if (State->SelectedBoneIndex < AllBoneTransforms.Num())
+        {
+            AnimatedLocalTransform = AllBoneTransforms[State->SelectedBoneIndex];
+        }
+    }
+    else
+    {
+        if (State->PreviewActor && State->PreviewActor->GetSkeletalMeshComponent() &&
+            State->SelectedBoneIndex < State->PreviewActor->GetSkeletalMeshComponent()->RefPose.Num())
+        {
+            AnimatedLocalTransform = State->PreviewActor->GetSkeletalMeshComponent()->RefPose[State->SelectedBoneIndex];
+        }
+    }
+
+    // Check if there is an additive transform for this bone
+    FTransform FinalLocalTransform = AnimatedLocalTransform;
+    if (FTransform* Additive = State->BoneAdditiveTransforms.Find(State->SelectedBoneIndex))
+    {
+        FinalLocalTransform = (*Additive) * AnimatedLocalTransform;
+    }
+
+    // Update the UI edit fields with the final transform
+    State->EditBoneLocation = FinalLocalTransform.Translation;
+    State->EditBoneRotation = FinalLocalTransform.Rotation.ToEulerZYXDeg();
+    State->EditBoneScale = FinalLocalTransform.Scale3D;
 }
 
 void SViewerWindow::ApplyBoneTransform(ViewerState* State)
@@ -857,8 +883,41 @@ void SViewerWindow::ApplyBoneTransform(ViewerState* State)
     if (!State || !State->CurrentMesh || State->SelectedBoneIndex < 0)
         return;
 
-    FTransform NewTransform(State->EditBoneLocation, FQuat::MakeFromEulerZYX(State->EditBoneRotation), State->EditBoneScale);
-    State->PreviewActor->GetSkeletalMeshComponent()->SetBoneLocalTransform(State->SelectedBoneIndex, NewTransform);
+    // This is the desired final local transform from the UI/gizmo
+    FTransform DesiredFinalLocal(State->EditBoneLocation, FQuat::MakeFromEulerZYX(State->EditBoneRotation), State->EditBoneScale);
+
+    // Get the bone's transform from the current animation pose (without any additive offsets)
+    FTransform AnimatedLocalTransform;
+    if (State->CurrentAnimation)
+    {
+        TArray<FTransform> AllBoneTransforms;
+        State->CurrentAnimation->ExtractBonePose(
+            *State->CurrentMesh->GetSkeleton(),
+            State->CurrentTime,
+            false, // no looping in this context
+            false, // no interpolation
+            AllBoneTransforms);
+
+        if (State->SelectedBoneIndex < AllBoneTransforms.Num())
+        {
+            AnimatedLocalTransform = AllBoneTransforms[State->SelectedBoneIndex];
+        }
+    }
+    else
+    {
+        // No animation, base pose is the reference pose
+        if (State->PreviewActor && State->PreviewActor->GetSkeletalMeshComponent() &&
+            State->SelectedBoneIndex < State->PreviewActor->GetSkeletalMeshComponent()->RefPose.Num())
+        {
+            AnimatedLocalTransform = State->PreviewActor->GetSkeletalMeshComponent()->RefPose[State->SelectedBoneIndex];
+        }
+    }
+
+    // The new additive transform is the difference
+    FTransform AdditiveTransform = DesiredFinalLocal * AnimatedLocalTransform.Inverse();
+
+    // Store it
+    State->BoneAdditiveTransforms[State->SelectedBoneIndex] = AdditiveTransform;
 }
 
 void SViewerWindow::ExpandToSelectedBone(ViewerState* State, int32 BoneIndex)

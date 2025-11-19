@@ -267,7 +267,10 @@ void SAnimationViewerWindow::OnUpdate(float DeltaSeconds)
     // Update the UI with the engine's time only when the user is not dragging the slider.
     else
     {
-        ActiveState->CurrentTime = CurrentAnimPosition;
+        if (ActiveState->bIsPlaying)
+        {
+            ActiveState->CurrentTime = CurrentAnimPosition;
+        }
     }
 
     // Update total animation length
@@ -370,6 +373,23 @@ void SAnimationViewerWindow::OnUpdate(float DeltaSeconds)
 
 void SAnimationViewerWindow::PreRenderViewportUpdate()
 {
+    if (!ActiveState || !ActiveState->PreviewActor) return;
+
+    // Apply any manual bone transform offsets on top of the base animation pose
+    if (!ActiveState->BoneAdditiveTransforms.IsEmpty())
+    {
+        if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+        {
+            MeshComp->ApplyAdditiveTransforms(ActiveState->BoneAdditiveTransforms);
+        }
+    }
+
+    // If a bone is selected, update the gizmo's position to follow the bone's final transform
+    if (ActiveState->SelectedBoneIndex >= 0)
+    {
+        ActiveState->PreviewActor->RepositionAnchorToBone(ActiveState->SelectedBoneIndex);
+    }
+
     // Reconstruct bone overlay
     if (ActiveState->bShowBones)
     {
@@ -817,27 +837,9 @@ void SAnimationViewerWindow::RenderTimelineControls()
     ImGui::SameLine();
     ImGui::Checkbox("Loop", &ActiveState->bIsLooping);
 
-    ImGui::SameLine();
-    ImGui::Text("Time:");
-    ImGui::SameLine();
-
-    // -------------------------------------------------------------------------
-    // Timeline Scrubber (Slider)
-    // -------------------------------------------------------------------------
     const float windowRightEdge = ImGui::GetWindowContentRegionMax().x;
-    const float speedButtonWidth = 80.0f;
+    const float speedButtonWidth = 70.0f;
     const float rightButtonStartX = windowRightEdge - speedButtonWidth;
-    float sliderWidth = rightButtonStartX - ImGui::GetCursorPosX() - 10.0f;
-
-    if (sliderWidth > 50.0f)
-    {
-        ImGui::SetNextItemWidth(sliderWidth);
-        if (ImGui::SliderFloat("##AnimTime",
-            &ActiveState->CurrentTime, 0.0f, ActiveState->TotalTime, "%.2f"))
-        {
-            ActiveState->bIsScrubbing = true;
-        }
-    }
 
     // -------------------------------------------------------------------------
     // Playback Speed Combo Button (Transparent)
@@ -850,12 +852,17 @@ void SAnimationViewerWindow::RenderTimelineControls()
 
     // Check second decimal digit
     int secondDigit = (int)(v * 100) % 10;
+    if (secondDigit == 0)   sprintf_s(speedLabel, " x%.1f v", v);   // x1.5 → x1.5
+    else                    sprintf_s(speedLabel, " x%.2f v", v);   // x1.23 → x1.23
 
-    if (secondDigit == 0)   sprintf_s(speedLabel, "x%.1f", v);   // x1.5 → x1.5
-    else                    sprintf_s(speedLabel, "x%.2f", v);   // x1.23 → x1.23
-
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1, 1, 1, 0.1f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1, 1, 1, 0.15f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 1));
     if (ImGui::Button(speedLabel, ImVec2(speedButtonWidth, 0)))
         ImGui::OpenPopup("PlaybackSpeedPopup");
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor(3);
 
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Playback Speed Options");
