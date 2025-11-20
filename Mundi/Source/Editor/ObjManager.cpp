@@ -358,8 +358,8 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 			NewFStaticMesh = nullptr; // 포인터를 nullptr로 설정하여 이중 삭제 방지
 
 			// 손상된 캐시 파일 삭제
-			fs::remove(BinPathFileName);
-			fs::remove(MatBinPathFileName);
+			fs::remove(UTF8ToWide(BinPathFileName));
+			fs::remove(UTF8ToWide(MatBinPathFileName));
 
 			bLoadedSuccessfully = false;
 		}

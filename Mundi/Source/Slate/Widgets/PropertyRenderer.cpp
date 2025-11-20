@@ -377,9 +377,9 @@ void UPropertyRenderer::CacheResources()
 
 		// 2. 파일 시스템 스캔 (Content/Scripts/ 디렉토리)
 		const FString ScriptDir = GDataDir + "/Scripts/";
-		if (fs::exists(ScriptDir) && fs::is_directory(ScriptDir))
+		if (fs::exists(UTF8ToWide(ScriptDir)) && fs::is_directory(UTF8ToWide(ScriptDir)))
 		{
-			for (const auto& Entry : fs::recursive_directory_iterator(ScriptDir))
+			for (const auto& Entry : fs::recursive_directory_iterator(UTF8ToWide(ScriptDir)))
 			{
 				if (Entry.is_regular_file() && Entry.path().extension() == ".lua")
 				{
