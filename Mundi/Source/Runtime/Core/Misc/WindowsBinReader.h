@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "Archive.h"
 #include "UEContainer.h"
+#include "PathUtils.h"
 #include <fstream>
 
 class FWindowsBinReader : public FArchive
@@ -9,7 +10,7 @@ public:
     FWindowsBinReader(const FString& Filename)
         : FArchive(true, false) // Loading 모드
     {
-        File.open(Filename, std::ios::binary | std::ios::in);
+        File.open(UTF8ToWide(Filename), std::ios::binary | std::ios::in);
     }
     ~FWindowsBinReader() { Close(); }
 

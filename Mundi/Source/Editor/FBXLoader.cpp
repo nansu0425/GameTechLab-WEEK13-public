@@ -108,11 +108,11 @@ void UFbxLoader::PreLoad()
 {
 	UFbxLoader& FbxLoader = GetInstance();
 
-	const fs::path DataDir(GDataDir);
+	const fs::path DataDir(UTF8ToWide(GDataDir));
 
 	if (!fs::exists(DataDir) || !fs::is_directory(DataDir))
 	{
-		UE_LOG("UFbxLoader::Preload: Data directory not found: %s", DataDir.string().c_str());
+		UE_LOG("UFbxLoader::Preload: Data directory not found: %s", WideToUTF8(DataDir.wstring()).c_str());
 		return;
 	}
 
@@ -125,12 +125,12 @@ void UFbxLoader::PreLoad()
 			continue;
 
 		const fs::path& Path = Entry.path();
-		FString Extension = Path.extension().string();
+		FString Extension = WideToUTF8(Path.extension().wstring());
 		std::transform(Extension.begin(), Extension.end(), Extension.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
 		if (Extension == ".fbx")
 		{
-			FString PathStr = NormalizePath(Path.string());
+			FString PathStr = NormalizePath(WideToUTF8(Path.wstring()));
 
 			// 이미 처리된 파일인지 확인
 			if (ProcessedFiles.find(PathStr) == ProcessedFiles.end())
@@ -173,14 +173,14 @@ void UFbxLoader::PreLoad()
 		}
 		else if (Extension == ".dds" || Extension == ".jpg" || Extension == ".png")
 		{
-			UResourceManager::GetInstance().Load<UTexture>(Path.string()); // 데칼 텍스쳐를 ui에서 고를 수 있게 하기 위해 임시로 만듬.
+			UResourceManager::GetInstance().Load<UTexture>(WideToUTF8(Path.wstring())); // 데칼 텍스쳐를 ui에서 고를 수 있게 하기 위해 임시로 만듬.
 		}
 	}
 
 	RESOURCE.SetSkeletalMeshs();
 	RESOURCE.SetAnimations();
 
-	UE_LOG("UFbxLoader::Preload: Loaded %zu .fbx files from %s", LoadedCount, DataDir.string().c_str());
+	UE_LOG("UFbxLoader::Preload: Loaded %zu .fbx files from %s", LoadedCount, WideToUTF8(DataDir.wstring()).c_str());
 }
 
 
@@ -233,7 +233,7 @@ FSkeletalMeshData* UFbxLoader::LoadFbxMeshAsset(const FString& FilePath)
 	const FString BinPathFileName = CachePathStr + ".bin";
 
 	// 캐시를 저장할 디렉토리가 없으면 생성
-	std::filesystem::path CacheFileDirPath(BinPathFileName);
+	std::filesystem::path CacheFileDirPath(UTF8ToWide(BinPathFileName));
 	if (CacheFileDirPath.has_parent_path())
 	{
 		std::filesystem::create_directories(CacheFileDirPath.parent_path());
@@ -244,12 +244,12 @@ FSkeletalMeshData* UFbxLoader::LoadFbxMeshAsset(const FString& FilePath)
 
 	// 2. 캐시 유효성 검사
 	bool bShouldRegenerate = true;
-	if (std::filesystem::exists(BinPathFileName))
+	if (std::filesystem::exists(UTF8ToWide(BinPathFileName)))
 	{
 		try
 		{
-			auto binTime = std::filesystem::last_write_time(BinPathFileName);
-			auto fbxTime = std::filesystem::last_write_time(NormalizedPath);
+			auto binTime = std::filesystem::last_write_time(UTF8ToWide(BinPathFileName));
+			auto fbxTime = std::filesystem::last_write_time(UTF8ToWide(NormalizedPath));
 
 			// FBX 파일이 캐시보다 오래되었으면 캐시 사용
 			if (fbxTime <= binTime)
@@ -274,8 +274,8 @@ FSkeletalMeshData* UFbxLoader::LoadFbxMeshAsset(const FString& FilePath)
 			MeshData->PathFileName = NormalizedPath;
 
 			// FBX 파일의 이름을 스켈레톤 이름으로 사용
-			std::filesystem::path p(NormalizedPath);
-			MeshData->Skeleton.Name = p.stem().string();
+			std::filesystem::path p(UTF8ToWide(NormalizedPath));
+			MeshData->Skeleton.Name = WideToUTF8(p.stem().wstring());
 
 			FWindowsBinReader Reader(BinPathFileName);
 			if (!Reader.IsOpen())
@@ -320,7 +320,7 @@ FSkeletalMeshData* UFbxLoader::LoadFbxMeshAsset(const FString& FilePath)
 			UE_LOG("Error loading FBX from cache: %s. Cache might be corrupt or incompatible.", e.what());
 			UE_LOG("Deleting corrupt cache and forcing regeneration for '%s'.", NormalizedPath.c_str());
 
-			std::filesystem::remove(BinPathFileName);
+			std::filesystem::remove(UTF8ToWide(BinPathFileName));
 			if (MeshData)
 			{
 				delete MeshData;
@@ -386,8 +386,8 @@ FSkeletalMeshData* UFbxLoader::LoadFbxMeshAsset(const FString& FilePath)
 	MeshData->PathFileName = NormalizedPath;
 
 	// FBX 파일의 이름을 스켈레톤 이름으로 사용
-	std::filesystem::path p(NormalizedPath);
-	MeshData->Skeleton.Name = p.stem().string();
+	std::filesystem::path p(UTF8ToWide(NormalizedPath));
+	MeshData->Skeleton.Name = WideToUTF8(p.stem().wstring());
 
 	// Fbx파일에 씬은 하나만 존재하고 씬에 매쉬, 라이트, 카메라 등등의 element들이 트리 구조로 저장되어 있음.
 	// 씬 Export 시에 루트 노드 말고 Child 노드만 저장됨. 노드 하나가 여러 Element를 저장할 수 있고 Element는 FbxNodeAttribute 클래스로 정의되어 있음.
@@ -1389,7 +1389,7 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 	AnimCacheFileName += ".anim.bin";
 
 	// 캐시를 저장할 디렉토리가 없으면 생성
-	std::filesystem::path CacheFileDirPath(AnimCacheFileName);
+	std::filesystem::path CacheFileDirPath(UTF8ToWide(AnimCacheFileName));
 	if (CacheFileDirPath.has_parent_path())
 	{
 		std::filesystem::create_directories(CacheFileDirPath.parent_path());
@@ -1399,12 +1399,12 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 
 	// 4-2. 캐시 유효성 검사
 	bool bShouldRegenerate = true;
-	if (std::filesystem::exists(AnimCacheFileName))
+	if (std::filesystem::exists(UTF8ToWide(AnimCacheFileName)))
 	{
 		try
 		{
-			auto binTime = std::filesystem::last_write_time(AnimCacheFileName);
-			auto fbxTime = std::filesystem::last_write_time(NormalizedPath);
+			auto binTime = std::filesystem::last_write_time(UTF8ToWide(AnimCacheFileName));
+			auto fbxTime = std::filesystem::last_write_time(UTF8ToWide(NormalizedPath));
 
 			// FBX 파일이 캐시보다 오래되었으면 캐시 사용
 			if (fbxTime <= binTime)
@@ -1464,7 +1464,7 @@ UAnimSequence* UFbxLoader::LoadFbxAnimation(const FString& FilePath, const struc
 			UE_LOG("UFbxLoader::LoadFbxAnimation: Error loading animation from cache: %s. Cache might be corrupt or incompatible.", e.what());
 			UE_LOG("UFbxLoader::LoadFbxAnimation: Deleting corrupt cache and forcing regeneration.");
 
-			std::filesystem::remove(AnimCacheFileName);
+			std::filesystem::remove(UTF8ToWide(AnimCacheFileName));
 
 			// 캐시 로드 실패 시 생성된 DataModel 정리
 			if (DataModel)

@@ -177,7 +177,7 @@ bool FTextureConverter::ShouldRegenerateDDS(
 
 		// FBX 파일명 생성
 		// 예: "Data/Model.fbm" → "Model.fbx"
-		std::string FbxFileName = FbmFolder.stem().string() + ".fbx";
+		std::string FbxFileName = WideToUTF8(FbmFolder.stem().wstring()) + ".fbx";
 
 		// FBX 파일 경로 생성
 		// 예: "Data/Model.fbx"

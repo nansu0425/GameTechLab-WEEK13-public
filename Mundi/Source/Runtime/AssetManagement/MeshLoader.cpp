@@ -47,7 +47,7 @@ UMeshLoader::~UMeshLoader()
 }
 FMeshData* UMeshLoader::LoadMesh(const std::filesystem::path& FilePath)
 {
-    auto it = MeshCache.find(FilePath.string());
+    auto it = MeshCache.find(WideToUTF8(FilePath.wstring()));
     if (it != MeshCache.end())
     {
         return it->second;
@@ -147,7 +147,7 @@ FMeshData* UMeshLoader::LoadMesh(const std::filesystem::path& FilePath)
         }
     }
 
-    MeshCache[FilePath.string()] = MeshData;
+    MeshCache[WideToUTF8(FilePath.wstring())] = MeshData;
 
     return MeshData;
 }

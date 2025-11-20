@@ -2134,8 +2134,8 @@ void SViewportWindow::SpawnActorFromFile(const char* FilePath, const FVector& Wo
 	}
 
 	UWorld* world = ViewportClient->GetWorld();
-	std::filesystem::path path(FilePath);
-	std::string extension = path.extension().string();
+	std::filesystem::path path(UTF8ToWide(FilePath));
+	std::string extension = WideToUTF8(path.extension().wstring());
 
 	// 소문자로 변환
 	std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);

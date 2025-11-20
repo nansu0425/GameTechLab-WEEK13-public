@@ -54,8 +54,8 @@ void UStaticMesh::Load(const FString& InFilePath, ID3D11Device* InDevice, EVerte
     SetVertexType(InVertexType);
 
     // 파일 확장자 확인
-    std::filesystem::path FilePath(InFilePath);
-    FString Extension = FilePath.extension().string();
+    std::filesystem::path FilePath(UTF8ToWide(InFilePath));
+    FString Extension = WideToUTF8(FilePath.extension().wstring());
     std::transform(Extension.begin(), Extension.end(), Extension.begin(), ::tolower);
 
     if (Extension == ".fbx")

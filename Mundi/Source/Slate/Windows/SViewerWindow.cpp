@@ -49,8 +49,8 @@ bool SViewerWindow::Initialize(float StartX, float StartY, float Width, float He
     if (Context && !Context->AssetPath.empty())
     {
         // ex) "Data/Mesh/MyAsset.fbx" -> "MyAsset.fbx"
-        std::filesystem::path fsPath(Context->AssetPath);
-        FString AssetName = fsPath.filename().string();
+        std::filesystem::path fsPath(UTF8ToWide(Context->AssetPath));
+        FString AssetName = WideToUTF8(fsPath.filename().wstring());
         WindowTitle = BaseTitle + " - " + AssetName;
     }
     else
@@ -625,7 +625,7 @@ void SViewerWindow::RenderLeftPanel(float PanelWidth)
 
         if (!widePath.empty())
         {
-            std::string s = widePath.string();
+            std::string s = WideToUTF8(widePath.wstring());
             strncpy_s(ActiveState->MeshPathBuffer, s.c_str(),
                 sizeof(ActiveState->MeshPathBuffer) - 1);
         }

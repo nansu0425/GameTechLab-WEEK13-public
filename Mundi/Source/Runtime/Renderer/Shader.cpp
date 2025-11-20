@@ -120,7 +120,7 @@ void UShader::Load(const FString& InShaderPath, ID3D11Device* InDevice, const TA
 		FilePath = InShaderPath;
 		try
 		{
-			auto FileTime = std::filesystem::last_write_time(FilePath);
+			auto FileTime = std::filesystem::last_write_time(UTF8ToWide(FilePath));
 			SetLastModifiedTime(FileTime);
 		}
 		catch (...)
@@ -384,13 +384,13 @@ bool UShader::IsOutdated() const
 
 	try
 	{
-		if (!std::filesystem::exists(FilePath))
+		if (!std::filesystem::exists(UTF8ToWide(FilePath)))
 		{
 			return false; // File doesn't exist, not outdated
 		}
 
 		// 메인 shader 파일 timestamp 체크
-		auto CurrentFileTime = std::filesystem::last_write_time(FilePath);
+		auto CurrentFileTime = std::filesystem::last_write_time(UTF8ToWide(FilePath));
 		if (CurrentFileTime > GetLastModifiedTime())
 		{
 			return true;
@@ -403,13 +403,13 @@ bool UShader::IsOutdated() const
 			const auto& StoredTime = Pair.second;
 
 			// Include 파일이 존재하는지 확인
-			if (!std::filesystem::exists(IncludedFile))
+			if (!std::filesystem::exists(UTF8ToWide(IncludedFile)))
 			{
 				continue; // 파일이 없으면 건너뛰기
 			}
 
 			// Include 파일의 현재 timestamp 확인
-			auto CurrentIncludeTime = std::filesystem::last_write_time(IncludedFile);
+			auto CurrentIncludeTime = std::filesystem::last_write_time(UTF8ToWide(IncludedFile));
 			if (CurrentIncludeTime > StoredTime)
 			{
 				return true; // Include 파일이 변경됨
@@ -504,7 +504,7 @@ bool UShader::Reload(ID3D11Device* InDevice)
 		// 갱신된 타임스탬프를 설정합니다.
 		try
 		{
-			SetLastModifiedTime(std::filesystem::last_write_time(FilePath));
+			SetLastModifiedTime(std::filesystem::last_write_time(UTF8ToWide(FilePath)));
 			UpdateIncludeTimestamps(); // Include 파일 타임스탬프도 갱신
 		}
 		catch (...) { /* 무시 */ }
@@ -554,20 +554,20 @@ void UShader::ParseIncludeFiles(const FString& ShaderPath)
 		ParsedFiles.insert(CurrentFile);
 
 		// 파일 존재 여부 확인
-		if (!std::filesystem::exists(CurrentFile))
+		if (!std::filesystem::exists(UTF8ToWide(CurrentFile)))
 		{
 			continue;
 		}
 
 		// 파일 열기
-		std::ifstream File(CurrentFile);
+		std::ifstream File(UTF8ToWide(CurrentFile));
 		if (!File.is_open())
 		{
 			continue;
 		}
 
 		// 현재 파일의 디렉토리 경로
-		std::filesystem::path CurrentDir = std::filesystem::path(CurrentFile).parent_path();
+		std::filesystem::path CurrentDir = std::filesystem::path(UTF8ToWide(CurrentFile)).parent_path();
 
 		// 한 줄씩 읽으며 #include 찾기
 		FString Line;
@@ -594,20 +594,20 @@ void UShader::ParseIncludeFiles(const FString& ShaderPath)
 
 					// 상대 경로 해석
 					std::filesystem::path IncludePath;
-					if (std::filesystem::path(IncludedFile).is_absolute())
+					if (std::filesystem::path(UTF8ToWide(IncludedFile)).is_absolute())
 					{
-						IncludePath = IncludedFile;
+						IncludePath = UTF8ToWide(IncludedFile);
 					}
 					else
 					{
-						IncludePath = CurrentDir / IncludedFile;
+						IncludePath = CurrentDir / UTF8ToWide(IncludedFile);
 					}
 
 					// 경로 정규화
 					try
 					{
 						IncludePath = std::filesystem::canonical(IncludePath);
-						FString NormalizedPath = IncludePath.string();
+						FString NormalizedPath = WideToUTF8(IncludePath.wstring());
 
 						// 포함된 파일 목록에 추가
 						if (std::find(IncludedFiles.begin(), IncludedFiles.end(), NormalizedPath) == IncludedFiles.end())
@@ -641,9 +641,9 @@ void UShader::UpdateIncludeTimestamps()
 	{
 		try
 		{
-			if (std::filesystem::exists(IncludedFile))
+			if (std::filesystem::exists(UTF8ToWide(IncludedFile)))
 			{
-				auto FileTime = std::filesystem::last_write_time(IncludedFile);
+				auto FileTime = std::filesystem::last_write_time(UTF8ToWide(IncludedFile));
 				IncludedFileTimestamps[IncludedFile] = FileTime;
 			}
 		}

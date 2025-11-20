@@ -315,8 +315,8 @@ void UPropertyRenderer::CacheResources()
 		for (const FString& path : CachedStaticMeshPaths)
 		{
 			// 파일명만 추출해서 표시
-			std::filesystem::path fsPath(path);
-			CachedStaticMeshItems.push_back(fsPath.filename().string());
+			std::filesystem::path fsPath(UTF8ToWide(path));
+			CachedStaticMeshItems.push_back(WideToUTF8(fsPath.filename().wstring()));
 		}
 		CachedStaticMeshPaths.Insert("", 0);
 		CachedStaticMeshItems.Insert("None", 0);
@@ -328,8 +328,8 @@ void UPropertyRenderer::CacheResources()
 		for (const FString& path : CachedSkeletalMeshPaths)
 		{
 			// 파일명만 추출해서 표시
-			std::filesystem::path fsPath(path);
-			CachedSkeletalMeshItems.push_back(fsPath.filename().string());
+			std::filesystem::path fsPath(UTF8ToWide(path));
+			CachedSkeletalMeshItems.push_back(WideToUTF8(fsPath.filename().wstring()));
 		}
 		CachedSkeletalMeshPaths.Insert("", 0);
 		CachedSkeletalMeshItems.Insert("None", 0);

@@ -109,7 +109,7 @@ void UContentBrowserWindow::RefreshCurrentDirectory()
 
 	if (!std::filesystem::exists(CurrentPath))
 	{
-		UE_LOG("ContentBrowserWindow: Path does not exist: %s", CurrentPath.string().c_str());
+		UE_LOG("ContentBrowserWindow: Path does not exist: %s", WideToUTF8(CurrentPath.wstring()).c_str());
 		CurrentPath = RootPath;
 		return;
 	}
@@ -125,8 +125,8 @@ void UContentBrowserWindow::RefreshCurrentDirectory()
 				{
 					FFileEntry FileEntry;
 					FileEntry.Path = entry.path();
-					FileEntry.FileName = FString(entry.path().filename().string().c_str());
-					FileEntry.Extension = FString(entry.path().extension().string().c_str());
+					FileEntry.FileName = WideToUTF8(entry.path().filename().wstring());
+					FileEntry.Extension = WideToUTF8(entry.path().extension().wstring());
 					FileEntry.bIsDirectory = false;
 					FileEntry.FileSize = std::filesystem::file_size(entry.path());
 					DisplayedFiles.push_back(FileEntry);
@@ -134,7 +134,7 @@ void UContentBrowserWindow::RefreshCurrentDirectory()
 			}
 		}
 
-		UE_LOG("ContentBrowserWindow: Loaded %d items from %s", DisplayedFiles.size(), CurrentPath.string().c_str());
+		UE_LOG("ContentBrowserWindow: Loaded %d items from %s", DisplayedFiles.size(), WideToUTF8(CurrentPath.wstring()).c_str());
 	}
 	catch (const std::exception& e)
 	{
@@ -210,7 +210,7 @@ void UContentBrowserWindow::RenderFolderTreeNode(const std::filesystem::path& Fo
 	try
 	{
 		// 폴더 이름 가져오기
-		FString folderName = FolderPath == RootPath ? "Data" : FString(FolderPath.filename().string().c_str());
+		FString folderName = FolderPath == RootPath ? "Data" : WideToUTF8(FolderPath.filename().wstring());
 
 		// 하위 폴더 확인
 		bool hasSubFolders = false;
@@ -278,7 +278,7 @@ void UContentBrowserWindow::RenderPathBar()
 	}
 
 	// 현재 경로 표시
-	FString PathStr = FString(CurrentPath.string().c_str());
+	FString PathStr = WideToUTF8(CurrentPath.wstring());
 	ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), "%s", PathStr.c_str());
 
 	// 새로고침 버튼
@@ -349,7 +349,7 @@ void UContentBrowserWindow::RenderFileItem(FFileEntry& Entry, int Index, bool bU
 	if (bUseThumbnails)
 	{
 		// 썸네일 가져오기
-		std::string pathStr = Entry.Path.string();
+		std::string pathStr = WideToUTF8(Entry.Path.wstring());
 		ID3D11ShaderResourceView* thumbnailSRV = FThumbnailManager::GetInstance().GetThumbnail(pathStr);
 
 		if (thumbnailSRV)
@@ -415,7 +415,7 @@ void UContentBrowserWindow::HandleDragSource(FFileEntry& Entry)
 	if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
 	{
 		// 파일 경로를 페이로드로 전달
-		std::string pathStr = Entry.Path.string();
+		std::string pathStr = WideToUTF8(Entry.Path.wstring());
 		ImGui::SetDragDropPayload("ASSET_FILE", pathStr.c_str(), pathStr.size() + 1);
 
 		// 드래그 중 표시할 툴팁
@@ -441,7 +441,7 @@ void UContentBrowserWindow::HandleDoubleClick(FFileEntry& Entry)
 	if (ext == ".fbx")
 	{
 		// SkeletalMeshViewer 열기
-		std::string pathStr = Entry.Path.string();
+		std::string pathStr = WideToUTF8(Entry.Path.wstring());
 		//USlateManager::GetInstance().OpenSkeletalMeshViewerWithFile(pathStr.c_str());
 		UE_LOG("Opening SkeletalMeshViewer for: %s", Entry.FileName.c_str());
 	}

@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "Archive.h"
 #include "UEContainer.h"
+#include "PathUtils.h"
 #include <fstream>
 
 class FWindowsBinWriter : public FArchive
@@ -9,7 +10,7 @@ public:
     FWindowsBinWriter(const FString& Filename)
         : FArchive(false, true) // Saving 모드
     {
-        File.open(Filename, std::ios::binary | std::ios::out);
+        File.open(UTF8ToWide(Filename), std::ios::binary | std::ios::out);
     }
     ~FWindowsBinWriter() { Close(); }
 

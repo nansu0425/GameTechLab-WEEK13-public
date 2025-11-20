@@ -358,10 +358,10 @@ void FAudioDevice::StopSound(IXAudio2SourceVoice* pSourceVoice)
 
 void FAudioDevice::Preload()
 {
-    const fs::path DataDir(GDataDir + "/Audio");
+    const fs::path DataDir(UTF8ToWide(GDataDir + "/Audio"));
     if (!fs::exists(DataDir) || !fs::is_directory(DataDir))
     {
-        UE_LOG("FAudioDevice::Preload: Data directory not found: %s", DataDir.string().c_str());
+        UE_LOG("FAudioDevice::Preload: Data directory not found: %s", WideToUTF8(DataDir.wstring()).c_str());
         return;
     }
 
@@ -374,24 +374,24 @@ void FAudioDevice::Preload()
             continue;
 
         const fs::path& Path = Entry.path();
-        FString Extension = Path.extension().string();
+        FString Extension = WideToUTF8(Path.extension().wstring());
         std::transform(Extension.begin(), Extension.end(), Extension.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
         if (Extension == ".wav")
         {
-            FString PathStr = NormalizePath(Path.string());
+            FString PathStr = NormalizePath(WideToUTF8(Path.wstring()));
 
             // 이미 처리된 파일인지 확인
             if (ProcessedFiles.find(PathStr) == ProcessedFiles.end())
             {
                 ProcessedFiles.insert(PathStr);
-                // Load wav file 
+                // Load wav file
                 ++LoadedCount;
-                UResourceManager::GetInstance().Load<USound>(Path.string());
+                UResourceManager::GetInstance().Load<USound>(WideToUTF8(Path.wstring()));
             }
         }
     }
     RESOURCE.SetAudioFiles();
 
-    UE_LOG("FAudioDevice::Preload: Loaded %zu .wav files from %s", LoadedCount, DataDir.string().c_str());
+    UE_LOG("FAudioDevice::Preload: Loaded %zu .wav files from %s", LoadedCount, WideToUTF8(DataDir.wstring()).c_str());
 }

@@ -138,7 +138,7 @@ bool GetMtlDependencies(const FString& ObjPath, TArray<FString>& OutMtlFilePaths
 		return false;
 	}
 
-	fs::path BaseDir = fs::path(ObjPath).parent_path();
+	fs::path BaseDir = fs::path(UTF8ToWide(ObjPath)).parent_path();
 	FString Line;
 
 	while (std::getline(InFile, Line))
@@ -154,7 +154,7 @@ bool GetMtlDependencies(const FString& ObjPath, TArray<FString>& OutMtlFilePaths
 			if (!MtlFileName.empty())
 			{
 				fs::path FullPath = fs::weakly_canonical(BaseDir / MtlFileName);
-				FString PathStr = FullPath.string();
+				FString PathStr = WideToUTF8(FullPath.wstring());
 				std::replace(PathStr.begin(), PathStr.end(), '\\', '/');
 				OutMtlFilePaths.AddUnique(NormalizePath(PathStr));
 			}
@@ -173,17 +173,17 @@ bool GetMtlDependencies(const FString& ObjPath, TArray<FString>& OutMtlFilePaths
 bool ShouldRegenerateCache(const FString& ObjPath, const FString& BinPath, const FString& MatBinPath)
 {
 	// 캐시 파일 중 하나라도 존재하지 않으면 무조건 재생성해야 합니다.
-	if (!fs::exists(BinPath) || !fs::exists(MatBinPath))
+	if (!fs::exists(UTF8ToWide(BinPath)) || !fs::exists(UTF8ToWide(MatBinPath)))
 	{
 		return true;
 	}
 
 	try
 	{
-		auto BinTimestamp = fs::last_write_time(BinPath);
+		auto BinTimestamp = fs::last_write_time(UTF8ToWide(BinPath));
 
 		// 1. 원본 .obj 파일의 수정 시간을 캐시 파일과 비교합니다.
-		if (fs::last_write_time(ObjPath) > BinTimestamp)
+		if (fs::last_write_time(UTF8ToWide(ObjPath)) > BinTimestamp)
 		{
 			return true;
 		}
@@ -199,7 +199,7 @@ bool ShouldRegenerateCache(const FString& ObjPath, const FString& BinPath, const
 		for (const FString& MtlPath : MtlDependencies)
 		{
 			// .mtl 파일이 존재하지 않거나 캐시보다 최신 버전이면 재생성합니다.
-			if (!fs::exists(MtlPath) || fs::last_write_time(MtlPath) > BinTimestamp)
+			if (!fs::exists(UTF8ToWide(MtlPath)) || fs::last_write_time(UTF8ToWide(MtlPath)) > BinTimestamp)
 			{
 				return true;
 			}
@@ -218,11 +218,11 @@ bool ShouldRegenerateCache(const FString& ObjPath, const FString& BinPath, const
 
 void FObjManager::Preload()
 {
-	const fs::path DataDir(GDataDir);
+	const fs::path DataDir(UTF8ToWide(GDataDir));
 
 	if (!fs::exists(DataDir) || !fs::is_directory(DataDir))
 	{
-		UE_LOG("FObjManager::Preload: Data directory not found: %s", DataDir.string().c_str());
+		UE_LOG("FObjManager::Preload: Data directory not found: %s", WideToUTF8(DataDir.wstring()).c_str());
 		return;
 	}
 
@@ -235,12 +235,12 @@ void FObjManager::Preload()
 			continue;
 
 		const fs::path& Path = Entry.path();
-		FString Extension = Path.extension().string();
+		FString Extension = WideToUTF8(Path.extension().wstring());
 		std::transform(Extension.begin(), Extension.end(), Extension.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
 		if (Extension == ".obj"|| Extension == ".fbx")
 		{
-			FString PathStr = NormalizePath(Path.string());
+			FString PathStr = NormalizePath(WideToUTF8(Path.wstring()));
 
 			// 이미 처리된 파일인지 확인
 			if (ProcessedFiles.find(PathStr) == ProcessedFiles.end())
@@ -252,14 +252,14 @@ void FObjManager::Preload()
 		}
 		else if (Extension == ".dds" || Extension == ".jpg" || Extension == ".png")
 		{
-			UResourceManager::GetInstance().Load<UTexture>(Path.string()); // 데칼 텍스쳐를 ui에서 고를 수 있게 하기 위해 임시로 만듬.
+			UResourceManager::GetInstance().Load<UTexture>(WideToUTF8(Path.wstring())); // 데칼 텍스쳐를 ui에서 고를 수 있게 하기 위해 임시로 만듬.
 		}
 	}
 
 	// 4) 모든 StaticMeshs 가져오기
 	RESOURCE.SetStaticMeshs();
 
-	UE_LOG("FObjManager::Preload: Loaded %zu .obj files from %s", LoadedCount, DataDir.string().c_str());
+	UE_LOG("FObjManager::Preload: Loaded %zu .obj files from %s", LoadedCount, WideToUTF8(DataDir.wstring()).c_str());
 }
 
 void FObjManager::Clear()
@@ -283,10 +283,10 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 		return *It;
 	}
 
-	std::filesystem::path Path(NormalizedPathStr);
+	std::filesystem::path Path(UTF8ToWide(NormalizedPathStr));
 
 	// 2. 파일 경로 설정
-	FString Extension = Path.extension().string();
+	FString Extension = WideToUTF8(Path.extension().wstring());
 	std::transform(Extension.begin(), Extension.end(), Extension.begin(),
 		[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
@@ -304,7 +304,7 @@ FStaticMesh* FObjManager::LoadObjStaticMeshAsset(const FString& PathFileName)
 	const FString MatBinPathFileName = CachePathStr + ".mat.bin";
 
 	// 캐시를 저장할 디렉토리가 없으면 생성
-	fs::path CacheFileDirPath(BinPathFileName);
+	fs::path CacheFileDirPath(UTF8ToWide(BinPathFileName));
 	if (CacheFileDirPath.has_parent_path())
 	{
 		fs::create_directories(CacheFileDirPath.parent_path());

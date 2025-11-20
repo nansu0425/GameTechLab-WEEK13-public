@@ -30,8 +30,8 @@ void UTexture::Load(const FString& InFilePath, ID3D11Device* InDevice, bool bSRG
 	// DDS 캐싱 활성화 시: DDS 변환 및 캐시 사용
 	{
 		// 확장자 판별
-		std::filesystem::path SourcePath(InFilePath);
-		std::string Extension = SourcePath.extension().string();
+		std::filesystem::path SourcePath(UTF8ToWide(InFilePath));
+		std::string Extension = WideToUTF8(SourcePath.extension().wstring());
 		std::transform(Extension.begin(), Extension.end(), Extension.begin(), ::tolower);
 
 		// DDS가 아닌 경우 → DDS 캐시 확인 및 생성
@@ -92,7 +92,7 @@ void UTexture::Load(const FString& InFilePath, ID3D11Device* InDevice, bool bSRG
 	}
 
 	// 최종 로드할 파일의 확장자 재확인
-	std::filesystem::path LoadPath(ActualLoadPath);
+	std::filesystem::path LoadPath(UTF8ToWide(ActualLoadPath));
 	std::wstring ext = LoadPath.has_extension() ? LoadPath.extension().wstring() : L"";
 	for (auto& ch : ext) ch = static_cast<wchar_t>(::towlower(ch));
 
