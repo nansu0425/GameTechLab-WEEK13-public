@@ -19,15 +19,15 @@ void FPlatformProcess::OpenFileInDefaultEditor(const FWideString& RelativePath)
     catch (const fs::filesystem_error& e)
     {
         // 경로 변환 실패 처리 (예: GConsole->LogError(...))
-        MessageBoxA(NULL, "경로 변환에 실패했습니다.", "Error", MB_OK | MB_ICONERROR);
+        MessageBoxW(NULL, L"경로 변환에 실패했습니다.", L"Error", MB_OK | MB_ICONERROR);
         return;
     }
 
     // 2. 변환된 절대 경로를 사용
-    HINSTANCE hInst = ShellExecuteA(
+    HINSTANCE hInst = ShellExecuteW(
         NULL,
-        "open",
-        AbsolutePath.string().c_str(), // .string()으로 std::string을 얻어 c_str() 호출
+        L"open",
+        AbsolutePath.wstring().c_str(), // .wstring()으로 wide string을 얻어 c_str() 호출
         NULL,
         NULL,
         SW_SHOWNORMAL
@@ -35,7 +35,7 @@ void FPlatformProcess::OpenFileInDefaultEditor(const FWideString& RelativePath)
 
     if ((INT_PTR)hInst <= 32)
     {
-        MessageBoxA(NULL, "파일 열기에 실패했습니다.", "Error", MB_OK | MB_ICONERROR);
+        MessageBoxW(NULL, L"파일 열기에 실패했습니다.", L"Error", MB_OK | MB_ICONERROR);
     }
 }
 

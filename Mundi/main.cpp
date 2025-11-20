@@ -33,9 +33,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     catch (const std::exception& e)
     {
         // C++ 표준 예외 처리 (std::runtime_error, std::logic_error 등)
-        char msg[512];
-        sprintf_s(msg, "C++ Exception caught:\n\n%s\n\nGenerating MiniDump...", e.what());
-        MessageBoxA(nullptr, msg, "C++ Exception", MB_OK | MB_ICONERROR);
+        wchar_t msg[512];
+        // e.what()은 char*이므로 변환 필요
+        MultiByteToWideChar(CP_UTF8, 0, e.what(), -1, msg, 256);
+        wchar_t fullMsg[512];
+        swprintf_s(fullMsg, 512, L"C++ Exception caught:\n\n%s\n\nGenerating MiniDump...", msg);
+        MessageBoxW(nullptr, fullMsg, L"C++ Exception", MB_OK | MB_ICONERROR);
 
         // MiniDump 생성
         FPlatformCrashHandler::GenerateMiniDump();
@@ -44,9 +47,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     catch (...)
     {
         // 알 수 없는 예외 처리 (throw int, throw custom_type 등)
-        MessageBoxA(nullptr,
-            "Unknown C++ exception caught!\n\nGenerating MiniDump...",
-            "Unknown Exception",
+        MessageBoxW(nullptr,
+            L"Unknown C++ exception caught!\n\nGenerating MiniDump...",
+            L"Unknown Exception",
             MB_OK | MB_ICONERROR);
 
         // MiniDump 생성
