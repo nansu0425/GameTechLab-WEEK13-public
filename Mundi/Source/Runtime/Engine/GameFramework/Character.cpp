@@ -97,7 +97,6 @@ void ACharacter::UpdateQuarterViewCamera(float DeltaSeconds)
 	// 쿼터뷰 카메라 설정
 	// 플레이어 뒤쪽 위에서 내려다보는 각도
 	const FVector CameraOffset(-5.0f, 0.0f, 5.0f);  // 플레이어 기준 오프셋
-	const float CameraInterpSpeed = 500.0f;  // 카메라 부드럽게 따라가는 속도
 
 	// 플레이어 위치 가져오기
 	FVector PlayerLocation = GetActorLocation();
@@ -109,8 +108,7 @@ void ACharacter::UpdateQuarterViewCamera(float DeltaSeconds)
 	FVector CurrentCameraLocation = CameraComponent->GetWorldLocation();
 
 	// 부드럽게 보간 (Lerp)
-	float Alpha = 1.0f - std::pow(1.0f - FMath::Clamp(CameraInterpSpeed * DeltaSeconds, 0.0f, 1.0f), DeltaSeconds);
-	FVector NewCameraLocation = FMath::Lerp(CurrentCameraLocation, TargetCameraLocation, Alpha);
+	FVector NewCameraLocation = TargetCameraLocation;
 
 	// 카메라 위치 설정
 	CameraComponent->SetWorldLocation(NewCameraLocation);
