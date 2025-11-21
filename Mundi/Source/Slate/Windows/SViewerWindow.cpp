@@ -311,47 +311,60 @@ void SViewerWindow::OnRenderViewport()
     }
 }
 
-void SViewerWindow::RenderTabBar()
+void SViewerWindow::RenderViewerButton(EViewerType ViewerType, EViewerType CurrentViewerType, const char* Id, const char* ToolTip, UTexture* Icon)
 {
-    for (int i = 0; i < Tabs.Num(); ++i)
+    bool disabled = (CurrentViewerType == ViewerType);
+    
+    if (disabled)
     {
-        ViewerState* State = Tabs[i];
-        bool open = true;
-        if (ImGui::BeginTabItem(State->Name.ToString().c_str(), &open))
-        {
-            ActiveTabIndex = i;
-            ActiveState = State;
-            ImGui::EndTabItem();
-        }
-        if (!open)
-        {
-            CloseTab(i);
-            break;
-        }
+        ImGui::BeginDisabled();
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.2f);
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(1, 1, 1, 0.75f));
     }
-    if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing))
+    
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.85f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 0.7f));
+    
+    const ImVec2 IconSizeVec(22, 22);
+
+    if (ImGui::ImageButton(Id, (void*)Icon->GetShaderResourceView(), IconSizeVec))
     {
-        int maxViewerNum = 0;
-        for (int i = 0; i < Tabs.Num(); ++i)
+        SViewerWindow* TargetWindow = nullptr;
+        for (SWindow* Window : USlateManager::GetInstance().GetDetachedWindows())
         {
-            const FString& tabName = Tabs[i]->Name.ToString();
-            const char* prefix = "Viewer ";
-            if (strncmp(tabName.c_str(), prefix, strlen(prefix)) == 0)
+            if ((ViewerType == EViewerType::Skeletal && dynamic_cast<SSkeletalMeshViewerWindow*>(Window)) ||
+                (ViewerType == EViewerType::Animation && dynamic_cast<SAnimationViewerWindow*>(Window)) ||
+                (ViewerType == EViewerType::BlendSpace && dynamic_cast<SBlendSpaceEditorWindow*>(Window)))
             {
-                const char* numberPart = tabName.c_str() + strlen(prefix);
-                int num = atoi(numberPart);
-                if (num > maxViewerNum)
-                {
-                    maxViewerNum = num;
-                }
+                TargetWindow = static_cast<SViewerWindow*>(Window);
+                break;
             }
         }
 
-        char label[32];
-        sprintf_s(label, "Viewer %d", maxViewerNum + 1);
-        OpenNewTab(label);
+        if (TargetWindow)
+        {
+            TargetWindow->RequestFocus();
+        }
+        else if (ActiveState && ActiveState->CurrentMesh)
+        {
+            UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
+            Context->ViewerType = ViewerType;
+            Context->AssetPath = ActiveState->LoadedMeshPath;
+            USlateManager::GetInstance().OpenAssetViewer(Context);
+        }
     }
-    ImGui::EndTabBar();
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip(ToolTip);
+
+    ImGui::PopStyleColor(3);
+
+    if (disabled)
+    {
+        ImGui::PopStyleColor();
+        ImGui::PopStyleVar();
+        ImGui::EndDisabled();
+    }
 }
 
 void SViewerWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
@@ -417,9 +430,22 @@ void SViewerWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
     float availableHeight = ImGui::GetContentRegionAvail().y;
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (availableHeight - BtnHeight) * 0.5f);
 
+    // Save Button (Left-aligned)
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+    if (ImGui::ImageButton("##Save",
+        (void*)IconSave->GetShaderResourceView(), IconSizeVec))
+    {
+        // TODO: Add asset saving logic here
+        if (ActiveState)
+        {
+            UE_LOG("Save button clicked for asset: %s", ActiveState->LoadedMeshPath.c_str());
+        }
+    }
+    ImGui::PopStyleColor();
+    ImGui::SameLine();
+
     const float framePaddingX = ImGui::GetStyle().FramePadding.x;
     const float spacingX = ImGui::GetStyle().ItemSpacing.x;
-
     const float singleButtonTotalWidth = IconSizeVec.x + framePaddingX * 2;
     const float totalButtonsWidth = (singleButtonTotalWidth * 3) + (spacingX * 2);
 
@@ -431,120 +457,34 @@ void SViewerWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
     // ----------------------------------------------------
     // Skeletal Viewer Button
     // ----------------------------------------------------
-    {
-        bool disabled = (CurrentViewerType == EViewerType::Skeletal);
-        if (disabled) ImGui::BeginDisabled();
-
-        if (ImGui::ImageButton("##SkelViewBtn",
-            (void*)IconSkeletalViewer->GetShaderResourceView(), IconSizeVec))
-        {
-            SViewerWindow* TargetWindow = nullptr;
-            for (SWindow* Window : USlateManager::GetInstance().GetDetachedWindows())
-            {
-                if (dynamic_cast<SSkeletalMeshViewerWindow*>(Window))
-                {
-                    TargetWindow = static_cast<SViewerWindow*>(Window);
-                    break;
-                }
-            }
-
-            if (TargetWindow)
-            {
-                TargetWindow->RequestFocus();
-            }
-            else if (ActiveState && ActiveState->CurrentMesh)
-            {
-                UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
-                Context->ViewerType = EViewerType::Skeletal;
-                Context->AssetPath = ActiveState->LoadedMeshPath;
-                USlateManager::GetInstance().OpenAssetViewer(Context);
-            }
-        }
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Skeletal Mesh Viewer");
-
-        if (disabled) ImGui::EndDisabled();
-    }
-
+    RenderViewerButton(EViewerType::Skeletal,
+        CurrentViewerType,
+        "##SkelViewBtn",
+        "Skeletal Mesh Viewer",
+        IconSkeletalViewer
+    );
     ImGui::SameLine();
 
     // ----------------------------------------------------
     // Animation Viewer Button
     // ----------------------------------------------------
-    {
-        bool disabled = (CurrentViewerType == EViewerType::Animation);
-        if (disabled) ImGui::BeginDisabled();
-
-        if (ImGui::ImageButton("##AnimViewBtn",
-            (void*)IconAnimationViewer->GetShaderResourceView(), IconSizeVec))
-        {
-            SViewerWindow* TargetWindow = nullptr;
-            for (SWindow* Window : USlateManager::GetInstance().GetDetachedWindows())
-            {
-                if (dynamic_cast<SAnimationViewerWindow*>(Window))
-                {
-                    TargetWindow = static_cast<SViewerWindow*>(Window);
-                    break;
-                }
-            }
-
-            if (TargetWindow)
-            {
-                TargetWindow->RequestFocus();
-            }
-            else if (ActiveState && ActiveState->CurrentMesh)
-            {
-                UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
-                Context->ViewerType = EViewerType::Animation;
-                Context->AssetPath = ActiveState->LoadedMeshPath;
-                USlateManager::GetInstance().OpenAssetViewer(Context);
-            }
-        }
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Animation Viewer");
-
-        if (disabled) ImGui::EndDisabled();
-    }
-
+    RenderViewerButton(EViewerType::Animation,
+        CurrentViewerType,
+        "##AnimViewBtn",
+        "Animation Viewer",
+        IconAnimationViewer
+    );
     ImGui::SameLine();
 
     // ----------------------------------------------------
     // BlendSpace Viewer Button
     // ----------------------------------------------------
-    {
-        bool disabled = (CurrentViewerType == EViewerType::BlendSpace);
-        if (disabled) ImGui::BeginDisabled();
-
-        if (ImGui::ImageButton("##BlendSpaceBtn",
-            (void*)IconBlendSpaceEditor->GetShaderResourceView(), IconSizeVec))
-        {
-            SViewerWindow* TargetWindow = nullptr;
-            for (SWindow* Window : USlateManager::GetInstance().GetDetachedWindows())
-            {
-                if (dynamic_cast<SBlendSpaceEditorWindow*>(Window))
-                {
-                    TargetWindow = static_cast<SViewerWindow*>(Window);
-                    break;
-                }
-            }
-
-            if (TargetWindow)
-            {
-                TargetWindow->RequestFocus();
-            }
-            else if (ActiveState && ActiveState->CurrentMesh)
-            {
-                UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
-                Context->ViewerType = EViewerType::BlendSpace;
-                Context->AssetPath = ActiveState->LoadedMeshPath;
-                USlateManager::GetInstance().OpenAssetViewer(Context);
-            }
-        }
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("BlendSpace Editor");
-
-        if (disabled) ImGui::EndDisabled();
-    }
+    RenderViewerButton(EViewerType::BlendSpace,
+        CurrentViewerType,
+        "##BlendSpaceBtn",
+        "BlendSpace Editor",
+        IconBlendSpaceEditor
+    );
 
     ImGui::EndChild();
 }
@@ -1315,6 +1255,9 @@ void SViewerWindow::LoadViewerToolbarIcons(ID3D11Device* Device)
 	IconBone->Load(GDataDir + "/Icon/Bone_Hierarchy.png", Device);
 
     // 뷰어 아이콘 로드
+    IconSave = NewObject<UTexture>();
+    IconSave->Load(GDataDir + "/Icon/Toolbar_Save.png", Device);
+
     IconSkeletalViewer = NewObject<UTexture>();
     IconSkeletalViewer->Load(GDataDir + "/Icon/Skeletal_Viewer.png", Device);
 
