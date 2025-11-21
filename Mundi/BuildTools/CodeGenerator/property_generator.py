@@ -32,27 +32,43 @@ class PropertyGenerator:
 
     def __init__(self):
         self.template = Template(PROPERTY_TEMPLATE)
+        self.all_classes = {}  # 모든 클래스 정보 저장 (name -> ClassInfo)
+
+    def set_all_classes(self, classes):
+        """모든 클래스 정보를 설정 (상속 체인 추적용)"""
+        self.all_classes = {cls.name: cls for cls in classes}
+
+    def _is_derived_from(self, class_name: str, base_class: str) -> bool:
+        """class_name이 base_class를 상속받는지 확인 (재귀적으로 부모 추적)"""
+        if class_name == base_class:
+            return True
+
+        # 클래스 정보가 없으면 False
+        if class_name not in self.all_classes:
+            return False
+
+        # 부모 클래스 확인
+        parent = self.all_classes[class_name].parent
+        if not parent:
+            return False
+
+        # 재귀적으로 부모의 부모까지 확인
+        return self._is_derived_from(parent, base_class)
 
     def generate(self, class_info: ClassInfo) -> str:
         """ClassInfo로부터 BEGIN_PROPERTIES 블록 생성"""
 
         # mark_type 결정:
-        # 1. Abstract 클래스는 MARK 없음 (언리얼 엔진 패턴)
-        # 2. AActor/UActorComponent 자체는 MARK 없음
-        # 3. AActor를 상속받은 클래스는 MARK_AS_SPAWNABLE (직접/간접)
-        # 4. UActorComponent를 상속받은 클래스는 MARK_AS_COMPONENT (직접/간접)
-        # 5. 그 외 (순수 UObject 등)는 MARK 없음
+        # 1. AActor 자체는 MARK 없음
+        # 2. AActor를 상속받은 클래스 (직간접 포함)는 MARK_AS_SPAWNABLE
+        # 3. 나머지는 MARK_AS_COMPONENT
         mark_type = None
-
-        if class_info.is_abstract:
-            mark_type = None  # Abstract 클래스는 에디터에 노출 안 함
-        elif class_info.name in ['AActor', 'UActorComponent']:
-            mark_type = None  # 베이스 클래스는 MARK 없음
-        elif hasattr(class_info, 'is_derived_from') and class_info.is_derived_from('AActor'):
-            mark_type = 'SPAWNABLE'  # AActor 파생 (직접/간접)
-        elif hasattr(class_info, 'is_derived_from') and class_info.is_derived_from('UActorComponent'):
-            mark_type = 'COMPONENT'  # UActorComponent 파생 (직접/간접)
-        # else: mark_type은 None으로 유지 (순수 UObject 등)
+        if class_info.name == 'AActor':
+            mark_type = None  # AActor는 MARK 없음
+        elif self._is_derived_from(class_info.name, 'AActor'):
+            mark_type = 'SPAWNABLE'  # AActor를 상속받은 클래스 (직간접)
+        else:
+            mark_type = 'COMPONENT'  # 그 외 (컴포넌트 등)
 
         # DisplayName과 Description 결정
         display_name = class_info.display_name or class_info.name

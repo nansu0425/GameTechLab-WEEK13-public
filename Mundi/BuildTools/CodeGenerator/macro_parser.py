@@ -132,6 +132,10 @@ class MacroParser:
         if '*' not in cpp_type:
             return None
 
+        # Component 타입은 일반 ObjectPtr로 처리
+        if 'component' in type_lower:
+            return None
+
         # 각 매크로의 패턴들과 매칭 시도
         for macro_name, macro_info in self.macros.items():
             patterns = macro_info.get_cpp_type_patterns()
