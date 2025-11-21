@@ -46,3 +46,6 @@ FObjImporter::LoadObjModel(... , bIsRightHanded = true) // 기본값
 | 버텍스 순서 | CW (시계 방향)        | CCW (반시계 방향)       | CW |
 
 ### [데모 씬용 FBX 파일](https://drive.google.com/file/d/14UviD0dfo2LsvJltEeCxywRB8f0m156E/view?usp=sharing)
+- ```..\Mundi\Data```에 FBX 파일을 넣어주세요. 폴더 통째로 넣어도 됩니다.
+### [라이브러리 파일](https://drive.google.com/file/d/1KntcGe_4ONi1wb1dOnqjbUYr-G-mIC8h/view?usp=sharing)
+- ```..\Mundi\ThirdParty```에 라이브러리 파일인 lib.zip 압축을 풀어 lib폴더를 넣어주세요.
