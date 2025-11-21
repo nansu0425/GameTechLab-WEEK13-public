@@ -44,3 +44,5 @@ FObjImporter::LoadObjModel(... , bIsRightHanded = true) // 기본값
 | ------ | ----------------- | ------------------ | ----------------- |
 | 좌표계    | Z-Up, Left-Handed | Z-Up, Right-Handed | Z-Up, Left-Handed |
 | 버텍스 순서 | CW (시계 방향)        | CCW (반시계 방향)       | CW |
+
+### [데모 씬용 FBX 파일](https://drive.google.com/file/d/14UviD0dfo2LsvJltEeCxywRB8f0m156E/view?usp=sharing)
