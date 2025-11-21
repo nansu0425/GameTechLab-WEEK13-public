@@ -1254,12 +1254,14 @@ void SAnimationViewerWindow::RenderLeftTrackList(float width, float RowHeight, f
     // Popup must be OUTSIDE the loop
     if (ImGui::BeginPopup("NotifiesContextMenu"))
     {
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.35f));
         if (ImGui::MenuItem("Add Notify Track"))
         {
             int idx = ActiveState->NotifyTracks.size();
             ActiveState->NotifyTracks.push_back(FNotifyTrack("Track " + std::to_string(idx)));
             SyncNotifyTracksToDataModel();
         }
+        ImGui::PopStyleColor();
         ImGui::EndPopup();
     }
 
@@ -1543,6 +1545,7 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
         {
             if (ImGui::BeginPopupContextItem(("RowPopup_" + std::to_string(row)).c_str()))
             {
+                ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.35f));
                 if (ImGui::MenuItem("Add Notify"))
                 {
                     float mouseX = ImGui::GetMousePos().x - gridOrigin.x;
@@ -1562,7 +1565,7 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
                     ActiveState->NotifyTracks[NotifyIndex].Notifies.Add(newNotify);
                     SyncNotifyTracksToDataModel();
                 }
-
+                ImGui::PopStyleColor();
                 ImGui::EndPopup();
             }
         }

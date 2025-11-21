@@ -78,7 +78,7 @@ protected:
 	bool bLeftMousePressed = false;   // 좌클릭 드래그 (기즈모 조작)
 	bool bRightMousePressed = false;  // 우클릭 드래그 (카메라 조작)
 
-	void RenderTabBar();
+	void RenderViewerButton(EViewerType ViewerType, EViewerType CurrentViewerType, const char* Id, const char* ToolTip, UTexture* Icon);
 	void RenderTabsAndToolbar(EViewerType CurrentViewerType);
 	void OpenNewTab(const char* Name = "Viewer");
 	void CloseTab(int Index);
@@ -157,6 +157,7 @@ private:
 	class UTexture* IconBone = nullptr;
 
 	// 뷰어 아이콘
+	class UTexture* IconSave = nullptr;
 	class UTexture* IconSkeletalViewer = nullptr;
 	class UTexture* IconAnimationViewer = nullptr;
 	class UTexture* IconBlendSpaceEditor = nullptr;
