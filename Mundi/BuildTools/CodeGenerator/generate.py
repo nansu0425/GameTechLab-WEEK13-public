@@ -243,6 +243,13 @@ def generate_header_file(class_info):
 def generate_implement_class(class_info):
     """IMPLEMENT_CLASS 매크로 확장 코드 생성"""
     class_name = class_info.name
+
+    # 추상 클래스는 팩토리 함수를 nullptr로 등록 (에디터에서 직접 생성 불가)
+    if class_info.is_abstract:
+        factory_lambda = "nullptr"
+    else:
+        factory_lambda = f"[]() -> UObject* {{ return new {class_name}(); }}"
+
     return f"""
 // IMPLEMENT_CLASS({class_name}) expansion
 namespace {{
@@ -252,7 +259,7 @@ namespace {{
         {{
             ObjectFactory::RegisterClassType(
                 {class_name}::StaticClass(),
-                []() -> UObject* {{ return new {class_name}(); }}
+                {factory_lambda}
             );
         }}
     }};
