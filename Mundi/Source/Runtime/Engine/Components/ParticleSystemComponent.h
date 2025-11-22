@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "PrimitiveComponent.h"
 #include "Source/Runtime/Engine/Particles/ParticleSystem.h"
@@ -27,6 +27,24 @@ public:
 	// 렌더 데이터 (렌더링 스레드용)
 	TArray<FDynamicEmitterDataBase*> EmitterRenderData;
 
+	// 언리얼 엔진 호환: 인스턴스 파라미터 시스템
+	// 게임플레이에서 파티클 속성을 동적으로 제어 가능
+	struct FParticleParameter
+	{
+		FString Name;
+		float FloatValue = 0.0f;
+		FVector VectorValue = FVector(0.0f, 0.0f, 0.0f);
+		FLinearColor ColorValue = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+		FParticleParameter() = default;
+		explicit FParticleParameter(const FString& InName)
+			: Name(InName)
+		{
+		}
+	};
+
+	TArray<FParticleParameter> InstanceParameters;
+
 	// Dynamic Vertex / Index Buffer
 	ID3D11Buffer* ParticleVertexBuffer = nullptr;
 	ID3D11Buffer* ParticleIndexBuffer = nullptr;
@@ -50,6 +68,15 @@ public:
 
 	// 템플릿 설정
 	void SetTemplate(UParticleSystem* NewTemplate);
+
+	// 언리얼 엔진 호환: 인스턴스 파라미터 제어
+	void SetFloatParameter(const FString& ParameterName, float Value);
+	void SetVectorParameter(const FString& ParameterName, const FVector& Value);
+	void SetColorParameter(const FString& ParameterName, const FLinearColor& Value);
+
+	float GetFloatParameter(const FString& ParameterName, float DefaultValue = 0.0f) const;
+	FVector GetVectorParameter(const FString& ParameterName, const FVector& DefaultValue = FVector(0.0f, 0.0f, 0.0f)) const;
+	FLinearColor GetColorParameter(const FString& ParameterName, const FLinearColor& DefaultValue = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)) const;
 
 	// 직렬화
 	virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;

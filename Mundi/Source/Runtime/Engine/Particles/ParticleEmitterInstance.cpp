@@ -26,12 +26,10 @@ FParticleEmitterInstance::FParticleEmitterInstance()
 
 FParticleEmitterInstance::~FParticleEmitterInstance()
 {
-	if (ParticleData)
-	{
-		delete[] ParticleData;
-		ParticleData = nullptr;
-		ParticleIndices = nullptr;
-	}
+	// 언리얼 엔진 호환: FParticleDataContainer가 자동으로 메모리 해제
+	// ParticleDataContainer.Free()는 소멸자에서 자동 호출됨
+	ParticleData = nullptr;
+	ParticleIndices = nullptr;
 
 	if (InstanceData)
 	{
@@ -45,54 +43,66 @@ void FParticleEmitterInstance::Init(UParticleSystemComponent* InComponent, UPart
 	Component = InComponent;
 	SpriteTemplate = InTemplate;
 
-	if (SpriteTemplate)
+	// 필수 객체 nullptr 체크
+	if (!SpriteTemplate)
 	{
-		// 현재 LOD 레벨 가져오기 (기본값 0)
-		CurrentLODLevelIndex = 0;
-		CurrentLODLevel = SpriteTemplate->GetLODLevel(CurrentLODLevelIndex);
+		return;
+	}
 
-		if (CurrentLODLevel)
+	// 현재 LOD 레벨 가져오기 (기본값 0)
+	CurrentLODLevelIndex = 0;
+	CurrentLODLevel = SpriteTemplate->GetLODLevel(CurrentLODLevelIndex);
+
+	if (!CurrentLODLevel)
+	{
+		return;
+	}
+
+	// RequiredModule 체크 (렌더링에 필수)
+	if (!CurrentLODLevel->RequiredModule)
+	{
+		// RequiredModule이 없으면 렌더링 불가
+		return;
+	}
+
+	// 언리얼 엔진 호환: 페이로드 크기 계산
+	// 각 모듈이 필요로 하는 추가 데이터 크기를 계산하고 오프셋 할당
+	uint32 TotalPayloadSize = 0;
+	InstancePayloadSize = 0;
+
+	// 모든 모듈의 페이로드 크기 계산
+	for (UParticleModule* Module : CurrentLODLevel->Modules)
+	{
+		if (Module && Module->bEnabled)
 		{
-			// 언리얼 엔진 호환: 페이로드 크기 계산
-			// 각 모듈이 필요로 하는 추가 데이터 크기를 계산하고 오프셋 할당
-			uint32 TotalPayloadSize = 0;
-			InstancePayloadSize = 0;
+			// 파티클별 페이로드
+			uint32 ModulePayloadSize = Module->RequiredBytes(this);
+			Module->ModuleOffsetInParticle = TotalPayloadSize;
+			TotalPayloadSize += ModulePayloadSize;
 
-			// 모든 모듈의 페이로드 크기 계산
-			for (UParticleModule* Module : CurrentLODLevel->Modules)
-			{
-				if (Module && Module->bEnabled)
-				{
-					// 파티클별 페이로드
-					uint32 ModulePayloadSize = Module->RequiredBytes(this);
-					Module->ModuleOffsetInParticle = TotalPayloadSize;
-					TotalPayloadSize += ModulePayloadSize;
-
-					// 인스턴스별 페이로드
-					InstancePayloadSize += Module->RequiredBytesPerInstance();
-				}
-			}
-
-			// 파티클 크기와 스트라이드 계산 (기본 파티클 + 페이로드)
-			ParticleSize = SpriteTemplate->ParticleSize;
-			PayloadOffset = ParticleSize;  // 페이로드는 기본 파티클 뒤에 위치
-			ParticleStride = ParticleSize + TotalPayloadSize;
-
-			// 인스턴스 데이터 할당 (필요한 경우)
-			if (InstancePayloadSize > 0)
-			{
-				if (InstanceData)
-				{
-					delete[] InstanceData;
-				}
-				InstanceData = new uint8[InstancePayloadSize];
-				memset(InstanceData, 0, InstancePayloadSize);
-			}
-
-			// 초기 파티클 데이터 할당
-			Resize(100); // Default to 100 particles
+			// 인스턴스별 페이로드
+			InstancePayloadSize += Module->RequiredBytesPerInstance();
 		}
 	}
+
+	// 파티클 크기와 스트라이드 계산 (기본 파티클 + 페이로드)
+	ParticleSize = SpriteTemplate->ParticleSize;
+	PayloadOffset = ParticleSize;  // 페이로드는 기본 파티클 뒤에 위치
+	ParticleStride = ParticleSize + TotalPayloadSize;
+
+	// 인스턴스 데이터 할당 (필요한 경우)
+	if (InstancePayloadSize > 0)
+	{
+		if (InstanceData)
+		{
+			delete[] InstanceData;
+		}
+		InstanceData = new uint8[InstancePayloadSize];
+		memset(InstanceData, 0, InstancePayloadSize);
+	}
+
+	// 초기 파티클 데이터 할당
+	Resize(100); // Default to 100 particles
 }
 
 void FParticleEmitterInstance::Resize(int32 NewMaxActiveParticles)
@@ -102,34 +112,44 @@ void FParticleEmitterInstance::Resize(int32 NewMaxActiveParticles)
 		return;
 	}
 
-	// 이전 데이터 해제
-	if (ParticleData)
-	{
-		delete[] ParticleData;
-		ParticleData = nullptr;
-		ParticleIndices = nullptr;
-	}
-
 	MaxActiveParticles = NewMaxActiveParticles;
 
 	if (MaxActiveParticles > 0)
 	{
-		// 파티클 데이터 할당 + 인덱스
+		// 언리얼 엔진 호환: FParticleDataContainer를 사용하여 16바이트 정렬 메모리 할당
 		int32 ParticleDataSize = MaxActiveParticles * ParticleStride;
-		int32 IndicesSize = MaxActiveParticles * sizeof(uint16);
-		int32 TotalSize = ParticleDataSize + IndicesSize;
+		bool bAllocSuccess = ParticleDataContainer.Alloc(ParticleDataSize, MaxActiveParticles);
 
-		ParticleData = new uint8[TotalSize];
-		memset(ParticleData, 0, TotalSize);
-
-		// 파티클 인덱스는 파티클 데이터 뒤에 위치
-		ParticleIndices = (uint16*)(ParticleData + ParticleDataSize);
-
-		// 인덱스 초기화
-		for (int32 i = 0; i < MaxActiveParticles; i++)
+		if (bAllocSuccess)
 		{
-			ParticleIndices[i] = i;
+			// 컨테이너에서 포인터 가져오기
+			ParticleData = ParticleDataContainer.ParticleData;
+			ParticleIndices = ParticleDataContainer.ParticleIndices;
+
+			// 인덱스 초기화
+			if (ParticleIndices)
+			{
+				for (int32 i = 0; i < MaxActiveParticles; i++)
+				{
+					ParticleIndices[i] = i;
+				}
+			}
 		}
+		else
+		{
+			// 할당 실패 시 폴백: 이전 상태 유지
+			ParticleData = nullptr;
+			ParticleIndices = nullptr;
+			MaxActiveParticles = 0;
+			// TODO: 로깅 또는 에러 처리 추가
+		}
+	}
+	else
+	{
+		// 크기가 0이면 해제
+		ParticleDataContainer.Free();
+		ParticleData = nullptr;
+		ParticleIndices = nullptr;
 	}
 
 	ActiveParticles = 0;
@@ -145,7 +165,7 @@ void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 	// 기존 파티클 업데이트
 	UpdateParticles(DeltaTime);
 
-	// 새 파티클 생성 (억제되지 않은 경우)
+	// 언리얼 엔진 호환: 새 파티클 생성 (억제되지 않은 경우)
 	if (!bSuppressSpawning)
 	{
 		// SpawnModule 찾기
@@ -162,26 +182,16 @@ void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 			}
 		}
 
-		// 언리얼 엔진 방식: Burst 처리 (최초 1회만)
-		if (!bBurstFired && SpawnModule && SpawnModule->BurstCount > 0)
+		// 언리얼 엔진 호환: 스폰 로직을 모듈에 위임 (책임 분리)
+		if (SpawnModule)
 		{
-			bBurstFired = true;
-			SpawnParticles(SpawnModule->BurstCount, 0.0f, 0.0f, FVector(0.0f, 0.0f, 0.0f), FVector(0.0f, 0.0f, 0.0f));
-		}
+			int32 SpawnCount = SpawnModule->CalculateSpawnCount(DeltaTime, SpawnFraction, bBurstFired);
 
-		// SpawnRate에 따른 정상 스폰
-		float SpawnRate = SpawnModule ? SpawnModule->SpawnRate : 0.0f;
-
-		// SpawnRate가 0보다 크면 파티클 생성
-		if (SpawnRate > 0.0f)
-		{
-			float ParticlesToSpawn = SpawnRate * DeltaTime + SpawnFraction;
-			int32 Count = static_cast<int32>(ParticlesToSpawn);
-			SpawnFraction = ParticlesToSpawn - Count;
-
-			if (Count > 0)
+			if (SpawnCount > 0)
 			{
-				SpawnParticles(Count, 0.0f, DeltaTime / Count, FVector(0.0f, 0.0f, 0.0f), FVector(0.0f, 0.0f, 0.0f));
+				// 파티클 간 균등한 시간 간격 계산
+				float Increment = (SpawnCount > 1) ? (DeltaTime / SpawnCount) : 0.0f;
+				SpawnParticles(SpawnCount, 0.0f, Increment, FVector(0.0f, 0.0f, 0.0f), FVector(0.0f, 0.0f, 0.0f));
 			}
 		}
 	}
@@ -189,7 +199,8 @@ void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 
 void FParticleEmitterInstance::SpawnParticles(int32 Count, float StartTime, float Increment, const FVector& InitialLocation, const FVector& InitialVelocity)
 {
-	if (!CurrentLODLevel)
+	// 필수 객체 nullptr 체크
+	if (!CurrentLODLevel || !ParticleData)
 	{
 		return;
 	}
@@ -201,14 +212,22 @@ void FParticleEmitterInstance::SpawnParticles(int32 Count, float StartTime, floa
 		{
 			// 더 많은 파티클을 수용하도록 크기 조정
 			Resize(MaxActiveParticles * 2);
+
+			// Resize 실패 시 중단
+			if (!ParticleData)
+			{
+				return;
+			}
 		}
 
-		// 새 파티클의 인덱스 가져오기
-		int32 ParticleIndex = ActiveParticles;
+		// 새 파티클의 슬롯 가져오기 (인덱스 시스템 사용)
+		// ParticleIndices[ActiveParticles]는 다음 사용 가능한 슬롯을 가리킴
+		// (KillParticle에서 스왑된 빈 슬롯 또는 초기화 시 순차 슬롯)
+		int32 ParticleSlot = ParticleIndices[ActiveParticles];
 		ActiveParticles++;
 
 		// 파티클 포인터 가져오기 (언리얼 방식)
-		uint8* ParticleBase = ParticleData + (ParticleIndex * ParticleStride);
+		uint8* ParticleBase = ParticleData + (ParticleSlot * ParticleStride);
 		DECLARE_PARTICLE_PTR(Particle, ParticleBase);
 
 		// 생성 전
@@ -351,8 +370,8 @@ FBaseParticle* FParticleEmitterInstance::GetParticleAtIndex(int32 Index)
 
 FDynamicEmitterDataBase* FParticleEmitterInstance::GetDynamicData(bool bSelected)
 {
-	// 활성 파티클이 없으면 nullptr 반환
-	if (ActiveParticles <= 0)
+	// 필수 객체 nullptr 체크
+	if (!ParticleData || !CurrentLODLevel || ActiveParticles <= 0)
 	{
 		return nullptr;
 	}
@@ -366,18 +385,32 @@ FDynamicEmitterDataBase* FParticleEmitterInstance::GetDynamicData(bool bSelected
 
 	// 파티클 데이터 복사 (언리얼 엔진 방식: Alloc 사용)
 	int32 ParticleDataBytes = ActiveParticles * ParticleStride;
-	NewData->Source.DataContainer.Alloc(ParticleDataBytes, ActiveParticles);
+	bool bAllocSuccess = NewData->Source.DataContainer.Alloc(ParticleDataBytes, ActiveParticles);
+
+	if (!bAllocSuccess)
+	{
+		// 할당 실패 시 데이터 삭제 후 nullptr 반환
+		delete NewData;
+		return nullptr;
+	}
 
 	// 메모리 복사
 	memcpy(NewData->Source.DataContainer.ParticleData, ParticleData, ParticleDataBytes);
 	memcpy(NewData->Source.DataContainer.ParticleIndices, ParticleIndices, ActiveParticles * sizeof(uint16));
 
-	// Required 모듈과 Material 설정 (렌더링 시 필요)
-	// TODO: FParticleRequiredModule 구조체 정의 후 변환 필요
-	NewData->Source.RequiredModule = nullptr;
+	// 언리얼 엔진 호환: Required 모듈과 Material 설정 (렌더링 시 필요)
 	if (CurrentLODLevel && CurrentLODLevel->RequiredModule)
 	{
-		NewData->Source.MaterialInterface = CurrentLODLevel->RequiredModule->Material;
+		// 렌더 스레드용 데이터로 변환하여 저장 (TUniquePtr 사용)
+		NewData->Source.RequiredModule = std::make_unique<FParticleRequiredModule>(
+			CurrentLODLevel->RequiredModule->ToRenderThreadData()
+		);
+		NewData->Source.MaterialInterface = NewData->Source.RequiredModule->Material;
+	}
+	else
+	{
+		NewData->Source.RequiredModule = nullptr;
+		NewData->Source.MaterialInterface = nullptr;
 	}
 
 	// 컴포넌트 스케일 설정

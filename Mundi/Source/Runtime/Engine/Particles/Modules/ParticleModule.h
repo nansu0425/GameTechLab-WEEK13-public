@@ -30,6 +30,12 @@ public:
 	UParticleModule() = default;
 	virtual ~UParticleModule() = default;
 
+	// 언리얼 엔진 호환: 모듈 초기화 및 기본값 설정
+	virtual void InitializeDefaults()
+	{
+		// 파생 클래스에서 오버라이드하여 기본값 설정
+	}
+
 	// 이미터 인스턴스가 생성될 때 한 번 호출
 	virtual void Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
 	{

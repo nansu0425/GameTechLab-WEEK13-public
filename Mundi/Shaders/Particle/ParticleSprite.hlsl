@@ -41,24 +41,24 @@ PS_INPUT mainVS(VS_INPUT input)
 {
     PS_INPUT output;
 
-    // 1. 로컬 오프셋 계산 (UV 기준, 중심이 0)
+    // 로컬 오프셋 계산 (UV 0.5 중심 기준)
     float2 localOffset = (input.UV - 0.5f) * input.Size;
 
-    // 2. Z축 회전 적용
-    float c = cos(input.Rotation);
-    float s = sin(input.Rotation);
+    // Z축 회전 적용 (카메라 Forward 축 기준 회전)
+    float cosR = cos(input.Rotation);
+    float sinR = sin(input.Rotation);
     float2 rotatedOffset;
-    rotatedOffset.x = localOffset.x * c - localOffset.y * s;
-    rotatedOffset.y = localOffset.x * s + localOffset.y * c;
+    rotatedOffset.x = localOffset.x * cosR - localOffset.y * sinR;
+    rotatedOffset.y = localOffset.x * sinR + localOffset.y * cosR;
 
-    // 3. 빌보드 정렬 (InverseViewMatrix로 카메라 방향 변환)
-    // Billboard.hlsl과 동일한 패턴
-    float3 worldOffset = mul(float4(rotatedOffset, 0.0f, 0.0f), InverseViewMatrix).xyz;
+    // 뷰 공간에서 오프셋 생성 후 월드 공간으로 변환 (빌보드)
+    float3 viewSpaceOffset = float3(rotatedOffset.x, rotatedOffset.y, 0.0f);
+    float3 worldOffset = mul(float4(viewSpaceOffset, 0.0f), InverseViewMatrix).xyz;
 
-    // 4. 최종 월드 위치
+    // 월드 위치에 빌보드 오프셋 적용
     float3 worldPos = input.WorldPosition + worldOffset;
 
-    // 5. View-Projection 변환
+    // View-Projection 변환
     output.Position = mul(float4(worldPos, 1.0f), mul(ViewMatrix, ProjectionMatrix));
     output.UV = input.UV;
     output.Color = input.Color;
@@ -74,11 +74,11 @@ PS_OUTPUT mainPS(PS_INPUT input)
     // 텍스처 샘플링
     float4 texColor = ParticleTexture.Sample(LinearSampler, input.UV);
 
-    // 알파 테스트
+    // 알파 테스트 (거의 투명한 픽셀 제거)
     if (texColor.a < 0.01f)
         discard;
 
-    // 파티클 색상 적용
+    // 텍스처 색상과 파티클 색상 곱하기
     output.Color = texColor * input.Color;
 
     return output;

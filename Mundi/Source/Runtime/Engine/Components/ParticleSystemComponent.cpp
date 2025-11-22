@@ -5,10 +5,15 @@
 #include "Material.h"
 #include "Shader.h"
 #include "ResourceManager.h"
+#include "Texture.h"
+#include "Modules/ParticleModuleSpawn.h"
+#include "Modules/ParticleModuleLifetime.h"
+#include "Modules/ParticleModuleVelocity.h"
 
 UParticleSystemComponent::UParticleSystemComponent()
 {
 	bAutoActivate = true;
+	bCanEverTick = true;  // Tick 활성화
 }
 
 UParticleSystemComponent::~UParticleSystemComponent()
@@ -40,6 +45,52 @@ UParticleSystemComponent::~UParticleSystemComponent()
 void UParticleSystemComponent::BeginPlay()
 {
 	USceneComponent::BeginPlay();
+
+	// 테스트용: Template이 없으면 기본 파티클 시스템 생성
+	if (!Template)
+	{
+		Template = NewObject<UParticleSystem>();
+
+		// 이미터 생성
+		UParticleEmitter* Emitter = NewObject<UParticleEmitter>();
+
+		// LOD 레벨 생성
+		UParticleLODLevel* LODLevel = NewObject<UParticleLODLevel>();
+		LODLevel->bEnabled = true;
+
+		// 필수 모듈 생성
+		LODLevel->RequiredModule = NewObject<UParticleModuleRequired>();
+
+		// 스폰 모듈 생성
+		UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
+		SpawnModule->SpawnRate = 20.0f;  // 초당 20개 파티클
+		SpawnModule->BurstCount = 10;    // 시작 시 10개 버스트
+		// bSpawnModule은 생성자에서 자동으로 true로 설정됨
+		LODLevel->Modules.Add(SpawnModule);
+
+		// 라이프타임 모듈 생성 (파티클 수명 설정)
+		UParticleModuleLifetime* LifetimeModule = NewObject<UParticleModuleLifetime>();
+		LifetimeModule->MinLifetime = 2.0f;  // 최소 2초
+		LifetimeModule->MaxLifetime = 3.0f;  // 최대 3초
+		// bSpawnModule은 생성자에서 자동으로 true로 설정됨
+		LODLevel->Modules.Add(LifetimeModule);
+
+		// 속도 모듈 생성 (테스트용: 위쪽으로 퍼지는 랜덤 속도)
+		UParticleModuleVelocity* VelocityModule = NewObject<UParticleModuleVelocity>();
+		VelocityModule->StartVelocity = FVector(0.0f, 0.0f, 100.0f);  // 기본 위쪽 속도
+		VelocityModule->StartVelocityRange = FVector(50.0f, 50.0f, 50.0f);  // XYZ 랜덤 범위
+		LODLevel->Modules.Add(VelocityModule);
+
+		// 모듈 캐싱
+		LODLevel->CacheModuleInfo();
+
+		// LOD 레벨을 이미터에 추가
+		Emitter->LODLevels.Add(LODLevel);
+		Emitter->CacheEmitterModuleInfo();
+
+		// 이미터를 시스템에 추가
+		Template->Emitters.Add(Emitter);
+	}
 
 	if (bAutoActivate)
 	{
@@ -158,6 +209,8 @@ void UParticleSystemComponent::UpdateRenderData()
 	for (int32 i = 0; i < EmitterInstances.size(); i++)
 	{
 		FParticleEmitterInstance* Instance = EmitterInstances[i];
+
+
 		if (!Instance || !Instance->CurrentLODLevel)
 		{
 			continue;
@@ -179,10 +232,129 @@ void UParticleSystemComponent::UpdateRenderData()
 			// 스프라이트 이미터 데이터 생성
 			FDynamicSpriteEmitterData* SpriteData = new FDynamicSpriteEmitterData();
 			SpriteData->EmitterIndex = i;
-			// TODO: 스프라이트 렌더 데이터 채우기
+
+			// Source 데이터 채우기
+			SpriteData->Source.ActiveParticleCount = Instance->ActiveParticles;
+			SpriteData->Source.ParticleStride = Instance->ParticleStride;
+
+			// 파티클 데이터 복사 (Replay 패턴 - 렌더 스레드용 스냅샷)
+			// 중요: ParticleIndices는 전체 버퍼의 인덱스를 가리키므로
+			// MaxActiveParticles 크기의 전체 버퍼를 복사해야 함
+			if (Instance->ActiveParticles > 0 && Instance->ParticleData)
+			{
+				// 전체 버퍼 크기 사용 (MaxActiveParticles)
+				int32 DataNumBytes = Instance->MaxActiveParticles * Instance->ParticleStride;
+				int32 IndicesNumShorts = Instance->ActiveParticles;
+
+				if (SpriteData->Source.DataContainer.Alloc(DataNumBytes, IndicesNumShorts))
+				{
+					// 전체 파티클 버퍼 복사
+					memcpy(SpriteData->Source.DataContainer.ParticleData,
+						   Instance->ParticleData, DataNumBytes);
+
+					// 인덱스 복사
+					if (Instance->ParticleIndices)
+					{
+						memcpy(SpriteData->Source.DataContainer.ParticleIndices,
+							   Instance->ParticleIndices, IndicesNumShorts * sizeof(uint16));
+					}
+				}
+			}
+
 			EmitterRenderData.Add(SpriteData);
 		}
 	}
+}
+
+// 언리얼 엔진 호환: 인스턴스 파라미터 시스템 구현
+void UParticleSystemComponent::SetFloatParameter(const FString& ParameterName, float Value)
+{
+	// 기존 파라미터 찾기
+	for (FParticleParameter& Param : InstanceParameters)
+	{
+		if (Param.Name == ParameterName)
+		{
+			Param.FloatValue = Value;
+			return;
+		}
+	}
+
+	// 없으면 새로 추가
+	FParticleParameter NewParam(ParameterName);
+	NewParam.FloatValue = Value;
+	InstanceParameters.Add(NewParam);
+}
+
+void UParticleSystemComponent::SetVectorParameter(const FString& ParameterName, const FVector& Value)
+{
+	// 기존 파라미터 찾기
+	for (FParticleParameter& Param : InstanceParameters)
+	{
+		if (Param.Name == ParameterName)
+		{
+			Param.VectorValue = Value;
+			return;
+		}
+	}
+
+	// 없으면 새로 추가
+	FParticleParameter NewParam(ParameterName);
+	NewParam.VectorValue = Value;
+	InstanceParameters.Add(NewParam);
+}
+
+void UParticleSystemComponent::SetColorParameter(const FString& ParameterName, const FLinearColor& Value)
+{
+	// 기존 파라미터 찾기
+	for (FParticleParameter& Param : InstanceParameters)
+	{
+		if (Param.Name == ParameterName)
+		{
+			Param.ColorValue = Value;
+			return;
+		}
+	}
+
+	// 없으면 새로 추가
+	FParticleParameter NewParam(ParameterName);
+	NewParam.ColorValue = Value;
+	InstanceParameters.Add(NewParam);
+}
+
+float UParticleSystemComponent::GetFloatParameter(const FString& ParameterName, float DefaultValue) const
+{
+	for (const FParticleParameter& Param : InstanceParameters)
+	{
+		if (Param.Name == ParameterName)
+		{
+			return Param.FloatValue;
+		}
+	}
+	return DefaultValue;
+}
+
+FVector UParticleSystemComponent::GetVectorParameter(const FString& ParameterName, const FVector& DefaultValue) const
+{
+	for (const FParticleParameter& Param : InstanceParameters)
+	{
+		if (Param.Name == ParameterName)
+		{
+			return Param.VectorValue;
+		}
+	}
+	return DefaultValue;
+}
+
+FLinearColor UParticleSystemComponent::GetColorParameter(const FString& ParameterName, const FLinearColor& DefaultValue) const
+{
+	for (const FParticleParameter& Param : InstanceParameters)
+	{
+		if (Param.Name == ParameterName)
+		{
+			return Param.ColorValue;
+		}
+	}
+	return DefaultValue;
 }
 
 void UParticleSystemComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
@@ -355,10 +527,10 @@ void UParticleSystemComponent::FillVertexBuffer(const FSceneView* View)
 		}
 
 		// 각 파티클에 대해 쿼드 생성
-		for (int32 i = 0; i < ParticleCount; i++)
+		for (int32 ParticleIdx = 0; ParticleIdx < ParticleCount; ParticleIdx++)
 		{
 			// 파티클 인덱스로 실제 파티클 데이터 접근
-			const int32 ParticleIndex = ParticleIndices ? ParticleIndices[i] : i;
+			const int32 ParticleIndex = ParticleIndices ? ParticleIndices[ParticleIdx] : ParticleIdx;
 			const FBaseParticle* Particle = reinterpret_cast<const FBaseParticle*>(
 				ParticleData + ParticleIndex * ParticleStride
 			);
@@ -366,6 +538,15 @@ void UParticleSystemComponent::FillVertexBuffer(const FSceneView* View)
 			// 컴포넌트 월드 트랜스폼 적용
 			FVector ParticleWorldPos = GetWorldLocation() + Particle->Location * GetRelativeScale();
 			FVector2D ParticleSize = FVector2D(Particle->Size.X, Particle->Size.Y) * GetRelativeScale().X;
+
+			// 디버그: 첫 번째 파티클 데이터 확인
+			if (ParticleIdx == 0 && EmitterIdx == 0)
+			{
+				UE_LOG("[Vertex] Pos=(%.1f,%.1f,%.1f) Size=(%.1f,%.1f) CompLoc=(%.1f,%.1f,%.1f)",
+					ParticleWorldPos.X, ParticleWorldPos.Y, ParticleWorldPos.Z,
+					ParticleSize.X, ParticleSize.Y,
+					GetWorldLocation().X, GetWorldLocation().Y, GetWorldLocation().Z);
+			}
 
 			// 4개 버텍스 생성 (빌보드 정렬 및 Z회전은 GPU에서 수행)
 			for (int32 v = 0; v < 4; v++)
@@ -381,8 +562,8 @@ void UParticleSystemComponent::FillVertexBuffer(const FSceneView* View)
 
 			TArray<int> Order = { 0, 1, 2, 0, 2, 3 };
 
-			for (int i = 0; i < Order.Num(); ++i)
-				Indices[IndexOffset + 0] = VertexOffset + Order[i];
+			for (int TriIdx = 0; TriIdx < Order.Num(); ++TriIdx)
+				Indices[IndexOffset + TriIdx] = VertexOffset + Order[TriIdx];
 
 			VertexOffset += 4;
 			IndexOffset += 6;
@@ -429,6 +610,13 @@ void UParticleSystemComponent::CreateMeshBatch(TArray<FMeshBatchElement>& OutMes
 	BatchElement.WorldMatrix = FMatrix::Identity();
 	BatchElement.ObjectID = InternalIndex;
 	BatchElement.PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+
+	// 기본 텍스처 로드 (테스트용)
+	UTexture* DefaultTexture = UResourceManager::GetInstance().Load<UTexture>(GDataDir + "/cube_texture.png");
+	if (DefaultTexture && DefaultTexture->GetShaderResourceView())
+	{
+		BatchElement.InstanceShaderResourceView = DefaultTexture->GetShaderResourceView();
+	}
 
 	OutMeshBatchElements.Add(BatchElement);
 }

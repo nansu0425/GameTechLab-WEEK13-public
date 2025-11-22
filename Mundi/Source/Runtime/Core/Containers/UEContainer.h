@@ -60,6 +60,9 @@ namespace std {
 template<typename T>
 using TUniqueObjectPtr = std::unique_ptr<T>;
 
+template<typename T>
+using TUniquePtr = std::unique_ptr<T>;
+
 /** TPair 구현 */
 template<typename T1, typename T2>
 using TPair = std::pair<T1, T2>;

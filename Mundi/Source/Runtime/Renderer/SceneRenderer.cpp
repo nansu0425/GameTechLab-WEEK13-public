@@ -163,6 +163,19 @@ void FSceneRenderer::RenderLitPath()
 	// 래스터라이저 상태를 Solid로 명시적으로 설정 (이전 렌더 패스의 와이어프레임 상태가 남지 않도록)
 	RHIDevice->RSSetState(ERasterizerMode::Solid);
 
+	// ViewProjBuffer 설정 (모든 셰이더가 View/Projection 행렬을 사용할 수 있도록)
+	FMatrix InvView = View->ViewMatrix.Inverse();
+	FMatrix InvProjection;
+	if (View->ProjectionMode == ECameraProjectionMode::Perspective)
+	{
+		InvProjection = View->ProjectionMatrix.InversePerspectiveProjection();
+	}
+	else
+	{
+		InvProjection = View->ProjectionMatrix.InverseOrthographicProjection();
+	}
+	RHIDevice->SetAndUpdateConstantBuffer(ViewProjBufferType(View->ViewMatrix, View->ProjectionMatrix, InvView, InvProjection));
+
     RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithId);
 
 	// 이 뷰의 rect 영역에 대해 Scene Color를 클리어하여 불투명한 배경을 제공함
@@ -1078,7 +1091,11 @@ void FSceneRenderer::RenderParticleSystemPass()
 		return;
 
 	// 파티클 렌더 상태 설정
-	RHIDevice->RSSetState(ERasterizerMode::Solid);
+	// 파티클은 양면 렌더링이 필요 (빌보드 없이 XY 평면 쿼드일 때 컬링 방지)
+	RHIDevice->RSSetState(ERasterizerMode::Solid_NoCull);
+	// TODO: 파티클 정렬 구현 시 depth write 관련 side effect 검토 필요
+	// DrawMeshBatches가 LessEqual(depth write ON)로 덮어쓰므로,
+	// 겹치는 파티클의 올바른 블렌딩을 위해 back-to-front 정렬 또는 depth state 수정 고려
 	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqualReadOnly);
 	RHIDevice->OMSetBlendState(true);
 

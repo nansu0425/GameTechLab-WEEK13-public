@@ -22,9 +22,11 @@ struct FModuleUpdateContext
 
 // 언리얼 엔진 호환: 파티클 페이로드 데이터 접근 매크로
 // 모듈별 추가 데이터를 파티클에서 가져오는 헬퍼
-// 사용법: PARTICLE_ELEMENT(TypeName, ParticleBase, ModuleOffset);
-#define PARTICLE_ELEMENT(TypeName, Data, Offset) \
-	(*((TypeName*)((uint8*)(Data) + Offset)))
+// CurrentOffset을 자동으로 증가시키므로 순차적으로 여러 페이로드를 읽을 때 편리
+// 사용법: PARTICLE_ELEMENT(FParticleVelocityPayload, VelData);
+#define PARTICLE_ELEMENT(Type, Name) \
+	Type& Name = *((Type*)((uint8*)ParticleBase + CurrentOffset)); \
+	CurrentOffset += sizeof(Type);
 
 // 파티클 업데이트 루프를 시작하는 헬퍼 매크로 (언리얼 엔진 완전 호환)
 // Context 구조체를 사용하여 매개변수 전달
@@ -60,5 +62,6 @@ inline FVector GetParticleBaseSize(const FBaseParticle& Particle)
 	return FVector(1.0f, 1.0f, 1.0f);
 }
 
-// 인덱스로 파티클을 가져오는 헬퍼 함수
+// 언리얼 엔진 호환: 인덱스로 파티클을 가져오는 헬퍼 함수
+// 구현은 ParticleEmitterInstance.h에서 정의 (순환 의존성 방지)
 inline FBaseParticle* GetParticleAtIndex(FParticleEmitterInstance* Instance, int32 Index);

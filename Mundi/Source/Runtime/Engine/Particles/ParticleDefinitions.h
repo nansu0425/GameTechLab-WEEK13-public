@@ -5,7 +5,24 @@
 #include "UEContainer.h"
 
 class UMaterialInterface;
-struct FParticleRequiredModule;
+
+// 언리얼 엔진 호환: 렌더링에 필요한 필수 모듈 데이터
+// 렌더 스레드에서 안전하게 접근할 수 있도록 데이터를 복사
+struct FParticleRequiredModule
+{
+	UMaterialInterface* Material;       // 파티클 렌더링에 사용할 머티리얼
+	FString EmitterName;                // 이미터 이름 (디버깅용)
+	int32 ScreenAlignment;              // 화면 정렬 방식 (Billboard, Velocity aligned 등)
+	bool bOrientZAxisTowardCamera;      // Z축을 카메라 방향으로 정렬할지 여부
+
+	FParticleRequiredModule()
+		: Material(nullptr)
+		, EmitterName("Emitter")
+		, ScreenAlignment(0)
+		, bOrientZAxisTowardCamera(false)
+	{
+	}
+};
 
 // 파티클 상태 플래그 (언리얼 엔진 호환)
 #define STATE_Particle_JustSpawned            0x02000000  // 방금 생성된 파티클
@@ -117,7 +134,8 @@ struct FParticleDataContainer
 	}
 
 	// 메모리 할당 (언리얼 엔진 호환)
-	void Alloc(int32 InParticleDataNumBytes, int32 InParticleIndicesNumShorts);
+	// 반환값: 할당 성공 시 true, 실패 시 false
+	bool Alloc(int32 InParticleDataNumBytes, int32 InParticleIndicesNumShorts);
 
 	// 메모리 해제 (언리얼 엔진 호환)
 	void Free();
@@ -151,7 +169,7 @@ struct FDynamicEmitterReplayDataBase
 struct FDynamicSpriteEmitterReplayDataBase : public FDynamicEmitterReplayDataBase
 {
 	UMaterialInterface* MaterialInterface;
-	FParticleRequiredModule* RequiredModule;
+	TUniquePtr<FParticleRequiredModule> RequiredModule;
 
 	FDynamicSpriteEmitterReplayDataBase()
 		: MaterialInterface(nullptr)
@@ -199,9 +217,57 @@ struct FDynamicSpriteEmitterDataBase : public FDynamicEmitterDataBase
 {
 	virtual ~FDynamicSpriteEmitterDataBase() = default;
 
+	// 언리얼 엔진 호환: 파티클 정렬 (투명 렌더링을 위해 필수)
+	// SortMode: 0 = 정렬 없음, 1 = Age (오래된 것부터), 2 = Distance (먼 것부터)
 	virtual void SortSpriteParticles(int32 SortMode, const FVector& ViewOrigin)
 	{
-		// 렌더링 추가 시 구현 예정
+		const FDynamicEmitterReplayDataBase& SourceData = GetSource();
+
+		if (SortMode == 0 || SourceData.ActiveParticleCount <= 1)
+		{
+			return;  // 정렬 불필요
+		}
+
+		uint16* Indices = SourceData.DataContainer.ParticleIndices;
+		const uint8* ParticleData = SourceData.DataContainer.ParticleData;
+		const int32 ParticleStride = SourceData.ParticleStride;
+
+		if (!Indices || !ParticleData)
+		{
+			return;
+		}
+
+		// 간단한 버블 정렬 (파티클 수가 적으므로 충분)
+		// 프로덕션에서는 std::sort 사용 권장
+		for (int32 i = 0; i < SourceData.ActiveParticleCount - 1; i++)
+		{
+			for (int32 j = 0; j < SourceData.ActiveParticleCount - i - 1; j++)
+			{
+				const FBaseParticle* P1 = (const FBaseParticle*)(ParticleData + Indices[j] * ParticleStride);
+				const FBaseParticle* P2 = (const FBaseParticle*)(ParticleData + Indices[j + 1] * ParticleStride);
+
+				bool bShouldSwap = false;
+
+				if (SortMode == 1)  // Age 정렬 (오래된 것부터)
+				{
+					bShouldSwap = P1->RelativeTime < P2->RelativeTime;
+				}
+				else if (SortMode == 2)  // Distance 정렬 (먼 것부터 - 투명도 렌더링)
+				{
+					float Dist1 = (P1->Location - ViewOrigin).SizeSquared();
+					float Dist2 = (P2->Location - ViewOrigin).SizeSquared();
+					bShouldSwap = Dist1 < Dist2;  // 먼 것을 먼저 렌더링
+				}
+
+				if (bShouldSwap)
+				{
+					// 인덱스 교환
+					uint16 Temp = Indices[j];
+					Indices[j] = Indices[j + 1];
+					Indices[j + 1] = Temp;
+				}
+			}
+		}
 	}
 
 	virtual int32 GetDynamicVertexStride() const = 0;
