@@ -2,8 +2,6 @@
 
 #include "Vector.h"
 #include "Color.h"
-#include "UEContainer.h"
-#include <algorithm>  // std::sort
 
 class UMaterialInterface;
 

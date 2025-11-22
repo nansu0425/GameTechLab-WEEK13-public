@@ -1,7 +1,5 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "ParticleDefinitions.h"
-#include <cstring>
-#include <malloc.h>  // _aligned_malloc, _aligned_free
 
 // 언리얼 엔진 호환: 16바이트 정렬 메모리 할당
 // FMemory::Malloc(Size, 16) 방식과 동일하게 캐시 라인 최적화
