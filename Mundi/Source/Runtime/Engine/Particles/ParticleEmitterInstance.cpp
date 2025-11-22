@@ -220,18 +220,18 @@ void FParticleEmitterInstance::SpawnParticles(int32 Count, float StartTime, floa
 
 		// 생성 전
 		PreSpawn(Particle, InitialLocation, InitialVelocity);
+		float SpawnTime = StartTime + i * Increment;
 
 		// 생성 모듈 적용
 		for (UParticleModule* Module : CurrentLODLevel->SpawnModules)
 		{
 			if (Module && Module->bEnabled)
 			{
-				Module->Spawn(this, 0, StartTime + i * Increment, Particle);
+				Module->Spawn(this, Module->ModuleOffsetInParticle, SpawnTime, Particle);
 			}
 		}
 
 		// 생성 후
-		float SpawnTime = StartTime + i * Increment;
 		PostSpawn(Particle, static_cast<float>(i) / Count, SpawnTime);
 
 		ParticleCounter++;
@@ -311,11 +311,11 @@ void FParticleEmitterInstance::UpdateParticles(float DeltaTime)
 	}
 
 	// 업데이트 모듈 적용 (언리얼 엔진 방식: Context 사용)
-	FModuleUpdateContext Context = { *this, 0, DeltaTime };
 	for (UParticleModule* Module : CurrentLODLevel->UpdateModules)
 	{
 		if (Module && Module->bEnabled)
 		{
+			FModuleUpdateContext Context = { *this, Module->ModuleOffsetInParticle, DeltaTime };
 			Module->Update(Context);
 		}
 	}
