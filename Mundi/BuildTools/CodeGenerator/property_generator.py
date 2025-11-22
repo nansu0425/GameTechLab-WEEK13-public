@@ -19,6 +19,10 @@ BEGIN_PROPERTIES({{ class_name }})
     ADD_PROPERTY_RANGE({{ prop.type }}, {{ prop.name }}, "{{ prop.category }}", {{ prop.min_value }}f, {{ prop.max_value }}f, {{ 'true' if prop.editable else 'false' }}{% if prop.tooltip %}, "{{ prop.tooltip }}"{% endif %})
     {%- elif prop.get_property_type_macro() == 'ADD_PROPERTY_ARRAY' %}
     ADD_PROPERTY_ARRAY({{ prop.metadata.get('inner_type', 'EPropertyType::ObjectPtr') }}, {{ prop.name }}, "{{ prop.category }}", {{ 'true' if prop.editable else 'false' }}{% if prop.tooltip %}, "{{ prop.tooltip }}"{% endif %})
+    {%- elif prop.get_property_type_macro() == 'ADD_PROPERTY_MAP' %}
+    ADD_PROPERTY_MAP({{ prop.metadata.get('key_type', 'EPropertyType::FString') }}, {{ prop.metadata.get('value_type', 'EPropertyType::Int32') }}, {{ prop.name }}, "{{ prop.category }}", {{ 'true' if prop.editable else 'false' }}{% if prop.tooltip %}, "{{ prop.tooltip }}"{% endif %})
+    {%- elif prop.get_property_type_macro() == 'ADD_PROPERTY_SCRIPT' %}
+    ADD_PROPERTY_SCRIPT({{ prop.type }}, {{ prop.name }}, "{{ prop.category }}", "{{ prop.metadata.get('ScriptFile', '.lua') }}", {{ 'true' if prop.editable else 'false' }}{% if prop.tooltip %}, "{{ prop.tooltip }}"{% endif %})
     {%- else %}
     {{ prop.get_property_type_macro() }}({{ prop.type }}, {{ prop.name }}, "{{ prop.category }}", {{ 'true' if prop.editable else 'false' }}{% if prop.tooltip %}, "{{ prop.tooltip }}"{% endif %})
     {%- endif %}
@@ -60,11 +64,14 @@ class PropertyGenerator:
 
         # mark_type 결정:
         # 1. AActor 자체는 MARK 없음
-        # 2. AActor를 상속받은 클래스 (직간접 포함)는 MARK_AS_SPAWNABLE
-        # 3. 나머지는 MARK_AS_COMPONENT
+        # 2. Abstract 클래스는 MARK 없음 (에디터 목록에서 제외)
+        # 3. AActor를 상속받은 클래스 (직간접 포함)는 MARK_AS_SPAWNABLE
+        # 4. 나머지는 MARK_AS_COMPONENT
         mark_type = None
         if class_info.name == 'AActor':
             mark_type = None  # AActor는 MARK 없음
+        elif class_info.is_abstract:
+            mark_type = None  # Abstract 클래스는 MARK 없음
         elif self._is_derived_from(class_info.name, 'AActor'):
             mark_type = 'SPAWNABLE'  # AActor를 상속받은 클래스 (직간접)
         else:
@@ -95,4 +102,36 @@ END_PROPERTIES()
             display_name=class_info.display_name or class_info.name,
             description=class_info.description or f"Auto-generated {class_info.name}",
             properties=class_info.properties
+        )
+
+    def generate_struct(self, struct_info) -> str:
+        """StructInfo로부터 BEGIN_STRUCT_PROPERTIES 블록 생성"""
+        from jinja2 import Template
+
+        STRUCT_TEMPLATE = """
+BEGIN_STRUCT_PROPERTIES({{ struct_name }})
+{%- for prop in properties %}
+    {%- if prop.get_property_type_macro() == 'ADD_PROPERTY_RANGE' %}
+    ADD_PROPERTY_RANGE({{ prop.type }}, {{ prop.name }}, "{{ prop.category }}", {{ prop.min_value }}f, {{ prop.max_value }}f, {{ 'true' if prop.editable else 'false' }}{% if prop.tooltip %}, "{{ prop.tooltip }}"{% endif %})
+    {%- elif prop.get_property_type_macro() == 'ADD_PROPERTY_ARRAY' %}
+    ADD_PROPERTY_ARRAY({{ prop.metadata.get('inner_type', 'EPropertyType::ObjectPtr') }}, {{ prop.name }}, "{{ prop.category }}", {{ 'true' if prop.editable else 'false' }}{% if prop.tooltip %}, "{{ prop.tooltip }}"{% endif %})
+    {%- elif prop.get_property_type_macro() == 'ADD_PROPERTY_MAP' %}
+    ADD_PROPERTY_MAP({{ prop.metadata.get('key_type', 'EPropertyType::FString') }}, {{ prop.metadata.get('value_type', 'EPropertyType::Int32') }}, {{ prop.name }}, "{{ prop.category }}", {{ 'true' if prop.editable else 'false' }}{% if prop.tooltip %}, "{{ prop.tooltip }}"{% endif %})
+    {%- else %}
+    {{ prop.get_property_type_macro() }}({{ prop.type }}, {{ prop.name }}, "{{ prop.category }}", {{ 'true' if prop.editable else 'false' }}{% if prop.tooltip %}, "{{ prop.tooltip }}"{% endif %})
+    {%- endif %}
+{%- endfor %}
+END_PROPERTIES()
+"""
+        template = Template(STRUCT_TEMPLATE)
+
+        if not struct_info.properties:
+            return f"""
+BEGIN_STRUCT_PROPERTIES({struct_info.name})
+END_PROPERTIES()
+"""
+
+        return template.render(
+            struct_name=struct_info.name,
+            properties=struct_info.properties
         )
