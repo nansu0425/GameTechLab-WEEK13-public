@@ -207,9 +207,57 @@ struct FDynamicSpriteEmitterDataBase : public FDynamicEmitterDataBase
 {
 	virtual ~FDynamicSpriteEmitterDataBase() = default;
 
+	// 언리얼 엔진 호환: 파티클 정렬 (투명 렌더링을 위해 필수)
+	// SortMode: 0 = 정렬 없음, 1 = Age (오래된 것부터), 2 = Distance (먼 것부터)
 	virtual void SortSpriteParticles(int32 SortMode, const FVector& ViewOrigin)
 	{
-		// 렌더링 추가 시 구현 예정
+		const FDynamicEmitterReplayDataBase& SourceData = GetSource();
+
+		if (SortMode == 0 || SourceData.ActiveParticleCount <= 1)
+		{
+			return;  // 정렬 불필요
+		}
+
+		uint16* Indices = SourceData.DataContainer.ParticleIndices;
+		const uint8* ParticleData = SourceData.DataContainer.ParticleData;
+		const int32 ParticleStride = SourceData.ParticleStride;
+
+		if (!Indices || !ParticleData)
+		{
+			return;
+		}
+
+		// 간단한 버블 정렬 (파티클 수가 적으므로 충분)
+		// 프로덕션에서는 std::sort 사용 권장
+		for (int32 i = 0; i < SourceData.ActiveParticleCount - 1; i++)
+		{
+			for (int32 j = 0; j < SourceData.ActiveParticleCount - i - 1; j++)
+			{
+				const FBaseParticle* P1 = (const FBaseParticle*)(ParticleData + Indices[j] * ParticleStride);
+				const FBaseParticle* P2 = (const FBaseParticle*)(ParticleData + Indices[j + 1] * ParticleStride);
+
+				bool bShouldSwap = false;
+
+				if (SortMode == 1)  // Age 정렬 (오래된 것부터)
+				{
+					bShouldSwap = P1->RelativeTime < P2->RelativeTime;
+				}
+				else if (SortMode == 2)  // Distance 정렬 (먼 것부터 - 투명도 렌더링)
+				{
+					float Dist1 = (P1->Location - ViewOrigin).SizeSquared();
+					float Dist2 = (P2->Location - ViewOrigin).SizeSquared();
+					bShouldSwap = Dist1 < Dist2;  // 먼 것을 먼저 렌더링
+				}
+
+				if (bShouldSwap)
+				{
+					// 인덱스 교환
+					uint16 Temp = Indices[j];
+					Indices[j] = Indices[j + 1];
+					Indices[j + 1] = Temp;
+				}
+			}
+		}
 	}
 
 	virtual int32 GetDynamicVertexStride() const = 0;

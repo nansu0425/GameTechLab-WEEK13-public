@@ -168,6 +168,97 @@ void UParticleSystemComponent::UpdateRenderData()
 	}
 }
 
+// 언리얼 엔진 호환: 인스턴스 파라미터 시스템 구현
+void UParticleSystemComponent::SetFloatParameter(const FString& ParameterName, float Value)
+{
+	// 기존 파라미터 찾기
+	for (FParticleParameter& Param : InstanceParameters)
+	{
+		if (Param.Name == ParameterName)
+		{
+			Param.FloatValue = Value;
+			return;
+		}
+	}
+
+	// 없으면 새로 추가
+	FParticleParameter NewParam(ParameterName);
+	NewParam.FloatValue = Value;
+	InstanceParameters.Add(NewParam);
+}
+
+void UParticleSystemComponent::SetVectorParameter(const FString& ParameterName, const FVector& Value)
+{
+	// 기존 파라미터 찾기
+	for (FParticleParameter& Param : InstanceParameters)
+	{
+		if (Param.Name == ParameterName)
+		{
+			Param.VectorValue = Value;
+			return;
+		}
+	}
+
+	// 없으면 새로 추가
+	FParticleParameter NewParam(ParameterName);
+	NewParam.VectorValue = Value;
+	InstanceParameters.Add(NewParam);
+}
+
+void UParticleSystemComponent::SetColorParameter(const FString& ParameterName, const FLinearColor& Value)
+{
+	// 기존 파라미터 찾기
+	for (FParticleParameter& Param : InstanceParameters)
+	{
+		if (Param.Name == ParameterName)
+		{
+			Param.ColorValue = Value;
+			return;
+		}
+	}
+
+	// 없으면 새로 추가
+	FParticleParameter NewParam(ParameterName);
+	NewParam.ColorValue = Value;
+	InstanceParameters.Add(NewParam);
+}
+
+float UParticleSystemComponent::GetFloatParameter(const FString& ParameterName, float DefaultValue) const
+{
+	for (const FParticleParameter& Param : InstanceParameters)
+	{
+		if (Param.Name == ParameterName)
+		{
+			return Param.FloatValue;
+		}
+	}
+	return DefaultValue;
+}
+
+FVector UParticleSystemComponent::GetVectorParameter(const FString& ParameterName, const FVector& DefaultValue) const
+{
+	for (const FParticleParameter& Param : InstanceParameters)
+	{
+		if (Param.Name == ParameterName)
+		{
+			return Param.VectorValue;
+		}
+	}
+	return DefaultValue;
+}
+
+FLinearColor UParticleSystemComponent::GetColorParameter(const FString& ParameterName, const FLinearColor& DefaultValue) const
+{
+	for (const FParticleParameter& Param : InstanceParameters)
+	{
+		if (Param.Name == ParameterName)
+		{
+			return Param.ColorValue;
+		}
+	}
+	return DefaultValue;
+}
+
 void UParticleSystemComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
 	USceneComponent::Serialize(bInIsLoading, InOutHandle);
