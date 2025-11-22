@@ -11,20 +11,16 @@ uint32 UParticleModuleSize::RequiredBytes(FParticleEmitterInstance* Owner)
 
 void UParticleModuleSize::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
 {
-	if (!ParticleBase)
+	if (!ParticleBase || !Owner)
 	{
 		return;
 	}
 
-	// 랜덤 크기 오프셋
-	static std::random_device rd;
-	static std::mt19937 gen(rd());
-	std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
-
+	// 언리얼 엔진 호환: 랜덤 스트림 사용 (결정론적)
 	FVector RandomOffset(
-		dist(gen) * StartSizeRange.X,
-		dist(gen) * StartSizeRange.Y,
-		dist(gen) * StartSizeRange.Z
+		Owner->RandomStream.GetSignedFraction() * StartSizeRange.X,
+		Owner->RandomStream.GetSignedFraction() * StartSizeRange.Y,
+		Owner->RandomStream.GetSignedFraction() * StartSizeRange.Z
 	);
 
 	FVector InitialSize = StartSize + RandomOffset;

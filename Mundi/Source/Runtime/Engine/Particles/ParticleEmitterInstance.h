@@ -3,6 +3,7 @@
 #include "ParticleDefinitions.h"
 #include "ParticleHelper.h"
 #include "ParticleEmitter.h"
+#include "ParticleRandomStream.h"
 
 class UParticleSystemComponent;
 
@@ -48,6 +49,9 @@ struct FParticleEmitterInstance
 
 	// Burst 상태 (언리얼 엔진 호환)
 	bool bBurstFired;  // Burst가 이미 발생했는지 여부
+
+	// 랜덤 스트림 (언리얼 엔진 호환)
+	FParticleRandomStream RandomStream;
 
 	// 생성자 / 소멸자
 	FParticleEmitterInstance();

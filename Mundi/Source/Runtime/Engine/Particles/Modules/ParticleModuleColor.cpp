@@ -11,23 +11,19 @@ uint32 UParticleModuleColor::RequiredBytes(FParticleEmitterInstance* Owner)
 
 void UParticleModuleColor::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
 {
-	if (!ParticleBase)
+	if (!ParticleBase || !Owner)
 	{
 		return;
 	}
 
-	// 색상 랜덤화 적용
+	// 색상 랜덤화 적용 (언리얼 엔진 호환: 랜덤 스트림 사용)
 	FLinearColor InitialColor = StartColor;
 	if (ColorRandomness > 0.0f)
 	{
-		static std::random_device rd;
-		static std::mt19937 gen(rd());
-		std::uniform_real_distribution<float> dist(-ColorRandomness, ColorRandomness);
-
-		InitialColor.R = FMath::Clamp(StartColor.R + dist(gen), 0.0f, 1.0f);
-		InitialColor.G = FMath::Clamp(StartColor.G + dist(gen), 0.0f, 1.0f);
-		InitialColor.B = FMath::Clamp(StartColor.B + dist(gen), 0.0f, 1.0f);
-		InitialColor.A = FMath::Clamp(StartColor.A + dist(gen), 0.0f, 1.0f);
+		InitialColor.R = FMath::Clamp(StartColor.R + Owner->RandomStream.GetRangeFloat(-ColorRandomness, ColorRandomness), 0.0f, 1.0f);
+		InitialColor.G = FMath::Clamp(StartColor.G + Owner->RandomStream.GetRangeFloat(-ColorRandomness, ColorRandomness), 0.0f, 1.0f);
+		InitialColor.B = FMath::Clamp(StartColor.B + Owner->RandomStream.GetRangeFloat(-ColorRandomness, ColorRandomness), 0.0f, 1.0f);
+		InitialColor.A = FMath::Clamp(StartColor.A + Owner->RandomStream.GetRangeFloat(-ColorRandomness, ColorRandomness), 0.0f, 1.0f);
 	}
 
 	// 초기 색상 설정

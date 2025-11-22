@@ -19,15 +19,15 @@ public:
 	GENERATED_REFLECTION_BODY()
 
 public:
-	UPROPERTY(EditAnywhere, Category="Velocity")
+	UPROPERTY(EditAnywhere, Category="Velocity", meta=(ToolTip="파티클 생성 시 초기 속도 (cm/s)"))
 	FVector StartVelocity = FVector(0.0f, 0.0f, 0.0f);
 
-	UPROPERTY(EditAnywhere, Category="Velocity")
+	UPROPERTY(EditAnywhere, Category="Velocity", meta=(ClampMin="0.0", ClampMax="10000.0", ToolTip="초기 속도 랜덤 범위 (+/-) (cm/s)"))
 	FVector StartVelocityRange = FVector(0.0f, 0.0f, 0.0f);
 
 	// 언리얼 엔진 호환: 속도 감쇠 (OverLife 패턴)
-	UPROPERTY(EditAnywhere, Category="Velocity")
-	float VelocityDamping = 0.0f;  // 0.0 = 감쇠 없음, 1.0 = 빠른 감쇠
+	UPROPERTY(EditAnywhere, Category="Velocity", meta=(ClampMin="0.0", ClampMax="1.0", ToolTip="수명에 따른 속도 감쇠 (0.0 = 감쇠 없음, 1.0 = 빠른 감쇠)"))
+	float VelocityDamping = 0.0f;
 
 	UParticleModuleVelocity()
 	{

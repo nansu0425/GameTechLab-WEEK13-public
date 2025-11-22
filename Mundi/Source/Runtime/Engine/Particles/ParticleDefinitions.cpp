@@ -5,7 +5,8 @@
 
 // 언리얼 엔진 호환: 16바이트 정렬 메모리 할당
 // FMemory::Malloc(Size, 16) 방식과 동일하게 캐시 라인 최적화
-void FParticleDataContainer::Alloc(int32 InParticleDataNumBytes, int32 InParticleIndicesNumShorts)
+// 반환값: 할당 성공 시 true, 실패 시 false
+bool FParticleDataContainer::Alloc(int32 InParticleDataNumBytes, int32 InParticleIndicesNumShorts)
 {
 	// 기존 메모리 해제
 	Free();
@@ -29,6 +30,7 @@ void FParticleDataContainer::Alloc(int32 InParticleDataNumBytes, int32 InParticl
 
 			// 인덱스 포인터 설정 (파티클 데이터 뒤에 위치)
 			ParticleIndices = (uint16*)(ParticleData + ParticleDataNumBytes);
+			return true;  // 할당 성공
 		}
 		else
 		{
@@ -37,8 +39,12 @@ void FParticleDataContainer::Alloc(int32 InParticleDataNumBytes, int32 InParticl
 			MemBlockSize = 0;
 			ParticleDataNumBytes = 0;
 			ParticleIndicesNumShorts = 0;
+			return false;  // 할당 실패
 		}
 	}
+
+	// MemBlockSize가 0이면 할당할 필요 없음 (성공으로 간주)
+	return true;
 }
 
 // 언리얼 엔진 호환: 정렬된 메모리 해제

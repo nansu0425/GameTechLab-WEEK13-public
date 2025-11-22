@@ -124,7 +124,8 @@ struct FParticleDataContainer
 	}
 
 	// 메모리 할당 (언리얼 엔진 호환)
-	void Alloc(int32 InParticleDataNumBytes, int32 InParticleIndicesNumShorts);
+	// 반환값: 할당 성공 시 true, 실패 시 false
+	bool Alloc(int32 InParticleDataNumBytes, int32 InParticleIndicesNumShorts);
 
 	// 메모리 해제 (언리얼 엔진 호환)
 	void Free();
@@ -158,7 +159,7 @@ struct FDynamicEmitterReplayDataBase
 struct FDynamicSpriteEmitterReplayDataBase : public FDynamicEmitterReplayDataBase
 {
 	UMaterialInterface* MaterialInterface;
-	FParticleRequiredModule* RequiredModule;
+	TUniquePtr<FParticleRequiredModule> RequiredModule;
 
 	FDynamicSpriteEmitterReplayDataBase()
 		: MaterialInterface(nullptr)

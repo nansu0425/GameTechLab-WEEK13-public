@@ -43,54 +43,66 @@ void FParticleEmitterInstance::Init(UParticleSystemComponent* InComponent, UPart
 	Component = InComponent;
 	SpriteTemplate = InTemplate;
 
-	if (SpriteTemplate)
+	// 필수 객체 nullptr 체크
+	if (!SpriteTemplate)
 	{
-		// 현재 LOD 레벨 가져오기 (기본값 0)
-		CurrentLODLevelIndex = 0;
-		CurrentLODLevel = SpriteTemplate->GetLODLevel(CurrentLODLevelIndex);
+		return;
+	}
 
-		if (CurrentLODLevel)
+	// 현재 LOD 레벨 가져오기 (기본값 0)
+	CurrentLODLevelIndex = 0;
+	CurrentLODLevel = SpriteTemplate->GetLODLevel(CurrentLODLevelIndex);
+
+	if (!CurrentLODLevel)
+	{
+		return;
+	}
+
+	// RequiredModule 체크 (렌더링에 필수)
+	if (!CurrentLODLevel->RequiredModule)
+	{
+		// RequiredModule이 없으면 렌더링 불가
+		return;
+	}
+
+	// 언리얼 엔진 호환: 페이로드 크기 계산
+	// 각 모듈이 필요로 하는 추가 데이터 크기를 계산하고 오프셋 할당
+	uint32 TotalPayloadSize = 0;
+	InstancePayloadSize = 0;
+
+	// 모든 모듈의 페이로드 크기 계산
+	for (UParticleModule* Module : CurrentLODLevel->Modules)
+	{
+		if (Module && Module->bEnabled)
 		{
-			// 언리얼 엔진 호환: 페이로드 크기 계산
-			// 각 모듈이 필요로 하는 추가 데이터 크기를 계산하고 오프셋 할당
-			uint32 TotalPayloadSize = 0;
-			InstancePayloadSize = 0;
+			// 파티클별 페이로드
+			uint32 ModulePayloadSize = Module->RequiredBytes(this);
+			Module->ModuleOffsetInParticle = TotalPayloadSize;
+			TotalPayloadSize += ModulePayloadSize;
 
-			// 모든 모듈의 페이로드 크기 계산
-			for (UParticleModule* Module : CurrentLODLevel->Modules)
-			{
-				if (Module && Module->bEnabled)
-				{
-					// 파티클별 페이로드
-					uint32 ModulePayloadSize = Module->RequiredBytes(this);
-					Module->ModuleOffsetInParticle = TotalPayloadSize;
-					TotalPayloadSize += ModulePayloadSize;
-
-					// 인스턴스별 페이로드
-					InstancePayloadSize += Module->RequiredBytesPerInstance();
-				}
-			}
-
-			// 파티클 크기와 스트라이드 계산 (기본 파티클 + 페이로드)
-			ParticleSize = SpriteTemplate->ParticleSize;
-			PayloadOffset = ParticleSize;  // 페이로드는 기본 파티클 뒤에 위치
-			ParticleStride = ParticleSize + TotalPayloadSize;
-
-			// 인스턴스 데이터 할당 (필요한 경우)
-			if (InstancePayloadSize > 0)
-			{
-				if (InstanceData)
-				{
-					delete[] InstanceData;
-				}
-				InstanceData = new uint8[InstancePayloadSize];
-				memset(InstanceData, 0, InstancePayloadSize);
-			}
-
-			// 초기 파티클 데이터 할당
-			Resize(100); // Default to 100 particles
+			// 인스턴스별 페이로드
+			InstancePayloadSize += Module->RequiredBytesPerInstance();
 		}
 	}
+
+	// 파티클 크기와 스트라이드 계산 (기본 파티클 + 페이로드)
+	ParticleSize = SpriteTemplate->ParticleSize;
+	PayloadOffset = ParticleSize;  // 페이로드는 기본 파티클 뒤에 위치
+	ParticleStride = ParticleSize + TotalPayloadSize;
+
+	// 인스턴스 데이터 할당 (필요한 경우)
+	if (InstancePayloadSize > 0)
+	{
+		if (InstanceData)
+		{
+			delete[] InstanceData;
+		}
+		InstanceData = new uint8[InstancePayloadSize];
+		memset(InstanceData, 0, InstancePayloadSize);
+	}
+
+	// 초기 파티클 데이터 할당
+	Resize(100); // Default to 100 particles
 }
 
 void FParticleEmitterInstance::Resize(int32 NewMaxActiveParticles)
@@ -106,19 +118,30 @@ void FParticleEmitterInstance::Resize(int32 NewMaxActiveParticles)
 	{
 		// 언리얼 엔진 호환: FParticleDataContainer를 사용하여 16바이트 정렬 메모리 할당
 		int32 ParticleDataSize = MaxActiveParticles * ParticleStride;
-		ParticleDataContainer.Alloc(ParticleDataSize, MaxActiveParticles);
+		bool bAllocSuccess = ParticleDataContainer.Alloc(ParticleDataSize, MaxActiveParticles);
 
-		// 컨테이너에서 포인터 가져오기
-		ParticleData = ParticleDataContainer.ParticleData;
-		ParticleIndices = ParticleDataContainer.ParticleIndices;
-
-		// 인덱스 초기화
-		if (ParticleIndices)
+		if (bAllocSuccess)
 		{
-			for (int32 i = 0; i < MaxActiveParticles; i++)
+			// 컨테이너에서 포인터 가져오기
+			ParticleData = ParticleDataContainer.ParticleData;
+			ParticleIndices = ParticleDataContainer.ParticleIndices;
+
+			// 인덱스 초기화
+			if (ParticleIndices)
 			{
-				ParticleIndices[i] = i;
+				for (int32 i = 0; i < MaxActiveParticles; i++)
+				{
+					ParticleIndices[i] = i;
+				}
 			}
+		}
+		else
+		{
+			// 할당 실패 시 폴백: 이전 상태 유지
+			ParticleData = nullptr;
+			ParticleIndices = nullptr;
+			MaxActiveParticles = 0;
+			// TODO: 로깅 또는 에러 처리 추가
 		}
 	}
 	else
@@ -176,7 +199,8 @@ void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 
 void FParticleEmitterInstance::SpawnParticles(int32 Count, float StartTime, float Increment, const FVector& InitialLocation, const FVector& InitialVelocity)
 {
-	if (!CurrentLODLevel)
+	// 필수 객체 nullptr 체크
+	if (!CurrentLODLevel || !ParticleData)
 	{
 		return;
 	}
@@ -188,6 +212,12 @@ void FParticleEmitterInstance::SpawnParticles(int32 Count, float StartTime, floa
 		{
 			// 더 많은 파티클을 수용하도록 크기 조정
 			Resize(MaxActiveParticles * 2);
+
+			// Resize 실패 시 중단
+			if (!ParticleData)
+			{
+				return;
+			}
 		}
 
 		// 새 파티클의 인덱스 가져오기
@@ -338,8 +368,8 @@ FBaseParticle* FParticleEmitterInstance::GetParticleAtIndex(int32 Index)
 
 FDynamicEmitterDataBase* FParticleEmitterInstance::GetDynamicData(bool bSelected)
 {
-	// 활성 파티클이 없으면 nullptr 반환
-	if (ActiveParticles <= 0)
+	// 필수 객체 nullptr 체크
+	if (!ParticleData || !CurrentLODLevel || ActiveParticles <= 0)
 	{
 		return nullptr;
 	}
@@ -353,7 +383,14 @@ FDynamicEmitterDataBase* FParticleEmitterInstance::GetDynamicData(bool bSelected
 
 	// 파티클 데이터 복사 (언리얼 엔진 방식: Alloc 사용)
 	int32 ParticleDataBytes = ActiveParticles * ParticleStride;
-	NewData->Source.DataContainer.Alloc(ParticleDataBytes, ActiveParticles);
+	bool bAllocSuccess = NewData->Source.DataContainer.Alloc(ParticleDataBytes, ActiveParticles);
+
+	if (!bAllocSuccess)
+	{
+		// 할당 실패 시 데이터 삭제 후 nullptr 반환
+		delete NewData;
+		return nullptr;
+	}
 
 	// 메모리 복사
 	memcpy(NewData->Source.DataContainer.ParticleData, ParticleData, ParticleDataBytes);
@@ -362,11 +399,11 @@ FDynamicEmitterDataBase* FParticleEmitterInstance::GetDynamicData(bool bSelected
 	// 언리얼 엔진 호환: Required 모듈과 Material 설정 (렌더링 시 필요)
 	if (CurrentLODLevel && CurrentLODLevel->RequiredModule)
 	{
-		// 렌더 스레드용 데이터로 변환하여 저장
-		FParticleRequiredModule* RenderData = new FParticleRequiredModule();
-		*RenderData = CurrentLODLevel->RequiredModule->ToRenderThreadData();
-		NewData->Source.RequiredModule = RenderData;
-		NewData->Source.MaterialInterface = RenderData->Material;
+		// 렌더 스레드용 데이터로 변환하여 저장 (TUniquePtr 사용)
+		NewData->Source.RequiredModule = std::make_unique<FParticleRequiredModule>(
+			CurrentLODLevel->RequiredModule->ToRenderThreadData()
+		);
+		NewData->Source.MaterialInterface = NewData->Source.RequiredModule->Material;
 	}
 	else
 	{
