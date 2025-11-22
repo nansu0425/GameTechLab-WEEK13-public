@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "ParticleLODLevel.h"
 #include "ObjectFactory.h"
 #include "Modules/ParticleModuleRequired.h"
@@ -6,6 +6,12 @@
 
 void UParticleLODLevel::CacheModuleInfo()
 {
+	// RequiredModule 보장
+	if (RequiredModule == nullptr)
+	{
+		RequiredModule = ObjectFactory::NewObject<UParticleModuleRequired>();
+	}
+
 	SpawnModules.clear();
 	UpdateModules.clear();
 
