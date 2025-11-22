@@ -83,7 +83,7 @@ struct FBaseParticle
 	}
 };
 
-// 파티클 데이터 컨테이너
+// 파티클 데이터 컨테이너 (언리얼 엔진 호환)
 struct FParticleDataContainer
 {
 	int32 MemBlockSize;
@@ -103,13 +103,14 @@ struct FParticleDataContainer
 
 	~FParticleDataContainer()
 	{
-		if (ParticleData)
-		{
-			delete[] ParticleData;
-			ParticleData = nullptr;
-			ParticleIndices = nullptr;
-		}
+		Free();
 	}
+
+	// 메모리 할당 (언리얼 엔진 호환)
+	void Alloc(int32 InParticleDataNumBytes, int32 InParticleIndicesNumShorts);
+
+	// 메모리 해제 (언리얼 엔진 호환)
+	void Free();
 };
 
 // 동적 이미터 리플레이 데이터 베이스 (렌더 스레드용)

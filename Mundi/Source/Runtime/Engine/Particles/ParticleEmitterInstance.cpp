@@ -364,21 +364,13 @@ FDynamicEmitterDataBase* FParticleEmitterInstance::GetDynamicData(bool bSelected
 	NewData->Source.ActiveParticleCount = ActiveParticles;
 	NewData->Source.ParticleStride = ParticleStride;
 
-	// 파티클 데이터 복사
-	NewData->Source.DataContainer.ParticleDataNumBytes = ActiveParticles * ParticleStride;
-	NewData->Source.DataContainer.ParticleIndicesNumShorts = ActiveParticles;
-	NewData->Source.DataContainer.MemBlockSize = NewData->Source.DataContainer.ParticleDataNumBytes +
-		(NewData->Source.DataContainer.ParticleIndicesNumShorts * sizeof(uint16));
+	// 파티클 데이터 복사 (언리얼 엔진 방식: Alloc 사용)
+	int32 ParticleDataBytes = ActiveParticles * ParticleStride;
+	NewData->Source.DataContainer.Alloc(ParticleDataBytes, ActiveParticles);
 
-	// 메모리 할당 및 복사
-	NewData->Source.DataContainer.ParticleData = new uint8[NewData->Source.DataContainer.MemBlockSize];
-	memcpy(NewData->Source.DataContainer.ParticleData, ParticleData, NewData->Source.DataContainer.ParticleDataNumBytes);
-
-	// 인덱스 설정
-	NewData->Source.DataContainer.ParticleIndices = (uint16*)(NewData->Source.DataContainer.ParticleData +
-		NewData->Source.DataContainer.ParticleDataNumBytes);
-	memcpy(NewData->Source.DataContainer.ParticleIndices, ParticleIndices,
-		NewData->Source.DataContainer.ParticleIndicesNumShorts * sizeof(uint16));
+	// 메모리 복사
+	memcpy(NewData->Source.DataContainer.ParticleData, ParticleData, ParticleDataBytes);
+	memcpy(NewData->Source.DataContainer.ParticleIndices, ParticleIndices, ActiveParticles * sizeof(uint16));
 
 	// Required 모듈과 Material 설정 (렌더링 시 필요)
 	// TODO: FParticleRequiredModule 구조체 정의 후 변환 필요
