@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Vector.h"
+#include "Color.h"
 #include <cstdlib>
 #include <ctime>
 
