@@ -2,7 +2,6 @@
 
 #include "Vector.h"
 #include "Color.h"
-#include "UEContainer.h"
 
 class UMaterialInterface;
 
@@ -110,14 +109,16 @@ struct FParticleSpriteVertex
 	float RelativeTime;
 };
 
-// 파티클 데이터 컨테이너
+// 파티클 데이터 컨테이너 (언리얼 엔진 호환)
+// 메모리 레이아웃: [ParticleData 영역][ParticleIndices 영역]
+// 하나의 메모리 블록에 파티클 데이터와 인덱스 배열을 함께 저장
 struct FParticleDataContainer
 {
-	int32 MemBlockSize;
-	int32 ParticleDataNumBytes;
-	int32 ParticleIndicesNumShorts;
-	uint8* ParticleData;        // 할당된 메모리 블록
-	uint16* ParticleIndices;    // 메모리 블록 끝에 위치 (별도 할당 안함)
+	int32 MemBlockSize;            // 전체 메모리 블록 크기 (바이트) = ParticleDataNumBytes + (ParticleIndicesNumShorts * 2)
+	int32 ParticleDataNumBytes;    // 파티클 데이터 영역 크기 (바이트) = MaxParticles * ParticleStride
+	int32 ParticleIndicesNumShorts; // 인덱스 배열 개수 (uint16 개수) = MaxParticles
+	uint8* ParticleData;           // 할당된 메모리 블록의 시작 포인터 (16바이트 정렬)
+	uint16* ParticleIndices;       // 인덱스 배열 포인터 = ParticleData + ParticleDataNumBytes (별도 할당 안함)
 
 	FParticleDataContainer()
 		: MemBlockSize(0)
@@ -134,6 +135,8 @@ struct FParticleDataContainer
 	}
 
 	// 메모리 할당 (언리얼 엔진 호환)
+	// InParticleDataNumBytes: 파티클 데이터 영역 크기 (바이트) = MaxParticles * ParticleStride
+	// InParticleIndicesNumShorts: 인덱스 배열 개수 (uint16 개수) = MaxParticles
 	// 반환값: 할당 성공 시 true, 실패 시 false
 	bool Alloc(int32 InParticleDataNumBytes, int32 InParticleIndicesNumShorts);
 
@@ -237,37 +240,26 @@ struct FDynamicSpriteEmitterDataBase : public FDynamicEmitterDataBase
 			return;
 		}
 
-		// 간단한 버블 정렬 (파티클 수가 적으므로 충분)
-		// 프로덕션에서는 std::sort 사용 권장
-		for (int32 i = 0; i < SourceData.ActiveParticleCount - 1; i++)
-		{
-			for (int32 j = 0; j < SourceData.ActiveParticleCount - i - 1; j++)
+		// std::sort 사용 (O(N log N) - 버블 정렬보다 훨씬 빠름)
+		std::sort(Indices, Indices + SourceData.ActiveParticleCount,
+			[&](uint16 IndexA, uint16 IndexB) -> bool
 			{
-				const FBaseParticle* P1 = (const FBaseParticle*)(ParticleData + Indices[j] * ParticleStride);
-				const FBaseParticle* P2 = (const FBaseParticle*)(ParticleData + Indices[j + 1] * ParticleStride);
-
-				bool bShouldSwap = false;
+				const FBaseParticle* PA = (const FBaseParticle*)(ParticleData + IndexA * ParticleStride);
+				const FBaseParticle* PB = (const FBaseParticle*)(ParticleData + IndexB * ParticleStride);
 
 				if (SortMode == 1)  // Age 정렬 (오래된 것부터)
 				{
-					bShouldSwap = P1->RelativeTime < P2->RelativeTime;
+					return PA->RelativeTime > PB->RelativeTime;
 				}
 				else if (SortMode == 2)  // Distance 정렬 (먼 것부터 - 투명도 렌더링)
 				{
-					float Dist1 = (P1->Location - ViewOrigin).SizeSquared();
-					float Dist2 = (P2->Location - ViewOrigin).SizeSquared();
-					bShouldSwap = Dist1 < Dist2;  // 먼 것을 먼저 렌더링
+					float DistA = (PA->Location - ViewOrigin).SizeSquared();
+					float DistB = (PB->Location - ViewOrigin).SizeSquared();
+					return DistA > DistB;  // 먼 것을 먼저 렌더링
 				}
 
-				if (bShouldSwap)
-				{
-					// 인덱스 교환
-					uint16 Temp = Indices[j];
-					Indices[j] = Indices[j + 1];
-					Indices[j + 1] = Temp;
-				}
-			}
-		}
+				return false;
+			});
 	}
 
 	virtual int32 GetDynamicVertexStride() const = 0;

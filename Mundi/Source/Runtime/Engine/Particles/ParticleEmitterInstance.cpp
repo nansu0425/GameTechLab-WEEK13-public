@@ -1,8 +1,7 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "ParticleEmitterInstance.h"
 #include "Modules/ParticleModule.h"
 #include "Modules/ParticleModuleSpawn.h"
-#include <cstring>
 
 FParticleEmitterInstance::FParticleEmitterInstance()
 	: SpriteTemplate(nullptr)
@@ -168,22 +167,11 @@ void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 	// 언리얼 엔진 호환: 새 파티클 생성 (억제되지 않은 경우)
 	if (!bSuppressSpawning)
 	{
-		// SpawnModule 찾기
-		UParticleModuleSpawn* SpawnModule = nullptr;
-		for (UParticleModule* Module : CurrentLODLevel->SpawnModules)
-		{
-			if (Module && Module->bEnabled)
-			{
-				SpawnModule = dynamic_cast<UParticleModuleSpawn*>(Module);
-				if (SpawnModule)
-				{
-					break;
-				}
-			}
-		}
+		// 언리얼 엔진 호환: SpawnModule은 별도 멤버 (직접 접근)
+		UParticleModuleSpawn* SpawnModule = CurrentLODLevel->SpawnModule;
 
 		// 언리얼 엔진 호환: 스폰 로직을 모듈에 위임 (책임 분리)
-		if (SpawnModule)
+		if (SpawnModule && SpawnModule->bEnabled)
 		{
 			int32 SpawnCount = SpawnModule->CalculateSpawnCount(DeltaTime, SpawnFraction, bBurstFired);
 
@@ -406,11 +394,13 @@ FDynamicEmitterDataBase* FParticleEmitterInstance::GetDynamicData(bool bSelected
 			CurrentLODLevel->RequiredModule->ToRenderThreadData()
 		);
 		NewData->Source.MaterialInterface = NewData->Source.RequiredModule->Material;
+		NewData->Source.SortMode = CurrentLODLevel->RequiredModule->SortMode;
 	}
 	else
 	{
 		NewData->Source.RequiredModule = nullptr;
 		NewData->Source.MaterialInterface = nullptr;
+		NewData->Source.SortMode = 0;  // 정렬 없음
 	}
 
 	// 컴포넌트 스케일 설정

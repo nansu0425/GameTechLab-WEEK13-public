@@ -1,6 +1,6 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "ParticleModuleRequired.h"
-#include "../ParticleDefinitions.h"
+#include "ParticleDefinitions.h"
 
 // 언리얼 엔진 호환: 렌더 스레드용 데이터로 변환
 FParticleRequiredModule UParticleModuleRequired::ToRenderThreadData() const

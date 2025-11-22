@@ -1,10 +1,14 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "ParticleDefinitions.h"
-#include <cstring>
-#include <malloc.h>  // _aligned_malloc, _aligned_free
 
 // 언리얼 엔진 호환: 16바이트 정렬 메모리 할당
 // FMemory::Malloc(Size, 16) 방식과 동일하게 캐시 라인 최적화
+//
+// 예시: MaxParticles=100, ParticleStride=200바이트
+//   InParticleDataNumBytes = 100 * 200 = 20,000바이트
+//   InParticleIndicesNumShorts = 100개 (uint16)
+//   MemBlockSize = 20,000 + (100 * 2) = 20,200바이트
+//
 // 반환값: 할당 성공 시 true, 실패 시 false
 bool FParticleDataContainer::Alloc(int32 InParticleDataNumBytes, int32 InParticleIndicesNumShorts)
 {
@@ -12,23 +16,34 @@ bool FParticleDataContainer::Alloc(int32 InParticleDataNumBytes, int32 InParticl
 	Free();
 
 	// 새로운 크기 저장
-	ParticleDataNumBytes = InParticleDataNumBytes;
-	ParticleIndicesNumShorts = InParticleIndicesNumShorts;
+	ParticleDataNumBytes = InParticleDataNumBytes;    // 파티클 데이터 영역 크기
+	ParticleIndicesNumShorts = InParticleIndicesNumShorts;  // 인덱스 개수
 
 	// 전체 메모리 블록 크기 계산 (파티클 데이터 + 인덱스)
+	// sizeof(uint16) = 2바이트
 	MemBlockSize = ParticleDataNumBytes + (ParticleIndicesNumShorts * sizeof(uint16));
 
 	if (MemBlockSize > 0)
 	{
-		// 16바이트 정렬 메모리 할당 (캐시 라인 최적화)
-		// 언리얼 엔진: FMemory::Malloc(MemBlockSize, 16)과 동일
+		/**
+		* 16바이트 정렬 메모리 할당 (캐시 라인 최적화)
+		* 언리얼 엔진: FMemory::Malloc(MemBlockSize, 16)과 동일
+
+		* 반환 타입이 void*이므로, 이를 uint8*로 캐스팅해서 바이트 배열처럼 쓰기 위해 static_cast<uint8*> 사용.
+		* ParticleData는 이 메모리 블록의 시작 주소를 가리키게 됨.
+		*/
 		ParticleData = static_cast<uint8*>(_aligned_malloc(MemBlockSize, 16));
 
 		if (ParticleData)
 		{
+			// 할당된 메모리를 0으로 초기화.
+			// 즉 ParticleData부터 MemBlockSize 바이트까지 모두 0으로 채움.
 			memset(ParticleData, 0, MemBlockSize);
 
 			// 인덱스 포인터 설정 (파티클 데이터 뒤에 위치)
+			// 메모리 레이아웃: [ParticleData (20,000바이트)][ParticleIndices (200바이트)]
+			//                  ^                              ^
+			//                  ParticleData                   ParticleIndices
 			ParticleIndices = (uint16*)(ParticleData + ParticleDataNumBytes);
 			return true;  // 할당 성공
 		}

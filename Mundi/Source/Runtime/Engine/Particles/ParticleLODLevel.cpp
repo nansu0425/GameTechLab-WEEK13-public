@@ -73,6 +73,13 @@ void UParticleLODLevel::DuplicateSubObjects()
 		TypeDataModule = NewTypeData;
 	}
 
+	// 언리얼 엔진 호환: SpawnModule 복제
+	if (SpawnModule)
+	{
+		UParticleModuleSpawn* NewSpawn = ObjectFactory::DuplicateObject<UParticleModuleSpawn>(SpawnModule);
+		SpawnModule = NewSpawn;
+	}
+
 	// 모듈 정보 재캐싱
 	CacheModuleInfo();
 }

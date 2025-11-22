@@ -1,7 +1,6 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "ParticleModuleRotation.h"
-#include "../ParticleEmitterInstance.h"
-#include <cstdlib>
+#include "ParticleEmitterInstance.h"
 
 void UParticleModuleRotation::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
 {

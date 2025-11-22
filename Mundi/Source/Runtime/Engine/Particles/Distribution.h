@@ -1,9 +1,7 @@
-#pragma once
+﻿#pragma once
 
 #include "Vector.h"
 #include "Color.h"
-#include <cstdlib>
-#include <ctime>
 
 // 언리얼 엔진 호환: Distribution 시스템
 // 파티클 모듈의 속성값을 유연하게 제어 (상수, 균등 분포, 커브 등)
