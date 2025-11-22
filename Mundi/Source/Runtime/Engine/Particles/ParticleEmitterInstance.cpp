@@ -26,12 +26,10 @@ FParticleEmitterInstance::FParticleEmitterInstance()
 
 FParticleEmitterInstance::~FParticleEmitterInstance()
 {
-	if (ParticleData)
-	{
-		delete[] ParticleData;
-		ParticleData = nullptr;
-		ParticleIndices = nullptr;
-	}
+	// 언리얼 엔진 호환: FParticleDataContainer가 자동으로 메모리 해제
+	// ParticleDataContainer.Free()는 소멸자에서 자동 호출됨
+	ParticleData = nullptr;
+	ParticleIndices = nullptr;
 
 	if (InstanceData)
 	{
@@ -102,34 +100,33 @@ void FParticleEmitterInstance::Resize(int32 NewMaxActiveParticles)
 		return;
 	}
 
-	// 이전 데이터 해제
-	if (ParticleData)
-	{
-		delete[] ParticleData;
-		ParticleData = nullptr;
-		ParticleIndices = nullptr;
-	}
-
 	MaxActiveParticles = NewMaxActiveParticles;
 
 	if (MaxActiveParticles > 0)
 	{
-		// 파티클 데이터 할당 + 인덱스
+		// 언리얼 엔진 호환: FParticleDataContainer를 사용하여 16바이트 정렬 메모리 할당
 		int32 ParticleDataSize = MaxActiveParticles * ParticleStride;
-		int32 IndicesSize = MaxActiveParticles * sizeof(uint16);
-		int32 TotalSize = ParticleDataSize + IndicesSize;
+		ParticleDataContainer.Alloc(ParticleDataSize, MaxActiveParticles);
 
-		ParticleData = new uint8[TotalSize];
-		memset(ParticleData, 0, TotalSize);
-
-		// 파티클 인덱스는 파티클 데이터 뒤에 위치
-		ParticleIndices = (uint16*)(ParticleData + ParticleDataSize);
+		// 컨테이너에서 포인터 가져오기
+		ParticleData = ParticleDataContainer.ParticleData;
+		ParticleIndices = ParticleDataContainer.ParticleIndices;
 
 		// 인덱스 초기화
-		for (int32 i = 0; i < MaxActiveParticles; i++)
+		if (ParticleIndices)
 		{
-			ParticleIndices[i] = i;
+			for (int32 i = 0; i < MaxActiveParticles; i++)
+			{
+				ParticleIndices[i] = i;
+			}
 		}
+	}
+	else
+	{
+		// 크기가 0이면 해제
+		ParticleDataContainer.Free();
+		ParticleData = nullptr;
+		ParticleIndices = nullptr;
 	}
 
 	ActiveParticles = 0;
@@ -145,7 +142,7 @@ void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 	// 기존 파티클 업데이트
 	UpdateParticles(DeltaTime);
 
-	// 새 파티클 생성 (억제되지 않은 경우)
+	// 언리얼 엔진 호환: 새 파티클 생성 (억제되지 않은 경우)
 	if (!bSuppressSpawning)
 	{
 		// SpawnModule 찾기
@@ -162,26 +159,16 @@ void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 			}
 		}
 
-		// 언리얼 엔진 방식: Burst 처리 (최초 1회만)
-		if (!bBurstFired && SpawnModule && SpawnModule->BurstCount > 0)
+		// 언리얼 엔진 호환: 스폰 로직을 모듈에 위임 (책임 분리)
+		if (SpawnModule)
 		{
-			bBurstFired = true;
-			SpawnParticles(SpawnModule->BurstCount, 0.0f, 0.0f, FVector(0.0f, 0.0f, 0.0f), FVector(0.0f, 0.0f, 0.0f));
-		}
+			int32 SpawnCount = SpawnModule->CalculateSpawnCount(DeltaTime, SpawnFraction, bBurstFired);
 
-		// SpawnRate에 따른 정상 스폰
-		float SpawnRate = SpawnModule ? SpawnModule->SpawnRate : 0.0f;
-
-		// SpawnRate가 0보다 크면 파티클 생성
-		if (SpawnRate > 0.0f)
-		{
-			float ParticlesToSpawn = SpawnRate * DeltaTime + SpawnFraction;
-			int32 Count = static_cast<int32>(ParticlesToSpawn);
-			SpawnFraction = ParticlesToSpawn - Count;
-
-			if (Count > 0)
+			if (SpawnCount > 0)
 			{
-				SpawnParticles(Count, 0.0f, DeltaTime / Count, FVector(0.0f, 0.0f, 0.0f), FVector(0.0f, 0.0f, 0.0f));
+				// 파티클 간 균등한 시간 간격 계산
+				float Increment = (SpawnCount > 1) ? (DeltaTime / SpawnCount) : 0.0f;
+				SpawnParticles(SpawnCount, 0.0f, Increment, FVector(0.0f, 0.0f, 0.0f), FVector(0.0f, 0.0f, 0.0f));
 			}
 		}
 	}

@@ -18,7 +18,10 @@ struct FParticleEmitterInstance
 	int32 CurrentLODLevelIndex;
 	UParticleLODLevel* CurrentLODLevel;
 
-	// 파티클 데이터
+	// 언리얼 엔진 호환: 파티클 데이터 컨테이너 (16바이트 정렬)
+	FParticleDataContainer ParticleDataContainer;
+
+	// 파티클 데이터 (FParticleDataContainer를 통해 할당됨)
 	/** 파티클 데이터 배열에 대한 포인터 */
 	uint8* ParticleData;
 	/** 파티클 인덱스 배열에 대한 포인터 */
@@ -83,3 +86,18 @@ struct FParticleEmitterInstance
 	// 렌더링을 위한 동적 데이터 생성
 	FDynamicEmitterDataBase* GetDynamicData(bool bSelected);
 };
+
+// 언리얼 엔진 호환: 인덱스로 파티클을 가져오는 헬퍼 함수 구현
+// ParticleHelper.h에서 선언된 함수의 구현 (순환 의존성 방지)
+inline FBaseParticle* GetParticleAtIndex(FParticleEmitterInstance* Instance, int32 Index)
+{
+	if (!Instance || Index < 0 || Index >= Instance->ActiveParticles)
+	{
+		return nullptr;
+	}
+
+	// 간접 인덱싱: ParticleIndices를 통해 실제 파티클 위치 가져오기
+	int32 ParticleIndex = Instance->ParticleIndices[Index];
+	uint8* ParticleBase = Instance->ParticleData + (ParticleIndex * Instance->ParticleStride);
+	return reinterpret_cast<FBaseParticle*>(ParticleBase);
+}

@@ -60,5 +60,6 @@ inline FVector GetParticleBaseSize(const FBaseParticle& Particle)
 	return FVector(1.0f, 1.0f, 1.0f);
 }
 
-// 인덱스로 파티클을 가져오는 헬퍼 함수
+// 언리얼 엔진 호환: 인덱스로 파티클을 가져오는 헬퍼 함수
+// 구현은 ParticleEmitterInstance.h에서 정의 (순환 의존성 방지)
 inline FBaseParticle* GetParticleAtIndex(FParticleEmitterInstance* Instance, int32 Index);
