@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "PrimitiveComponent.h"
 #include "Source/Runtime/Engine/Particles/ParticleSystem.h"
@@ -60,7 +60,7 @@ public:
 
 	void FillVertexBuffer(const FSceneView* View);
 
-	void CreateMeshBatch(TArray<FMeshBatchElement>& OutMeshBatchElements);
+	void CreateMeshBatch(TArray<FMeshBatchElement>& OutMeshBatchElements, uint32 IndexCount);
 
 private:
 	void InitializeEmitterInstances();
