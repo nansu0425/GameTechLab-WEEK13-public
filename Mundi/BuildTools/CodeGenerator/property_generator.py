@@ -64,11 +64,14 @@ class PropertyGenerator:
 
         # mark_type 결정:
         # 1. AActor 자체는 MARK 없음
-        # 2. AActor를 상속받은 클래스 (직간접 포함)는 MARK_AS_SPAWNABLE
-        # 3. 나머지는 MARK_AS_COMPONENT
+        # 2. Abstract 클래스는 MARK 없음 (에디터 목록에서 제외)
+        # 3. AActor를 상속받은 클래스 (직간접 포함)는 MARK_AS_SPAWNABLE
+        # 4. 나머지는 MARK_AS_COMPONENT
         mark_type = None
         if class_info.name == 'AActor':
             mark_type = None  # AActor는 MARK 없음
+        elif class_info.is_abstract:
+            mark_type = None  # Abstract 클래스는 MARK 없음
         elif self._is_derived_from(class_info.name, 'AActor'):
             mark_type = 'SPAWNABLE'  # AActor를 상속받은 클래스 (직간접)
         else:
