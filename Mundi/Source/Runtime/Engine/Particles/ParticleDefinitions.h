@@ -83,7 +83,17 @@ struct FBaseParticle
 	}
 };
 
-// 파티클 데이터 컨테이너 (언리얼 엔진 호환)
+struct FParticleSpriteVertex
+{
+	FVector WorldPosition;
+	float Rotation;
+	FVector2D UV;
+	FVector2D Size;
+	FLinearColor Color;
+	float RelativeTime;
+};
+
+// 파티클 데이터 컨테이너
 struct FParticleDataContainer
 {
 	int32 MemBlockSize;
@@ -211,8 +221,7 @@ struct FDynamicSpriteEmitterData : public FDynamicSpriteEmitterDataBase
 
 	virtual int32 GetDynamicVertexStride() const override
 	{
-		// sizeof(FParticleSpriteVertex) - 렌더링 구현 시 정의 예정
-		return 0;
+		return sizeof(FParticleSpriteVertex);
 	}
 };
 

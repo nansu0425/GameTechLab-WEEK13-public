@@ -49,6 +49,7 @@
 #include "PostProcessing/VignettePass.h"
 #include "FbxLoader.h"
 #include "SkinnedMeshComponent.h"
+#include "ParticleSystemComponent.h"
 
 FSceneRenderer::FSceneRenderer(UWorld* InWorld, FSceneView* InView, URenderer* InOwnerRenderer)
 	: World(InWorld)
@@ -183,6 +184,7 @@ void FSceneRenderer::RenderLitPath()
 	RenderOpaquePass(View->RenderSettings->GetViewMode());
 
 	RenderDecalPass();
+	RenderParticleSystemPass();
 }
 
 void FSceneRenderer::RenderWireframePath()
@@ -754,6 +756,10 @@ void FSceneRenderer::GatherVisibleProxies()
 					{
 						Proxies.Decals.Add(DecalComponent);
 					}
+					else if (UParticleSystemComponent* ParticleSystemComponent = Cast<UParticleSystemComponent>(PrimitiveComponent))
+					{
+						Proxies.ParticleSystems.Add(ParticleSystemComponent);
+					}
 					else if (ULineComponent* LineComponent = Cast<ULineComponent>(PrimitiveComponent))
 					{
 						Proxies.EditorLines.Add(LineComponent);
@@ -963,7 +969,7 @@ void FSceneRenderer::RenderDecalPass()
 	if (Proxies.Decals.empty())
 		return;
 
-	// WorldNormal 모드에서는 Decal 렌더링 스킵
+	// WorldNormal 모드에서는 데칼 렌더링 스킵
 	if (View->RenderSettings->GetViewMode() == EViewMode::VMI_WorldNormal)
 		return;
 
@@ -1054,6 +1060,43 @@ void FSceneRenderer::RenderDecalPass()
 		auto CpuTimeEnd = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double, std::milli> CpuTimeMs = CpuTimeEnd - CpuTimeStart;
 		FDecalStatManager::GetInstance().GetDecalPassTimeSlot() += CpuTimeMs.count(); // CPU 소요 시간 저장
+	}
+
+	// 상태 복구
+	RHIDevice->RSSetState(ERasterizerMode::Solid);
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+	RHIDevice->OMSetBlendState(false);
+}
+
+void FSceneRenderer::RenderParticleSystemPass()
+{
+	if (Proxies.ParticleSystems.empty())
+		return;
+
+	// WorldNormal 모드에서는 파티클 렌더링 스킵
+	if (View->RenderSettings->GetViewMode() == EViewMode::VMI_WorldNormal)
+		return;
+
+	// 파티클 렌더 상태 설정
+	RHIDevice->RSSetState(ERasterizerMode::Solid);
+	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqualReadOnly);
+	RHIDevice->OMSetBlendState(true);
+
+	// 파티클 배치 수집
+	TArray<FMeshBatchElement> ParticleBatches;
+
+	for (UParticleSystemComponent* ParticleSystem : Proxies.ParticleSystems)
+	{
+		if (ParticleSystem && ParticleSystem->IsVisible())
+		{
+			ParticleSystem->CollectMeshBatches(ParticleBatches, View);
+		}
+	}
+
+	// 수집된 배치 그리기
+	if (ParticleBatches.Num() > 0)
+	{
+		DrawMeshBatches(ParticleBatches, true);
 	}
 
 	// 상태 복구

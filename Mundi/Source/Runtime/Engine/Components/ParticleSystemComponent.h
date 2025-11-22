@@ -1,12 +1,15 @@
 ﻿#pragma once
 
-#include "SceneComponent.h"
+#include "PrimitiveComponent.h"
 #include "Source/Runtime/Engine/Particles/ParticleSystem.h"
 #include "Source/Runtime/Engine/Particles/ParticleEmitterInstance.h"
 #include "UParticleSystemComponent.generated.h"
 
+struct FMeshBatchElement;
+struct FSceneView;
+
 UCLASS(DisplayName="파티클 시스템 컴포넌트", Description="파티클 시스템을 씬에 배치하는 컴포넌트입니다")
-class UParticleSystemComponent : public USceneComponent
+class UParticleSystemComponent : public UPrimitiveComponent
 {
 public:
 	GENERATED_REFLECTION_BODY()
@@ -23,6 +26,12 @@ public:
 
 	// 렌더 데이터 (렌더링 스레드용)
 	TArray<FDynamicEmitterDataBase*> EmitterRenderData;
+
+	// Dynamic Vertex / Index Buffer
+	ID3D11Buffer* ParticleVertexBuffer = nullptr;
+	ID3D11Buffer* ParticleIndexBuffer = nullptr;
+	uint32 AllocatedVertexCount = 0;
+	uint32 AllocatedIndexCount = 0;
 
 	UParticleSystemComponent();
 	virtual ~UParticleSystemComponent();
@@ -44,6 +53,14 @@ public:
 
 	// 직렬화
 	virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
+
+	void CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View) override;
+
+	void EnsureBufferSize(uint32 RequiredVertexCount, uint32 RequiredIndexCount);
+
+	void FillVertexBuffer(const FSceneView* View);
+
+	void CreateMeshBatch(TArray<FMeshBatchElement>& OutMeshBatchElements);
 
 private:
 	void InitializeEmitterInstances();
