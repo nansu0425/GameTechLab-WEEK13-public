@@ -16,7 +16,10 @@ public:
 	UPROPERTY(EditAnywhere, Category="Velocity")
 	FVector StartVelocityRange = FVector(0.0f, 0.0f, 0.0f);
 
-	UParticleModuleVelocity() = default;
+	UParticleModuleVelocity()
+	{
+		bSpawnModule = true;  // 스폰 시 속도 설정
+	}
 	virtual ~UParticleModuleVelocity() = default;
 
 	virtual void Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;

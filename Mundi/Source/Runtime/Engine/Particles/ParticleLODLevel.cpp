@@ -9,14 +9,22 @@ void UParticleLODLevel::CacheModuleInfo()
 	SpawnModules.clear();
 	UpdateModules.clear();
 
+	// 언리얼 엔진 방식: 모듈 타입 플래그에 따라 분류
 	for (UParticleModule* Module : Modules)
 	{
 		if (Module && Module->bEnabled)
 		{
-			// 현재 모든 모듈은 스폰과 업데이트 모듈 둘 다임
-			// 나중에 모듈 타입에 따라 최적화 가능
-			SpawnModules.Add(Module);
-			UpdateModules.Add(Module);
+			// 스폰 모듈인 경우 SpawnModules에 추가
+			if (Module->bSpawnModule)
+			{
+				SpawnModules.Add(Module);
+			}
+
+			// 업데이트 모듈인 경우 UpdateModules에 추가
+			if (Module->bUpdateModule)
+			{
+				UpdateModules.Add(Module);
+			}
 		}
 	}
 }

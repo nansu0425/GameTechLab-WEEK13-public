@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "ParticleEmitterInstance.h"
 #include "Modules/ParticleModule.h"
+#include "Modules/ParticleModuleSpawn.h"
 #include <cstring>
 
 FParticleEmitterInstance::FParticleEmitterInstance()
@@ -19,6 +20,7 @@ FParticleEmitterInstance::FParticleEmitterInstance()
 	, ParticleCounter(0)
 	, MaxActiveParticles(0)
 	, SpawnFraction(0.0f)
+	, bBurstFired(false)  // 언리얼 엔진 호환: Burst 초기화
 {
 }
 
@@ -51,9 +53,41 @@ void FParticleEmitterInstance::Init(UParticleSystemComponent* InComponent, UPart
 
 		if (CurrentLODLevel)
 		{
-			// 파티클 크기와 스트라이드 캐싱
+			// 언리얼 엔진 호환: 페이로드 크기 계산
+			// 각 모듈이 필요로 하는 추가 데이터 크기를 계산하고 오프셋 할당
+			uint32 TotalPayloadSize = 0;
+			InstancePayloadSize = 0;
+
+			// 모든 모듈의 페이로드 크기 계산
+			for (UParticleModule* Module : CurrentLODLevel->Modules)
+			{
+				if (Module && Module->bEnabled)
+				{
+					// 파티클별 페이로드
+					uint32 ModulePayloadSize = Module->RequiredBytes(this);
+					Module->ModuleOffsetInParticle = TotalPayloadSize;
+					TotalPayloadSize += ModulePayloadSize;
+
+					// 인스턴스별 페이로드
+					InstancePayloadSize += Module->RequiredBytesPerInstance();
+				}
+			}
+
+			// 파티클 크기와 스트라이드 계산 (기본 파티클 + 페이로드)
 			ParticleSize = SpriteTemplate->ParticleSize;
-			ParticleStride = ParticleSize;
+			PayloadOffset = ParticleSize;  // 페이로드는 기본 파티클 뒤에 위치
+			ParticleStride = ParticleSize + TotalPayloadSize;
+
+			// 인스턴스 데이터 할당 (필요한 경우)
+			if (InstancePayloadSize > 0)
+			{
+				if (InstanceData)
+				{
+					delete[] InstanceData;
+				}
+				InstanceData = new uint8[InstancePayloadSize];
+				memset(InstanceData, 0, InstancePayloadSize);
+			}
 
 			// 초기 파티클 데이터 할당
 			Resize(100); // Default to 100 particles
@@ -114,15 +148,41 @@ void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 	// 새 파티클 생성 (억제되지 않은 경우)
 	if (!bSuppressSpawning)
 	{
-		// 단순 생성 속도: 초당 10개 파티클
-		float SpawnRate = 10.0f;
-		float ParticlesToSpawn = SpawnRate * DeltaTime + SpawnFraction;
-		int32 Count = static_cast<int32>(ParticlesToSpawn);
-		SpawnFraction = ParticlesToSpawn - Count;
-
-		if (Count > 0)
+		// SpawnModule 찾기
+		UParticleModuleSpawn* SpawnModule = nullptr;
+		for (UParticleModule* Module : CurrentLODLevel->SpawnModules)
 		{
-			SpawnParticles(Count, 0.0f, DeltaTime / Count, FVector(0.0f, 0.0f, 0.0f), FVector(0.0f, 0.0f, 0.0f));
+			if (Module && Module->bEnabled)
+			{
+				SpawnModule = dynamic_cast<UParticleModuleSpawn*>(Module);
+				if (SpawnModule)
+				{
+					break;
+				}
+			}
+		}
+
+		// 언리얼 엔진 방식: Burst 처리 (최초 1회만)
+		if (!bBurstFired && SpawnModule && SpawnModule->BurstCount > 0)
+		{
+			bBurstFired = true;
+			SpawnParticles(SpawnModule->BurstCount, 0.0f, 0.0f, FVector(0.0f, 0.0f, 0.0f), FVector(0.0f, 0.0f, 0.0f));
+		}
+
+		// SpawnRate에 따른 정상 스폰
+		float SpawnRate = SpawnModule ? SpawnModule->SpawnRate : 0.0f;
+
+		// SpawnRate가 0보다 크면 파티클 생성
+		if (SpawnRate > 0.0f)
+		{
+			float ParticlesToSpawn = SpawnRate * DeltaTime + SpawnFraction;
+			int32 Count = static_cast<int32>(ParticlesToSpawn);
+			SpawnFraction = ParticlesToSpawn - Count;
+
+			if (Count > 0)
+			{
+				SpawnParticles(Count, 0.0f, DeltaTime / Count, FVector(0.0f, 0.0f, 0.0f), FVector(0.0f, 0.0f, 0.0f));
+			}
 		}
 	}
 }
@@ -147,9 +207,9 @@ void FParticleEmitterInstance::SpawnParticles(int32 Count, float StartTime, floa
 		int32 ParticleIndex = ActiveParticles;
 		ActiveParticles++;
 
-		// 파티클 포인터 가져오기
+		// 파티클 포인터 가져오기 (언리얼 방식)
 		uint8* ParticleBase = ParticleData + (ParticleIndex * ParticleStride);
-		DECLARE_PARTICLE_PTR;
+		DECLARE_PARTICLE_PTR(Particle, ParticleBase);
 
 		// 생성 전
 		PreSpawn(Particle, InitialLocation, InitialVelocity);
@@ -178,16 +238,21 @@ void FParticleEmitterInstance::PreSpawn(FBaseParticle* Particle, const FVector& 
 		return;
 	}
 
-	// 기본값으로 파티클 초기화
+	// 기본값으로 파티클 초기화 (언리얼 엔진 호환)
+	Particle->OldLocation = InitialLocation;
 	Particle->Location = InitialLocation;
-	Particle->Velocity = InitialVelocity;
 	Particle->BaseVelocity = InitialVelocity;
-	Particle->RelativeTime = 0.0f;
-	Particle->Lifetime = 1.0f; // Default lifetime
+	Particle->Velocity = InitialVelocity;
 	Particle->Rotation = 0.0f;
+	Particle->BaseRotationRate = 0.0f;
 	Particle->RotationRate = 0.0f;
+	Particle->BaseSize = FVector(1.0f, 1.0f, 1.0f);
 	Particle->Size = FVector(1.0f, 1.0f, 1.0f);
+	Particle->Flags = 0;
+	Particle->BaseColor = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	Particle->Color = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	Particle->RelativeTime = 0.0f;
+	Particle->OneOverMaxLifetime = 1.0f;  // 기본 수명 1초 (1 / 1.0f = 1.0f)
 }
 
 void FParticleEmitterInstance::PostSpawn(FBaseParticle* Particle, float InterpolationParameter, float SpawnTime)
@@ -202,7 +267,7 @@ void FParticleEmitterInstance::UpdateParticles(float DeltaTime)
 		return;
 	}
 
-	// 모든 파티클 업데이트
+	// 모든 파티클의 기본 속성 업데이트 (역방향 순회)
 	for (int32 i = ActiveParticles - 1; i >= 0; i--)
 	{
 		// 파티클 가져오기
@@ -212,8 +277,17 @@ void FParticleEmitterInstance::UpdateParticles(float DeltaTime)
 			continue;
 		}
 
-		// 수명 업데이트
-		Particle->RelativeTime += DeltaTime / Particle->Lifetime;
+		// Freeze 상태면 스킵
+		if (Particle->Flags & STATE_Particle_Freeze)
+		{
+			continue;
+		}
+
+		// 이전 위치 저장 (충돌 처리용)
+		Particle->OldLocation = Particle->Location;
+
+		// 수명 업데이트 (최적화: 나눗셈 대신 곱셈 사용)
+		Particle->RelativeTime += DeltaTime * Particle->OneOverMaxLifetime;
 
 		// 수명 초과 시 파티클 제거
 		if (Particle->RelativeTime >= 1.0f)
@@ -227,14 +301,15 @@ void FParticleEmitterInstance::UpdateParticles(float DeltaTime)
 
 		// 회전 업데이트
 		Particle->Rotation += Particle->RotationRate * DeltaTime;
+	}
 
-		// 업데이트 모듈 적용
-		for (UParticleModule* Module : CurrentLODLevel->UpdateModules)
+	// 업데이트 모듈 적용 (언리얼 엔진 방식: Context 사용)
+	FModuleUpdateContext Context = { *this, 0, DeltaTime };
+	for (UParticleModule* Module : CurrentLODLevel->UpdateModules)
+	{
+		if (Module && Module->bEnabled)
 		{
-			if (Module && Module->bEnabled)
-			{
-				Module->Update(this, 0, DeltaTime);
-			}
+			Module->Update(Context);
 		}
 	}
 }

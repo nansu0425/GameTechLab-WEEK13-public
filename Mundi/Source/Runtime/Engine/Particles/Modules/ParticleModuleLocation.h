@@ -16,7 +16,10 @@ public:
 	UPROPERTY(EditAnywhere, Category="Location")
 	FVector StartLocationRange = FVector(0.0f, 0.0f, 0.0f);
 
-	UParticleModuleLocation() = default;
+	UParticleModuleLocation()
+	{
+		bSpawnModule = true;  // 스폰 시 위치 설정
+	}
 	virtual ~UParticleModuleLocation() = default;
 
 	virtual void Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;

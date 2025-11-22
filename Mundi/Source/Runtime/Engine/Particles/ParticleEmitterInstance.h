@@ -33,6 +33,9 @@ struct FParticleEmitterInstance
 	// 스폰 분수 (부드러운 스폰을 위함)
 	float SpawnFraction;
 
+	// Burst 상태 (언리얼 엔진 호환)
+	bool bBurstFired;  // Burst가 이미 발생했는지 여부
+
 	// 생성자 / 소멸자
 	FParticleEmitterInstance();
 	virtual ~FParticleEmitterInstance();

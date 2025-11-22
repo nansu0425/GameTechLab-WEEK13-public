@@ -2,13 +2,8 @@
 #include "ParticleModuleAcceleration.h"
 #include "ParticleEmitterInstance.h"
 
-void UParticleModuleAcceleration::Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime)
+void UParticleModuleAcceleration::Update(FModuleUpdateContext& Context)
 {
-	if (!Owner)
-	{
-		return;
-	}
-
 	FVector TotalAcceleration = Acceleration;
 
 	// 중력 활성화 시 적용
@@ -18,9 +13,9 @@ void UParticleModuleAcceleration::Update(FParticleEmitterInstance* Owner, int32 
 		TotalAcceleration.Z += GravityZ * GravityScale;
 	}
 
-	// 모든 파티클 업데이트
+	// 언리얼 엔진 방식: 모든 파티클 업데이트 (Context 사용)
 	BEGIN_UPDATE_LOOP;
-		Particle->Velocity += TotalAcceleration * DeltaTime;
+		Particle.Velocity += TotalAcceleration * DeltaTime;
 	END_UPDATE_LOOP;
 }
 

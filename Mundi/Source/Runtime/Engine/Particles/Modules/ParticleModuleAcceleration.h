@@ -19,9 +19,12 @@ public:
 	UPROPERTY(EditAnywhere, Category="Acceleration")
 	float GravityScale = 1.0f;
 
-	UParticleModuleAcceleration() = default;
+	UParticleModuleAcceleration()
+	{
+		bUpdateModule = true;  // 매 프레임 업데이트 필요
+	}
 	virtual ~UParticleModuleAcceleration() = default;
 
-	virtual void Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
+	virtual void Update(FModuleUpdateContext& Context) override;
 	virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
 };

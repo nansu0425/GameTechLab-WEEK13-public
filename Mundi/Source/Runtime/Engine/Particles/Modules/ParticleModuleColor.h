@@ -16,10 +16,14 @@ public:
 	UPROPERTY(EditAnywhere, Category="Color")
 	FLinearColor EndColor = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
-	UParticleModuleColor() = default;
+	UParticleModuleColor()
+	{
+		bSpawnModule = true;   // 스폰 시 초기 색상 설정
+		bUpdateModule = true;  // 매 프레임 색상 보간
+	}
 	virtual ~UParticleModuleColor() = default;
 
 	virtual void Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
-	virtual void Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
+	virtual void Update(FModuleUpdateContext& Context) override;
 	virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
 };

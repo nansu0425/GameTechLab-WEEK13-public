@@ -16,6 +16,17 @@ public:
 	UPROPERTY(EditAnywhere, Category="Particle Module")
 	bool bEnabled = true;
 
+	// 언리얼 엔진 호환: 모듈 타입 플래그
+	UPROPERTY(EditAnywhere, Category="Particle Module")
+	bool bSpawnModule = false;  // 스폰 시 호출되는 모듈
+
+	UPROPERTY(EditAnywhere, Category="Particle Module")
+	bool bUpdateModule = false;  // 매 프레임 업데이트 시 호출되는 모듈
+
+	// 언리얼 엔진 호환: 페이로드 시스템
+	// 이 모듈의 데이터가 파티클 페이로드 내에서 시작하는 오프셋
+	uint32 ModuleOffsetInParticle = 0;
+
 	UParticleModule() = default;
 	virtual ~UParticleModule() = default;
 
@@ -25,10 +36,23 @@ public:
 		// 파생 클래스에서 오버라이드
 	}
 
-	// 매 프레임마다 파티클 업데이트를 위해 호출
-	virtual void Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime)
+	// 매 프레임마다 파티클 업데이트를 위해 호출 (언리얼 엔진 호환: Context 사용)
+	virtual void Update(FModuleUpdateContext& Context)
 	{
 		// 파생 클래스에서 오버라이드
+	}
+
+	// 언리얼 엔진 호환: 페이로드 시스템
+	// 이 모듈이 파티클별로 필요로 하는 추가 데이터 크기를 반환
+	virtual uint32 RequiredBytes(FParticleEmitterInstance* Owner = nullptr)
+	{
+		return 0;  // 기본적으로 추가 데이터 불필요
+	}
+
+	// 언리얼 엔진 호환: 이 모듈이 인스턴스별로 필요로 하는 추가 데이터 크기를 반환
+	virtual uint32 RequiredBytesPerInstance()
+	{
+		return 0;  // 기본적으로 추가 데이터 불필요
 	}
 
 	// 직렬화

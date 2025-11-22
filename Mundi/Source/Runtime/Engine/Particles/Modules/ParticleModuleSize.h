@@ -16,7 +16,10 @@ public:
 	UPROPERTY(EditAnywhere, Category="Size")
 	FVector StartSizeRange = FVector(0.0f, 0.0f, 0.0f);
 
-	UParticleModuleSize() = default;
+	UParticleModuleSize()
+	{
+		bSpawnModule = true;  // 스폰 시 크기 설정
+	}
 	virtual ~UParticleModuleSize() = default;
 
 	virtual void Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;

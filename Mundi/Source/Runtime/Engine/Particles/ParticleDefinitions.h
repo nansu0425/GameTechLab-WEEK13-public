@@ -7,6 +7,18 @@
 class UMaterialInterface;
 struct FParticleRequiredModule;
 
+// 파티클 상태 플래그 (언리얼 엔진 호환)
+#define STATE_Particle_JustSpawned            0x02000000  // 방금 생성된 파티클
+#define STATE_Particle_Freeze                 0x04000000  // 파티클 업데이트 무시
+#define STATE_Particle_IgnoreCollisions       0x08000000  // 충돌 업데이트 무시
+#define STATE_Particle_FreezeTranslation      0x10000000  // 파티클 이동 중지
+#define STATE_Particle_FreezeRotation         0x20000000  // 파티클 회전 중지
+#define STATE_Particle_CollisionIgnoreCheck   (STATE_Particle_Freeze | STATE_Particle_IgnoreCollisions | STATE_Particle_FreezeTranslation | STATE_Particle_FreezeRotation)
+#define STATE_Particle_DelayCollisions        0x40000000  // 충돌 업데이트 지연
+#define STATE_Particle_CollisionHasOccurred   0x80000000  // 충돌 발생 플래그
+#define STATE_Mask                            0xFE000000  // 상태 마스크
+#define STATE_CounterMask                     (~STATE_Mask) // 카운터 마스크
+
 // 동적 이미터 타입
 enum class EDynamicEmitterType : uint8
 {
@@ -15,29 +27,58 @@ enum class EDynamicEmitterType : uint8
 	Unknown = 255
 };
 
-// 기본 파티클 구조체
+// 기본 파티클 구조체 (언리얼 엔진 완전 호환)
 struct FBaseParticle
 {
-	FVector    Location;
-	FVector    Velocity;
-	float      RelativeTime;
-	float      Lifetime;
-	FVector    BaseVelocity;
-	float      Rotation;
-	float      RotationRate;
-	FVector    Size;
-	FLinearColor Color;
+	// 24바이트 - 위치 정보
+	FVector      OldLocation;        // 충돌 처리용 이전 프레임 위치
+	FVector      Location;            // 현재 위치
+
+	// 16바이트
+	FVector      BaseVelocity;        // 매 프레임 시작 시 속도 (Velocity가 리셋되는 기준값)
+	float        Rotation;            // 파티클 회전 (라디안)
+
+	// 16바이트
+	FVector      Velocity;            // 현재 속도, 매 프레임 BaseVelocity로 리셋됨
+	float        BaseRotationRate;    // 초기 각속도 (라디안/초)
+
+	// 16바이트
+	FVector      BaseSize;            // 매 프레임 시작 시 크기 (Size가 리셋되는 기준값)
+	float        RotationRate;        // 현재 회전 속도, 매 프레임 BaseRotationRate로 리셋됨
+
+	// 16바이트
+	FVector      Size;                // 현재 크기, 매 프레임 BaseSize로 리셋됨
+	int32        Flags;               // 파티클 상태 플래그
+
+	// 16바이트
+	FLinearColor Color;               // 현재 색상
+
+	// 16바이트
+	FLinearColor BaseColor;           // 기본 색상
+
+	// 16바이트
+	float        RelativeTime;        // 상대 시간, 0 (생성) ~ 1 (소멸)
+	float        OneOverMaxLifetime;  // 수명의 역수 (나눗셈 최적화용: RelativeTime += DeltaTime * OneOverMaxLifetime)
+	float        Placeholder0;        // 향후 확장용
+	float        Placeholder1;        // 향후 확장용
 
 	FBaseParticle()
-		: Location(FVector(0.0f, 0.0f, 0.0f))
-		, Velocity(FVector(0.0f, 0.0f, 0.0f))
-		, RelativeTime(0.0f)
-		, Lifetime(0.0f)
+		: OldLocation(FVector(0.0f, 0.0f, 0.0f))
+		, Location(FVector(0.0f, 0.0f, 0.0f))
 		, BaseVelocity(FVector(0.0f, 0.0f, 0.0f))
 		, Rotation(0.0f)
+		, Velocity(FVector(0.0f, 0.0f, 0.0f))
+		, BaseRotationRate(0.0f)
+		, BaseSize(FVector(1.0f, 1.0f, 1.0f))
 		, RotationRate(0.0f)
 		, Size(FVector(1.0f, 1.0f, 1.0f))
+		, Flags(0)
 		, Color(FLinearColor(1.0f, 1.0f, 1.0f, 1.0f))
+		, BaseColor(FLinearColor(1.0f, 1.0f, 1.0f, 1.0f))
+		, RelativeTime(0.0f)
+		, OneOverMaxLifetime(1.0f)
+		, Placeholder0(0.0f)
+		, Placeholder1(0.0f)
 	{
 	}
 };

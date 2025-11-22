@@ -16,7 +16,10 @@ public:
 	UPROPERTY(EditAnywhere, Category="Lifetime")
 	float MaxLifetime = 1.0f;
 
-	UParticleModuleLifetime() = default;
+	UParticleModuleLifetime()
+	{
+		bSpawnModule = true;  // 스폰 시 수명 설정
+	}
 	virtual ~UParticleModuleLifetime() = default;
 
 	virtual void Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
