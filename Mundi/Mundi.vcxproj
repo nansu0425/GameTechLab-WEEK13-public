@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug_StandAlone|x64">
@@ -488,6 +488,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleRotationRate.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleRequired.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleSize.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleSizeScaleBySpeed.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleSpawn.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleTypeDataBase.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleTypeDataMesh.cpp" />
@@ -595,6 +596,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Generated\UParticleModuleTypeDataSprite.generated.cpp" />
     <ClCompile Include="Generated\UParticleModuleVelocity.generated.cpp" />
     <ClCompile Include="Generated\UParticleSystem.generated.cpp" />
+    <ClCompile Include="Generated\UParticleModuleSizeScaleBySpeed.generated.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\Common\LightingBuffers.hlsl">
@@ -959,6 +961,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleRotationRate.h" />
     <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleRequired.h" />
     <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleSize.h" />
+    <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleSizeScaleBySpeed.h" />
     <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleSpawn.h" />
     <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleTypeDataBase.h" />
     <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleTypeDataMesh.h" />
@@ -1074,6 +1077,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Generated\UParticleModuleTypeDataSprite.generated.h" />
     <ClInclude Include="Generated\UParticleModuleVelocity.generated.h" />
     <ClInclude Include="Generated\UParticleSystem.generated.h" />
+    <ClInclude Include="Generated\UParticleModuleSizeScaleBySpeed.generated.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="BuildTools\CodeGenerator\generate.py" />

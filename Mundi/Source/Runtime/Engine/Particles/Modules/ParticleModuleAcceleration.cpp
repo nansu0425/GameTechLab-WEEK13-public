@@ -1,7 +1,6 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "ParticleModuleAcceleration.h"
-#include "../ParticleEmitterInstance.h"
-#include <cstdlib>
+#include "ParticleEmitterInstance.h"
 
 void UParticleModuleAcceleration::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
 {

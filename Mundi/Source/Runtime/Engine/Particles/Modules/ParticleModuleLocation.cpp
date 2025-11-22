@@ -1,8 +1,6 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "ParticleModuleLocation.h"
-#include "../ParticleEmitterInstance.h"
-#include <cstdlib>
-#include <cmath>
+#include "ParticleEmitterInstance.h"
 
 void UParticleModuleLocation::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
 {

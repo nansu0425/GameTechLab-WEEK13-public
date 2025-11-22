@@ -1,7 +1,6 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "ParticleModuleSize.h"
-#include "../ParticleEmitterInstance.h"  // BEGIN_UPDATE_LOOP 매크로에서 필요
-#include <random>
+#include "Source/Runtime/Engine/Particles/ParticleEmitterInstance.h" // BEGIN_UPDATE_LOOP 매크로에서 필요
 
 // 언리얼 엔진 호환: 페이로드 크기 반환
 uint32 UParticleModuleSize::RequiredBytes(FParticleEmitterInstance* Owner)

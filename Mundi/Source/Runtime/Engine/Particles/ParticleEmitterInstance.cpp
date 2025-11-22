@@ -1,8 +1,7 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "ParticleEmitterInstance.h"
 #include "Modules/ParticleModule.h"
 #include "Modules/ParticleModuleSpawn.h"
-#include <cstring>
 
 FParticleEmitterInstance::FParticleEmitterInstance()
 	: SpriteTemplate(nullptr)
