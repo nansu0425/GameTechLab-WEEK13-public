@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Vector.h"
 #include "Color.h"
@@ -30,7 +30,7 @@ enum class EDynamicEmitterType : uint8
 // 기본 파티클 구조체 (언리얼 엔진 완전 호환)
 struct FBaseParticle
 {
-	// 24바이트 - 위치 정보
+	// 48바이트 - 위치 정보
 	FVector      OldLocation;        // 충돌 처리용 이전 프레임 위치
 	FVector      Location;            // 현재 위치
 
@@ -83,7 +83,7 @@ struct FBaseParticle
 	}
 };
 
-// 파티클 데이터 컨테이너
+// 파티클 데이터 컨테이너 (언리얼 엔진 호환)
 struct FParticleDataContainer
 {
 	int32 MemBlockSize;
@@ -103,19 +103,22 @@ struct FParticleDataContainer
 
 	~FParticleDataContainer()
 	{
-		if (ParticleData)
-		{
-			delete[] ParticleData;
-			ParticleData = nullptr;
-			ParticleIndices = nullptr;
-		}
+		Free();
 	}
+
+	// 메모리 할당 (언리얼 엔진 호환)
+	void Alloc(int32 InParticleDataNumBytes, int32 InParticleIndicesNumShorts);
+
+	// 메모리 해제 (언리얼 엔진 호환)
+	void Free();
 };
 
 // 동적 이미터 리플레이 데이터 베이스 (렌더 스레드용)
 struct FDynamicEmitterReplayDataBase
 {
+	/** 이미터의 타입 */
 	EDynamicEmitterType eEmitterType;
+	/** 이 이미터에서 현재 활성화된 파티클들의 숫자*/
 	int32 ActiveParticleCount;
 	int32 ParticleStride;
 	FParticleDataContainer DataContainer;

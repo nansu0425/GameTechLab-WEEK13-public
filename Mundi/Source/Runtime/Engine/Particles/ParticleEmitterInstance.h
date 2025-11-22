@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "ParticleDefinitions.h"
 #include "ParticleHelper.h"
@@ -19,15 +19,25 @@ struct FParticleEmitterInstance
 	UParticleLODLevel* CurrentLODLevel;
 
 	// 파티클 데이터
+	/** 파티클 데이터 배열에 대한 포인터 */
 	uint8* ParticleData;
+	/** 파티클 인덱스 배열에 대한 포인터 */
 	uint16* ParticleIndices;
+	/** 인스턴스 데이터 배열에 대한 포인터 */
 	uint8* InstanceData;
+	/** 인스턴스 데이터 배열의 크기 */
 	int32 InstancePayloadSize;
+	/** 파티클 데이터의 오프셋 */
 	int32 PayloadOffset;
+	/** 파티클의 총 크기 (in bytes) */
 	int32 ParticleSize;
+	/** ParticleData 배열안의 파티클들 간의 stride */
 	int32 ParticleStride;
+	/** 현재 이미터에서 활성화된 파티클들의 수 */
 	int32 ActiveParticles;
+	/** Monotonically increasing counter. */
 	uint32 ParticleCounter;
+	/** 파티클 데이터배열에 저장할 수 있는 최대 파티클 활성 수 */
 	int32 MaxActiveParticles;
 
 	// 스폰 분수 (부드러운 스폰을 위함)
