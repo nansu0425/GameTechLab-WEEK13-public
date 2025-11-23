@@ -79,6 +79,7 @@ void UParticleSystemComponent::CreateDebugParticleSystem()
 	UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
 	SpawnModule->SpawnRate = 20.0f;  // 초당 20개 파티클
 	SpawnModule->BurstCount = 10;    // 시작 시 10개 버스트
+	LODLevel->SpawnModule = SpawnModule;  // SpawnModule 필드에 할당 (Tick에서 직접 접근)
 	LODLevel->Modules.Add(SpawnModule);
 
 	// 라이프타임 모듈 생성 (파티클 수명 설정)
