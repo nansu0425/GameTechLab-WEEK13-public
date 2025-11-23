@@ -267,7 +267,7 @@ void FParticleEmitterInstance::PostSpawn(FBaseParticle* Particle, float Interpol
 
 void FParticleEmitterInstance::UpdateParticles(float DeltaTime)
 {
-	if (!CurrentLODLevel)
+	if (!CurrentLODLevel || ActiveParticles <= 0)
 	{
 		return;
 	}
@@ -291,10 +291,8 @@ void FParticleEmitterInstance::UpdateParticles(float DeltaTime)
 		// 이전 위치 저장 (충돌 처리용)
 		Particle->OldLocation = Particle->Location;
 
-		// 수명 업데이트 (최적화: 나눗셈 대신 곱셈 사용)
+		// 수명 업데이트 (수명 초과 시 파티클 제거)
 		Particle->RelativeTime += DeltaTime * Particle->OneOverMaxLifetime;
-
-		// 수명 초과 시 파티클 제거
 		if (Particle->RelativeTime >= 1.0f)
 		{
 			KillParticle(i);
@@ -302,16 +300,26 @@ void FParticleEmitterInstance::UpdateParticles(float DeltaTime)
 		}
 
 		// 위치 업데이트
-		Particle->Location += Particle->Velocity * DeltaTime;
+		if ((Particle->Flags & STATE_Particle_FreezeTranslation) == 0)
+		{
+			Particle->Location += Particle->Velocity * DeltaTime;
+		}
 
 		// 회전 업데이트
-		Particle->Rotation += Particle->RotationRate * DeltaTime;
+		if ((Particle->Flags & STATE_Particle_FreezeRotation) == 0)
+		{
+			Particle->Rotation += Particle->RotationRate * DeltaTime;
+		}
+
+		// 방금 생성된 파티클인지 확인, 다음 프레임을 위해 플래그 즉시 제거
+		bool bJustSpawned = (Particle->Flags & STATE_Particle_JustSpawned) != 0;
+		Particle->Flags &= ~STATE_Particle_JustSpawned;
 	}
 
 	// 업데이트 모듈 적용 (언리얼 엔진 방식: Context 사용)
 	for (UParticleModule* Module : CurrentLODLevel->UpdateModules)
 	{
-		if (Module && Module->bEnabled)
+		if (Module && Module->bEnabled && Module->bUpdateModule)
 		{
 			FModuleUpdateContext Context = { *this, Module->ModuleOffsetInParticle, DeltaTime };
 			Module->Update(Context);
