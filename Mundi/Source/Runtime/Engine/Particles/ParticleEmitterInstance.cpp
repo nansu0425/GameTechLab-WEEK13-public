@@ -383,50 +383,85 @@ FDynamicEmitterDataBase* FParticleEmitterInstance::GetDynamicData(bool bSelected
 		return nullptr;
 	}
 
-	// 스프라이트 이미터 데이터 생성
-	FDynamicSpriteEmitterData* NewData = new FDynamicSpriteEmitterData();
-
-	// 소스 데이터 설정
-	NewData->Source.ActiveParticleCount = ActiveParticles;
-	NewData->Source.ParticleStride = ParticleStride;
-
-	// 파티클 데이터 복사 (언리얼 엔진 방식: Alloc 사용)
-	int32 ParticleDataBytes = ActiveParticles * ParticleStride;
-	bool bAllocSuccess = NewData->Source.DataContainer.Alloc(ParticleDataBytes, ActiveParticles);
-
-	if (!bAllocSuccess)
+	const bool bIsMeshEmitter =	
+		(CurrentLODLevel->TypeDataModule && CurrentLODLevel->TypeDataModule->HasMesh());
+	
+	if (bIsMeshEmitter)
 	{
-		// 할당 실패 시 데이터 삭제 후 nullptr 반환
-		delete NewData;
-		return nullptr;
-	}
+		// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+		// MeshEmitter DynamicData
+		// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-	// 메모리 복사
-	memcpy(NewData->Source.DataContainer.ParticleData, ParticleData, ParticleDataBytes);
-	memcpy(NewData->Source.DataContainer.ParticleIndices, ParticleIndices, ActiveParticles * sizeof(uint16));
+		FDynamicMeshEmitterData* MeshData = new FDynamicMeshEmitterData();
 
-	// 언리얼 엔진 호환: Required 모듈과 Material 설정 (렌더링 시 필요)
-	if (CurrentLODLevel && CurrentLODLevel->RequiredModule)
-	{
-		// 렌더 스레드용 데이터로 변환하여 저장 (TUniquePtr 사용)
-		NewData->Source.RequiredModule = std::make_unique<FParticleRequiredModule>(
-			CurrentLODLevel->RequiredModule->ToRenderThreadData()
-		);
-		NewData->Source.MaterialInterface = NewData->Source.RequiredModule->Material;
-		NewData->Source.SortMode = CurrentLODLevel->RequiredModule->SortMode;
+		MeshData->MeshSource.ActiveParticleCount = ActiveParticles;
+		MeshData->MeshSource.ParticleStride = ParticleStride;
+		MeshData->MeshSource.DataContainer = ParticleDataContainer;
+
+		// TypeData에서 Mesh 정보 받아오기
+		UParticleModuleTypeDataBase* TypeData = CurrentLODLevel->TypeDataModule;
+		UParticleModuleTypeDataMesh* MeshType = Cast<UParticleModuleTypeDataMesh>(TypeData);
+		
+		if (MeshType)
+		{
+			MeshData->MeshSource.MeshData = MeshType->Mesh;
+		}
+		MeshData->MeshSource.MaterialInterface = CurrentLODLevel->RequiredModule ? CurrentLODLevel->RequiredModule->Material : nullptr;
+		MeshData->MeshSource.SortMode = CurrentLODLevel->RequiredModule ? CurrentLODLevel->RequiredModule->SortMode : 0;
+
+		return MeshData;
 	}
 	else
 	{
-		NewData->Source.RequiredModule = nullptr;
-		NewData->Source.MaterialInterface = nullptr;
-		NewData->Source.SortMode = 0;  // 정렬 없음
-	}
+		// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+		// SpriteEmitter DynamicData
+		// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+		
+		// 스프라이트 이미터 데이터 생성
+		FDynamicSpriteEmitterData* NewData = new FDynamicSpriteEmitterData();
 
-	// 컴포넌트 스케일 설정
-	if (Component)
-	{
-		NewData->Source.Scale = FVector(1.0f, 1.0f, 1.0f); // 임시로 기본값 사용
-	}
+		// 소스 데이터 설정
+		NewData->Source.ActiveParticleCount = ActiveParticles;
+		NewData->Source.ParticleStride = ParticleStride;
 
-	return NewData;
+		// 파티클 데이터 복사 (언리얼 엔진 방식: Alloc 사용)
+		int32 ParticleDataBytes = ActiveParticles * ParticleStride;
+		bool bAllocSuccess = NewData->Source.DataContainer.Alloc(ParticleDataBytes, ActiveParticles);
+
+		if (!bAllocSuccess)
+		{
+			// 할당 실패 시 데이터 삭제 후 nullptr 반환
+			delete NewData;
+			return nullptr;
+		}
+
+		// 메모리 복사
+		memcpy(NewData->Source.DataContainer.ParticleData, ParticleData, ParticleDataBytes);
+		memcpy(NewData->Source.DataContainer.ParticleIndices, ParticleIndices, ActiveParticles * sizeof(uint16));
+
+		// 언리얼 엔진 호환: Required 모듈과 Material 설정 (렌더링 시 필요)
+		if (CurrentLODLevel && CurrentLODLevel->RequiredModule)
+		{
+			// 렌더 스레드용 데이터로 변환하여 저장 (TUniquePtr 사용)
+			NewData->Source.RequiredModule = std::make_unique<FParticleRequiredModule>(
+				CurrentLODLevel->RequiredModule->ToRenderThreadData()
+			);
+			NewData->Source.MaterialInterface = NewData->Source.RequiredModule->Material;
+			NewData->Source.SortMode = CurrentLODLevel->RequiredModule->SortMode;
+		}
+		else
+		{
+			NewData->Source.RequiredModule = nullptr;
+			NewData->Source.MaterialInterface = nullptr;
+			NewData->Source.SortMode = 0;  // 정렬 없음
+		}
+
+		// 컴포넌트 스케일 설정
+		if (Component)
+		{
+			NewData->Source.Scale = FVector(1.0f, 1.0f, 1.0f); // 임시로 기본값 사용
+		}
+
+		return NewData;
+	}
 }

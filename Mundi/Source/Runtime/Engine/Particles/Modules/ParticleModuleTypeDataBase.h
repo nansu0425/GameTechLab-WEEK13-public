@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "ParticleModule.h"
 #include "UParticleModuleTypeDataBase.generated.h"
@@ -13,6 +13,7 @@ public:
 	UParticleModuleTypeDataBase() = default;
 	virtual ~UParticleModuleTypeDataBase() = default;
 
+	virtual bool HasMesh() const { return false; }
 	virtual void SetupEmitterInstance(FParticleEmitterInstance* Inst) {}
 
 	virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
