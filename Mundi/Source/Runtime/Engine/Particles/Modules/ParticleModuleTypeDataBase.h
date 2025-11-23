@@ -13,5 +13,7 @@ public:
 	UParticleModuleTypeDataBase() = default;
 	virtual ~UParticleModuleTypeDataBase() = default;
 
+	virtual void SetupEmitterInstance(FParticleEmitterInstance* Inst) {}
+
 	virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
 };

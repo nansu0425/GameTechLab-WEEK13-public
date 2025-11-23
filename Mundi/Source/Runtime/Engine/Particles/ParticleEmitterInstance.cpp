@@ -2,6 +2,7 @@
 #include "ParticleEmitterInstance.h"
 #include "Modules/ParticleModule.h"
 #include "Modules/ParticleModuleSpawn.h"
+#include "ParticleModuleTypeDataMesh.h"
 
 FParticleEmitterInstance::FParticleEmitterInstance()
 	: SpriteTemplate(nullptr)
@@ -82,6 +83,18 @@ void FParticleEmitterInstance::Init(UParticleSystemComponent* InComponent, UPart
 			// 인스턴스별 페이로드
 			InstancePayloadSize += Module->RequiredBytesPerInstance();
 		}
+	}
+
+	// TypeDataModule도 페이로드가 필요하면 같이 포함
+	UParticleModuleTypeDataBase* TypeData = CurrentLODLevel->TypeDataModule;
+	if (TypeData && TypeData->bEnabled)
+	{
+		uint32 TypePayloadSize = TypeData->RequiredBytes();
+		TypeData->ModuleOffsetInParticle = TotalPayloadSize;
+		TotalPayloadSize += TypePayloadSize;
+
+		// Emitter 초기화: 추후에는 Beam/Ribbon 등의 모든 특수 타입 이미터 대상으로 이루어질 것
+		TypeData->SetupEmitterInstance(this);
 	}
 
 	// 파티클 크기와 스트라이드 계산 (기본 파티클 + 페이로드)
