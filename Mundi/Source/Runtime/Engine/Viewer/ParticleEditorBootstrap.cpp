@@ -221,3 +221,38 @@ bool ParticleEditorBootstrap::SaveParticleSystem(UParticleSystem* System, const 
 	UE_LOG("[ParticleEditorBootstrap] SaveParticleSystem: 저장 성공: %s", FilePath.c_str());
 	return true;
 }
+
+UParticleSystem* ParticleEditorBootstrap::LoadParticleSystem(const FString& FilePath)
+{
+	// 입력 검증
+	if (FilePath.empty())
+	{
+		UE_LOG("[ParticleEditorBootstrap] LoadParticleSystem: FilePath가 비어있습니다");
+		return nullptr;
+	}
+
+	// FString을 FWideString으로 변환
+	FWideString WidePath(FilePath.begin(), FilePath.end());
+
+	// 파일에서 JSON 로드
+	JSON JsonHandle;
+	if (!FJsonSerializer::LoadJsonFromFile(JsonHandle, WidePath))
+	{
+		UE_LOG("[ParticleEditorBootstrap] LoadParticleSystem: 파일 로드 실패: %s", FilePath.c_str());
+		return nullptr;
+	}
+
+	// 새로운 ParticleSystem 객체 생성
+	UParticleSystem* LoadedSystem = NewObject<UParticleSystem>();
+	if (!LoadedSystem)
+	{
+		UE_LOG("[ParticleEditorBootstrap] LoadParticleSystem: ParticleSystem 객체 생성 실패");
+		return nullptr;
+	}
+
+	// ParticleSystem 역직렬화 (true = 로딩 모드)
+	LoadedSystem->Serialize(true, JsonHandle);
+
+	UE_LOG("[ParticleEditorBootstrap] LoadParticleSystem: 로드 성공: %s", FilePath.c_str());
+	return LoadedSystem;
+}
