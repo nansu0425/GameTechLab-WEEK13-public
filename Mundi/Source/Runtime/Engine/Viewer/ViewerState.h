@@ -33,6 +33,9 @@ struct FSelectedNotify
 class ViewerState
 {
 public:
+    // 가상 소멸자 - 파생 클래스 포인터를 기본 클래스 포인터로 delete할 때 필요
+    virtual ~ViewerState() = default;
+
     FName Name;
     UWorld* World = nullptr;
     FViewport* Viewport = nullptr;
