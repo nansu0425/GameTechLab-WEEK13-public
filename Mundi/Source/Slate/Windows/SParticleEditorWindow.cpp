@@ -3,6 +3,7 @@
 #include "SlateManager.h"
 #include "Source/Runtime/Engine/Viewer/ParticleEditorBootstrap.h"
 #include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
+#include "PlatformProcess.h"
 #include "ParticleSystem.h"
 #include "ParticleEmitter.h"
 #include "ParticleLODLevel.h"
@@ -797,24 +798,146 @@ void SParticleEditorWindow::RenderViewportArea(float width, float height)
 	}
 }
 
-void SParticleEditorWindow::CreateNewParticleSystem()
-{
-	// 7단계에서 구현
-}
-
 void SParticleEditorWindow::SaveParticleSystem()
 {
-	// 7단계에서 구현
+	// TODO: Save 로직 구현
+	ParticleEditorState* State = GetActiveParticleState();
+	if (!State)
+	{
+		UE_LOG("[SParticleEditorWindow] SaveParticleSystem: 활성 상태가 없습니다");
+		return;
+	}
+
+	if (!State->EditingTemplate)
+	{
+		UE_LOG("[SParticleEditorWindow] SaveParticleSystem: 편집 중인 템플릿이 없습니다");
+		return;
+	}
+
+	// 파일 경로가 없으면 SaveAs 호출
+	if (State->CurrentFilePath.empty())
+	{
+		SaveParticleSystemAs();
+		return;
+	}
+
+	// 파일로 저장
+	if (ParticleEditorBootstrap::SaveParticleSystem(State->EditingTemplate, State->CurrentFilePath))
+	{
+		// 저장 성공 - Dirty 플래그 해제
+		State->bIsDirty = false;
+		UE_LOG("[SParticleEditorWindow] 파티클 시스템 저장 완료: %s", State->CurrentFilePath.c_str());
+	}
+	else
+	{
+		// 저장 실패
+		UE_LOG("[SParticleEditorWindow] 파티클 시스템 저장 실패: %s", State->CurrentFilePath.c_str());
+	}
 }
 
 void SParticleEditorWindow::SaveParticleSystemAs()
 {
-	// 7단계에서 구현
+	// TODO: Save 로직 구현
+	ParticleEditorState* State = GetActiveParticleState();
+	if (!State)
+	{
+		UE_LOG("[SParticleEditorWindow] SaveParticleSystemAs: 활성 상태가 없습니다");
+		return;
+	}
+
+	if (!State->EditingTemplate)
+	{
+		UE_LOG("[SParticleEditorWindow] SaveParticleSystemAs: 편집 중인 템플릿이 없습니다");
+		return;
+	}
+
+	// 저장 파일 다이얼로그 열기
+	std::filesystem::path SavePath = FPlatformProcess::OpenSaveFileDialog(
+		L"Content",              // 기본 디렉토리
+		L"particle",             // 기본 확장자
+		L"Particle Files",       // 파일 타입 설명
+		L"NewParticleSystem"     // 기본 파일명
+	);
+
+	// 사용자가 취소한 경우
+	if (SavePath.empty())
+	{
+		UE_LOG("[SParticleEditorWindow] SaveParticleSystemAs: 사용자가 취소했습니다");
+		return;
+	}
+
+	// std::filesystem::path를 FString으로 변환
+	FString SavePathStr = SavePath.string();
+
+	// 파일로 저장
+	if (ParticleEditorBootstrap::SaveParticleSystem(State->EditingTemplate, SavePathStr))
+	{
+		// 저장 성공 - 파일 경로 설정 및 Dirty 플래그 해제
+		State->CurrentFilePath = SavePathStr;
+		State->bIsDirty = false;
+		UE_LOG("[SParticleEditorWindow] 파티클 시스템 저장 완료: %s", SavePathStr.c_str());
+	}
+	else
+	{
+		// 저장 실패
+		UE_LOG("[SParticleEditorWindow] 파티클 시스템 저장 실패: %s", SavePathStr.c_str());
+	}
 }
 
 void SParticleEditorWindow::LoadParticleSystem()
 {
-	// 7단계에서 구현
+	// TODO: Load 로직 구현
+	ParticleEditorState* State = GetActiveParticleState();
+	if (!State)
+	{
+		UE_LOG("[SParticleEditorWindow] LoadParticleSystem: 활성 상태가 없습니다");
+		return;
+	}
+
+	// 불러오기 파일 다이얼로그 열기
+	std::filesystem::path LoadPath = FPlatformProcess::OpenLoadFileDialog(
+		L"Content",          // 기본 디렉토리
+		L"particle",         // 확장자 필터
+		L"Particle Files"    // 파일 타입 설명
+	);
+
+	// 사용자가 취소한 경우
+	if (LoadPath.empty())
+	{
+		UE_LOG("[SParticleEditorWindow] LoadParticleSystem: 사용자가 취소했습니다");
+		return;
+	}
+
+	// std::filesystem::path를 FString으로 변환
+	FString LoadPathStr = LoadPath.string();
+
+	// 파일에서 파티클 시스템 로드
+	UParticleSystem* LoadedSystem = ParticleEditorBootstrap::LoadParticleSystem(LoadPathStr);
+	if (!LoadedSystem)
+	{
+		UE_LOG("[SParticleEditorWindow] 파티클 시스템 로드 실패: %s", LoadPathStr.c_str());
+		return;
+	}
+
+	// 기존 템플릿 교체
+	State->EditingTemplate = LoadedSystem;
+
+	// PreviewComponent에 새 템플릿 설정
+	if (State->PreviewComponent)
+	{
+		State->PreviewComponent->SetTemplate(LoadedSystem);
+	}
+
+	// 파일 경로 설정 및 Dirty 플래그 해제
+	State->CurrentFilePath = LoadPathStr;
+	State->bIsDirty = false;
+
+	// 선택 상태 초기화
+	State->SelectedEmitterIndex = -1;
+	State->SelectedModuleIndex = -1;
+	State->SelectedModule = nullptr;
+
+	UE_LOG("[SParticleEditorWindow] 파티클 시스템 로드 완료: %s", LoadPathStr.c_str());
 }
 
 void SParticleEditorWindow::RenderLeftViewportArea(float totalHeight)
