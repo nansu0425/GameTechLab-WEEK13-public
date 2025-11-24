@@ -39,8 +39,8 @@ ViewerState* ParticleEditorBootstrap::CreateViewerState(const char* Name, UWorld
 	Client->SetViewMode(EViewMode::VMI_Lit_Phong);
 
 	// 카메라 설정
-	Client->GetCamera()->SetActorLocation(FVector(-2.f, 0.f, 1.f));
-	Client->GetCamera()->SetRotationFromEulerAngles(FVector(0.f, 20.f, 0.f));
+	Client->GetCamera()->SetActorLocation(FVector(2.f, 0.f, 1.f));
+	Client->GetCamera()->SetRotationFromEulerAngles(FVector(0.f, 20.f, 180.f));
 
 	State->Client = Client;
 	State->Viewport->SetViewportClient(Client);
