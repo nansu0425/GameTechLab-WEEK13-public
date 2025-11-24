@@ -236,7 +236,7 @@ void UParticleSystemComponent::CreateDebugSpriteParticleSystem()
 
 	// 스프라이트 텍스처 설정 (불꽃/연기 등)
 	FMaterialInfo MatInfo;
-	MatInfo.DiffuseTextureFileName = GDataDir + "/Particles/Smoke.png";
+	MatInfo.DiffuseTextureFileName = GDataDir + "/Textures/Particles/Smoke.png";
 	SpriteMaterial->SetMaterialInfo(MatInfo);
 	SpriteMaterial->ResolveTextures();
 

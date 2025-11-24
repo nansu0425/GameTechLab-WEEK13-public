@@ -15,6 +15,8 @@
 #include "Modules/ParticleModuleSize.h"
 #include "Modules/ParticleModuleVelocity.h"
 #include "Modules/ParticleModuleColor.h"
+#include "Modules/ParticleModuleTypeDataSprite.h"
+#include "JsonSerializer.h"
 
 ViewerState* ParticleEditorBootstrap::CreateViewerState(const char* Name, UWorld* InWorld,
 	ID3D11Device* InDevice, UEditorAssetPreviewContext* Context)
@@ -133,6 +135,23 @@ UParticleSystem* ParticleEditorBootstrap::CreateDefaultParticleTemplate()
 	LOD->SpawnModule = SpawnModule;
 	LOD->Modules.Add(SpawnModule);
 
+	// 스프라이트용 Material 설정
+	UMaterial* SpriteMaterial = NewObject<UMaterial>();
+	UShader* SpriteShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Particle/ParticleSprite.hlsl");
+	SpriteMaterial->SetShader(SpriteShader);
+
+	// 스프라이트 텍스처 설정 (불꽃/연기 등)
+	FMaterialInfo MatInfo;
+	MatInfo.DiffuseTextureFileName = GDataDir + "/Textures/Particles/OrientParticle.png";
+	SpriteMaterial->SetMaterialInfo(MatInfo);
+	SpriteMaterial->ResolveTextures();
+
+	LOD->RequiredModule->Material = SpriteMaterial;
+
+	// 스프라이트 타입 데이터 모듈 (TypeDataModule이 nullptr이면 기본적으로 스프라이트)
+	UParticleModuleTypeDataSprite* SpriteTypeData = NewObject<UParticleModuleTypeDataSprite>();
+	LOD->TypeDataModule = SpriteTypeData;
+
 	// 3. Lifetime 모듈
 	UParticleModuleLifetime* LifetimeModule = NewObject<UParticleModuleLifetime>();
 	LifetimeModule->MinLifetime = 1.0f;
@@ -154,7 +173,7 @@ UParticleSystem* ParticleEditorBootstrap::CreateDefaultParticleTemplate()
 	// 6. Color Over Life 모듈
 	UParticleModuleColor* ColorModule = NewObject<UParticleModuleColor>();
 	ColorModule->StartColor = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f);
-	ColorModule->EndColor = FLinearColor(1.0f, 1.0f, 1.0f, 0.0f);  // 페이드 아웃
+	ColorModule->EndColor = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	LOD->Modules.Add(ColorModule);
 
 	// 모듈 캐싱
@@ -166,4 +185,39 @@ UParticleSystem* ParticleEditorBootstrap::CreateDefaultParticleTemplate()
 	DefaultTemplate->Emitters.Add(DefaultEmitter);
 
 	return DefaultTemplate;
+}
+
+bool ParticleEditorBootstrap::SaveParticleSystem(UParticleSystem* System, const FString& FilePath)
+{
+	// 입력 검증
+	if (!System)
+	{
+		UE_LOG("[ParticleEditorBootstrap] SaveParticleSystem: System이 nullptr입니다");
+		return false;
+	}
+
+	if (FilePath.empty())
+	{
+		UE_LOG("[ParticleEditorBootstrap] SaveParticleSystem: FilePath가 비어있습니다");
+		return false;
+	}
+
+	// JSON 객체 생성
+	JSON JsonHandle = JSON::Make(JSON::Class::Object);
+
+	// ParticleSystem 직렬화 (false = 저장 모드)
+	System->Serialize(false, JsonHandle);
+
+	// FString을 FWideString으로 변환
+	FWideString WidePath(FilePath.begin(), FilePath.end());
+
+	// 파일로 저장
+	if (!FJsonSerializer::SaveJsonToFile(JsonHandle, WidePath))
+	{
+		UE_LOG("[ParticleEditorBootstrap] SaveParticleSystem: 파일 저장 실패: %s", FilePath.c_str());
+		return false;
+	}
+
+	UE_LOG("[ParticleEditorBootstrap] SaveParticleSystem: 저장 성공: %s", FilePath.c_str());
+	return true;
 }
