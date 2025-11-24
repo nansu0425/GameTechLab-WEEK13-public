@@ -3,6 +3,7 @@
 #include "ParticleSystemComponent.h"
 #include "Modules/ParticleModule.h"
 #include "Modules/ParticleModuleSpawn.h"
+#include "Modules/ParticleModuleMeshRotation.h"
 #include "ParticleModuleTypeDataMesh.h"
 
 FParticleEmitterInstance::FParticleEmitterInstance()
@@ -423,7 +424,28 @@ FDynamicEmitterDataBase* FParticleEmitterInstance::GetDynamicData(bool bSelected
 
 		MeshData->MeshSource.ActiveParticleCount = ActiveParticles;
 		MeshData->MeshSource.ParticleStride = ParticleStride;
-		MeshData->MeshSource.DataContainer = ParticleDataContainer;
+
+		// 파티클 데이터 복사 (스프라이트와 동일한 방식: 깊은 복사)
+		int32 ParticleDataBytes = ActiveParticles * ParticleStride;
+		bool bAllocSuccess = MeshData->MeshSource.DataContainer.Alloc(ParticleDataBytes, ActiveParticles);
+
+		if (!bAllocSuccess)
+		{
+			delete MeshData;
+			return nullptr;
+		}
+
+		// 컴팩트 복사: 활성 파티클만 연속으로 복사
+		uint8* DstData = MeshData->MeshSource.DataContainer.ParticleData;
+		for (int32 i = 0; i < ActiveParticles; i++)
+		{
+			int32 SrcIndex = ParticleIndices[i];
+			const uint8* SrcParticle = ParticleData + SrcIndex * ParticleStride;
+			memcpy(DstData + i * ParticleStride, SrcParticle, ParticleStride);
+
+			// 인덱스는 컴팩트 복사 후 순차적으로 재매핑
+			MeshData->MeshSource.DataContainer.ParticleIndices[i] = static_cast<uint16>(i);
+		}
 
 		// TypeData에서 Mesh 정보 받아오기
 		UParticleModuleTypeDataBase* TypeData = CurrentLODLevel->TypeDataModule;
@@ -435,6 +457,22 @@ FDynamicEmitterDataBase* FParticleEmitterInstance::GetDynamicData(bool bSelected
 		}
 		MeshData->MeshSource.MaterialInterface = CurrentLODLevel->RequiredModule ? CurrentLODLevel->RequiredModule->Material : nullptr;
 		MeshData->MeshSource.SortMode = CurrentLODLevel->RequiredModule ? CurrentLODLevel->RequiredModule->SortMode : 0;
+
+		// MeshRotation 모듈 오프셋 찾기
+		MeshData->MeshSource.MeshRotationPayloadOffset = -1;
+		for (UParticleModule* Module : CurrentLODLevel->Modules)
+		{
+			if (Module && Module->bEnabled)
+			{
+				UParticleModuleMeshRotation* MeshRotModule = Cast<UParticleModuleMeshRotation>(Module);
+				if (MeshRotModule)
+				{
+					// PayloadOffset + ModuleOffsetInParticle = 파티클 내 페이로드 위치
+					MeshData->MeshSource.MeshRotationPayloadOffset = PayloadOffset + MeshRotModule->ModuleOffsetInParticle;
+					break;
+				}
+			}
+		}
 
 		return MeshData;
 	}
