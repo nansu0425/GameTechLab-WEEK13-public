@@ -60,6 +60,12 @@ struct FParticleEmitterInstance
 	// 이미터 인스턴스 초기화
 	void Init(UParticleSystemComponent* InComponent, UParticleEmitter* InTemplate);
 
+	// LOD 레벨 전환 
+	void SetLODLevel(int32 NewLODIndex);
+
+	// 현재 LOD 기반 이미터 세팅
+	void SetupEmitter();
+
 	// 이미터 인스턴스 업데이트
 	void Tick(float DeltaTime, bool bSuppressSpawning);
 

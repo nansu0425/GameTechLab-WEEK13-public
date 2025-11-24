@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "ParticleEmitterInstance.h"
+#include "ParticleSystemComponent.h"
 #include "Modules/ParticleModule.h"
 #include "Modules/ParticleModuleSpawn.h"
 #include "ParticleModuleTypeDataMesh.h"
@@ -45,25 +46,51 @@ void FParticleEmitterInstance::Init(UParticleSystemComponent* InComponent, UPart
 
 	// 필수 객체 nullptr 체크
 	if (!SpriteTemplate)
-	{
 		return;
-	}
 
 	// 현재 LOD 레벨 가져오기 (기본값 0)
 	CurrentLODLevelIndex = 0;
 	CurrentLODLevel = SpriteTemplate->GetLODLevel(CurrentLODLevelIndex);
-
+	
 	if (!CurrentLODLevel)
-	{
 		return;
-	}
 
-	// RequiredModule 체크 (렌더링에 필수)
-	if (!CurrentLODLevel->RequiredModule)
-	{
-		// RequiredModule이 없으면 렌더링 불가
+	ParticleSize = SpriteTemplate->ParticleSize;
+
+	// 초기화 로직 호출
+	SetupEmitter();
+
+	// 초기 파티클 데이터 할당
+	Resize(100); // Default to 100 particles
+}
+
+void FParticleEmitterInstance::SetLODLevel(int32 NewLODIndex)
+{
+	if (NewLODIndex == CurrentLODLevelIndex || !SpriteTemplate)
 		return;
-	}
+
+	UParticleLODLevel* NewLODLevel = SpriteTemplate->GetLODLevel(NewLODIndex);
+	if (!NewLODLevel || !NewLODLevel->bEnabled)
+		return;
+
+	// Update State
+	CurrentLODLevelIndex = NewLODIndex;
+	CurrentLODLevel = NewLODLevel;
+
+	// 수명/스폰 관련 상태 초기화
+	SpawnFraction = 0.f;
+	bBurstFired = false;
+
+	KillAllParticles();
+	SetupEmitter();
+
+	// ParticleDataContainer 재할당
+	Resize(MaxActiveParticles);
+}
+
+void FParticleEmitterInstance::SetupEmitter()
+{
+	if (!CurrentLODLevel)	return;
 
 	// 언리얼 엔진 호환: 페이로드 크기 계산
 	// 각 모듈이 필요로 하는 추가 데이터 크기를 계산하고 오프셋 할당
@@ -98,7 +125,6 @@ void FParticleEmitterInstance::Init(UParticleSystemComponent* InComponent, UPart
 	}
 
 	// 파티클 크기와 스트라이드 계산 (기본 파티클 + 페이로드)
-	ParticleSize = SpriteTemplate->ParticleSize;
 	PayloadOffset = ParticleSize;  // 페이로드는 기본 파티클 뒤에 위치
 	ParticleStride = ParticleSize + TotalPayloadSize;
 
@@ -112,9 +138,6 @@ void FParticleEmitterInstance::Init(UParticleSystemComponent* InComponent, UPart
 		InstanceData = new uint8[InstancePayloadSize];
 		memset(InstanceData, 0, InstancePayloadSize);
 	}
-
-	// 초기 파티클 데이터 할당
-	Resize(100); // Default to 100 particles
 }
 
 void FParticleEmitterInstance::Resize(int32 NewMaxActiveParticles)
@@ -240,12 +263,21 @@ void FParticleEmitterInstance::SpawnParticles(int32 Count, float StartTime, floa
 		{
 			if (Module && Module->bEnabled)
 			{
-				Module->Spawn(this, Module->ModuleOffsetInParticle, SpawnTime, Particle);
+				// PayloadOffset 추가: 페이로드는 FBaseParticle 뒤에 위치
+				Module->Spawn(this, PayloadOffset + Module->ModuleOffsetInParticle, SpawnTime, Particle);
 			}
 		}
 
 		// 생성 후
 		PostSpawn(Particle, static_cast<float>(i) / Count, SpawnTime);
+
+		// DEBUG: 스폰 직후 위치 확인 (추후 제거)
+		if (i == 0)  // 첫 번째 파티클만
+		{
+			UE_LOG("[SpawnParticles] Initial Location=(%.1f, %.1f, %.1f), Velocity=(%.1f, %.1f, %.1f)",
+				Particle->Location.X, Particle->Location.Y, Particle->Location.Z,
+				Particle->Velocity.X, Particle->Velocity.Y, Particle->Velocity.Z);
+		}
 
 		ParticleCounter++;
 	}
@@ -336,7 +368,8 @@ void FParticleEmitterInstance::UpdateParticles(float DeltaTime)
 	{
 		if (Module && Module->bEnabled && Module->bUpdateModule)
 		{
-			FModuleUpdateContext Context = { *this, Module->ModuleOffsetInParticle, DeltaTime };
+			// PayloadOffset 추가: 페이로드는 FBaseParticle 뒤에 위치
+			FModuleUpdateContext Context = { *this, PayloadOffset + Module->ModuleOffsetInParticle, DeltaTime };
 			Module->Update(Context);
 		}
 	}
@@ -437,9 +470,17 @@ FDynamicEmitterDataBase* FParticleEmitterInstance::GetDynamicData(bool bSelected
 			return nullptr;
 		}
 
-		// 메모리 복사
-		memcpy(NewData->Source.DataContainer.ParticleData, ParticleData, ParticleDataBytes);
-		memcpy(NewData->Source.DataContainer.ParticleIndices, ParticleIndices, ActiveParticles * sizeof(uint16));
+		// 컴팩트 복사: 활성 파티클만 연속으로 복사 (sparse array → dense array)
+		uint8* DstData = NewData->Source.DataContainer.ParticleData;
+		for (int32 i = 0; i < ActiveParticles; i++)
+		{
+			int32 SrcIndex = ParticleIndices[i];
+			const uint8* SrcParticle = ParticleData + SrcIndex * ParticleStride;
+			memcpy(DstData + i * ParticleStride, SrcParticle, ParticleStride);
+
+			// 인덱스는 컴팩트 복사 후 순차적으로 재매핑
+			NewData->Source.DataContainer.ParticleIndices[i] = static_cast<uint16>(i);
+		}
 
 		// 언리얼 엔진 호환: Required 모듈과 Material 설정 (렌더링 시 필요)
 		if (CurrentLODLevel && CurrentLODLevel->RequiredModule)
@@ -461,7 +502,11 @@ FDynamicEmitterDataBase* FParticleEmitterInstance::GetDynamicData(bool bSelected
 		// 컴포넌트 스케일 설정
 		if (Component)
 		{
-			NewData->Source.Scale = FVector(1.0f, 1.0f, 1.0f); // 임시로 기본값 사용
+			NewData->Source.Scale = Component->GetRelativeScale();
+		}
+		else
+		{
+			NewData->Source.Scale = FVector(1.0f, 1.0f, 1.0f);
 		}
 
 		return NewData;
