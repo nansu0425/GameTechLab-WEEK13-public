@@ -44,6 +44,12 @@ private:
 	// 뷰포트
 	void RenderViewportArea(float width, float height);
 
+	// 4개 영역 렌더링 함수
+	void RenderLeftViewportArea(float totalHeight);
+	void RenderLeftDetailsArea();
+	void RenderRightEmitterArea(float totalHeight);
+	void RenderRightCurveArea();
+
 	// 파일 작업
 	void CreateNewParticleSystem();
 	void SaveParticleSystem();
@@ -51,8 +57,26 @@ private:
 	void LoadParticleSystem();
 
 	// 레이아웃 비율 및 크기
-	float BottomPanelHeight = 250.f;
-	float ViewportDetailsRatio = 0.6f;  // 왼쪽 패널 내에서 뷰포트:디테일 비율
+	float LeftViewportHeight = 250.f;   // 좌측 상단 뷰포트 높이
+	float RightEmitterHeight = 400.f;   // 우측 상단 이미터 패널 높이
+
+	// 툴바 아이콘
+	UTexture* IconSave = nullptr;
+	UTexture* IconLoad = nullptr;
+	UTexture* IconRestart = nullptr;
+	UTexture* IconBounds = nullptr;
+	UTexture* IconOriginAxis = nullptr;
+	UTexture* IconBackgroundColor = nullptr;
+	UTexture* IconLODFirst = nullptr;
+	UTexture* IconLODPrev = nullptr;
+	UTexture* IconLODInsertBefore = nullptr;
+	UTexture* IconLODInsertAfter = nullptr;
+	UTexture* IconLODDelete = nullptr;
+	UTexture* IconLODNext = nullptr;
+	UTexture* IconLODLast = nullptr;
+
+	// 툴바 상태
+	void LoadToolbarIcons();
 
 	// 헬퍼 함수
 	ParticleEditorState* GetActiveParticleState() const

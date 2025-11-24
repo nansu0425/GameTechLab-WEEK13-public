@@ -112,4 +112,12 @@ struct ParticleEditorState : public ViewerState
     // 시뮬레이션 제어
     bool bIsSimulating = true;
     float SimulationSpeed = 1.0f;
+
+    // 뷰포트 표시 옵션
+    bool bShowBounds = false;
+    bool bShowOriginAxis = true;
+    FLinearColor BackgroundColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
+    // LOD 제어
+    int32 CurrentLODLevel = 0;
 };
