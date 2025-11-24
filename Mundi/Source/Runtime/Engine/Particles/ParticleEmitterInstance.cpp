@@ -5,7 +5,6 @@
 #include "Modules/ParticleModuleSpawn.h"
 #include "Modules/ParticleModuleMeshRotation.h"
 #include "ParticleModuleTypeDataMesh.h"
-#include "GlobalConsole.h"
 
 FParticleEmitterInstance::FParticleEmitterInstance()
 	: SpriteTemplate(nullptr)
