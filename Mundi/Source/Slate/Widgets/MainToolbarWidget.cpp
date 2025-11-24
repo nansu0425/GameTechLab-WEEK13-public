@@ -8,6 +8,7 @@
 #include "EditorEngine.h"
 #include "PlatformProcess.h"
 #include "SlateManager.h"
+#include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 #include <commdlg.h>
 #include <random>
 
@@ -47,6 +48,7 @@ void UMainToolbarWidget::LoadToolbarIcons()
     IconStop = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_Stop.png");
     IconAddActor = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_AddActor.png");
     IconPrefab = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_Prefab.png");
+    IconParticle = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Toolbar_Particle.png");
     LogoTexture = UResourceManager::GetInstance().Load<UTexture>("Data/Icon/Mundi_Logo.png");
 }
 
@@ -106,6 +108,9 @@ void UMainToolbarWidget::RenderToolbar()
 
         ImGui::SameLine(0, 12.0f);
         RenderLoadPrefabButton();
+
+        ImGui::SameLine(0, 12.0f);
+        RenderParticleEditorButton();
 
         // 구분선
         ImGui::SameLine(0, 12.0f);
@@ -474,6 +479,59 @@ void UMainToolbarWidget::RenderLoadPrefabButton()
         {
             // 프리팹 로드 취소
         }
+    }
+
+    ImGui::PopStyleColor(3);
+    ImGui::PopStyleVar(2);
+}
+
+void UMainToolbarWidget::RenderParticleEditorButton()
+{
+    const ImVec2 IconSizeVec(IconSize, IconSize);
+
+    // 버튼 스타일
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 4));
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0)); // 투명 버튼
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 0.7f));
+
+    ImGui::BeginGroup();
+
+    bool bButtonClicked = false;
+
+    if (IconParticle && IconParticle->GetShaderResourceView())
+    {
+        if (ImGui::ImageButton("##ParticleEditorBtn", (void*)IconParticle->GetShaderResourceView(), IconSizeVec))
+        {
+            bButtonClicked = true;
+        }
+
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("파티클 에디터를 엽니다");
+    }
+
+    // 버튼 주변의 테두리 그리기
+    ImVec2 GroupMin = ImGui::GetItemRectMin();
+    ImVec2 GroupMax = ImGui::GetItemRectMax();
+    ImDrawList* DrawList = ImGui::GetWindowDrawList();
+    DrawList->AddRect(
+        GroupMin,
+        GroupMax,
+        ImGui::GetColorU32(ImVec4(0.4f, 0.45f, 0.5f, 0.8f)),
+        4.0f,
+        0,
+        1.3f
+    );
+
+    ImGui::EndGroup();
+
+    if (bButtonClicked)
+    {
+        // 파티클 에디터 열기
+        UEditorAssetPreviewContext* Context = NewObject<UEditorAssetPreviewContext>();
+        Context->ViewerType = EViewerType::Particle;
+        USlateManager::GetInstance().OpenAssetViewer(Context);
     }
 
     ImGui::PopStyleColor(3);

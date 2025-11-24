@@ -145,6 +145,58 @@ void SParticleEditorWindow::DestroyViewerState(ViewerState*& State)
 	ParticleEditorBootstrap::DestroyViewerState(State);
 }
 
+void SParticleEditorWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
+{
+	// 탭바만 렌더링 (뷰어 전환 버튼 제외)
+	if (!ImGui::BeginTabBar("ParticleEditorTabs",
+		ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
+		return;
+
+	// 탭 렌더링
+	for (int i = 0; i < Tabs.Num(); ++i)
+	{
+		ViewerState* State = Tabs[i];
+		bool open = true;
+		if (ImGui::BeginTabItem(State->Name.ToString().c_str(), &open))
+		{
+			ActiveTabIndex = i;
+			ActiveState = State;
+			ImGui::EndTabItem();
+		}
+		if (!open)
+		{
+			CloseTab(i);
+			ImGui::EndTabBar();
+			return;
+		}
+	}
+
+	// + 버튼 (새 탭 추가)
+	if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing))
+	{
+		int maxViewerNum = 0;
+		for (int i = 0; i < Tabs.Num(); ++i)
+		{
+			const FString& tabName = Tabs[i]->Name.ToString();
+			const char* prefix = "Particle Editor ";
+			if (strncmp(tabName.c_str(), prefix, strlen(prefix)) == 0)
+			{
+				const char* numberPart = tabName.c_str() + strlen(prefix);
+				int num = atoi(numberPart);
+				if (num > maxViewerNum)
+				{
+					maxViewerNum = num;
+				}
+			}
+		}
+
+		char label[64];
+		sprintf_s(label, "Particle Editor %d", maxViewerNum + 1);
+		OpenNewTab(label);
+	}
+	ImGui::EndTabBar();
+}
+
 void SParticleEditorWindow::RenderLeftPanel(float PanelWidth)
 {
 	ParticleEditorState* State = GetActiveParticleState();

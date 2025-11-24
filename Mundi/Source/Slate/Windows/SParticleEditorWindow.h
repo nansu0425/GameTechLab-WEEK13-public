@@ -21,7 +21,8 @@ public:
 protected:
 	virtual ViewerState* CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context) override;
 	virtual void DestroyViewerState(ViewerState*& State) override;
-	virtual FString GetWindowTitle() const override { return ActiveState->Name.ToString(); }
+	virtual FString GetWindowTitle() const override { return "Particle Editor"; }
+	virtual void RenderTabsAndToolbar(EViewerType CurrentViewerType) override;
 
 	// 패널 렌더링
 	virtual void RenderLeftPanel(float PanelWidth) override;   // 뷰포트 + 디테일

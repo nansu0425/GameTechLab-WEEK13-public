@@ -22,6 +22,7 @@ private:
     void RenderSceneButtons();
     void RenderActorSpawnButton();
     void RenderLoadPrefabButton();
+    void RenderParticleEditorButton();
     void RenderPIEButtons();
 
     // UI 헬퍼 메서드
@@ -101,6 +102,7 @@ private:
     UTexture* IconStop = nullptr;
     UTexture* IconAddActor = nullptr;
     UTexture* IconPrefab = nullptr;
+    UTexture* IconParticle = nullptr;
     UTexture* LogoTexture = nullptr;
 
     // 아이콘 설정
