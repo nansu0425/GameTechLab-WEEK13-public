@@ -5,6 +5,7 @@
 #include "Modules/ParticleModuleSpawn.h"
 #include "Modules/ParticleModuleMeshRotation.h"
 #include "ParticleModuleTypeDataMesh.h"
+#include "GlobalConsole.h"
 
 FParticleEmitterInstance::FParticleEmitterInstance()
 	: SpriteTemplate(nullptr)
@@ -174,10 +175,11 @@ void FParticleEmitterInstance::Resize(int32 NewMaxActiveParticles)
 		else
 		{
 			// 할당 실패 시 폴백: 이전 상태 유지
+			UE_LOG("[ParticleEmitterInstance] Failed to allocate particle memory: requested %d particles (%d bytes)\n",
+				MaxActiveParticles, ParticleDataSize);
 			ParticleData = nullptr;
 			ParticleIndices = nullptr;
 			MaxActiveParticles = 0;
-			// TODO: 로깅 또는 에러 처리 추가
 		}
 	}
 	else
@@ -496,6 +498,8 @@ FDynamicEmitterDataBase* FParticleEmitterInstance::GetDynamicData(bool bSelected
 		if (!bAllocSuccess)
 		{
 			// 할당 실패 시 데이터 삭제 후 nullptr 반환
+			UE_LOG("[ParticleEmitterInstance] Failed to allocate render thread data: %d particles (%d bytes)\n",
+				ActiveParticles, ParticleDataBytes);
 			delete NewData;
 			return nullptr;
 		}
