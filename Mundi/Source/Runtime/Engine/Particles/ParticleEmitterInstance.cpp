@@ -271,14 +271,6 @@ void FParticleEmitterInstance::SpawnParticles(int32 Count, float StartTime, floa
 		// 생성 후
 		PostSpawn(Particle, static_cast<float>(i) / Count, SpawnTime);
 
-		// DEBUG: 스폰 직후 위치 확인 (추후 제거)
-		if (i == 0)  // 첫 번째 파티클만
-		{
-			UE_LOG("[SpawnParticles] Initial Location=(%.1f, %.1f, %.1f), Velocity=(%.1f, %.1f, %.1f)",
-				Particle->Location.X, Particle->Location.Y, Particle->Location.Z,
-				Particle->Velocity.X, Particle->Velocity.Y, Particle->Velocity.Z);
-		}
-
 		ParticleCounter++;
 	}
 }
