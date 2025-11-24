@@ -172,21 +172,21 @@ void UParticleSystemComponent::CreateDebugParticleSystem()
 
 	// 스폰 모듈 생성
 	UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
-	SpawnModule->SpawnRate = 5.0f;   // 초당 5개 파티클 (메시는 무거우므로 줄임)
-	SpawnModule->BurstCount = 3;     // 시작 시 3개 버스트
+	SpawnModule->SpawnRate = 100.0f;   // 초당 100개 파티클 (메시는 무거우므로 줄임)
+	SpawnModule->BurstCount = 100;     // 시작 시 100개 버스트
 	LODLevel->SpawnModule = SpawnModule;
 	LODLevel->Modules.Add(SpawnModule);
 
 	// 라이프타임 모듈 생성 (파티클 수명 설정)
 	UParticleModuleLifetime* LifetimeModule = NewObject<UParticleModuleLifetime>();
-	LifetimeModule->MinLifetime = 2.0f;  // 최소 2초
-	LifetimeModule->MaxLifetime = 3.0f;  // 최대 3초
+	LifetimeModule->MinLifetime = 1.0f;  // 최소 1초
+	LifetimeModule->MaxLifetime = 1.5f;  // 최대 1.5초
 	LODLevel->Modules.Add(LifetimeModule);
 
 	// 속도 모듈 생성 (테스트용: 위쪽으로 퍼지는 랜덤 속도)
 	UParticleModuleVelocity* VelocityModule = NewObject<UParticleModuleVelocity>();
-	VelocityModule->StartVelocity = FVector(0.0f, 0.0f, 50.0f);   // 기본 위쪽 속도
-	VelocityModule->StartVelocityRange = FVector(30.0f, 30.0f, 20.0f);  // XYZ 랜덤 범위
+	VelocityModule->StartVelocity = FVector(0.0f, 0.0f, 10.0f);   // 기본 위쪽 속도
+	VelocityModule->StartVelocityRange = FVector(3.0f, 3.0f, 3.0f);  // XYZ 랜덤 범위
 	LODLevel->Modules.Add(VelocityModule);
 
 	// 메시 회전 모듈 생성 (3축 회전 테스트)
