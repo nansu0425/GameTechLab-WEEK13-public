@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 class UWorld; class FViewport; class FViewportClient; class ASkeletalMeshActor; class USkeletalMesh; class UAnimSequence;
+class UParticleSystem; class UParticleSystemComponent; class AActor; class UParticleModule;
 
 struct FAnimNotifyEvent
 {
@@ -32,6 +33,9 @@ struct FSelectedNotify
 class ViewerState
 {
 public:
+    // 가상 소멸자 - 파생 클래스 포인터를 기본 클래스 포인터로 delete할 때 필요
+    virtual ~ViewerState() = default;
+
     FName Name;
     UWorld* World = nullptr;
     FViewport* Viewport = nullptr;
@@ -89,4 +93,34 @@ public:
 
     // 기즈모 드래그 첫 프레임 감지용 (부동소수점 오차로 인한 불필요한 업데이트 방지)
     bool bWasGizmoDragging = false;
+};
+
+// 파티클 에디터 상태
+struct ParticleEditorState : public ViewerState
+{
+    // 파티클 시스템
+    UParticleSystem* EditingTemplate = nullptr;
+    UParticleSystemComponent* PreviewComponent = nullptr;
+    AActor* PreviewActor = nullptr;
+
+    // 선택 상태
+    int32 SelectedEmitterIndex = -1;
+    int32 SelectedModuleIndex = -1;
+    UParticleModule* SelectedModule = nullptr;
+
+    // 파일 경로
+    FString CurrentFilePath;
+    bool bIsDirty = false;
+
+    // 시뮬레이션 제어
+    bool bIsSimulating = true;
+    float SimulationSpeed = 1.0f;
+
+    // 뷰포트 표시 옵션
+    bool bShowBounds = false;
+    bool bShowOriginAxis = false;
+    FLinearColor BackgroundColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
+    // LOD 제어
+    int32 CurrentLODLevel = 0;
 };

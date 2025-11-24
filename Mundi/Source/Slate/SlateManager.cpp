@@ -206,6 +206,11 @@ void USlateManager::OpenAssetViewer(UEditorAssetPreviewContext* Context)
             TargetWindow = static_cast<SViewerWindow*>(Window);
             break;
         }
+        if (ViewerType == EViewerType::Particle && dynamic_cast<SParticleEditorWindow*>(Window))
+        {
+            TargetWindow = static_cast<SViewerWindow*>(Window);
+            break;
+        }
     }
 
     // 2. If a window of the target type already exists, tell it to open or focus a tab.
@@ -229,6 +234,9 @@ void USlateManager::OpenAssetViewer(UEditorAssetPreviewContext* Context)
             break;
         case EViewerType::BlendSpace:
             NewViewer = new SBlendSpaceEditorWindow();
+            break;
+        case EViewerType::Particle:
+            NewViewer = new SParticleEditorWindow();
             break;
         default:
             UE_LOG("ERROR: Unsupported asset type for viewer.");

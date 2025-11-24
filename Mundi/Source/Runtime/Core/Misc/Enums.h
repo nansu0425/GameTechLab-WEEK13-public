@@ -260,7 +260,7 @@ enum class EViewerType : uint8
     Skeletal,
     Animation,
     BlendSpace,
-    // Particle, etc.
+    Particle,
 
     End,
 };

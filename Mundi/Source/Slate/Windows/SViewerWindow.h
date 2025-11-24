@@ -79,7 +79,7 @@ protected:
 	bool bRightMousePressed = false;  // 우클릭 드래그 (카메라 조작)
 
 	void RenderViewerButton(EViewerType ViewerType, EViewerType CurrentViewerType, const char* Id, const char* ToolTip, UTexture* Icon);
-	void RenderTabsAndToolbar(EViewerType CurrentViewerType);
+	virtual void RenderTabsAndToolbar(EViewerType CurrentViewerType);
 	void OpenNewTab(const char* Name = "Viewer");
 	void CloseTab(int Index);
 	
