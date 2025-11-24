@@ -41,6 +41,8 @@ enum class EDynamicEmitterType : uint8
 {
 	Sprite = 0,
 	Mesh = 1,
+	Beam = 2,
+	Ribbon = 3,
 	Unknown = 255
 };
 
@@ -227,6 +229,38 @@ struct FDynamicMeshEmitterReplayDataBase : public FDynamicEmitterReplayDataBase
 	}
 
 	virtual ~FDynamicMeshEmitterReplayDataBase() = default;
+};
+
+// 빔 이미터 리플레이 데이터
+struct FDynamicBeamEmitterReplayDataBase : public FDynamicEmitterReplayDataBase
+{
+	TArray<FVector> BeamPoints;
+	float Width;
+	UMaterialInterface* Material;
+
+	FDynamicBeamEmitterReplayDataBase()
+		: BeamPoints()
+		, Width(0)
+		, Material(nullptr)
+	{
+		eEmitterType = EDynamicEmitterType::Beam;
+	}
+};
+
+// 리본 이미터 리플레이 데이터
+struct FDynamicRibbonEmitterReplayDataBase : public FDynamicEmitterReplayDataBase
+{
+	TArray<FVector> RibbonPoints;
+	float Width;
+	UMaterialInterface* Material;
+
+	FDynamicRibbonEmitterReplayDataBase()
+		: RibbonPoints()
+		, Width(0)
+		, Material(nullptr)
+	{
+		eEmitterType = EDynamicEmitterType::Ribbon;
+	}
 };
 
 // 동적 이미터 데이터 베이스 (렌더링용)
