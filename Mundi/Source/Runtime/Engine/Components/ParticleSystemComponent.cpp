@@ -28,11 +28,12 @@ UParticleSystemComponent::~UParticleSystemComponent()
 
 	if (EmitterRenderData.Num() > 0)
 	{
-		for (FDynamicEmitterDataBase* RenderData : EmitterRenderData)
+		for (int32 i = 0; i < EmitterRenderData.Num(); i++)
 		{
-			if (RenderData)
+			if (EmitterRenderData[i])
 			{
-				delete RenderData;
+				delete EmitterRenderData[i];
+				EmitterRenderData[i] = nullptr;
 			}
 		}
 		EmitterRenderData.Empty();
@@ -55,10 +56,6 @@ void UParticleSystemComponent::OnRegister(UWorld* InWorld)
 {
 	Super::OnRegister(InWorld);
 
-	// DEBUG: OnRegister 호출 확인 (추후 제거)
-	UE_LOG("[ParticleSystemComponent::OnRegister] Called! World=%p, EmitterCount=%d",
-		InWorld, EmitterInstances.Num());
-
 	// 이미 초기화되어 있으면 스킵 (OnRegister는 여러 번 호출될 수 있음)
 	if (EmitterInstances.Num() > 0)
 	{
@@ -75,8 +72,6 @@ void UParticleSystemComponent::OnRegister(UWorld* InWorld)
 	if (bAutoActivate)
 	{
 		ActivateSystem();
-		UE_LOG("[ParticleSystemComponent::OnRegister] ActivateSystem called, EmitterCount=%d",
-			EmitterInstances.Num());
 	}
 }
 
@@ -132,11 +127,12 @@ void UParticleSystemComponent::OnUnregister()
 	DeactivateSystem();
 
 	// 렌더 데이터 정리
-	for (FDynamicEmitterDataBase* RenderData : EmitterRenderData)
+	for (int32 i = 0; i < EmitterRenderData.Num(); i++)
 	{
-		if (RenderData)
+		if (EmitterRenderData[i])
 		{
-			delete RenderData;
+			delete EmitterRenderData[i];
+			EmitterRenderData[i] = nullptr;
 		}
 	}
 	EmitterRenderData.Empty();
@@ -236,11 +232,12 @@ void UParticleSystemComponent::ClearEmitterInstances()
 void UParticleSystemComponent::UpdateRenderData()
 {
 	// 기존 렌더 데이터 제거
-	for (FDynamicEmitterDataBase* RenderData : EmitterRenderData)
+	for (int32 i = 0; i < EmitterRenderData.Num(); i++)
 	{
-		if (RenderData)
+		if (EmitterRenderData[i])
 		{
-			delete RenderData;
+			delete EmitterRenderData[i];
+			EmitterRenderData[i] = nullptr;
 		}
 	}
 	EmitterRenderData.Empty();
@@ -481,19 +478,6 @@ void UParticleSystemComponent::FillVertexBuffer(const FSceneView* View)
 		return;
 	}
 
-	// DEBUG: 위치 정보 확인 (추후 제거)
-	static int DebugCounter = 0;
-	if (DebugCounter++ % 60 == 0)  // 1초에 한 번만 출력
-	{
-		FVector WorldLoc = GetWorldLocation();
-		FVector RelLoc = GetRelativeLocation();
-		USceneComponent* Parent = GetAttachParent();
-		UE_LOG("[FillVertexBuffer] WorldLoc=(%.1f, %.1f, %.1f), RelLoc=(%.1f, %.1f, %.1f), AttachParent=%p",
-			WorldLoc.X, WorldLoc.Y, WorldLoc.Z,
-			RelLoc.X, RelLoc.Y, RelLoc.Z,
-			Parent);
-	}
-
 	ID3D11DeviceContext* Context = GEngine.GetRHIDevice()->GetDeviceContext();
 
 	// Vertex Buffer Map
@@ -558,14 +542,6 @@ void UParticleSystemComponent::FillVertexBuffer(const FSceneView* View)
 
 			// 컴포넌트 월드 트랜스폼 적용
 			FVector ParticleWorldPos = GetWorldLocation() + Particle->Location * GetRelativeScale();
-
-			// DEBUG: 첫 번째 파티클의 위치 정보 (추후 제거)
-			if (ParticleIdx == 0 && DebugCounter % 60 == 1)
-			{
-				UE_LOG("[Particle] LocalLoc=(%.1f, %.1f, %.1f), WorldPos=(%.1f, %.1f, %.1f)",
-					Particle->Location.X, Particle->Location.Y, Particle->Location.Z,
-					ParticleWorldPos.X, ParticleWorldPos.Y, ParticleWorldPos.Z);
-			}
 			FVector2D ParticleSize = FVector2D(Particle->Size.X, Particle->Size.Y) * GetRelativeScale().X;
 
 				// 4개 버텍스 생성 (빌보드 정렬 및 Z회전은 GPU에서 수행)

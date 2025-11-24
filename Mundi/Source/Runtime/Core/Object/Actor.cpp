@@ -57,15 +57,15 @@ void AActor::BeginPlay()
 
 void AActor::Tick(float DeltaSeconds)
 {
-	// Actor 레벨 에디터 틱 체크
-	if (!bTickInEditor && World->bPie == false) return;
+	// Actor 레벨 에디터 틱 체크 (Preview World에서는 항상 틱 허용)
+	if (!bTickInEditor && !World->bPie && !World->IsPreviewWorld()) return;
 
 	for (UActorComponent* Comp : OwnedComponents)
 	{
 		if (Comp && Comp->IsComponentTickEnabled())
 		{
-			// 에디터 모드일 때 컴포넌트별 bTickInEditor 체크
-			bool bShouldTick = World->bPie || Comp->CanTickInEditor();
+			// 에디터 모드일 때 컴포넌트별 bTickInEditor 체크 (Preview World 포함)
+			bool bShouldTick = World->bPie || Comp->CanTickInEditor() || World->IsPreviewWorld();
 
 			// DEBUG: 컴포넌트 틱 조건 확인 (추후 제거)
 			static bool bLoggedComp = false;
