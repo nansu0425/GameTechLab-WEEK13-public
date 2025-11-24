@@ -9,9 +9,7 @@
 #include "ParticleLODLevel.h"
 #include "ParticleModuleRequired.h"
 #include "ParticleSystemComponent.h"
-#include "Actor.h"
-#include "ObjectFactory.h"
-#include "World.h"
+#include "Grid/GridActor.h"
 
 ViewerState* ParticleEditorBootstrap::CreateViewerState(const char* Name, UWorld* InWorld,
 	ID3D11Device* InDevice, UEditorAssetPreviewContext* Context)
@@ -27,6 +25,7 @@ ViewerState* ParticleEditorBootstrap::CreateViewerState(const char* Name, UWorld
 	State->World->SetWorldType(EWorldType::PreviewMinimal);
 	State->World->Initialize();
 	State->World->GetRenderSettings().DisableShowFlag(EEngineShowFlags::SF_EditorIcon);
+	State->World->GetRenderSettings().DisableShowFlag(EEngineShowFlags::SF_Grid);
 
 	// Viewport 생성
 	State->Viewport = new FViewport();
