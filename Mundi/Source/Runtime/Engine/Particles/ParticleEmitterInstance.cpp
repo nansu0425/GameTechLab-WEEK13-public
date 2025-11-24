@@ -46,25 +46,51 @@ void FParticleEmitterInstance::Init(UParticleSystemComponent* InComponent, UPart
 
 	// 필수 객체 nullptr 체크
 	if (!SpriteTemplate)
-	{
 		return;
-	}
 
 	// 현재 LOD 레벨 가져오기 (기본값 0)
 	CurrentLODLevelIndex = 0;
 	CurrentLODLevel = SpriteTemplate->GetLODLevel(CurrentLODLevelIndex);
-
+	
 	if (!CurrentLODLevel)
-	{
 		return;
-	}
 
-	// RequiredModule 체크 (렌더링에 필수)
-	if (!CurrentLODLevel->RequiredModule)
-	{
-		// RequiredModule이 없으면 렌더링 불가
+	ParticleSize = SpriteTemplate->ParticleSize;
+
+	// 초기화 로직 호출
+	SetupEmitter();
+
+	// 초기 파티클 데이터 할당
+	Resize(100); // Default to 100 particles
+}
+
+void FParticleEmitterInstance::SetLODLevel(int32 NewLODIndex)
+{
+	if (NewLODIndex == CurrentLODLevelIndex || !SpriteTemplate)
 		return;
-	}
+
+	UParticleLODLevel* NewLODLevel = SpriteTemplate->GetLODLevel(NewLODIndex);
+	if (!NewLODLevel || !NewLODLevel->bEnabled)
+		return;
+
+	// Update State
+	CurrentLODLevelIndex = NewLODIndex;
+	CurrentLODLevel = NewLODLevel;
+
+	// 수명/스폰 관련 상태 초기화
+	SpawnFraction = 0.f;
+	bBurstFired = false;
+
+	KillAllParticles();
+	SetupEmitter();
+
+	// ParticleDataContainer 재할당
+	Resize(MaxActiveParticles);
+}
+
+void FParticleEmitterInstance::SetupEmitter()
+{
+	if (!CurrentLODLevel)	return;
 
 	// 언리얼 엔진 호환: 페이로드 크기 계산
 	// 각 모듈이 필요로 하는 추가 데이터 크기를 계산하고 오프셋 할당
@@ -99,7 +125,6 @@ void FParticleEmitterInstance::Init(UParticleSystemComponent* InComponent, UPart
 	}
 
 	// 파티클 크기와 스트라이드 계산 (기본 파티클 + 페이로드)
-	ParticleSize = SpriteTemplate->ParticleSize;
 	PayloadOffset = ParticleSize;  // 페이로드는 기본 파티클 뒤에 위치
 	ParticleStride = ParticleSize + TotalPayloadSize;
 
@@ -113,9 +138,6 @@ void FParticleEmitterInstance::Init(UParticleSystemComponent* InComponent, UPart
 		InstanceData = new uint8[InstancePayloadSize];
 		memset(InstanceData, 0, InstancePayloadSize);
 	}
-
-	// 초기 파티클 데이터 할당
-	Resize(100); // Default to 100 particles
 }
 
 void FParticleEmitterInstance::Resize(int32 NewMaxActiveParticles)

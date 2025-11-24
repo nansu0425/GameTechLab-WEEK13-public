@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Object.h"
 #include "ParticleLODLevel.h"
@@ -31,4 +31,10 @@ public:
 
 	// 복제
 	virtual void DuplicateSubObjects() override;
+
+	UPROPERTY(EditAnywhere, Category = "LOD")
+	bool bUseLOD = true;
+
+	UPROPERTY(EditAnywhere, Category = "LOD")
+	TArray<float> LODDistances;
 };
