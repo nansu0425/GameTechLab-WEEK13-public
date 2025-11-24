@@ -66,55 +66,8 @@ ViewerState* ParticleEditorBootstrap::CreateViewerState(const char* Name, UWorld
 			State->PreviewActor = PreviewActor;
 			State->PreviewComponent = ParticleComp;
 
-			// 기본 파티클 시스템 생성
-			UParticleSystem* DefaultTemplate = NewObject<UParticleSystem>();
-
-			// 기본 이미터 1개 생성
-			UParticleEmitter* DefaultEmitter = NewObject<UParticleEmitter>();
-			UParticleLODLevel* LOD = NewObject<UParticleLODLevel>();
-			LOD->bEnabled = true;
-
-			// 1. Required 모듈 (필수)
-			LOD->RequiredModule = NewObject<UParticleModuleRequired>();
-
-			// 2. Spawn 모듈 (필수)
-			UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
-			SpawnModule->SpawnRate = 20.0f;
-			SpawnModule->BurstCount = 0;
-			LOD->SpawnModule = SpawnModule;
-			LOD->Modules.Add(SpawnModule);
-
-			// 3. Lifetime 모듈
-			UParticleModuleLifetime* LifetimeModule = NewObject<UParticleModuleLifetime>();
-			LifetimeModule->MinLifetime = 1.0f;
-			LifetimeModule->MaxLifetime = 1.0f;
-			LOD->Modules.Add(LifetimeModule);
-
-			// 4. Initial Size 모듈
-			UParticleModuleSize* SizeModule = NewObject<UParticleModuleSize>();
-			SizeModule->StartSize = FVector(1.0f, 1.0f, 1.0f);
-			SizeModule->StartSizeRange = FVector(1.0f, 1.0f, 1.0f);
-			LOD->Modules.Add(SizeModule);
-
-			// 5. Initial Velocity 모듈
-			UParticleModuleVelocity* VelocityModule = NewObject<UParticleModuleVelocity>();
-			VelocityModule->StartVelocity = FVector(1.0f, 1.0f, 10.0f);
-			VelocityModule->StartVelocityRange = FVector(1.0f, 1.0f, 11.0f);
-			LOD->Modules.Add(VelocityModule);
-
-			// 6. Color Over Life 모듈
-			UParticleModuleColor* ColorModule = NewObject<UParticleModuleColor>();
-			ColorModule->StartColor = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f);
-			ColorModule->EndColor = FLinearColor(1.0f, 1.0f, 1.0f, 0.0f);  // 페이드 아웃
-			LOD->Modules.Add(ColorModule);
-
-			// 모듈 캐싱
-			LOD->CacheModuleInfo();
-
-			DefaultEmitter->LODLevels.Add(LOD);
-			DefaultEmitter->CacheEmitterModuleInfo();
-
-			DefaultTemplate->Emitters.Add(DefaultEmitter);
+			// 기본 파티클 템플릿 생성 (6개 기본 모듈 포함)
+			UParticleSystem* DefaultTemplate = CreateDefaultParticleTemplate();
 
 			State->EditingTemplate = DefaultTemplate;
 			State->PreviewComponent->SetTemplate(DefaultTemplate);
@@ -158,4 +111,59 @@ void ParticleEditorBootstrap::DestroyViewerState(ViewerState*& State)
 
 	delete State;
 	State = nullptr;
+}
+
+UParticleSystem* ParticleEditorBootstrap::CreateDefaultParticleTemplate()
+{
+	// 기본 파티클 시스템 생성
+	UParticleSystem* DefaultTemplate = NewObject<UParticleSystem>();
+
+	// 기본 이미터 1개 생성
+	UParticleEmitter* DefaultEmitter = NewObject<UParticleEmitter>();
+	UParticleLODLevel* LOD = NewObject<UParticleLODLevel>();
+	LOD->bEnabled = true;
+
+	// 1. Required 모듈 (필수)
+	LOD->RequiredModule = NewObject<UParticleModuleRequired>();
+
+	// 2. Spawn 모듈 (필수)
+	UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
+	SpawnModule->SpawnRate = 20.0f;
+	SpawnModule->BurstCount = 0;
+	LOD->SpawnModule = SpawnModule;
+	LOD->Modules.Add(SpawnModule);
+
+	// 3. Lifetime 모듈
+	UParticleModuleLifetime* LifetimeModule = NewObject<UParticleModuleLifetime>();
+	LifetimeModule->MinLifetime = 1.0f;
+	LifetimeModule->MaxLifetime = 1.0f;
+	LOD->Modules.Add(LifetimeModule);
+
+	// 4. Initial Size 모듈
+	UParticleModuleSize* SizeModule = NewObject<UParticleModuleSize>();
+	SizeModule->StartSize = FVector(1.0f, 1.0f, 1.0f);
+	SizeModule->StartSizeRange = FVector(1.0f, 1.0f, 1.0f);
+	LOD->Modules.Add(SizeModule);
+
+	// 5. Initial Velocity 모듈
+	UParticleModuleVelocity* VelocityModule = NewObject<UParticleModuleVelocity>();
+	VelocityModule->StartVelocity = FVector(1.0f, 1.0f, 10.0f);
+	VelocityModule->StartVelocityRange = FVector(1.0f, 1.0f, 11.0f);
+	LOD->Modules.Add(VelocityModule);
+
+	// 6. Color Over Life 모듈
+	UParticleModuleColor* ColorModule = NewObject<UParticleModuleColor>();
+	ColorModule->StartColor = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	ColorModule->EndColor = FLinearColor(1.0f, 1.0f, 1.0f, 0.0f);  // 페이드 아웃
+	LOD->Modules.Add(ColorModule);
+
+	// 모듈 캐싱
+	LOD->CacheModuleInfo();
+
+	DefaultEmitter->LODLevels.Add(LOD);
+	DefaultEmitter->CacheEmitterModuleInfo();
+
+	DefaultTemplate->Emitters.Add(DefaultEmitter);
+
+	return DefaultTemplate;
 }
