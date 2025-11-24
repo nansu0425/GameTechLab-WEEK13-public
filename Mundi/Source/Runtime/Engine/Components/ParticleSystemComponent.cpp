@@ -142,7 +142,7 @@ void UParticleSystemComponent::OnRegister(UWorld* InWorld)
 	// Template이 없으면 디버그용 기본 파티클 시스템 생성
 	if (!Template)
 	{
-		// CreateDebugParticleSystem();        // 메시 파티클 테스트
+		//CreateDebugParticleSystem();        // 메시 파티클 테스트
 		CreateDebugSpriteParticleSystem();  // 스프라이트 파티클 테스트
 	}
 
