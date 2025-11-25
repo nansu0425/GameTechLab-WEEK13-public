@@ -52,7 +52,6 @@ private:
 	void RenderRightCurveArea();
 
 	// 파일 작업
-	void CreateNewParticleSystem();
 	void SaveParticleSystem();
 	void SaveParticleSystemAs();
 	void LoadParticleSystem();
