@@ -120,6 +120,39 @@ SParticleEditorWindow::~SParticleEditorWindow()
 	ActiveState = nullptr;
 }
 
+// 타입 데이터 삭제 시 스프라이트로 복원 (머티리얼 포함)
+static void RestoreToSpriteTypeData(UParticleLODLevel* LOD, ParticleEditorState* State)
+{
+	// 기존 타입 데이터 제거
+	if (LOD->TypeDataModule)
+	{
+		LOD->Modules.Remove(LOD->TypeDataModule);
+	}
+
+	// 스프라이트 타입 데이터 생성
+	UParticleModuleTypeDataSprite* SpriteTypeData = NewObject<UParticleModuleTypeDataSprite>();
+	LOD->TypeDataModule = SpriteTypeData;
+	LOD->Modules.Add(SpriteTypeData);
+
+	// 스프라이트용 머티리얼 생성 및 설정
+	if (LOD->RequiredModule)
+	{
+		UMaterial* SpriteMaterial = NewObject<UMaterial>();
+		UShader* SpriteShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Particle/ParticleSprite.hlsl");
+		SpriteMaterial->SetShader(SpriteShader);
+
+		// 기본 스프라이트 텍스처 설정
+		FMaterialInfo MatInfo;
+		MatInfo.DiffuseTextureFileName = GDataDir + "/Textures/Particles/OrientParticle.png";
+		SpriteMaterial->SetMaterialInfo(MatInfo);
+		SpriteMaterial->ResolveTextures();
+
+		LOD->RequiredModule->Material = SpriteMaterial;
+	}
+
+	LOD->CacheModuleInfo();
+}
+
 void SParticleEditorWindow::OnRender()
 {
 	// 윈도우가 닫혔으면 정리 요청
@@ -224,6 +257,75 @@ void SParticleEditorWindow::OnRender()
 			RenderRightCurveArea();
 		}
 		ImGui::EndChild();
+
+		// Delete 키로 선택된 이미터/모듈 삭제
+		ParticleEditorState* State = GetActiveParticleState();
+		if (bIsWindowFocused && State && ImGui::IsKeyPressed(ImGuiKey_Delete))
+		{
+			UParticleSystem* System = State->EditingTemplate;
+			if (System)
+			{
+				// 모듈이 선택된 경우
+				if (State->SelectedModule && State->SelectedEmitterIndex >= 0)
+				{
+					UParticleEmitter* Emitter = System->Emitters[State->SelectedEmitterIndex];
+					if (Emitter)
+					{
+						UParticleLODLevel* LOD = Emitter->GetLODLevel(State->CurrentLODLevel);
+						if (LOD)
+						{
+							UParticleModule* Module = State->SelectedModule;
+
+							// 삭제 불가 모듈 체크 (Required, Spawn, 스프라이트 타입데이터)
+							bool bCanDelete = true;
+							if (Module == LOD->RequiredModule || Module == LOD->SpawnModule)
+							{
+								bCanDelete = false;
+							}
+							if (Cast<UParticleModuleTypeDataSprite>(Module))
+							{
+								bCanDelete = false;
+							}
+
+							if (bCanDelete)
+							{
+								// TypeDataModule인 경우 (메시/리본/빔 삭제 시 스프라이트로 복원)
+								if (Module == LOD->TypeDataModule)
+								{
+									RestoreToSpriteTypeData(LOD, State);
+								}
+								else
+								{
+									LOD->Modules.Remove(Module);
+									LOD->CacheModuleInfo();
+								}
+
+								State->SelectedModule = nullptr;
+								State->SelectedModuleIndex = -1;
+								State->bIsDirty = true;
+								if (State->PreviewComponent)
+								{
+									State->PreviewComponent->RefreshEmitterInstances();
+								}
+							}
+						}
+					}
+				}
+				// 이미터만 선택된 경우 (모듈 선택 없음)
+				else if (State->SelectedEmitterIndex >= 0 && State->SelectedEmitterIndex < System->Emitters.Num())
+				{
+					System->Emitters.RemoveAt(State->SelectedEmitterIndex);
+					State->SelectedEmitterIndex = -1;
+					State->SelectedModuleIndex = -1;
+					State->SelectedModule = nullptr;
+					State->bIsDirty = true;
+					if (State->PreviewComponent)
+					{
+						State->PreviewComponent->RefreshEmitterInstances();
+					}
+				}
+			}
+		}
 
 		// 타입데이터 중복 팝업
 		if (bShowTypeDataExistsPopup)
@@ -1486,20 +1588,14 @@ void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx,
 					// TypeDataModule인 경우 (메시/리본/빔 삭제 시 스프라이트로 복원)
 					if (Module == LOD->TypeDataModule)
 					{
-						// 기존 타입 데이터를 Modules 배열에서도 제거
-						LOD->Modules.Remove(Module);
-
-						// 스프라이트 타입 데이터로 복원
-						UParticleModuleTypeDataSprite* SpriteTypeData = NewObject<UParticleModuleTypeDataSprite>();
-						LOD->TypeDataModule = SpriteTypeData;
-						LOD->Modules.Add(SpriteTypeData);
+						RestoreToSpriteTypeData(LOD, State);
 					}
 					else
 					{
 						// 일반 모듈 배열에서 삭제
 						LOD->Modules.Remove(Module);
+						LOD->CacheModuleInfo();
 					}
-					LOD->CacheModuleInfo();
 
 					State->SelectedModule = nullptr;
 					State->SelectedModuleIndex = -1;
