@@ -94,6 +94,7 @@ enum class ERasterizerMode : uint32
     Solid,          // 면으로 채움 (기본값)
     Wireframe,      // 선으로 그림
     Solid_NoCull,   // 면으로 채우고, 뒷면 컬링 안 함(양면 그리기)
+    Wireframe_NoCull, // 선으로 그리고, 뒷면 컬링 안 함 (파티클 와이어프레임용)
     Decal,          // 데칼 전용 상태 (Z-Fighting 방지용 DepthBias를 추가로 줌)
     Shadows,        // 그림자 전용 상태
 };
@@ -171,9 +172,11 @@ enum class EEngineShowFlags : uint64
     SF_ShadowAntiAliasing = 1ull << 18,
     SF_GPUSkinning = 1ull << 19,  // Enable/disable GPU skinning (CPU skinning when disabled)
 
+    SF_Particles = 1ull << 20,    // Show/hide particle systems
+
     // Default enabled flags
     SF_DefaultEnabled = SF_Primitives | SF_StaticMeshes | SF_SkeletalMeshes | SF_Grid | SF_Lighting | SF_Decals |
-        SF_Fog | SF_FXAA | SF_Billboard | SF_EditorIcon | SF_Shadows | SF_ShadowAntiAliasing | SF_GPUSkinning,
+        SF_Fog | SF_FXAA | SF_Billboard | SF_EditorIcon | SF_Shadows | SF_ShadowAntiAliasing | SF_GPUSkinning | SF_Particles,
 
     // All flags (for initialization/reset)
     SF_All = 0xFFFFFFFFFFFFFFFFull

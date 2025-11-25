@@ -6,6 +6,17 @@ class UShader;
 class UMaterial;
 
 /**
+ * @enum EBatchRenderMode
+ * @brief 배치의 렌더링 모드 힌트입니다.
+ *        렌더러가 적절한 렌더 상태(Rasterizer, Depth, Blend)를 설정하는 데 사용됩니다.
+ */
+enum class EBatchRenderMode : uint8
+{
+	Opaque,			// 불투명 (backface culling, depth write, no blend)
+	Translucent,	// 반투명 (no culling, depth read-only, alpha blend)
+};
+
+/**
  * @struct FMeshBatchElement
  * @brief 단일 드로우 콜(Draw Call)을 위한 모든 렌더링 정보를 집계하는 원자 단위 구조체입니다.
  */
@@ -77,6 +88,13 @@ struct FMeshBatchElement
 
 	// GPU 스키닝용 본 행렬 상수 버퍼 (register b6)
 	ID3D11Buffer* BoneMatricesBuffer = nullptr;
+
+
+	// --- 5. 렌더 상태 힌트 (Render State Hints) ---
+	// 렌더러가 이 배치에 적절한 렌더 상태를 설정하는 데 사용됩니다.
+
+	// 렌더링 모드: 불투명(Opaque) 또는 반투명(Translucent)
+	EBatchRenderMode RenderMode = EBatchRenderMode::Opaque;
 
 	// --- 기본 생성자 ---
 	FMeshBatchElement() = default;

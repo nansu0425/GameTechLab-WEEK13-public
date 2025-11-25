@@ -12,11 +12,32 @@
 #include "FViewport.h"
 #include "FViewportClient.h"
 #include "Source/Runtime/Engine/Components/LineComponent.h"
+#include "Modules/ParticleModuleLifetime.h"
+#include "Modules/ParticleModuleSize.h"
+#include "Modules/ParticleModuleVelocity.h"
+#include "Modules/ParticleModuleColor.h"
+#include "Modules/ParticleModuleTypeDataSprite.h"
+#include "Modules/ParticleModuleTypeDataMesh.h"
+#include "Modules/ParticleModuleTypeDataRibbon.h"
+#include "Modules/ParticleModuleTypeDataBeam.h"
+#include "Modules/ParticleModuleRequired.h"
+#include "Modules/ParticleModuleSpawn.h"
+#include "Modules/ParticleModuleAcceleration.h"
+#include "Modules/ParticleModuleLocation.h"
+#include "Modules/ParticleModuleRotation.h"
+#include "Modules/ParticleModuleMeshRotation.h"
+#include "Modules/ParticleModuleRotationRate.h"
+#include "Modules/ParticleModuleSizeScaleBySpeed.h"
+#include "Material.h"
+#include "StaticMesh.h"
+#include "ResourceManager.h"
+#include "Shader.h"
+#include "Widgets/PropertyRenderer.h"
 
 SParticleEditorWindow::SParticleEditorWindow()
 {
 	CenterRect = FRect(0, 0, 0, 0);
-	LeftPanelRatio = 0.2f;   // 20% 왼쪽 (뷰포트 + 디테일)
+	LeftPanelRatio = 0.30f;  // 35% 왼쪽 (뷰포트 + 디테일)
 	RightPanelRatio = 0.6f;  // 60% 오른쪽 (이미터 패널)
 	bHasBottomPanel = true;
 }
@@ -98,6 +119,39 @@ SParticleEditorWindow::~SParticleEditorWindow()
 	}
 	Tabs.Empty();
 	ActiveState = nullptr;
+}
+
+// 타입 데이터 삭제 시 스프라이트로 복원 (머티리얼 포함)
+static void RestoreToSpriteTypeData(UParticleLODLevel* LOD, ParticleEditorState* State)
+{
+	// 기존 타입 데이터 제거
+	if (LOD->TypeDataModule)
+	{
+		LOD->Modules.Remove(LOD->TypeDataModule);
+	}
+
+	// 스프라이트 타입 데이터 생성
+	UParticleModuleTypeDataSprite* SpriteTypeData = NewObject<UParticleModuleTypeDataSprite>();
+	LOD->TypeDataModule = SpriteTypeData;
+	LOD->Modules.Add(SpriteTypeData);
+
+	// 스프라이트용 머티리얼 생성 및 설정
+	if (LOD->RequiredModule)
+	{
+		UMaterial* SpriteMaterial = NewObject<UMaterial>();
+		UShader* SpriteShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Particle/ParticleSprite.hlsl");
+		SpriteMaterial->SetShader(SpriteShader);
+
+		// 기본 스프라이트 텍스처 설정
+		FMaterialInfo MatInfo;
+		MatInfo.DiffuseTextureFileName = GDataDir + "/Textures/Particles/OrientParticle.png";
+		SpriteMaterial->SetMaterialInfo(MatInfo);
+		SpriteMaterial->ResolveTextures();
+
+		LOD->RequiredModule->Material = SpriteMaterial;
+	}
+
+	LOD->CacheModuleInfo();
 }
 
 void SParticleEditorWindow::OnRender()
@@ -204,6 +258,94 @@ void SParticleEditorWindow::OnRender()
 			RenderRightCurveArea();
 		}
 		ImGui::EndChild();
+
+		// Delete 키로 선택된 이미터/모듈 삭제
+		ParticleEditorState* State = GetActiveParticleState();
+		if (bIsWindowFocused && State && ImGui::IsKeyPressed(ImGuiKey_Delete))
+		{
+			UParticleSystem* System = State->EditingTemplate;
+			if (System)
+			{
+				// 모듈이 선택된 경우
+				if (State->SelectedModule && State->SelectedEmitterIndex >= 0)
+				{
+					UParticleEmitter* Emitter = System->Emitters[State->SelectedEmitterIndex];
+					if (Emitter)
+					{
+						UParticleLODLevel* LOD = Emitter->GetLODLevel(State->CurrentLODLevel);
+						if (LOD)
+						{
+							UParticleModule* Module = State->SelectedModule;
+
+							// 삭제 불가 모듈 체크 (Required, Spawn, 스프라이트 타입데이터)
+							bool bCanDelete = true;
+							if (Module == LOD->RequiredModule || Module == LOD->SpawnModule)
+							{
+								bCanDelete = false;
+							}
+							if (Cast<UParticleModuleTypeDataSprite>(Module))
+							{
+								bCanDelete = false;
+							}
+
+							if (bCanDelete)
+							{
+								// TypeDataModule인 경우 (메시/리본/빔 삭제 시 스프라이트로 복원)
+								if (Module == LOD->TypeDataModule)
+								{
+									RestoreToSpriteTypeData(LOD, State);
+								}
+								else
+								{
+									LOD->Modules.Remove(Module);
+									LOD->CacheModuleInfo();
+								}
+
+								State->SelectedModule = nullptr;
+								State->SelectedModuleIndex = -1;
+								State->bIsDirty = true;
+								if (State->PreviewComponent)
+								{
+									State->PreviewComponent->RefreshEmitterInstances();
+								}
+							}
+						}
+					}
+				}
+				// 이미터만 선택된 경우 (모듈 선택 없음)
+				else if (State->SelectedEmitterIndex >= 0 && State->SelectedEmitterIndex < System->Emitters.Num())
+				{
+					System->Emitters.RemoveAt(State->SelectedEmitterIndex);
+					State->SelectedEmitterIndex = -1;
+					State->SelectedModuleIndex = -1;
+					State->SelectedModule = nullptr;
+					State->bIsDirty = true;
+					if (State->PreviewComponent)
+					{
+						State->PreviewComponent->RefreshEmitterInstances();
+					}
+				}
+			}
+		}
+
+		// 타입데이터 중복 팝업
+		if (bShowTypeDataExistsPopup)
+		{
+			ImGui::OpenPopup("TypeDataExistsPopup");
+			bShowTypeDataExistsPopup = false;
+		}
+
+		if (ImGui::BeginPopupModal("TypeDataExistsPopup", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			ImGui::Text("타입데이터 모듈이 이미 존재합니다.\n먼저 제거해주세요.");
+			ImGui::Separator();
+
+			if (ImGui::Button("확인", ImVec2(120, 0)))
+			{
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::EndPopup();
+		}
 	}
 	ImGui::End();
 }
@@ -285,7 +427,7 @@ ViewerState* SParticleEditorWindow::CreateViewerState(const char* Name, UEditorA
 void SParticleEditorWindow::DestroyViewerState(ViewerState*& State)
 {
 	// OriginAxisLineComponent는 각 탭의 PreviewActor가 소유하므로
-	// World 삭제 시 자동으로 정리됨
+	// World 삭제 시 자동으로 정리
 	ParticleEditorBootstrap::DestroyViewerState(State);
 }
 
@@ -348,8 +490,76 @@ void SParticleEditorWindow::RenderLeftPanel(float PanelWidth)
 
 void SParticleEditorWindow::RenderRightPanel()
 {
-	// 이미터 패널 (나중 단계에서 구현)
-	ImGui::Text("이미터 패널 (4단계에서 구현)");
+	ParticleEditorState* State = GetActiveParticleState();
+	if (!State || !State->EditingTemplate)
+	{
+		ImGui::TextDisabled("파티클 시스템이 없습니다");
+		return;
+	}
+
+	UParticleSystem* System = State->EditingTemplate;
+
+	// 가로 스크롤 영역 시작
+	ImGui::BeginChild("EmitterScrollArea", ImVec2(0, 0), false,
+		ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar);
+
+	// 이미터 열 너비 상수
+	const float EmitterColumnWidth = 200.f;
+
+	// 각 이미터를 열로 렌더링
+	for (int32 i = 0; i < System->Emitters.Num(); ++i)
+	{
+		UParticleEmitter* Emitter = System->Emitters[i];
+		if (!Emitter) continue;
+
+		if (i > 0) ImGui::SameLine();
+
+		ImGui::BeginChild(
+			("##Emitter" + std::to_string(i)).c_str(),
+			ImVec2(EmitterColumnWidth, 0),
+			true,
+			ImGuiWindowFlags_NoScrollbar
+		);
+		{
+			RenderEmitterColumn(i, Emitter);
+		}
+		ImGui::EndChild();
+	}
+
+	// 빈 영역 좌클릭 → 선택 해제
+	if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered())
+	{
+		State->SelectedEmitterIndex = -1;
+		State->SelectedModuleIndex = -1;
+		State->SelectedModule = nullptr;
+	}
+
+	// 빈 영역 우클릭 → 새 이미터 추가 메뉴
+	if (ImGui::BeginPopupContextWindow("EmptyAreaContextMenu", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+	{
+		if (ImGui::MenuItem("새 파티클 스프라이트 이미터"))
+		{
+			// 기본 템플릿에서 이미터 가져오기
+			UParticleSystem* DefaultTemplate = ParticleEditorBootstrap::CreateDefaultParticleTemplate();
+			if (DefaultTemplate && DefaultTemplate->Emitters.Num() > 0)
+			{
+				UParticleEmitter* NewEmitter = DefaultTemplate->Emitters[0];
+				System->Emitters.Add(NewEmitter);
+
+				// EmitterInstances 재생성
+				if (State->PreviewComponent)
+				{
+					State->PreviewComponent->RefreshEmitterInstances();
+				}
+				State->bIsDirty = true;
+
+				UE_LOG("[ParticleEditor] 새 스프라이트 이미터 추가: %d", System->Emitters.Num() - 1);
+			}
+		}
+		ImGui::EndPopup();
+	}
+
+	ImGui::EndChild();
 }
 
 void SParticleEditorWindow::RenderBottomPanel()
@@ -727,20 +937,716 @@ void SParticleEditorWindow::RenderToolbar()
 
 void SParticleEditorWindow::RenderDetailsPanel(float PanelWidth)
 {
-	// 디테일 패널 (5단계에서 구현)
+	ParticleEditorState* State = GetActiveParticleState();
+	if (!State)
+	{
+		ImGui::TextDisabled("파티클 시스템이 로드되지 않았습니다");
+		return;
+	}
+
 	ImGui::Text("디테일");
 	ImGui::Separator();
-	ImGui::TextDisabled("모듈을 선택하세요 (5단계에서 구현)");
+
+	if (!State->SelectedModule)
+	{
+		ImGui::TextDisabled("모듈을 선택하세요");
+		return;
+	}
+
+	// 모듈 클래스 이름 표시
+	UClass* ModuleClass = State->SelectedModule->GetClass();
+	const char* DisplayName = ModuleClass->DisplayName;
+	ImGui::Text("모듈: %s", DisplayName ? DisplayName : ModuleClass->Name);
+	ImGui::Separator();
+
+	// 프로퍼티 렌더링
+	ImGui::PushItemWidth(PanelWidth * 0.55f);
+	bool bChanged = UPropertyRenderer::RenderAllPropertiesWithInheritance(State->SelectedModule);
+	ImGui::PopItemWidth();
+
+	// 변경 시 Dirty 플래그 및 프리뷰 갱신
+	if (bChanged)
+	{
+		State->bIsDirty = true;
+		if (State->PreviewComponent)
+		{
+			State->PreviewComponent->RefreshEmitterInstances();
+		}
+	}
+}
+
+// 일반 모듈 추가 헬퍼 함수
+template<typename T>
+static void AddModuleToLOD(UParticleLODLevel* LOD, ParticleEditorState* State)
+{
+	T* NewModule = NewObject<T>();
+	LOD->Modules.Add(NewModule);
+	LOD->CacheModuleInfo();
+	if (State->PreviewComponent)
+	{
+		State->PreviewComponent->RefreshEmitterInstances();
+	}
+	State->bIsDirty = true;
+}
+
+// 타입 데이터 모듈 설정 헬퍼 함수
+// TODO: 타입 데이터 모듈 별로 다시 만들어줘야함.
+// 예: SetMeshTypeDataModule()
+template<typename T>
+static void SetTypeDataModule(UParticleLODLevel* LOD, ParticleEditorState* State)
+{
+	// 기존 타입 데이터가 있으면 Modules 배열에서 제거
+	if (LOD->TypeDataModule)
+	{
+		LOD->Modules.Remove(LOD->TypeDataModule);
+	}
+
+	// 새 타입 데이터 생성 및 설정
+	T* NewModule = NewObject<T>();
+	LOD->TypeDataModule = NewModule;
+	LOD->Modules.Add(NewModule);
+	LOD->CacheModuleInfo();
+	if (State->PreviewComponent)
+	{
+		State->PreviewComponent->RefreshEmitterInstances();
+	}
+	State->bIsDirty = true;
+}
+
+// 메시 타입 데이터 모듈 설정 (기본 메시 및 머티리얼 포함)
+static void SetMeshTypeDataModule(UParticleLODLevel* LOD, ParticleEditorState* State)
+{
+	// 기존 타입 데이터가 있으면 Modules 배열에서 제거
+	if (LOD->TypeDataModule)
+	{
+		LOD->Modules.Remove(LOD->TypeDataModule);
+	}
+
+	// 메시 타입 데이터 생성
+	UParticleModuleTypeDataMesh* MeshTypeData = NewObject<UParticleModuleTypeDataMesh>();
+
+	// 기본 메시 로드
+	MeshTypeData->Mesh = UResourceManager::GetInstance().Load<UStaticMesh>(GDataDir + "/cube-tex.obj");
+
+	// 메시 파티클용 머티리얼 생성
+	UMaterial* MeshParticleMaterial = NewObject<UMaterial>();
+	UShader* MeshShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Particle/ParticleMesh.hlsl");
+	MeshParticleMaterial->SetShader(MeshShader);
+
+	// 메시의 내장 머티리얼에서 텍스처 정보 가져오기
+	if (MeshTypeData->Mesh)
+	{
+		const TArray<FGroupInfo>& GroupInfos = MeshTypeData->Mesh->GetMeshGroupInfo();
+		if (!GroupInfos.IsEmpty() && !GroupInfos[0].InitialMaterialName.empty())
+		{
+			UMaterial* MeshMaterial = UResourceManager::GetInstance().Load<UMaterial>(GroupInfos[0].InitialMaterialName);
+			if (MeshMaterial)
+			{
+				MeshParticleMaterial->SetMaterialInfo(MeshMaterial->GetMaterialInfo());
+				MeshParticleMaterial->ResolveTextures();
+			}
+		}
+	}
+
+	// RequiredModule에 머티리얼 설정
+	if (LOD->RequiredModule)
+	{
+		LOD->RequiredModule->Material = MeshParticleMaterial;
+	}
+
+	// 타입 데이터 설정
+	LOD->TypeDataModule = MeshTypeData;
+	LOD->Modules.Add(MeshTypeData);
+	LOD->CacheModuleInfo();
+
+	if (State->PreviewComponent)
+	{
+		State->PreviewComponent->RefreshEmitterInstances();
+	}
+	State->bIsDirty = true;
 }
 
 void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmitter* Emitter)
 {
-	// 이미터 열 렌더링 (4단계에서 구현)
+	ParticleEditorState* State = GetActiveParticleState();
+	if (!State || !Emitter) return;
+
+	int32 LODIndex = State->CurrentLODLevel;
+	UParticleLODLevel* LOD = Emitter->GetLODLevel(LODIndex);
+	if (!LOD)
+	{
+		ImGui::TextDisabled("LOD %d 없음", LODIndex);
+		return;
+	}
+
+	// 이미터가 선택되었거나 해당 이미터의 모듈이 선택된 경우 하이라이트
+	bool bEmitterSelected = (State->SelectedEmitterIndex == EmitterIndex);
+
+	// 헤더 배경색 (선택 시 주황색)
+	ImVec4 HeaderBgColor = bEmitterSelected
+		? ImVec4(0.8f, 0.5f, 0.2f, 1.0f)
+		: ImVec4(0.15f, 0.15f, 0.15f, 1.0f);
+
+	ImGui::PushStyleColor(ImGuiCol_ChildBg, HeaderBgColor);
+	ImGui::BeginChild(("##EmitterHeader" + std::to_string(EmitterIndex)).c_str(), ImVec2(0, 70), false);
+
+	// 첫 번째 줄: "Particle Emitter" 텍스트
+	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 5.0f);
+	ImGui::Text("Particle Emitter");
+
+	// 두 번째 줄: 체크박스 + 파티클 개수
+	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 5.0f);
+	ImGui::BeginGroup();
+
+	// 커스텀 체크박스 (체크/X 토글)
+	ImVec2 CheckboxSize(14, 14);
+	ImVec2 CheckboxPos = ImGui::GetCursorScreenPos();
+	ImDrawList* HeaderDrawList = ImGui::GetWindowDrawList();
+
+	// 체크박스 배경 (밝은 색상)
+	ImU32 CheckboxBgColor = LOD->bEnabled ? IM_COL32(0, 255, 0, 255) : IM_COL32(255, 0, 0, 255);
+	HeaderDrawList->AddRectFilled(CheckboxPos, ImVec2(CheckboxPos.x + CheckboxSize.x, CheckboxPos.y + CheckboxSize.y), CheckboxBgColor);
+	HeaderDrawList->AddRect(CheckboxPos, ImVec2(CheckboxPos.x + CheckboxSize.x, CheckboxPos.y + CheckboxSize.y), IM_COL32(60, 60, 60, 255));
+
+	// 체크 또는 X 표시
+	if (LOD->bEnabled)
+	{
+		// 체크 표시
+		HeaderDrawList->AddLine(
+			ImVec2(CheckboxPos.x + 3, CheckboxPos.y + 7),
+			ImVec2(CheckboxPos.x + 6, CheckboxPos.y + 10),
+			IM_COL32(255, 255, 255, 255), 2.0f);
+		HeaderDrawList->AddLine(
+			ImVec2(CheckboxPos.x + 6, CheckboxPos.y + 10),
+			ImVec2(CheckboxPos.x + 11, CheckboxPos.y + 4),
+			IM_COL32(255, 255, 255, 255), 2.0f);
+	}
+	else
+	{
+		// X 표시
+		HeaderDrawList->AddLine(
+			ImVec2(CheckboxPos.x + 3, CheckboxPos.y + 3),
+			ImVec2(CheckboxPos.x + 11, CheckboxPos.y + 11),
+			IM_COL32(255, 255, 255, 255), 2.0f);
+		HeaderDrawList->AddLine(
+			ImVec2(CheckboxPos.x + 11, CheckboxPos.y + 3),
+			ImVec2(CheckboxPos.x + 3, CheckboxPos.y + 11),
+			IM_COL32(255, 255, 255, 255), 2.0f);
+	}
+
+	// 클릭 감지용 InvisibleButton
+	char CheckboxId[32];
+	sprintf_s(CheckboxId, "##EmitterEnabled%d", EmitterIndex);
+	if (ImGui::InvisibleButton(CheckboxId, CheckboxSize))
+	{
+		LOD->bEnabled = !LOD->bEnabled;
+		State->bIsDirty = true;
+	}
+
+	ImGui::SameLine();
+	ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 3.0f);  // 체크박스와 높이 정렬
+
+	// 파티클 개수 표시
+	int32 ParticleCount = 0;
+	if (State->PreviewComponent && EmitterIndex < State->PreviewComponent->EmitterInstances.Num())
+	{
+		FParticleEmitterInstance* Instance = State->PreviewComponent->EmitterInstances[EmitterIndex];
+		if (Instance)
+		{
+			ParticleCount = Instance->ActiveParticles;
+		}
+	}
+	ImGui::Text("%d", ParticleCount);
+
+	ImGui::EndGroup();
+
+	// 헤더 클릭 감지 (전체 영역)
+	ImVec2 HeaderMin = ImGui::GetWindowPos();
+	ImVec2 HeaderMax = ImVec2(HeaderMin.x + ImGui::GetWindowWidth(), HeaderMin.y + 70);
+	if (ImGui::IsMouseClicked(0) && ImGui::IsMouseHoveringRect(HeaderMin, HeaderMax))
+	{
+		State->SelectedEmitterIndex = EmitterIndex;
+		State->SelectedModuleIndex = -1;
+		State->SelectedModule = nullptr;
+	}
+
+	// 썸네일 영역 (우측 상단에 배치)
+	ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth() - 55, 5));
+	ImVec2 ThumbnailPos = ImGui::GetCursorScreenPos();
+	ImVec2 ThumbnailSize(50, 50);
+
+	// RequiredModule의 Material에서 Diffuse 텍스처 가져오기
+	ID3D11ShaderResourceView* DiffuseSRV = nullptr;
+	if (LOD->RequiredModule && LOD->RequiredModule->Material)
+	{
+		UTexture* DiffuseTexture = LOD->RequiredModule->Material->GetTexture(EMaterialTextureSlot::Diffuse);
+		if (DiffuseTexture)
+		{
+			DiffuseSRV = DiffuseTexture->GetShaderResourceView();
+		}
+	}
+
+	// 썸네일 검은색 배경
+	ImDrawList* DrawList = ImGui::GetWindowDrawList();
+	DrawList->AddRectFilled(
+		ThumbnailPos,
+		ImVec2(ThumbnailPos.x + ThumbnailSize.x, ThumbnailPos.y + ThumbnailSize.y),
+		IM_COL32(0, 0, 0, 255)
+	);
+
+	if (DiffuseSRV)
+	{
+		// Diffuse 텍스처 표시
+		ImGui::Image((void*)DiffuseSRV, ThumbnailSize);
+	}
+	else
+	{
+		ImGui::Dummy(ThumbnailSize);
+	}
+
+	ImGui::EndChild();
+	ImGui::PopStyleColor();
+
+	ImGui::Separator();
+
+	// 스크롤 가능한 모듈 영역
+	ImGui::BeginChild(
+		("##ModuleList" + std::to_string(EmitterIndex)).c_str(),
+		ImVec2(0, 0),
+		false,
+		ImGuiWindowFlags_None
+	);
+
+	int32 ModuleIdx = 0;
+
+	// 모듈을 우선순위에 따라 정렬하여 렌더링
+	// 우선순위: TypeData(0) -> Required(1) -> Spawn(2) -> 일반(100)
+	TArray<int32> SortedIndices;
+	for (int32 i = 0; i < LOD->Modules.Num(); ++i)
+	{
+		SortedIndices.Add(i);
+	}
+
+	// 우선순위 기준 정렬
+	std::sort(SortedIndices.begin(), SortedIndices.end(), [&LOD](int32 A, int32 B)
+	{
+		UParticleModule* ModuleA = LOD->Modules[A];
+		UParticleModule* ModuleB = LOD->Modules[B];
+		int32 PriorityA = ModuleA ? ModuleA->GetDisplayPriority() : 100;
+		int32 PriorityB = ModuleB ? ModuleB->GetDisplayPriority() : 100;
+		return PriorityA < PriorityB;
+	});
+
+	// 정렬된 순서로 렌더링
+	for (int32 SortedIdx : SortedIndices)
+	{
+		UParticleModule* Module = LOD->Modules[SortedIdx];
+		if (Module)
+		{
+			RenderModuleBlock(EmitterIndex, ModuleIdx++, Module);
+		}
+	}
+
+	// 모듈 리스트 빈 영역 좌클릭 → 이미터 선택
+	if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered())
+	{
+		State->SelectedEmitterIndex = EmitterIndex;
+		State->SelectedModuleIndex = -1;
+		State->SelectedModule = nullptr;
+	}
+
+	// 이미터 영역 우클릭 → 모듈 추가/이미터 관리 메뉴
+	char ContextMenuId[64];
+	sprintf_s(ContextMenuId, "EmitterContextMenu%d", EmitterIndex);
+
+	if (ImGui::BeginPopupContextWindow(ContextMenuId, ImGuiPopupFlags_MouseButtonRight))
+	{
+		// 이미터 삭제
+		if (ImGui::MenuItem("이미터 삭제"))
+		{
+			UParticleSystem* System = State->EditingTemplate;
+			if (System && EmitterIndex < System->Emitters.Num())
+			{
+				System->Emitters.RemoveAt(EmitterIndex);
+				State->SelectedEmitterIndex = -1;
+				State->SelectedModuleIndex = -1;
+				State->SelectedModule = nullptr;
+				State->bIsDirty = true;
+				if (State->PreviewComponent)
+				{
+					State->PreviewComponent->RefreshEmitterInstances();
+				}
+			}
+		}
+
+		ImGui::Separator();
+
+		// 타입 데이터 (스프라이트가 아닌 경우에만 변경 가능)
+		// 스프라이트 타입데이터는 기본값이므로 메뉴에 표시하지 않음
+		bool bHasNonSpriteTypeData = LOD->TypeDataModule && !Cast<UParticleModuleTypeDataSprite>(LOD->TypeDataModule);
+		if (ImGui::BeginMenu("타입 데이터"))
+		{
+			if (ImGui::MenuItem("메시"))
+			{
+				if (bHasNonSpriteTypeData)
+				{
+					bShowTypeDataExistsPopup = true;
+				}
+				else
+				{
+					SetMeshTypeDataModule(LOD, State);
+				}
+			}
+			if (ImGui::MenuItem("리본"))
+			{
+				if (bHasNonSpriteTypeData)
+				{
+					bShowTypeDataExistsPopup = true;
+				}
+				else
+				{
+					SetTypeDataModule<UParticleModuleTypeDataRibbon>(LOD, State);
+				}
+			}
+			if (ImGui::MenuItem("빔"))
+			{
+				if (bHasNonSpriteTypeData)
+				{
+					bShowTypeDataExistsPopup = true;
+				}
+				else
+				{
+					SetTypeDataModule<UParticleModuleTypeDataBeam>(LOD, State);
+				}
+			}
+			ImGui::EndMenu();
+		}
+
+		// 가속
+		if (ImGui::BeginMenu("가속"))
+		{
+			if (ImGui::MenuItem("가속"))
+			{
+				AddModuleToLOD<UParticleModuleAcceleration>(LOD, State);
+			}
+			ImGui::EndMenu();
+		}
+
+		// 컬러
+		if (ImGui::BeginMenu("컬러"))
+		{
+			if (ImGui::MenuItem("컬러 오버 라이프"))
+			{
+				AddModuleToLOD<UParticleModuleColor>(LOD, State);
+			}
+			ImGui::EndMenu();
+		}
+
+		// 수명
+		if (ImGui::BeginMenu("수명"))
+		{
+			if (ImGui::MenuItem("수명"))
+			{
+				AddModuleToLOD<UParticleModuleLifetime>(LOD, State);
+			}
+			ImGui::EndMenu();
+		}
+
+		// 위치
+		if (ImGui::BeginMenu("위치"))
+		{
+			if (ImGui::MenuItem("초기 위치"))
+			{
+				AddModuleToLOD<UParticleModuleLocation>(LOD, State);
+			}
+			ImGui::EndMenu();
+		}
+
+		// 회전
+		if (ImGui::BeginMenu("회전"))
+		{
+			if (ImGui::MenuItem("초기 회전"))
+			{
+				AddModuleToLOD<UParticleModuleRotation>(LOD, State);
+			}
+			if (ImGui::MenuItem("메시 회전"))
+			{
+				AddModuleToLOD<UParticleModuleMeshRotation>(LOD, State);
+			}
+			ImGui::EndMenu();
+		}
+
+		// 회전 속도
+		if (ImGui::BeginMenu("회전 속도"))
+		{
+			if (ImGui::MenuItem("초기 회전 속도"))
+			{
+				AddModuleToLOD<UParticleModuleRotationRate>(LOD, State);
+			}
+			ImGui::EndMenu();
+		}
+
+		// 크기
+		if (ImGui::BeginMenu("크기"))
+		{
+			if (ImGui::MenuItem("초기 크기"))
+			{
+				AddModuleToLOD<UParticleModuleSize>(LOD, State);
+			}
+			if (ImGui::MenuItem("속도 기준 크기"))
+			{
+				AddModuleToLOD<UParticleModuleSizeScaleBySpeed>(LOD, State);
+			}
+			ImGui::EndMenu();
+		}
+
+		// 속도
+		if (ImGui::BeginMenu("속도"))
+		{
+			if (ImGui::MenuItem("초기 속도"))
+			{
+				AddModuleToLOD<UParticleModuleVelocity>(LOD, State);
+			}
+			ImGui::EndMenu();
+		}
+
+		ImGui::EndPopup();
+	}
+
+	ImGui::EndChild();
 }
 
 void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx, UParticleModule* Module)
 {
-	// 모듈 블록 렌더링 (4단계에서 구현)
+	ParticleEditorState* State = GetActiveParticleState();
+	if (!State || !Module) return;
+
+	// 모듈 표시 이름 가져오기
+	FString DisplayName = Module->GetClass()->DisplayName ? Module->GetClass()->DisplayName : "";
+	if (DisplayName.empty())
+	{
+		DisplayName = Module->GetClass()->Name ? Module->GetClass()->Name : "Unknown";
+		// "UParticleModule" 접두사 제거
+		const FString Prefix = "UParticleModule";
+		if (DisplayName.find(Prefix) == 0)
+		{
+			DisplayName = DisplayName.substr(Prefix.length());
+		}
+
+		// 언리얼 엔진 표준 모듈 이름 매핑
+		static const std::unordered_map<FString, FString> ModuleNameMap = {
+			{"Color", "컬러 오버 라이프"},
+			{"Size", "초기 크기"},
+			{"Velocity", "초기 속도"},
+			{"Lifetime", "수명"},
+			{"Spawn", "스폰"},
+			{"Required", "필수"},
+			{"TypeDataSprite", "스프라이트 타입데이터"},
+			{"TypeDataMesh", "메시 타입데이터"},
+			{"TypeDataRibbon", "리본 타입데이터"},
+			{"TypeDataBeam", "빔 타입데이터"},
+			{"Acceleration", "가속"},
+			{"Location", "초기 위치"},
+			{"Rotation", "초기 회전"},
+			{"MeshRotation", "메시 회전"},
+			{"RotationRate", "초기 회전 속도"},
+			{"SizeScaleBySpeed", "속도 기준 크기"}
+		};
+
+		auto it = ModuleNameMap.find(DisplayName);
+		if (it != ModuleNameMap.end())
+		{
+			DisplayName = it->second;
+		}
+	}
+
+	// 클래스 이름 (색상 결정용)
+	FString ClassName = Module->GetClass()->Name ? Module->GetClass()->Name : "";
+
+	// 선택 상태 확인
+	bool bSelected = (State->SelectedEmitterIndex == EmitterIdx &&
+					  State->SelectedModule == Module);
+
+	// 모듈 타입에 따른 배경색
+	ImVec4 ModuleBgColor;
+	if (bSelected)
+	{
+		ModuleBgColor = ImVec4(0.8f, 0.5f, 0.2f, 1.0f);  // 선택 시 주황색
+	}
+	else if (ClassName.find("TypeData") != std::string::npos)
+	{
+		ModuleBgColor = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);  // TypeData: 검정
+	}
+	else if (ClassName.find("Required") != std::string::npos)
+	{
+		ModuleBgColor = ImVec4(0.6f, 0.6f, 0.2f, 1.0f);  // Required: 노랑
+	}
+	else if (ClassName.find("Spawn") != std::string::npos)
+	{
+		ModuleBgColor = ImVec4(0.8f, 0.3f, 0.3f, 1.0f);  // Spawn: 빨강
+	}
+	else
+	{
+		ModuleBgColor = ImVec4(0.25f, 0.25f, 0.25f, 1.0f);  // 기본: 회색
+	}
+
+	// 비활성화 시 어둡게
+	if (!Module->bEnabled)
+	{
+		ModuleBgColor.x *= 0.5f;
+		ModuleBgColor.y *= 0.5f;
+		ModuleBgColor.z *= 0.5f;
+	}
+
+	// 모듈 블록 높이
+	const float ModuleHeight = 24.0f;
+
+	// TypeData, Required가 아닌 경우에만 체크박스 표시
+	bool bShowCheckbox = (ClassName.find("TypeData") == std::string::npos) &&
+						 (ClassName.find("Required") == std::string::npos);
+
+	// 모듈 배경 그리기
+	ImGui::PushStyleColor(ImGuiCol_ChildBg, ModuleBgColor);
+	char ModuleChildId[64];
+	sprintf_s(ModuleChildId, "##ModuleBlock_%d_%d", EmitterIdx, ModuleIdx);
+	ImGui::BeginChild(ModuleChildId, ImVec2(0, ModuleHeight), false);
+
+	// 모듈 이름
+	ImGui::SetCursorPosX(5.0f);
+	ImGui::SetCursorPosY((ModuleHeight - ImGui::GetTextLineHeight()) * 0.5f);
+	ImGui::Text("%s", DisplayName.c_str());
+
+	// 체크박스 (모듈 블록 내부에서 그리기)
+	if (bShowCheckbox)
+	{
+		float CheckboxX = ImGui::GetWindowWidth() - 38.0f;
+		float CheckboxY = (ModuleHeight - 14.0f) * 0.5f;
+
+		ImGui::SetCursorPos(ImVec2(CheckboxX, CheckboxY));
+
+		ImVec2 CheckboxSize(14, 14);
+		ImVec2 CheckboxPos = ImGui::GetCursorScreenPos();
+		ImDrawList* DrawList = ImGui::GetWindowDrawList();
+
+		ImU32 CheckboxBgColor = Module->bEnabled ? IM_COL32(0, 255, 0, 255) : IM_COL32(255, 0, 0, 255);
+		DrawList->AddRectFilled(CheckboxPos, ImVec2(CheckboxPos.x + CheckboxSize.x, CheckboxPos.y + CheckboxSize.y), CheckboxBgColor);
+		DrawList->AddRect(CheckboxPos, ImVec2(CheckboxPos.x + CheckboxSize.x, CheckboxPos.y + CheckboxSize.y), IM_COL32(60, 60, 60, 255));
+
+		if (Module->bEnabled)
+		{
+			// 체크 표시
+			DrawList->AddLine(
+				ImVec2(CheckboxPos.x + 3, CheckboxPos.y + 7),
+				ImVec2(CheckboxPos.x + 6, CheckboxPos.y + 10),
+				IM_COL32(255, 255, 255, 255), 2.0f);
+			DrawList->AddLine(
+				ImVec2(CheckboxPos.x + 6, CheckboxPos.y + 10),
+				ImVec2(CheckboxPos.x + 11, CheckboxPos.y + 4),
+				IM_COL32(255, 255, 255, 255), 2.0f);
+		}
+		else
+		{
+			// X 표시
+			DrawList->AddLine(
+				ImVec2(CheckboxPos.x + 3, CheckboxPos.y + 3),
+				ImVec2(CheckboxPos.x + 11, CheckboxPos.y + 11),
+				IM_COL32(255, 255, 255, 255), 2.0f);
+			DrawList->AddLine(
+				ImVec2(CheckboxPos.x + 11, CheckboxPos.y + 3),
+				ImVec2(CheckboxPos.x + 3, CheckboxPos.y + 11),
+				IM_COL32(255, 255, 255, 255), 2.0f);
+		}
+
+		char CheckboxId[64];
+		sprintf_s(CheckboxId, "##ModuleEnabled_%d_%d", EmitterIdx, ModuleIdx);
+		if (ImGui::InvisibleButton(CheckboxId, CheckboxSize))
+		{
+			Module->bEnabled = !Module->bEnabled;
+			State->bIsDirty = true;
+		}
+	}
+
+	// 클릭 감지 (전체 영역)
+	// 스프라이트 타입데이터는 선택 불가
+	bool bIsSpriteTypeData = Cast<UParticleModuleTypeDataSprite>(Module) != nullptr;
+	ImVec2 BlockMin = ImGui::GetWindowPos();
+	ImVec2 BlockMax = ImVec2(BlockMin.x + ImGui::GetWindowWidth(), BlockMin.y + ModuleHeight);
+	if (ImGui::IsMouseClicked(0) && ImGui::IsMouseHoveringRect(BlockMin, BlockMax) && !bIsSpriteTypeData)
+	{
+		State->SelectedEmitterIndex = EmitterIdx;
+		State->SelectedModuleIndex = ModuleIdx;
+		State->SelectedModule = Module;
+	}
+
+	ImGui::EndChild();
+	ImGui::PopStyleColor();
+
+	// 모듈 우클릭 컨텍스트 메뉴
+	char ContextMenuId[64];
+	sprintf_s(ContextMenuId, "ModuleContextMenu_%d_%d", EmitterIdx, ModuleIdx);
+
+	if (ImGui::BeginPopupContextItem(ContextMenuId))
+	{
+		// 삭제 (Required, Spawn, 스프라이트 타입데이터 모듈은 삭제 불가)
+		bool bCanDelete = true;
+		UParticleLODLevel* LOD = nullptr;
+		if (State->EditingTemplate && EmitterIdx < State->EditingTemplate->Emitters.Num())
+		{
+			UParticleEmitter* Emitter = State->EditingTemplate->Emitters[EmitterIdx];
+			if (Emitter)
+			{
+				LOD = Emitter->GetLODLevel(State->CurrentLODLevel);
+				if (LOD)
+				{
+					// Required, Spawn 모듈은 삭제 불가
+					if (Module == LOD->RequiredModule || Module == LOD->SpawnModule)
+					{
+						bCanDelete = false;
+					}
+					// 스프라이트 타입데이터는 삭제 불가 (기본 타입이므로)
+					if (Cast<UParticleModuleTypeDataSprite>(Module))
+					{
+						bCanDelete = false;
+					}
+				}
+			}
+		}
+
+		if (bCanDelete)
+		{
+			if (ImGui::MenuItem("모듈 삭제"))
+			{
+				if (LOD)
+				{
+					// TypeDataModule인 경우 (메시/리본/빔 삭제 시 스프라이트로 복원)
+					if (Module == LOD->TypeDataModule)
+					{
+						RestoreToSpriteTypeData(LOD, State);
+					}
+					else
+					{
+						// 일반 모듈 배열에서 삭제
+						LOD->Modules.Remove(Module);
+						LOD->CacheModuleInfo();
+					}
+
+					State->SelectedModule = nullptr;
+					State->SelectedModuleIndex = -1;
+					State->bIsDirty = true;
+					if (State->PreviewComponent)
+					{
+						State->PreviewComponent->RefreshEmitterInstances();
+					}
+				}
+			}
+		}
+		else
+		{
+			ImGui::TextDisabled("(삭제 불가)");
+		}
+
+		ImGui::EndPopup();
+	}
 }
 
 void SParticleEditorWindow::RenderViewportArea(float width, float height)

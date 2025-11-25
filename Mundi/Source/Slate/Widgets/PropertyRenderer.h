@@ -18,7 +18,8 @@ public:
 	static void RenderAllProperties(UObject* Object);
 
 	// 객체의 모든 프로퍼티를 카테고리별로 렌더링 (부모 클래스 프로퍼티 포함)
-	static void RenderAllPropertiesWithInheritance(UObject* Object);
+	// 반환값: 프로퍼티가 변경되었으면 true
+	static bool RenderAllPropertiesWithInheritance(UObject* Object);
 
 private:
 	// 타입별 렌더링 함수들
@@ -45,6 +46,7 @@ private:
 	static bool RenderMaterialProperty(const FProperty& Prop, void* Instance);
 	static bool RenderMaterialArrayProperty(const FProperty& Prop, void* Instance);
 	static bool RenderSingleMaterialSlot(const char* Label, UMaterialInterface** MaterialPtr, UObject* OwningObject, uint32 MaterialIndex);	// 단일 UMaterial* 슬롯을 렌더링하는 헬퍼 함수.
+	static bool RenderParticleSystemProperty(const FProperty& Prop, void* Instance);
 	static bool RenderTextureSelectionCombo(const char* Label, UTexture* CurrentTexture, UTexture*& OutNewTexture);
 	static bool RenderSoundSelectionCombo(const char* Label, USound* CurrentSound, USound*& OutNewSound);
 	// Simplified sound combo without thumbnails
@@ -53,6 +55,16 @@ private:
 
 	// Transform 프로퍼티 렌더링 헬퍼 함수
 	static bool RenderTransformProperty(const FProperty& Prop, void* Instance);
+
+	// Distribution 렌더링 함수
+	static bool RenderDistributionFloatProperty(const FProperty& Prop, void* Instance);
+	static bool RenderDistributionVectorProperty(const FProperty& Prop, void* Instance);
+	static bool RenderDistributionColorProperty(const FProperty& Prop, void* Instance);
+
+	// Distribution 헬퍼 함수
+	static bool RenderDistributionModeCombo(const char* Label, enum class EDistributionType& Type);
+	static bool RenderInterpCurveFloat(const char* Label, struct FInterpCurveFloat& Curve);
+	static bool RenderInterpCurveVector(const char* Label, struct FInterpCurveVector& Curve);
 
 	static void CacheResources();	// 필요할 때 리소스 목록을 멤버 변수에 캐시합니다.
 	static void ClearResourcesCache();	// 렌더링 패스가 끝날 때 캐시를 비웁니다.
@@ -73,4 +85,6 @@ private:
 	static TArray<const char*> CachedSoundItems;
 	static TArray<FString> CachedScriptPaths;
 	static TArray<const char*> CachedScriptItems;
+	static TArray<FString> CachedParticleSystemPaths;
+	static TArray<FString> CachedParticleSystemItems;
 };

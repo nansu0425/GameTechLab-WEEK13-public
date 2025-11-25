@@ -17,4 +17,7 @@ public:
 	virtual void SetupEmitterInstance(FParticleEmitterInstance* Inst) {}
 
 	virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
+
+	// TypeData는 가장 먼저 표시 (우선순위 0)
+	virtual int32 GetDisplayPriority() const override { return 0; }
 };

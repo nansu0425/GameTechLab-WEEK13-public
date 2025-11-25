@@ -72,22 +72,67 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Generated\UParticleModuleSizeScaleBySpeed.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleModuleMeshRotation.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Viewer\ParticleEditorBootstrap.cpp">
+      <Filter>Source\Runtime\Engine\Viewer</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleMeshRotation.cpp">
+      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleSizeScaleBySpeed.cpp">
+      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Slate\Windows\SParticleEditorWindow.cpp">
+      <Filter>Source\Slate\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Misc\DebugUtils.cpp">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClCompile>
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Source\Runtime\Core\Misc\DebugUtils.cpp">
       <Filter>Source\Runtime\Core\Misc</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleMeshRotation.cpp">
-      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
+    <ClCompile Include="Source\Runtime\Core\Misc\VertexData.cpp">
+      <Filter>Source\Runtime\Core\Misc</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Runtime\Engine\Viewer\ParticleEditorBootstrap.cpp">
-      <Filter>Source\Runtime\Engine\Viewer</Filter>
+    <ClCompile Include="Source\Runtime\Core\Misc\Color.cpp">
+      <Filter>Source\Runtime\Core\Misc</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Slate\Windows\SParticleEditorWindow.cpp">
-      <Filter>Source\Slate\Windows</Filter>
+    <ClCompile Include="Source\Runtime\Core\Misc\FName.cpp">
+      <Filter>Source\Runtime\Core\Misc</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleSizeScaleBySpeed.cpp">
-      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
+    <ClCompile Include="Source\Runtime\Core\Math\Vector.cpp">
+      <Filter>Source\Runtime\Core\Math</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Object\FireballActor.cpp">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Object\Actor.cpp">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Object\ActorComponent.cpp">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Object\Object.cpp">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Object\ObjectFactory.cpp">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Containers\UEContainer.cpp">
+      <Filter>Source\Runtime\Core\Containers</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Memory\MemoryManager.cpp">
+      <Filter>Source\Runtime\Core\Memory</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Core\Memory\PlatformTime.cpp">
+      <Filter>Source\Runtime\Core\Memory</Filter>
     </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\Particles\Distribution.cpp">
       <Filter>Source\Runtime\Engine\Particles</Filter>
@@ -106,6 +151,15 @@
     </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\Particles\ParticleSystem.cpp">
       <Filter>Source\Runtime\Engine\Particles</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleMeshRotation.cpp">
+      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleTypeDataBeam.cpp">
+      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleTypeDataRibbon.cpp">
+      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
     </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModule.cpp">
       <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
@@ -134,6 +188,9 @@
     <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleSize.cpp">
       <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleSizeScaleBySpeed.cpp">
+      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleSpawn.cpp">
       <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
     </ClCompile>
@@ -148,6 +205,24 @@
     </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleVelocity.cpp">
       <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Viewer\AnimationViewerBootstrap.cpp">
+      <Filter>Source\Runtime\Engine\Viewer</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Viewer\BlendSpaceEditorBootstrap.cpp">
+      <Filter>Source\Runtime\Engine\Viewer</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Viewer\EditorAssetPreviewContext.cpp">
+      <Filter>Source\Runtime\Engine\Viewer</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Viewer\ParticleEditorBootstrap.cpp">
+      <Filter>Source\Runtime\Engine\Viewer</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Viewer\SkeletalViewerBootstrap.cpp">
+      <Filter>Source\Runtime\Engine\Viewer</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Viewer\ViewerState.cpp">
+      <Filter>Source\Runtime\Engine\Viewer</Filter>
     </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\Animation\AnimationRuntime.cpp">
       <Filter>Source\Runtime\Engine\Animation</Filter>
@@ -416,21 +491,6 @@
     <ClCompile Include="Source\Runtime\Engine\Scripting\LuaStructProxy.cpp">
       <Filter>Source\Runtime\Engine\Scripting</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Runtime\Engine\Viewer\AnimationViewerBootstrap.cpp">
-      <Filter>Source\Runtime\Engine\Viewer</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Engine\Viewer\BlendSpaceEditorBootstrap.cpp">
-      <Filter>Source\Runtime\Engine\Viewer</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Engine\Viewer\EditorAssetPreviewContext.cpp">
-      <Filter>Source\Runtime\Engine\Viewer</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Engine\Viewer\SkeletalViewerBootstrap.cpp">
-      <Filter>Source\Runtime\Engine\Viewer</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Engine\Viewer\ViewerState.cpp">
-      <Filter>Source\Runtime\Engine\Viewer</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\Collision\AABB.cpp">
       <Filter>Source\Runtime\Engine\Collision</Filter>
     </ClCompile>
@@ -493,42 +553,6 @@
     </ClCompile>
     <ClCompile Include="Source\Runtime\AssetManagement\TextureConverter.cpp">
       <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Misc\VertexData.cpp">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Misc\Color.cpp">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Misc\FName.cpp">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Math\Vector.cpp">
-      <Filter>Source\Runtime\Core\Math</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Object\FireballActor.cpp">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Object\Actor.cpp">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Object\ActorComponent.cpp">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Object\Object.cpp">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Object\ObjectFactory.cpp">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Containers\UEContainer.cpp">
-      <Filter>Source\Runtime\Core\Containers</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Memory\MemoryManager.cpp">
-      <Filter>Source\Runtime\Core\Memory</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Memory\PlatformTime.cpp">
-      <Filter>Source\Runtime\Core\Memory</Filter>
     </ClCompile>
     <ClCompile Include="Source\Runtime\Renderer\AnimationViewerViewportClient.cpp">
       <Filter>Source\Runtime\Renderer</Filter>
@@ -611,39 +635,6 @@
     <ClCompile Include="Source\Runtime\RHI\RHIDevice.cpp">
       <Filter>Source\Runtime\RHI</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Editor\FbxLoader.cpp">
-      <Filter>Source\Editor</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\PlatformProcess.cpp">
-      <Filter>Source\Editor</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\PlatformCrashHandler.cpp">
-      <Filter>Source\Editor</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\ObjManager.cpp">
-      <Filter>Source\Editor</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\SelectionManager.cpp">
-      <Filter>Source\Editor</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\Clipboard\ClipboardManager.cpp">
-      <Filter>Source\Editor\Clipboard</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\Gizmo\GizmoActor.cpp">
-      <Filter>Source\Editor\Gizmo</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\Gizmo\GizmoArrowComponent.cpp">
-      <Filter>Source\Editor\Gizmo</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\Gizmo\GizmoRotateComponent.cpp">
-      <Filter>Source\Editor\Gizmo</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\Gizmo\GizmoScaleComponent.cpp">
-      <Filter>Source\Editor\Gizmo</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Editor\Grid\GridActor.cpp">
-      <Filter>Source\Editor\Grid</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Slate\ThumbnailManager.cpp">
       <Filter>Source\Slate</Filter>
     </ClCompile>
@@ -659,27 +650,6 @@
     <ClCompile Include="Source\Slate\SlateManager.cpp">
       <Filter>Source\Slate</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Slate\Widgets\PropertyRenderer.cpp">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Slate\Widgets\ConsoleWidget.cpp">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Slate\Widgets\InputInformationWidget.cpp">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Slate\Widgets\MainToolbarWidget.cpp">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Slate\Widgets\SceneManagerWidget.cpp">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Slate\Widgets\TargetActorTransformWidget.cpp">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Slate\Widgets\Widget.cpp">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Slate\Windows\ContentBrowserWindow.cpp">
       <Filter>Source\Slate\Windows</Filter>
     </ClCompile>
@@ -687,6 +657,9 @@
       <Filter>Source\Slate\Windows</Filter>
     </ClCompile>
     <ClCompile Include="Source\Slate\Windows\SBlendSpaceEditorWindow.cpp">
+      <Filter>Source\Slate\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Slate\Windows\SParticleEditorWindow.cpp">
       <Filter>Source\Slate\Windows</Filter>
     </ClCompile>
     <ClCompile Include="Source\Slate\Windows\SSkeletalMeshViewerWindow.cpp">
@@ -734,11 +707,65 @@
     <ClCompile Include="Source\Slate\Windows\UIWindow.cpp">
       <Filter>Source\Slate\Windows</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Slate\Widgets\PropertyRenderer.cpp">
+      <Filter>Source\Slate\Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Slate\Widgets\ConsoleWidget.cpp">
+      <Filter>Source\Slate\Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Slate\Widgets\InputInformationWidget.cpp">
+      <Filter>Source\Slate\Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Slate\Widgets\MainToolbarWidget.cpp">
+      <Filter>Source\Slate\Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Slate\Widgets\SceneManagerWidget.cpp">
+      <Filter>Source\Slate\Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Slate\Widgets\TargetActorTransformWidget.cpp">
+      <Filter>Source\Slate\Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Slate\Widgets\Widget.cpp">
+      <Filter>Source\Slate\Widgets</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Slate\Factory\UIWindowFactory.cpp">
       <Filter>Source\Slate\Factory</Filter>
     </ClCompile>
     <ClCompile Include="Source\Slate\ImGui\ImGuiHelper.cpp">
       <Filter>Source\Slate\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\FbxLoader.cpp">
+      <Filter>Source\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\PlatformProcess.cpp">
+      <Filter>Source\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\PlatformCrashHandler.cpp">
+      <Filter>Source\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\ObjManager.cpp">
+      <Filter>Source\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\SelectionManager.cpp">
+      <Filter>Source\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\Clipboard\ClipboardManager.cpp">
+      <Filter>Source\Editor\Clipboard</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\Gizmo\GizmoActor.cpp">
+      <Filter>Source\Editor\Gizmo</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\Gizmo\GizmoArrowComponent.cpp">
+      <Filter>Source\Editor\Gizmo</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\Gizmo\GizmoRotateComponent.cpp">
+      <Filter>Source\Editor\Gizmo</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\Gizmo\GizmoScaleComponent.cpp">
+      <Filter>Source\Editor\Gizmo</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\Grid\GridActor.cpp">
+      <Filter>Source\Editor\Grid</Filter>
     </ClCompile>
     <ClCompile Include="Generated\AActor.generated.cpp">
       <Filter>Generated</Filter>
@@ -995,6 +1022,12 @@
     <ClCompile Include="Generated\UParticleModuleMeshRotation.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
+    <ClCompile Include="Generated\UParticleModuleTypeDataBeam.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UParticleModuleTypeDataRibbon.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
     <ClCompile Include="ThirdParty\include\ImGui\imgui.cpp">
       <Filter>ThirdParty\include\ImGui</Filter>
     </ClCompile>
@@ -1016,59 +1049,108 @@
     <ClCompile Include="ThirdParty\include\ImGui\imgui_widgets.cpp">
       <Filter>ThirdParty\include\ImGui</Filter>
     </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleSizeScaleBySpeed.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleMeshRotation.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleTypeDataBeam.cpp">
-      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleTypeDataRibbon.cpp">
-      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleTypeDataBeam.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Generated\UParticleModuleTypeDataRibbon.generated.cpp">
-      <Filter>Generated</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Engine\Viewer\ParticleEditorBootstrap.cpp">
-      <Filter>Source\Runtime\Engine\Viewer</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleMeshRotation.cpp">
-      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleSizeScaleBySpeed.cpp">
-      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Slate\Windows\SParticleEditorWindow.cpp">
-      <Filter>Source\Slate\Windows</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Runtime\Core\Misc\DebugUtils.cpp">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Particles\ParticleStats.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="pch.h" />
-    <ClInclude Include="Source\Runtime\Core\Misc\DebugUtils.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
+    <ClInclude Include="Generated\UParticleModuleSizeScaleBySpeed.generated.h">
+      <Filter>Generated</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Runtime\Engine\Particles\Distribution.h">
-      <Filter>Source\Runtime\Engine\Particles</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleMeshRotation.h">
-      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
+    <ClInclude Include="Generated\UParticleModuleMeshRotation.generated.h">
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\Viewer\ParticleEditorBootstrap.h">
       <Filter>Source\Runtime\Engine\Viewer</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Slate\Windows\SParticleEditorWindow.h">
-      <Filter>Source\Slate\Windows</Filter>
+    <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleMeshRotation.h">
+      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
     </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleSizeScaleBySpeed.h">
       <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Slate\Windows\SParticleEditorWindow.h">
+      <Filter>Source\Slate\Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Particles\Distribution.h">
+      <Filter>Source\Runtime\Engine\Particles</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\DebugUtils.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="Source\Runtime\Core\Misc\DebugUtils.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\Delegates.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\Hash.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\PathUtils.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\Archive.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\Color.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\Enums.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\ResourceData.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\JsonSerializer.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\Name.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\ObjectIterator.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\VertexData.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\WindowsBinReader.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\WindowsBinWriter.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Math\Vector.h">
+      <Filter>Source\Runtime\Core\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Object\FireballActor.h">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Object\Property.h">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Object\Actor.h">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Object\ActorComponent.h">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Object\Object.h">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Object\ObjectFactory.h">
+      <Filter>Source\Runtime\Core\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Containers\UEContainer.h">
+      <Filter>Source\Runtime\Core\Containers</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Memory\MemoryManager.h">
+      <Filter>Source\Runtime\Core\Memory</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Memory\PlatformTime.h">
+      <Filter>Source\Runtime\Core\Memory</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Particles\Distribution.h">
+      <Filter>Source\Runtime\Engine\Particles</Filter>
     </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\Particles\ParticleRandomStream.h">
       <Filter>Source\Runtime\Engine\Particles</Filter>
@@ -1090,6 +1172,15 @@
     </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\Particles\ParticleSystem.h">
       <Filter>Source\Runtime\Engine\Particles</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleMeshRotation.h">
+      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleTypeDataBeam.h">
+      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleTypeDataRibbon.h">
+      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
     </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModule.h">
       <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
@@ -1118,6 +1209,9 @@
     <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleSize.h">
       <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleSizeScaleBySpeed.h">
+      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleSpawn.h">
       <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
     </ClInclude>
@@ -1132,6 +1226,24 @@
     </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleVelocity.h">
       <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Viewer\AnimationViewerBootstrap.h">
+      <Filter>Source\Runtime\Engine\Viewer</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Viewer\BlendSpaceEditorBootstrap.h">
+      <Filter>Source\Runtime\Engine\Viewer</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Viewer\EditorAssetPreviewContext.h">
+      <Filter>Source\Runtime\Engine\Viewer</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Viewer\ParticleEditorBootstrap.h">
+      <Filter>Source\Runtime\Engine\Viewer</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Viewer\SkeletalViewerBootstrap.h">
+      <Filter>Source\Runtime\Engine\Viewer</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Viewer\ViewerState.h">
+      <Filter>Source\Runtime\Engine\Viewer</Filter>
     </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\Animation\AnimationAsset.h">
       <Filter>Source\Runtime\Engine\Animation</Filter>
@@ -1406,21 +1518,6 @@
     <ClInclude Include="Source\Runtime\Engine\Scripting\LuaStructProxy.h">
       <Filter>Source\Runtime\Engine\Scripting</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Runtime\Engine\Viewer\AnimationViewerBootstrap.h">
-      <Filter>Source\Runtime\Engine\Viewer</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Engine\Viewer\BlendSpaceEditorBootstrap.h">
-      <Filter>Source\Runtime\Engine\Viewer</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Engine\Viewer\EditorAssetPreviewContext.h">
-      <Filter>Source\Runtime\Engine\Viewer</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Engine\Viewer\SkeletalViewerBootstrap.h">
-      <Filter>Source\Runtime\Engine\Viewer</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Engine\Viewer\ViewerState.h">
-      <Filter>Source\Runtime\Engine\Viewer</Filter>
-    </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\Collision\AABB.h">
       <Filter>Source\Runtime\Engine\Collision</Filter>
     </ClInclude>
@@ -1492,75 +1589,6 @@
     </ClInclude>
     <ClInclude Include="Source\Runtime\AssetManagement\Triangle.h">
       <Filter>Source\Runtime\AssetManagement</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\Delegates.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\Hash.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\PathUtils.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\Archive.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\Color.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\Enums.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\ResourceData.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\JsonSerializer.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\Name.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\ObjectIterator.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\VertexData.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\WindowsBinReader.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\WindowsBinWriter.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Math\Vector.h">
-      <Filter>Source\Runtime\Core\Math</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Object\FireballActor.h">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Object\Property.h">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Object\Actor.h">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Object\ActorComponent.h">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Object\Object.h">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Object\ObjectFactory.h">
-      <Filter>Source\Runtime\Core\Object</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Containers\UEContainer.h">
-      <Filter>Source\Runtime\Core\Containers</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Memory\MemoryManager.h">
-      <Filter>Source\Runtime\Core\Memory</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Memory\PlatformTime.h">
-      <Filter>Source\Runtime\Core\Memory</Filter>
     </ClInclude>
     <ClInclude Include="Source\Runtime\Renderer\AnimationViewerViewportClient.h">
       <Filter>Source\Runtime\Renderer</Filter>
@@ -1658,45 +1686,6 @@
     <ClInclude Include="Source\Runtime\RHI\RHIDevice.h">
       <Filter>Source\Runtime\RHI</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Editor\FbxLoader.h">
-      <Filter>Source\Editor</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\PlatformProcess.h">
-      <Filter>Source\Editor</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\PlatformCrashHandler.h">
-      <Filter>Source\Editor</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\ImGuiConsole.h">
-      <Filter>Source\Editor</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\ObjManager.h">
-      <Filter>Source\Editor</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\SelectionManager.h">
-      <Filter>Source\Editor</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\Clipboard\ClipboardManager.h">
-      <Filter>Source\Editor\Clipboard</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\Gizmo\GizmoActor.h">
-      <Filter>Source\Editor\Gizmo</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\Gizmo\GizmoArrowComponent.h">
-      <Filter>Source\Editor\Gizmo</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\Gizmo\GizmoRotateComponent.h">
-      <Filter>Source\Editor\Gizmo</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\Gizmo\GizmoScaleComponent.h">
-      <Filter>Source\Editor\Gizmo</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\Grid\Grid.h">
-      <Filter>Source\Editor\Grid</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Editor\Grid\GridActor.h">
-      <Filter>Source\Editor\Grid</Filter>
-    </ClInclude>
     <ClInclude Include="Source\Slate\ThumbnailManager.h">
       <Filter>Source\Slate</Filter>
     </ClInclude>
@@ -1712,27 +1701,6 @@
     <ClInclude Include="Source\Slate\SlateManager.h">
       <Filter>Source\Slate</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Slate\Widgets\PropertyRenderer.h">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Slate\Widgets\ConsoleWidget.h">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Slate\Widgets\InputInformationWidget.h">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Slate\Widgets\MainToolbarWidget.h">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Slate\Widgets\SceneManagerWidget.h">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Slate\Widgets\TargetActorTransformWidget.h">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Slate\Widgets\Widget.h">
-      <Filter>Source\Slate\Widgets</Filter>
-    </ClInclude>
     <ClInclude Include="Source\Slate\Windows\ContentBrowserWindow.h">
       <Filter>Source\Slate\Windows</Filter>
     </ClInclude>
@@ -1740,6 +1708,9 @@
       <Filter>Source\Slate\Windows</Filter>
     </ClInclude>
     <ClInclude Include="Source\Slate\Windows\SBlendSpaceEditorWindow.h">
+      <Filter>Source\Slate\Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Slate\Windows\SParticleEditorWindow.h">
       <Filter>Source\Slate\Windows</Filter>
     </ClInclude>
     <ClInclude Include="Source\Slate\Windows\SSkeletalMeshViewerWindow.h">
@@ -1787,11 +1758,71 @@
     <ClInclude Include="Source\Slate\Windows\UIWindow.h">
       <Filter>Source\Slate\Windows</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Slate\Widgets\PropertyRenderer.h">
+      <Filter>Source\Slate\Widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Slate\Widgets\ConsoleWidget.h">
+      <Filter>Source\Slate\Widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Slate\Widgets\InputInformationWidget.h">
+      <Filter>Source\Slate\Widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Slate\Widgets\MainToolbarWidget.h">
+      <Filter>Source\Slate\Widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Slate\Widgets\SceneManagerWidget.h">
+      <Filter>Source\Slate\Widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Slate\Widgets\TargetActorTransformWidget.h">
+      <Filter>Source\Slate\Widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Slate\Widgets\Widget.h">
+      <Filter>Source\Slate\Widgets</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Slate\Factory\UIWindowFactory.h">
       <Filter>Source\Slate\Factory</Filter>
     </ClInclude>
     <ClInclude Include="Source\Slate\ImGui\ImGuiHelper.h">
       <Filter>Source\Slate\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\FbxLoader.h">
+      <Filter>Source\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\PlatformProcess.h">
+      <Filter>Source\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\PlatformCrashHandler.h">
+      <Filter>Source\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\ImGuiConsole.h">
+      <Filter>Source\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\ObjManager.h">
+      <Filter>Source\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\SelectionManager.h">
+      <Filter>Source\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\Clipboard\ClipboardManager.h">
+      <Filter>Source\Editor\Clipboard</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\Gizmo\GizmoActor.h">
+      <Filter>Source\Editor\Gizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\Gizmo\GizmoArrowComponent.h">
+      <Filter>Source\Editor\Gizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\Gizmo\GizmoRotateComponent.h">
+      <Filter>Source\Editor\Gizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\Gizmo\GizmoScaleComponent.h">
+      <Filter>Source\Editor\Gizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\Grid\Grid.h">
+      <Filter>Source\Editor\Grid</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\Grid\GridActor.h">
+      <Filter>Source\Editor\Grid</Filter>
     </ClInclude>
     <ClInclude Include="Generated\AActor.generated.h">
       <Filter>Generated</Filter>
@@ -2051,6 +2082,12 @@
     <ClInclude Include="Generated\UParticleModuleMeshRotation.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
+    <ClInclude Include="Generated\UParticleModuleTypeDataBeam.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UParticleModuleTypeDataRibbon.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
     <ClInclude Include="ThirdParty\include\ImGui\imconfig.h">
       <Filter>ThirdParty\include\ImGui</Filter>
     </ClInclude>
@@ -2156,42 +2193,7 @@
     <ClInclude Include="ThirdParty\include\Lua\lualib.h">
       <Filter>ThirdParty\include\Lua</Filter>
     </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleSizeScaleBySpeed.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleMeshRotation.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleTypeDataBeam.h">
-      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleTypeDataRibbon.h">
-      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleTypeDataBeam.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Generated\UParticleModuleTypeDataRibbon.generated.h">
-      <Filter>Generated</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Engine\Viewer\ParticleEditorBootstrap.h">
-      <Filter>Source\Runtime\Engine\Viewer</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleMeshRotation.h">
-      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Engine\Particles\Modules\ParticleModuleSizeScaleBySpeed.h">
-      <Filter>Source\Runtime\Engine\Particles\Modules</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Slate\Windows\SParticleEditorWindow.h">
-      <Filter>Source\Slate\Windows</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Engine\Particles\Distribution.h">
-      <Filter>Source\Runtime\Engine\Particles</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Core\Misc\DebugUtils.h">
-      <Filter>Source\Runtime\Core\Misc</Filter>
-    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Particles\ParticleStats.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="BuildTools\CodeGenerator\generate.py">
@@ -2209,154 +2211,154 @@
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source">
-      <UniqueIdentifier>{7c06f043-0658-4d19-8779-99bd57115ce2}</UniqueIdentifier>
+      <UniqueIdentifier>{e114f4d6-bf7f-41c7-9e38-0328f4724d73}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime">
-      <UniqueIdentifier>{35b38585-9bb6-4a41-a5e7-ae0bc5a4bc9c}</UniqueIdentifier>
+      <UniqueIdentifier>{b98c11f6-b6fa-460f-83a7-afddedebc9bb}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Core">
-      <UniqueIdentifier>{1d5feb67-fd1a-4f39-ba63-ccc0accc98fb}</UniqueIdentifier>
+      <UniqueIdentifier>{87f0dd1b-90dd-4b85-87d3-ae422cfdc19b}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Core\Misc">
-      <UniqueIdentifier>{80b1dadc-d0b7-41c0-ac81-4b4208193440}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine">
-      <UniqueIdentifier>{0645cf3d-0ede-4c2c-b3b9-db25f1b79deb}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\Particles">
-      <UniqueIdentifier>{d05ce14f-e0f3-48f0-b2b4-d805efb8456c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\Particles\Modules">
-      <UniqueIdentifier>{3023928c-e794-4110-a351-2722fe36fa99}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\Viewer">
-      <UniqueIdentifier>{7b431d30-8417-4a46-ba88-479b9f99c0ef}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Slate">
-      <UniqueIdentifier>{dcef87aa-aa35-496e-8f52-cf8512050b6e}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Slate\Windows">
-      <UniqueIdentifier>{5da14031-8d12-4d32-99e3-bef569e09152}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\Animation">
-      <UniqueIdentifier>{116b3959-c4d8-4d0c-9ea8-cd0fe9a9df5f}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\Components">
-      <UniqueIdentifier>{54d8ad3f-334b-4f3e-847c-b75eb072dc73}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\GameFramework">
-      <UniqueIdentifier>{98ddc663-51e0-41b8-b4e2-b7f175d273e2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\GameFramework\Camera">
-      <UniqueIdentifier>{22c65f12-e7dd-4e09-a3bb-7047c79a1595}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\Audio">
-      <UniqueIdentifier>{660287c2-799a-4c50-8915-c167f592098f}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\Scripting">
-      <UniqueIdentifier>{de776c14-ab15-4763-934e-f8c90f2964d3}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\Collision">
-      <UniqueIdentifier>{e246dc55-4923-4bc7-8d20-41561aaabf98}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\Engine\Spatial">
-      <UniqueIdentifier>{93277f9d-c3c4-447c-b463-e2617b52ca38}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Runtime\AssetManagement">
-      <UniqueIdentifier>{a2089ff6-547e-4cfd-b5a5-707d0b84cf43}</UniqueIdentifier>
+      <UniqueIdentifier>{a18a449b-7898-4e93-a914-756545118449}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Core\Math">
-      <UniqueIdentifier>{b7af0878-aaa7-4cb5-b61e-f467fbc2cbea}</UniqueIdentifier>
+      <UniqueIdentifier>{ef11447f-0822-441f-8bb4-3b7ab8ab331d}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Core\Object">
-      <UniqueIdentifier>{56203202-6b81-4b48-a8ff-0acf66260f27}</UniqueIdentifier>
+      <UniqueIdentifier>{c27f1ad7-3d1e-49f6-b609-1ae5a2713425}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Core\Containers">
-      <UniqueIdentifier>{4d982cff-519b-4f1a-a714-ed0a68de5fda}</UniqueIdentifier>
+      <UniqueIdentifier>{dfb60ae7-5bdf-45ff-b024-8af7c35f3fbd}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Core\Memory">
-      <UniqueIdentifier>{99b331b0-14a4-4451-ab06-f54b101af444}</UniqueIdentifier>
+      <UniqueIdentifier>{67ad2e36-7997-41dc-8a72-5820c197985b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine">
+      <UniqueIdentifier>{7d1834b5-08b1-4552-af5d-29ccd8d30cd6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\Particles">
+      <UniqueIdentifier>{7c0fe118-4b30-4149-9459-273ca63c5ec6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\Particles\Modules">
+      <UniqueIdentifier>{6de8a740-15f3-46db-9812-8928bb535f99}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\Viewer">
+      <UniqueIdentifier>{719b94d4-512d-4569-9cde-c8617be84b94}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\Animation">
+      <UniqueIdentifier>{b503772a-2bd2-4ddd-8790-e0554bd83984}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\Components">
+      <UniqueIdentifier>{fbee7315-fe14-4a97-b39f-7c9edc6a2756}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\GameFramework">
+      <UniqueIdentifier>{966d80a4-e928-4449-98b9-4a4b7dce9259}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\GameFramework\Camera">
+      <UniqueIdentifier>{9bb58274-c256-404c-a90d-f6bbe5f4e70c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\Audio">
+      <UniqueIdentifier>{ac90c436-b158-4577-aa8b-2ad3093805ff}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\Scripting">
+      <UniqueIdentifier>{1be89c31-be2c-4352-9c83-9952dff6c347}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\Collision">
+      <UniqueIdentifier>{594128cc-4120-4a1d-b7d0-b9eb68de83f6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\Spatial">
+      <UniqueIdentifier>{6b9b8aee-5bfe-4e3e-9357-1df6aa5c5ba9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\AssetManagement">
+      <UniqueIdentifier>{4874eecd-d0e9-44c1-9150-358f7ededb45}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Renderer">
-      <UniqueIdentifier>{a0dc068c-4b7f-4278-85e1-c8279e0bd497}</UniqueIdentifier>
+      <UniqueIdentifier>{a58ea043-d943-4240-a1ff-a9b3c489e46c}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\Renderer\PostProcessing">
-      <UniqueIdentifier>{422b2764-371f-4df8-9648-3b7c0a67ffa9}</UniqueIdentifier>
+      <UniqueIdentifier>{d5e4a977-5fb5-459c-8ea8-d300dea4c495}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\InputCore">
-      <UniqueIdentifier>{814e20d0-18d4-45d0-9be9-eb96bf2daaf5}</UniqueIdentifier>
+      <UniqueIdentifier>{26c3ab0b-943f-4b40-93ea-eaf9a060b411}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Runtime\RHI">
-      <UniqueIdentifier>{cac51a02-f20e-4fe5-a5cd-8cd5a8320171}</UniqueIdentifier>
+      <UniqueIdentifier>{82148a80-cfc0-4399-9210-60952bc4a373}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source\Editor">
-      <UniqueIdentifier>{a1e94a0a-16b3-4b5d-a56a-6050804e9d43}</UniqueIdentifier>
+    <Filter Include="Source\Slate">
+      <UniqueIdentifier>{0e899bd0-5192-4693-93d1-a5b4867418dc}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source\Editor\Clipboard">
-      <UniqueIdentifier>{daf26ac0-31ca-4bd2-bd6a-5cc3065794e5}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Editor\Gizmo">
-      <UniqueIdentifier>{1befdc31-3ab9-433f-ba6b-7a022a9bc704}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\Editor\Grid">
-      <UniqueIdentifier>{997fdee6-db06-4889-8ef3-39410b416958}</UniqueIdentifier>
+    <Filter Include="Source\Slate\Windows">
+      <UniqueIdentifier>{d995cdf9-7dcf-4afb-b36f-35a155753364}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Slate\Widgets">
-      <UniqueIdentifier>{485ea8d6-f947-4d80-b177-1efc87d3dca6}</UniqueIdentifier>
+      <UniqueIdentifier>{039089c9-ca8c-47a6-9afb-dd89fef1042f}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Slate\Factory">
-      <UniqueIdentifier>{5f789426-9ecb-4d2e-9741-62a274bbf2a3}</UniqueIdentifier>
+      <UniqueIdentifier>{162aa53a-8209-4e71-8d82-a0f6390a28a9}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Slate\ImGui">
-      <UniqueIdentifier>{2a1c3667-25b0-4eaf-820a-a4adc0efa188}</UniqueIdentifier>
+      <UniqueIdentifier>{c1bb7a96-7643-435b-9d88-59247d4e6c3d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Editor">
+      <UniqueIdentifier>{65bc8629-b402-4867-9865-10a4dc054c2a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Editor\Clipboard">
+      <UniqueIdentifier>{6e3bbf2c-10e5-44c0-9b2c-3c929dbc3917}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Editor\Gizmo">
+      <UniqueIdentifier>{df3be95a-f0b2-4a3a-8a9e-9d11019d93dc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Editor\Grid">
+      <UniqueIdentifier>{e97f0700-ecea-4309-8ab0-f8d1ed0a4276}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders">
-      <UniqueIdentifier>{0afc361a-cf05-44c0-bfe5-73f7d861a938}</UniqueIdentifier>
+      <UniqueIdentifier>{94d61464-c916-4aac-ac9a-4e5286ea4951}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders\Materials">
-      <UniqueIdentifier>{61c7888a-cd6b-4aee-a373-4f79d9b7c697}</UniqueIdentifier>
+      <UniqueIdentifier>{d13f6af5-2b92-4e70-a3c0-817194310dae}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders\PostProcess">
-      <UniqueIdentifier>{b7cf8c59-631d-4f23-bb98-c7d131c60aa3}</UniqueIdentifier>
+      <UniqueIdentifier>{27291123-a382-431a-8da3-50b0f99add64}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders\Shadows">
-      <UniqueIdentifier>{7c389a04-1dc5-42da-acc7-0a483ecc43e0}</UniqueIdentifier>
+      <UniqueIdentifier>{4143cb66-9d96-49f3-b4cf-064e99967b25}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders\Common">
-      <UniqueIdentifier>{ac9f1ebe-43dd-47e4-a5a1-9cc4ebcc35d7}</UniqueIdentifier>
+      <UniqueIdentifier>{f100aa94-6d31-4d08-89af-ec73fcdf32ea}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders\UI">
-      <UniqueIdentifier>{2dd33f2e-7ee1-480f-8342-1483b59e2194}</UniqueIdentifier>
+      <UniqueIdentifier>{3d4b0080-0b1e-464c-9e6d-ddbe19ae7945}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders\Effects">
-      <UniqueIdentifier>{ea7c46be-8515-4f2c-a6b5-c4f1136977d3}</UniqueIdentifier>
+      <UniqueIdentifier>{4d9358c2-b45a-49d5-9e25-441da6234c07}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders\Utility">
-      <UniqueIdentifier>{7d26e561-ad66-4c6b-bb22-ef763c16d703}</UniqueIdentifier>
+      <UniqueIdentifier>{59bf2812-a9f3-41af-abd1-f64c7d9f5caf}</UniqueIdentifier>
     </Filter>
     <Filter Include="Generated">
-      <UniqueIdentifier>{8167e510-1f3b-4eae-9f2d-ee8a704fa7df}</UniqueIdentifier>
+      <UniqueIdentifier>{e77bf37a-1837-4957-b45a-bf16938dd89c}</UniqueIdentifier>
     </Filter>
     <Filter Include="ThirdParty">
-      <UniqueIdentifier>{35431b02-a435-4160-8cd6-745613c9af02}</UniqueIdentifier>
+      <UniqueIdentifier>{17ea9d4c-f116-4725-ae90-6923a4f6079f}</UniqueIdentifier>
     </Filter>
     <Filter Include="ThirdParty\include">
-      <UniqueIdentifier>{3414cc42-e82a-4cfb-bed9-05f8fcaa8d37}</UniqueIdentifier>
+      <UniqueIdentifier>{a2d405ef-1ba8-4ecd-9452-9fc96aecf6f4}</UniqueIdentifier>
     </Filter>
     <Filter Include="ThirdParty\include\ImGui">
-      <UniqueIdentifier>{29b0ac88-8498-4930-a70b-d62af1cfe4af}</UniqueIdentifier>
+      <UniqueIdentifier>{a0d5fa60-ad02-4778-89e0-e32bbcf5acd4}</UniqueIdentifier>
     </Filter>
     <Filter Include="ThirdParty\include\DirectXTK">
-      <UniqueIdentifier>{be2599c5-c7ae-4e89-87c7-5456a9714bf0}</UniqueIdentifier>
+      <UniqueIdentifier>{209d8c62-df34-419f-9802-5bec2c17012c}</UniqueIdentifier>
     </Filter>
     <Filter Include="ThirdParty\include\Lua">
-      <UniqueIdentifier>{9a9733dd-7bcc-49e8-b287-5ef1f50d7d8a}</UniqueIdentifier>
+      <UniqueIdentifier>{69e662bb-148a-47be-85e5-c6123c5593ef}</UniqueIdentifier>
     </Filter>
     <Filter Include="BuildTools">
-      <UniqueIdentifier>{74f31945-c647-4c71-9b15-c33ae8095f79}</UniqueIdentifier>
+      <UniqueIdentifier>{ab0dba4b-7797-4251-985e-19bb7685452d}</UniqueIdentifier>
     </Filter>
     <Filter Include="BuildTools\CodeGenerator">
-      <UniqueIdentifier>{29e91712-b847-4488-b3f1-4ea4f274df95}</UniqueIdentifier>
+      <UniqueIdentifier>{b66d2f99-2219-437b-afcc-ecbff59572f4}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders\Particle">
       <UniqueIdentifier>{3909ef3b-bebf-4ae0-8ef6-005273aa628f}</UniqueIdentifier>

@@ -44,6 +44,10 @@ struct FParticleEmitterInstance
 	int32 ActiveParticles;
 	/** Monotonically increasing counter. */
 	uint32 ParticleCounter;
+	/** 이번 프레임에 생성된 파티클 수 (stat용) */
+	int32 FrameSpawnedCount;
+	/** 이번 프레임에 죽은 파티클 수 (stat용) */
+	int32 FrameKilledCount;
 	/** 파티클 데이터배열에 저장할 수 있는 최대 파티클 활성 수 */
 	int32 MaxActiveParticles;
 
@@ -51,7 +55,7 @@ struct FParticleEmitterInstance
 	float SpawnFraction;
 
 	// Burst 상태 (언리얼 엔진 호환)
-	bool bBurstFired;  // Burst가 이미 발생했는지 여부
+	TArray<bool> BurstFired;  // 각 버스트 항목별 발생 여부 추적
 
 	// 랜덤 스트림 (언리얼 엔진 호환)
 	FParticleRandomStream RandomStream;

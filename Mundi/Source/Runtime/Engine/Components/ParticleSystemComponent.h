@@ -91,6 +91,9 @@ public:
 	// 템플릿 설정
 	void SetTemplate(UParticleSystem* NewTemplate);
 
+	// 템플릿 내용 변경 시 EmitterInstances 재생성 (에디터용)
+	void RefreshEmitterInstances();
+
 	// 언리얼 엔진 호환: 인스턴스 파라미터 제어
 	void SetFloatParameter(const FString& ParameterName, float Value);
 	void SetVectorParameter(const FString& ParameterName, const FVector& Value);
@@ -110,7 +113,7 @@ public:
 
 	// 메시 파티클 인스턴싱
 	void FillMeshInstanceBuffer(uint32 TotalInstances);
-	void CreateMeshParticleBatch(TArray<FMeshBatchElement>& OutMeshBatchElements);
+	void CreateMeshParticleBatch(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View);
 
 	// 스프라이트 파티클 인스턴싱
 	void FillSpriteInstanceBuffer(uint32 TotalInstances);

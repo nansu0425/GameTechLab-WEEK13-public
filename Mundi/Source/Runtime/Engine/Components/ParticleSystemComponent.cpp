@@ -170,7 +170,7 @@ void UParticleSystemComponent::OnRegister(UWorld* InWorld)
 		return;
 	}
 
-	// Template이 없으면 디버그용 기본 파티클 시스템 생성
+	// Template이 없으면 파티클을 생성하지 않음 (에디터에서 리소스 선택 필요)
 	if (!Template)
 	{
 		//CreateDebugMeshParticleSystem();        // 메시 파티클 테스트
@@ -235,7 +235,7 @@ void UParticleSystemComponent::CreateDebugMeshParticleSystem()
 	// 스폰 모듈 생성 - Modules 배열에 추가
 	UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
 	SpawnModule->SpawnRate = FDistributionFloat(10000.0f);   // 초당 100개 파티클 (메시는 무거우므로 줄임)
-	SpawnModule->BurstCount = FDistributionFloat(100.0f);     // 시작 시 100개 버스트
+	SpawnModule->BurstList.Add(FParticleBurst(100, 0.0f));   // 시작 시 100개 버스트
 	LODLevel->Modules.Add(SpawnModule);
 
 	// 라이프타임 모듈 생성 (파티클 수명 설정)
@@ -314,7 +314,7 @@ void UParticleSystemComponent::CreateDebugSpriteParticleSystem()
 	// 스폰 모듈 생성 - Modules 배열에 추가
 	UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
 	SpawnModule->SpawnRate = FDistributionFloat(5000.0f);    // 초당 50개 파티클
-	SpawnModule->BurstCount = FDistributionFloat(10000.0f);      // 시작 시 20개 버스트
+	SpawnModule->BurstList.Add(FParticleBurst(10000, 0.0f)); // 시작 시 10000개 버스트
 	LODLevel->Modules.Add(SpawnModule);
 
 	// 라이프타임 모듈 생성
@@ -398,7 +398,7 @@ void UParticleSystemComponent::CreateDebugBeamParticleSystem()
 	// 스폰 모듈 생성 - 빔은 최소 2개의 파티클(시작/끝)이 필요 (Modules 배열에 추가)
 	UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
 	SpawnModule->SpawnRate = FDistributionFloat(0.0f);    // 연속 스폰 안함
-	SpawnModule->BurstCount = FDistributionFloat(2.0f);      // 시작 시 2개(시작점, 끝점) 버스트
+	SpawnModule->BurstList.Add(FParticleBurst(2, 0.0f));  // 시작 시 2개(시작점, 끝점) 버스트
 	LODLevel->Modules.Add(SpawnModule);
 
 	// 라이프타임 모듈 생성 (빔의 전체 수명)
@@ -459,7 +459,7 @@ void UParticleSystemComponent::CreateDebugRibbonParticleSystem()
 	// 스폰 모듈 생성 - 리본은 연속적인 파티클 스트림이 필요
 	UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
 	SpawnModule->SpawnRate = FDistributionFloat(10.0f); // 초당 30개 파티클
-	SpawnModule->BurstCount = FDistributionFloat(0.0f);
+	SpawnModule->BurstList.Add(FParticleBurst(1, 0.0f));  // 시작 시 2개(시작점, 끝점) 버스트
 	LODLevel->Modules.Add(SpawnModule);
 
 	// 라이프타임 모듈 생성
@@ -598,13 +598,25 @@ void UParticleSystemComponent::SetTemplate(UParticleSystem* NewTemplate)
 	{
 		Template = NewTemplate;
 
-		// 활성 상태면 재초기화
+		// 기존 이미터 인스턴스가 있으면 정리
 		if (EmitterInstances.Num() > 0)
 		{
 			ClearEmitterInstances();
+		}
+
+		// 새 Template이 유효하고 World에 등록되어 있으면 초기화
+		if (Template && GetWorld())
+		{
 			InitializeEmitterInstances();
 		}
 	}
+}
+
+void UParticleSystemComponent::RefreshEmitterInstances()
+{
+	// 동일한 템플릿의 내용이 변경되었을 때 EmitterInstances 재생성
+	ClearEmitterInstances();
+	InitializeEmitterInstances();
 }
 
 void UParticleSystemComponent::InitializeEmitterInstances()
@@ -850,7 +862,7 @@ void UParticleSystemComponent::CollectMeshBatches(TArray<FMeshBatchElement>& Out
 	if (TotalMeshInstances > 0)
 	{
 		FillMeshInstanceBuffer(TotalMeshInstances);
-		CreateMeshParticleBatch(OutMeshBatchElements);
+		CreateMeshParticleBatch(OutMeshBatchElements, View);
 	}
 
 	// 5. 빔 파티클 처리 (동적 메시 생성)
@@ -1033,7 +1045,7 @@ void UParticleSystemComponent::FillMeshInstanceBuffer(uint32 TotalInstances)
 	Context->Unmap(MeshInstanceBuffer, 0);
 }
 
-void UParticleSystemComponent::CreateMeshParticleBatch(TArray<FMeshBatchElement>& OutMeshBatchElements)
+void UParticleSystemComponent::CreateMeshParticleBatch(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View)
 {
 	if (!MeshInstanceBuffer)
 	{
@@ -1073,7 +1085,14 @@ void UParticleSystemComponent::CreateMeshParticleBatch(TArray<FMeshBatchElement>
 	}
 
 	UShader* Shader = Material->GetShader();
-	FShaderVariant* ShaderVariant = Shader->GetOrCompileShaderVariant(Material->GetShaderMacros());
+
+	// 메시 파티클은 뷰 모드 매크로 적용 (Lit 모드 지원)
+	TArray<FShaderMacro> ShaderMacros = View->ViewShaderMacros;
+	if (Material->GetShaderMacros().Num() > 0)
+	{
+		ShaderMacros.Append(Material->GetShaderMacros());
+	}
+	FShaderVariant* ShaderVariant = Shader->GetOrCompileShaderVariant(ShaderMacros);
 
 	// FMeshBatchElement 생성
 	FMeshBatchElement BatchElement;
@@ -1104,6 +1123,9 @@ void UParticleSystemComponent::CreateMeshParticleBatch(TArray<FMeshBatchElement>
 
 	// 텍스처는 Material 시스템을 통해 바인딩됨 (UberLit과 동일)
 	// DrawMeshBatches에서 Material->GetTexture()를 사용하여 자동으로 바인딩
+
+	// 메시 파티클: 불투명 렌더링 (backface culling, depth write)
+	BatchElement.RenderMode = EBatchRenderMode::Opaque;
 
 	OutMeshBatchElements.Add(BatchElement);
 }
@@ -1282,6 +1304,9 @@ void UParticleSystemComponent::CreateSpriteParticleBatch(TArray<FMeshBatchElemen
 	BatchElement.WorldMatrix = FMatrix::Identity();
 	BatchElement.ObjectID = InternalIndex;
 	BatchElement.PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+
+	// 스프라이트 파티클: 반투명 렌더링 (no culling, depth read-only, alpha blend)
+	BatchElement.RenderMode = EBatchRenderMode::Translucent;
 
 	OutMeshBatchElements.Add(BatchElement);
 }
@@ -1489,6 +1514,9 @@ void UParticleSystemComponent::CreateBeamParticleBatch(TArray<FMeshBatchElement>
 		BatchElement.WorldMatrix = FMatrix::Identity();
 		BatchElement.ObjectID = InternalIndex;
 		BatchElement.PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+
+		// 빔 파티클: 반투명 렌더링 (no culling, depth read-only, alpha blend)
+		BatchElement.RenderMode = EBatchRenderMode::Translucent;
 
 		OutMeshBatchElements.Add(BatchElement);
 

@@ -60,7 +60,7 @@ private:
 	void LoadParticleSystem();
 
 	// 레이아웃 비율 및 크기
-	float LeftViewportHeight = 250.f;   // 좌측 상단 뷰포트 높이
+	float LeftViewportHeight = 350.f;   // 좌측 상단 뷰포트 높이
 	float RightEmitterHeight = 400.f;   // 우측 상단 이미터 패널 높이
 
 	// 툴바 아이콘
@@ -80,6 +80,9 @@ private:
 
 	// 툴바 상태
 	void LoadToolbarIcons();
+
+	// 타입데이터 중복 팝업 상태
+	bool bShowTypeDataExistsPopup = false;
 
 	// 헬퍼 함수
 	ParticleEditorState* GetActiveParticleState() const

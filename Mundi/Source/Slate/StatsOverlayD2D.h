@@ -20,6 +20,7 @@ public:
     void SetShowLights(bool b);
     void SetShowShadow(bool b);
     void SetShowSkinning(bool b);
+    void SetShowParticles(bool b);
     void ToggleFPS();
     void ToggleMemory();
     void TogglePicking();
@@ -28,6 +29,7 @@ public:
     void ToggleLights();
     void ToggleShadow();
     void ToggleSkinning();
+    void ToggleParticles();
     bool IsFPSVisible() const { return bShowFPS; }
     bool IsMemoryVisible() const { return bShowMemory; }
     bool IsPickingVisible() const { return bShowPicking; }
@@ -36,6 +38,7 @@ public:
     bool IsLightsVisible() const { return bShowLights; }
     bool IsShadowVisible() const { return bShowShadow; }
     bool IsSkinningVisible() const { return bShowSkinning; }
+    bool IsParticlesVisible() const { return bShowParticles; }
 
 private:
     UStatsOverlayD2D() = default;
@@ -56,6 +59,7 @@ private:
     bool bShowShadow = false;
     bool bShowLights = false;
     bool bShowSkinning = false;
+    bool bShowParticles = false;
 
     ID3D11Device* D3DDevice = nullptr;
     ID3D11DeviceContext* D3DContext = nullptr;

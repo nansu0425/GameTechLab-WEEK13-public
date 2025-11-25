@@ -147,6 +147,8 @@ class Property:
                 return 'ADD_PROPERTY_MATERIAL'
             elif base_type in ['usound', 'usoundbase']:
                 return 'ADD_PROPERTY_AUDIO'
+            elif base_type == 'uparticlesystem':
+                return 'ADD_PROPERTY_PARTICLESYSTEM'
             else:
                 return 'ADD_PROPERTY'
 

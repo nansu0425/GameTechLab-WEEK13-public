@@ -50,6 +50,12 @@
 #include "FbxLoader.h"
 #include "SkinnedMeshComponent.h"
 #include "ParticleSystemComponent.h"
+#include "ParticleStats.h"
+#include "ParticleEmitterInstance.h"
+#include "ParticleLODLevel.h"
+#include "Modules/ParticleModuleTypeDataMesh.h"
+#include "Modules/ParticleModuleTypeDataBeam.h"
+#include "Modules/ParticleModuleTypeDataRibbon.h"
 
 FSceneRenderer::FSceneRenderer(UWorld* InWorld, FSceneView* InView, URenderer* InOwnerRenderer)
 	: World(InWorld)
@@ -238,6 +244,9 @@ void FSceneRenderer::RenderWireframePath()
     }
 
     RenderOpaquePass(EViewMode::VMI_Unlit);
+
+	// 파티클 시스템 렌더링 (와이어프레임)
+	RenderParticleSystemPass();
 
 	// 상태 복구 (그리드 등 디버그 요소는 Solid로 렌더링)
 	RHIDevice->RSSetState(ERasterizerMode::Solid);
@@ -1099,49 +1108,135 @@ void FSceneRenderer::RenderDecalPass()
 
 void FSceneRenderer::RenderParticleSystemPass()
 {
+	// 파티클 통계 수집
+	FParticleStats Stats;
+	Stats.ParticleSystemCount = static_cast<int32>(Proxies.ParticleSystems.size());
+
+	for (UParticleSystemComponent* ParticleSystem : Proxies.ParticleSystems)
+	{
+		if (ParticleSystem && ParticleSystem->IsVisible())
+		{
+			for (FParticleEmitterInstance* EmitterInst : ParticleSystem->EmitterInstances)
+			{
+				if (EmitterInst)
+				{
+					Stats.EmitterCount++;
+					Stats.SpawnedThisFrame += EmitterInst->FrameSpawnedCount;
+					Stats.KilledThisFrame += EmitterInst->FrameKilledCount;
+
+					// 타입별 파티클 카운트
+					UParticleModuleTypeDataBase* TypeData = nullptr;
+					if (EmitterInst->CurrentLODLevel)
+					{
+						TypeData = EmitterInst->CurrentLODLevel->TypeDataModule;
+					}
+
+					if (!TypeData)
+					{
+						// TypeData가 없으면 Sprite (기본 타입)
+						Stats.SpriteParticleCount += EmitterInst->ActiveParticles;
+					}
+					else if (Cast<UParticleModuleTypeDataMesh>(TypeData))
+					{
+						Stats.MeshParticleCount += EmitterInst->ActiveParticles;
+					}
+					else if (Cast<UParticleModuleTypeDataBeam>(TypeData))
+					{
+						Stats.BeamParticleCount += EmitterInst->ActiveParticles;
+					}
+					else if (Cast<UParticleModuleTypeDataRibbon>(TypeData))
+					{
+						Stats.RibbonParticleCount += EmitterInst->ActiveParticles;
+					}
+					else
+					{
+						// 알 수 없는 타입은 Sprite로 처리
+						Stats.SpriteParticleCount += EmitterInst->ActiveParticles;
+					}
+
+					// 메모리 계산: ParticleData + ParticleIndices + InstanceData
+					Stats.MemoryBytes += EmitterInst->MaxActiveParticles * EmitterInst->ParticleStride;
+					Stats.MemoryBytes += EmitterInst->MaxActiveParticles * sizeof(uint16);
+					Stats.MemoryBytes += EmitterInst->InstancePayloadSize;
+				}
+			}
+		}
+	}
+
+	FParticleStatManager::GetInstance().UpdateStats(Stats);
+
 	if (Proxies.ParticleSystems.empty())
+		return;
+
+	// Show flag 체크 - 파티클 시스템 숨김 시 스킵
+	if (!World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Particles))
 		return;
 
 	// WorldNormal 모드에서는 파티클 렌더링 스킵
 	if (View->RenderSettings->GetViewMode() == EViewMode::VMI_WorldNormal)
 		return;
 
-	// 파티클 렌더 상태 설정
-	// 파티클은 양면 렌더링이 필요 (빌보드 없이 XY 평면 쿼드일 때 컬링 방지)
-	RHIDevice->RSSetState(ERasterizerMode::Solid_NoCull);
-	// TODO: 파티클 정렬 구현 시 depth write 관련 side effect 검토 필요
-	// DrawMeshBatches가 LessEqual(depth write ON)로 덮어쓰므로,
-	// 겹치는 파티클의 올바른 블렌딩을 위해 back-to-front 정렬 또는 depth state 수정 고려
-	RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqualReadOnly);
-	RHIDevice->OMSetBlendState(true);
+	const bool bWireframe = View->RenderSettings->GetViewMode() == EViewMode::VMI_Wireframe;
 
 	// 파티클 배치 수집
-	TArray<FMeshBatchElement> ParticleBatches;
+	TArray<FMeshBatchElement> AllParticleBatches;
 
 	for (UParticleSystemComponent* ParticleSystem : Proxies.ParticleSystems)
 	{
 		if (ParticleSystem && ParticleSystem->IsVisible())
 		{
-			ParticleSystem->CollectMeshBatches(ParticleBatches, View);
+			ParticleSystem->CollectMeshBatches(AllParticleBatches, View);
 		}
 	}
 
-	// 수집된 배치를 카메라로부터의 거리 순으로 정렬 (Back-to-Front)
-	if (ParticleBatches.Num() > 0)
-	{
-		// 카메라 위치
-		FVector CameraPosition = View->ViewLocation;
+	if (AllParticleBatches.Num() == 0)
+		return;
 
-		// 거리 기준 정렬: 카메라에서 먼 파티클을 먼저 그림 (Back-to-Front)
-		ParticleBatches.Sort([&CameraPosition](const FMeshBatchElement& A, const FMeshBatchElement& B)
+	// RenderMode별로 파티션
+	TArray<FMeshBatchElement> OpaqueBatches;
+	TArray<FMeshBatchElement> TranslucentBatches;
+
+	for (const FMeshBatchElement& Batch : AllParticleBatches)
+	{
+		if (Batch.RenderMode == EBatchRenderMode::Opaque)
+		{
+			OpaqueBatches.Add(Batch);
+		}
+		else
+		{
+			TranslucentBatches.Add(Batch);
+		}
+	}
+
+	// === 1. 불투명 파티클 렌더링 (메시 파티클) ===
+	// backface culling, depth write, alpha blend (반투명 메시 지원)
+	if (OpaqueBatches.Num() > 0)
+	{
+		RHIDevice->RSSetState(bWireframe ? ERasterizerMode::Wireframe : ERasterizerMode::Solid);
+		RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqual);
+		RHIDevice->OMSetBlendState(true);
+
+		DrawMeshBatches(OpaqueBatches, true);
+	}
+
+	// === 2. 반투명 파티클 렌더링 (스프라이트, 빔) ===
+	// no culling, depth read-only, alpha blend, back-to-front 정렬
+	if (TranslucentBatches.Num() > 0)
+	{
+		RHIDevice->RSSetState(bWireframe ? ERasterizerMode::Wireframe_NoCull : ERasterizerMode::Solid_NoCull);
+		RHIDevice->OMSetDepthStencilState(EComparisonFunc::LessEqualReadOnly);
+		RHIDevice->OMSetBlendState(true);
+
+		// 반투명은 Back-to-Front 정렬 필요
+		FVector CameraPosition = View->ViewLocation;
+		TranslucentBatches.Sort([&CameraPosition](const FMeshBatchElement& A, const FMeshBatchElement& B)
 		{
 			FVector PosA = { A.WorldMatrix.M[3][0], A.WorldMatrix.M[3][1], A.WorldMatrix.M[3][2] };
 			FVector PosB = { B.WorldMatrix.M[3][0], B.WorldMatrix.M[3][1], B.WorldMatrix.M[3][2] };
-
 			return (PosA - CameraPosition).SizeSquared() > (PosB - CameraPosition).SizeSquared();
 		});
 
-		DrawMeshBatches(ParticleBatches, true);
+		DrawMeshBatches(TranslucentBatches, true);
 	}
 
 	// 상태 복구

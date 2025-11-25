@@ -23,9 +23,11 @@ FParticleEmitterInstance::FParticleEmitterInstance()
 	, ParticleStride(0)
 	, ActiveParticles(0)
 	, ParticleCounter(0)
+	, FrameSpawnedCount(0)
+	, FrameKilledCount(0)
 	, MaxActiveParticles(0)
 	, SpawnFraction(0.0f)
-	, bBurstFired(false)  // 언리얼 엔진 호환: Burst 초기화
+	// BurstFired는 TArray이므로 기본 초기화됨
 	, EmitterTime(0.0f)
 	, SecondsSinceCreation(0.0f)
 	, EmitterDurationActual(0.0f)
@@ -77,7 +79,7 @@ void FParticleEmitterInstance::Init(UParticleSystemComponent* InComponent, UPart
 	CurrentLoopCount = 0;
 	bEmitterEnabled = true;
 	bDelayComplete = false;
-	bBurstFired = false;  // Burst도 초기화
+	// BurstFired 배열은 SetupEmitter()에서 초기화됨
 	SpawnFraction = 0.0f;
 
 	// 언리얼 엔진 호환: Required 모듈에서 설정 읽기
@@ -149,7 +151,7 @@ void FParticleEmitterInstance::SetLODLevel(int32 NewLODIndex)
 
 	// 수명/스폰 관련 상태 초기화
 	SpawnFraction = 0.f;
-	bBurstFired = false;
+	// BurstFired 배열은 SetupEmitter()에서 초기화됨
 
 	// 언리얼 엔진 호환: 타이밍 상태 리셋
 	EmitterTime = 0.0f;
@@ -261,6 +263,18 @@ void FParticleEmitterInstance::SetupEmitter()
 		InstanceData = new uint8[InstancePayloadSize];
 		memset(InstanceData, 0, InstancePayloadSize);
 	}
+
+	// BurstFired 배열 초기화 (SpawnModule의 BurstList 크기에 맞춤)
+	BurstFired.Empty();
+	if (CurrentLODLevel->SpawnModule)
+	{
+		int32 BurstCount = CurrentLODLevel->SpawnModule->BurstList.Num();
+		BurstFired.SetNum(BurstCount);
+		for (int32 i = 0; i < BurstCount; ++i)
+		{
+			BurstFired[i] = false;
+		}
+	}
 }
 
 void FParticleEmitterInstance::Resize(int32 NewMaxActiveParticles)
@@ -316,7 +330,11 @@ void FParticleEmitterInstance::Resize(int32 NewMaxActiveParticles)
 
 void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 {
-	if (!CurrentLODLevel || !bEmitterEnabled)
+	// 프레임별 카운터 리셋 (stat용)
+	FrameSpawnedCount = 0;
+	FrameKilledCount = 0;
+
+	if (!CurrentLODLevel || !bEmitterEnabled || !CurrentLODLevel->bEnabled)
 	{
 		return;
 	}
@@ -368,7 +386,11 @@ void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 				// 루프 재시작
 				CurrentLoopCount++;
 				EmitterTime = 0.0f;
-				bBurstFired = false;
+				// BurstFired 배열 리셋
+				for (int32 i = 0; i < BurstFired.Num(); ++i)
+				{
+					BurstFired[i] = false;
+				}
 				SpawnFraction = 0.0f;
 				bSuppressSpawningDuration = false;
 
@@ -395,14 +417,22 @@ void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 
 		if (SpawnModule && SpawnModule->bEnabled)
 		{
-			int32 SpawnCount = SpawnModule->CalculateSpawnCount(this, DeltaTime, SpawnFraction, bBurstFired);
+			int32 SpawnCount = SpawnModule->CalculateSpawnCount(this, DeltaTime, SpawnFraction);
 
 			if (SpawnCount > 0)
 			{
 				float Increment = (SpawnCount > 1) ? (DeltaTime / SpawnCount) : 0.0f;
 
-				// 언리얼 엔진 호환: EmitterOrigin을 InitialLocation으로 전달
-				SpawnParticles(SpawnCount, 0.0f, Increment, CachedEmitterOrigin, FVector(0.0f, 0.0f, 0.0f));
+				// 컴포넌트의 월드 트랜스폼을 적용한 스폰 위치 계산
+				// (ParticleModuleLocation이 없는 경우에도 컴포넌트 위치에서 스폰되도록)
+				FVector WorldSpawnLocation = CachedEmitterOrigin;
+				if (Component)
+				{
+					const FTransform& ComponentTransform = Component->GetWorldTransform();
+					WorldSpawnLocation = ComponentTransform.TransformPosition(CachedEmitterOrigin);
+				}
+
+				SpawnParticles(SpawnCount, 0.0f, Increment, WorldSpawnLocation, FVector(0.0f, 0.0f, 0.0f));
 			}
 		}
 	}
@@ -467,6 +497,7 @@ void FParticleEmitterInstance::SpawnParticles(int32 Count, float StartTime, floa
 		PostSpawn(Particle, static_cast<float>(i) / Count, SpawnTime);
 
 		ParticleCounter++;
+		FrameSpawnedCount++;
 	}
 }
 
@@ -578,6 +609,7 @@ void FParticleEmitterInstance::KillParticle(int32 Index)
 	}
 
 	ActiveParticles--;
+	FrameKilledCount++;
 }
 
 void FParticleEmitterInstance::KillAllParticles()
@@ -599,8 +631,8 @@ FBaseParticle* FParticleEmitterInstance::GetParticleAtIndex(int32 Index)
 
 FDynamicEmitterDataBase* FParticleEmitterInstance::GetDynamicData(bool bSelected)
 {
-	// 필수 객체 nullptr 체크
-	if (!ParticleData || !CurrentLODLevel || ActiveParticles <= 0)
+	// 필수 객체 nullptr 체크 및 LOD 활성화 체크
+	if (!ParticleData || !CurrentLODLevel || ActiveParticles <= 0 || !CurrentLODLevel->bEnabled)
 	{
 		return nullptr;
 	}

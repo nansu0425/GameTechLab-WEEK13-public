@@ -3,6 +3,7 @@
 #include "ImGui/imgui.h"
 #include "Vector.h"
 #include "Color.h"
+#include "Distribution.h"
 #include "SceneComponent.h"
 #include "ResourceManager.h"
 #include "Texture.h"
@@ -21,6 +22,9 @@
 #include "ImGui/imgui_curve.hpp"
 #include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 #include "EnumRegistry.generated.h"
+#include "ParticleModule.h"
+#include "ParticleSystemComponent.h"
+#include "ParticleSystem.h"
 
 // 정적 멤버 변수 초기화
 TArray<FString> UPropertyRenderer::CachedSkeletalMeshPaths;
@@ -37,6 +41,8 @@ TArray<FString> UPropertyRenderer::CachedSoundPaths;
 TArray<const char*> UPropertyRenderer::CachedSoundItems;
 TArray<FString> UPropertyRenderer::CachedScriptPaths;
 TArray<const char*> UPropertyRenderer::CachedScriptItems;
+TArray<FString> UPropertyRenderer::CachedParticleSystemPaths;
+TArray<FString> UPropertyRenderer::CachedParticleSystemItems;
 
 static bool ItemsGetter(void* Data, int Index, const char** CItem)
 {
@@ -130,6 +136,10 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 
 	case EPropertyType::Curve:
 		bChanged = RenderCurveProperty(Property, ObjectInstance);
+		break;
+
+	case EPropertyType::ParticleSystem:
+		bChanged = RenderParticleSystemProperty(Property, ObjectInstance);
 		break;
 
 	case EPropertyType::Array:
@@ -245,6 +255,19 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 	case EPropertyType::Sound:
 		bChanged = RenderSoundProperty(Property, ObjectInstance);
 		break;
+
+	case EPropertyType::DistributionFloat:
+		bChanged = RenderDistributionFloatProperty(Property, ObjectInstance);
+		break;
+
+	case EPropertyType::DistributionVector:
+		bChanged = RenderDistributionVectorProperty(Property, ObjectInstance);
+		break;
+
+	case EPropertyType::DistributionColor:
+		bChanged = RenderDistributionColorProperty(Property, ObjectInstance);
+		break;
+
 	default:
 		ImGui::Text("%s: [Unknown Type]", Property.Name);
 		break;
@@ -361,15 +384,62 @@ void UPropertyRenderer::RenderAllProperties(UObject* Object)
 	RenderProperties(Properties, Object);
 }
 
-void UPropertyRenderer::RenderAllPropertiesWithInheritance(UObject* Object)
+bool UPropertyRenderer::RenderAllPropertiesWithInheritance(UObject* Object)
 {
 	if (!Object)
-		return;
+		return false;
 
+	bool bAnyChanged = false;
 	UClass* Class = Object->GetClass();
 	const TArray<FProperty>& AllProperties = Class->GetAllProperties();
 
-	RenderProperties(AllProperties, Object);
+	// 카테고리별 그룹핑
+	TArray<TPair<FString, TArray<const FProperty*>>> CategorizedProps;
+	TMap<FString, int32> CategoryIndexMap;
+
+	for (const FProperty& Prop : AllProperties)
+	{
+		if (Prop.bIsEditAnywhere)
+		{
+			FString CategoryName = Prop.Category ? Prop.Category : "Default";
+			int32* IndexPtr = CategoryIndexMap.Find(CategoryName);
+
+			if (IndexPtr)
+			{
+				CategorizedProps[*IndexPtr].second.Add(&Prop);
+			}
+			else
+			{
+				TArray<const FProperty*> NewPropArray;
+				NewPropArray.Add(&Prop);
+				int32 NewIndex = CategorizedProps.Add(
+					TPair<FString, TArray<const FProperty*>>(CategoryName, NewPropArray));
+				CategoryIndexMap.Add(CategoryName, NewIndex);
+			}
+		}
+	}
+
+	// 카테고리별 렌더링 및 변경 감지
+	for (auto& Pair : CategorizedProps)
+	{
+		const FString& Category = Pair.first;
+		const TArray<const FProperty*>& Props = Pair.second;
+
+		ImGui::Separator();
+		ImGui::Text("%s", Category.c_str());
+
+		for (const FProperty* Prop : Props)
+		{
+			ImGui::PushID(Prop);
+			if (RenderProperty(*Prop, Object))
+			{
+				bAnyChanged = true;
+			}
+			ImGui::PopID();
+		}
+	}
+
+	return bAnyChanged;
 }
 
 // ===== 리소스 캐싱 =====
@@ -482,6 +552,34 @@ void UPropertyRenderer::CacheResources()
             CachedSoundItems.push_back(path.c_str());
         }
     }
+
+	// 6. ParticleSystem (.particle) - 파일 시스템 스캔
+	if (CachedParticleSystemPaths.IsEmpty() && CachedParticleSystemItems.IsEmpty())
+	{
+		// "None" 항목 추가
+		CachedParticleSystemPaths.Add("");
+		CachedParticleSystemItems.Add("None");
+
+		// Data/Particles/ 디렉토리 스캔
+		const FString ParticleDir = GDataDir + "/Particles/";
+		if (fs::exists(UTF8ToWide(ParticleDir)) && fs::is_directory(UTF8ToWide(ParticleDir)))
+		{
+			for (const auto& Entry : fs::recursive_directory_iterator(UTF8ToWide(ParticleDir)))
+			{
+				if (Entry.is_regular_file())
+				{
+					FString Ext = WideToUTF8(Entry.path().extension().wstring());
+					std::transform(Ext.begin(), Ext.end(), Ext.begin(), ::tolower);
+					if (Ext == ".particle")
+					{
+						FString Path = NormalizePath(WideToUTF8(Entry.path().wstring()));
+						CachedParticleSystemPaths.Add(Path);
+						CachedParticleSystemItems.Add(WideToUTF8(Entry.path().filename().wstring()));
+					}
+				}
+			}
+		}
+	}
 }
 
 void UPropertyRenderer::ClearResourcesCache()
@@ -500,6 +598,8 @@ void UPropertyRenderer::ClearResourcesCache()
 	CachedSoundItems.Empty();
 	CachedScriptPaths.Empty();
 	CachedScriptItems.Empty();
+	CachedParticleSystemPaths.Empty();
+	CachedParticleSystemItems.Empty();
 }
 
 // ===== 타입별 렌더링 구현 =====
@@ -1696,6 +1796,93 @@ bool UPropertyRenderer::RenderStaticMeshProperty(const FProperty& Prop, void* In
 	return false;
 }
 
+bool UPropertyRenderer::RenderParticleSystemProperty(const FProperty& Prop, void* Instance)
+{
+	UParticleSystem** ParticlePtr = Prop.GetValuePtr<UParticleSystem*>(Instance);
+
+	FString CurrentPath;
+	if (*ParticlePtr)
+	{
+		CurrentPath = (*ParticlePtr)->GetFilePath();
+	}
+
+	if (CachedParticleSystemPaths.empty())
+	{
+		ImGui::Text("%s: <No Particle Systems>", Prop.Name);
+		return false;
+	}
+
+	int SelectedIdx = 0; // Default to "None"
+	for (int i = 0; i < static_cast<int>(CachedParticleSystemPaths.size()); ++i)
+	{
+		if (CachedParticleSystemPaths[i] == CurrentPath)
+		{
+			SelectedIdx = i;
+			break;
+		}
+	}
+
+	// TArray<FString>을 const char* 배열로 변환
+	TArray<const char*> ItemsPtr;
+	ItemsPtr.reserve(CachedParticleSystemItems.size());
+	for (const FString& item : CachedParticleSystemItems)
+	{
+		ItemsPtr.push_back(item.c_str());
+	}
+
+	ImGui::SetNextItemWidth(240);
+	if (ImGui::Combo(Prop.Name, &SelectedIdx, ItemsPtr.data(), static_cast<int>(ItemsPtr.size())))
+	{
+		if (SelectedIdx >= 0 && SelectedIdx < static_cast<int>(CachedParticleSystemPaths.size()))
+		{
+			// ParticleSystemComponent인 경우 SetTemplate 호출
+			UObject* Object = static_cast<UObject*>(Instance);
+			if (UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Object))
+			{
+				if (CachedParticleSystemPaths[SelectedIdx].empty())
+				{
+					PSC->SetTemplate(nullptr);
+				}
+				else
+				{
+					UParticleSystem* NewTemplate = UResourceManager::GetInstance().Load<UParticleSystem>(CachedParticleSystemPaths[SelectedIdx]);
+					PSC->SetTemplate(NewTemplate);
+				}
+			}
+			else
+			{
+				// 일반적인 경우 직접 할당
+				if (CachedParticleSystemPaths[SelectedIdx].empty())
+				{
+					*ParticlePtr = nullptr;
+				}
+				else
+				{
+					*ParticlePtr = UResourceManager::GetInstance().Load<UParticleSystem>(CachedParticleSystemPaths[SelectedIdx]);
+				}
+			}
+			return true;
+		}
+	}
+
+	// 툴팁: 전체 경로 표시
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::BeginTooltip();
+		if (CurrentPath.empty())
+		{
+			ImGui::Text("None");
+		}
+		else
+		{
+			ImGui::TextUnformatted(CurrentPath.c_str());
+		}
+		ImGui::EndTooltip();
+	}
+
+	return false;
+}
+
 bool UPropertyRenderer::RenderMaterialProperty(const FProperty& Prop, void* Instance)
 {
 	UMaterialInterface** MaterialPtr = Prop.GetValuePtr<UMaterialInterface*>(Instance);
@@ -1750,6 +1937,123 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterialInt
 {
 	bool bElementChanged = false;
 	UMaterialInterface* CurrentMaterial = *MaterialPtr;
+
+	// 파티클 모듈 여부 체크
+	UParticleModule* ParticleModule = Cast<UParticleModule>(OwningObject);
+
+	// 파티클 모듈 전용 UI
+	if (ParticleModule)
+	{
+		// 텍스처 캐시 확인
+		if (CachedTextureItems.empty())
+		{
+			ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "텍스처 캐시가 비어있습니다.");
+			return false;
+		}
+
+		// 현재 머티리얼의 Diffuse 텍스처 가져오기
+		UTexture* CurrentDiffuse = CurrentMaterial ? CurrentMaterial->GetTexture(EMaterialTextureSlot::Diffuse) : nullptr;
+		FString CurrentTexturePath = CurrentDiffuse ? CurrentDiffuse->GetFilePath() : "None";
+
+		// 썸네일 + 콤보박스 레이아웃
+		ImGui::BeginGroup();
+
+		// 썸네일 (64x64)
+		const float ThumbnailSize = 64.0f;
+		ImVec2 ThumbnailSizeVec(ThumbnailSize, ThumbnailSize);
+
+		if (CurrentDiffuse && CurrentDiffuse->GetShaderResourceView())
+		{
+			ImGui::Image((void*)CurrentDiffuse->GetShaderResourceView(), ThumbnailSizeVec);
+		}
+		else
+		{
+			// 빈 썸네일 (검정 배경)
+			ImVec2 pos = ImGui::GetCursorScreenPos();
+			ImDrawList* drawList = ImGui::GetWindowDrawList();
+			drawList->AddRectFilled(pos, ImVec2(pos.x + ThumbnailSize, pos.y + ThumbnailSize), IM_COL32(30, 30, 30, 255));
+			drawList->AddRect(pos, ImVec2(pos.x + ThumbnailSize, pos.y + ThumbnailSize), IM_COL32(60, 60, 60, 255));
+			ImGui::Dummy(ThumbnailSizeVec);
+		}
+
+		ImGui::SameLine();
+
+		// 텍스처 선택 콤보박스
+		ImGui::BeginGroup();
+		ImGui::Text("%s", Label);
+
+		// UMaterial로 캐스팅 (SetMaterialInfo, ResolveTextures는 UMaterial에만 있음)
+		UMaterial* Material = Cast<UMaterial>(CurrentMaterial);
+
+		ImGui::SetNextItemWidth(200);
+		FString ComboLabel = "##ParticleTexture" + FString(Label);
+		if (ImGui::BeginCombo(ComboLabel.c_str(), CurrentTexturePath.c_str()))
+		{
+			// 미리보기 썸네일 크기
+			const float PreviewSize = 96.0f;
+
+			// "None" 옵션
+			bool bIsNoneSelected = (CurrentDiffuse == nullptr);
+			if (ImGui::Selectable("None", bIsNoneSelected))
+			{
+				if (Material)
+				{
+					FMaterialInfo Info = Material->GetMaterialInfo();
+					Info.DiffuseTextureFileName = "";
+					Material->SetMaterialInfo(Info);
+					Material->ResolveTextures();
+					bElementChanged = true;
+				}
+			}
+			if (bIsNoneSelected) ImGui::SetItemDefaultFocus();
+
+			// 캐시된 텍스처 목록
+			for (int j = 0; j < (int)CachedTexturePaths.size(); ++j)
+			{
+				const FString& Path = CachedTexturePaths[j];
+				const char* DisplayName = CachedTextureItems[j + 1];
+				bool bIsSelected = (CurrentTexturePath == Path);
+
+				if (ImGui::Selectable(DisplayName, bIsSelected))
+				{
+					if (Material)
+					{
+						// 셰이더는 유지하고 텍스처만 변경
+						FMaterialInfo Info = Material->GetMaterialInfo();
+						Info.DiffuseTextureFileName = Path;
+						Material->SetMaterialInfo(Info);
+						Material->ResolveTextures();
+						bElementChanged = true;
+					}
+				}
+
+				// 호버링 시 텍스처 미리보기 툴팁
+				if (ImGui::IsItemHovered())
+				{
+					// 텍스처 로드 (캐시에서 가져옴)
+					UTexture* PreviewTexture = UResourceManager::GetInstance().Load<UTexture>(Path);
+					if (PreviewTexture && PreviewTexture->GetShaderResourceView())
+					{
+						ImGui::BeginTooltip();
+						ImGui::Image((void*)PreviewTexture->GetShaderResourceView(), ImVec2(PreviewSize, PreviewSize));
+						ImGui::Text("%s", Path.c_str());
+						ImGui::EndTooltip();
+					}
+				}
+
+				if (bIsSelected) ImGui::SetItemDefaultFocus();
+			}
+
+			ImGui::EndCombo();
+		}
+
+		ImGui::EndGroup();
+		ImGui::EndGroup();
+
+		return bElementChanged;
+	}
+
+	// ========== 일반 컴포넌트용 기존 UI ==========
 
 	// 캐시가 비어있으면 아무것도 렌더링하지 않음 (필수)
 	if (CachedMaterialItems.empty())
@@ -1840,7 +2144,7 @@ bool UPropertyRenderer::RenderSingleMaterialSlot(const char* Label, UMaterialInt
 		{
 			ImGui::Text("UMeshComponent만 텍스처를 변경할 수 있습니다");
 			ImGui::Unindent();
-			return false;
+			return bElementChanged;
 		}
 
 		for (uint8 TexSlotIndex = 0; TexSlotIndex < (uint8)EMaterialTextureSlot::Max; ++TexSlotIndex)
@@ -2321,4 +2625,361 @@ bool UPropertyRenderer::RenderTransformProperty(const FProperty& Prop, void* Ins
 	ImGui::PopID();
 
 	return bAnyChanged;
+}
+
+// ============================================================
+// Distribution 렌더링 함수들
+// ============================================================
+
+bool UPropertyRenderer::RenderDistributionModeCombo(const char* Label, EDistributionType& Type)
+{
+	static const char* ModeNames[] = {
+		"Constant",
+		"Uniform",
+		"ConstantCurve",
+		"UniformCurve",
+		"ParticleParameter"
+	};
+
+	int CurrentMode = static_cast<int>(Type);
+	if (ImGui::Combo(Label, &CurrentMode, ModeNames, IM_ARRAYSIZE(ModeNames)))
+	{
+		Type = static_cast<EDistributionType>(CurrentMode);
+		return true;
+	}
+	return false;
+}
+
+bool UPropertyRenderer::RenderInterpCurveFloat(const char* Label, FInterpCurveFloat& Curve)
+{
+	bool bChanged = false;
+
+	if (ImGui::TreeNode(Label))
+	{
+		// 키프레임 개수 표시
+		ImGui::Text("키프레임: %d", Curve.Points.Num());
+
+		// 키프레임 추가 버튼
+		if (ImGui::Button("키 추가"))
+		{
+			float NewTime = Curve.Points.IsEmpty() ? 0.0f : Curve.Points.Last().InVal + 0.1f;
+			float NewValue = Curve.Points.IsEmpty() ? 0.0f : Curve.Points.Last().OutVal;
+			Curve.AddPoint(NewTime, NewValue);
+			bChanged = true;
+		}
+
+		// 각 키프레임 편집
+		for (int32 i = 0; i < Curve.Points.Num(); ++i)
+		{
+			ImGui::PushID(i);
+
+			FInterpCurvePointFloat& Point = Curve.Points[i];
+
+			ImGui::Text("[%d]", i);
+			ImGui::SameLine();
+
+			// 시간 편집
+			ImGui::SetNextItemWidth(60.0f);
+			if (ImGui::DragFloat("T", &Point.InVal, 0.01f, 0.0f, 1.0f))
+				bChanged = true;
+			ImGui::SameLine();
+
+			// 값 편집
+			ImGui::SetNextItemWidth(80.0f);
+			if (ImGui::DragFloat("V", &Point.OutVal, 0.01f))
+				bChanged = true;
+			ImGui::SameLine();
+
+			// 삭제 버튼
+			if (ImGui::Button("X"))
+			{
+				Curve.Points.RemoveAt(i);
+				bChanged = true;
+				ImGui::PopID();
+				break;
+			}
+
+			ImGui::PopID();
+		}
+
+		ImGui::TreePop();
+	}
+
+	return bChanged;
+}
+
+bool UPropertyRenderer::RenderInterpCurveVector(const char* Label, FInterpCurveVector& Curve)
+{
+	bool bChanged = false;
+
+	if (ImGui::TreeNode(Label))
+	{
+		ImGui::Text("키프레임: %d", Curve.Points.Num());
+
+		if (ImGui::Button("키 추가"))
+		{
+			float NewTime = Curve.Points.IsEmpty() ? 0.0f : Curve.Points.Last().InVal + 0.1f;
+			FVector NewValue = Curve.Points.IsEmpty() ? FVector(0, 0, 0) : Curve.Points.Last().OutVal;
+			Curve.AddPoint(NewTime, NewValue);
+			bChanged = true;
+		}
+
+		for (int32 i = 0; i < Curve.Points.Num(); ++i)
+		{
+			ImGui::PushID(i);
+
+			FInterpCurvePointVector& Point = Curve.Points[i];
+
+			ImGui::Text("[%d]", i);
+
+			ImGui::SetNextItemWidth(60.0f);
+			if (ImGui::DragFloat("Time", &Point.InVal, 0.01f, 0.0f, 1.0f))
+				bChanged = true;
+
+			if (ImGui::DragFloat3("Value", &Point.OutVal.X, 0.01f))
+				bChanged = true;
+
+			ImGui::SameLine();
+			if (ImGui::Button("삭제"))
+			{
+				Curve.Points.RemoveAt(i);
+				bChanged = true;
+				ImGui::PopID();
+				break;
+			}
+
+			ImGui::PopID();
+		}
+
+		ImGui::TreePop();
+	}
+
+	return bChanged;
+}
+
+bool UPropertyRenderer::RenderDistributionFloatProperty(const FProperty& Prop, void* Instance)
+{
+	FDistributionFloat* Dist = Prop.GetValuePtr<FDistributionFloat>(Instance);
+	if (!Dist) return false;
+
+	bool bChanged = false;
+
+	if (ImGui::TreeNode(Prop.Name))
+	{
+		bChanged |= RenderDistributionModeCombo("타입", Dist->Type);
+
+		switch (Dist->Type)
+		{
+		case EDistributionType::Constant:
+			if (ImGui::DragFloat("값", &Dist->ConstantValue, 0.01f))
+				bChanged = true;
+			break;
+
+		case EDistributionType::Uniform:
+			if (ImGui::DragFloat("최소", &Dist->MinValue, 0.01f))
+				bChanged = true;
+			if (ImGui::DragFloat("최대", &Dist->MaxValue, 0.01f))
+				bChanged = true;
+			break;
+
+		case EDistributionType::ConstantCurve:
+			bChanged |= RenderInterpCurveFloat("커브", Dist->ConstantCurve);
+			break;
+
+		case EDistributionType::UniformCurve:
+			bChanged |= RenderInterpCurveFloat("최소 커브", Dist->MinCurve);
+			bChanged |= RenderInterpCurveFloat("최대 커브", Dist->MaxCurve);
+			break;
+
+		case EDistributionType::ParticleParameter:
+			{
+				char Buffer[256];
+				strncpy_s(Buffer, Dist->ParameterName.c_str(), 255);
+				if (ImGui::InputText("파라미터명", Buffer, 256))
+				{
+					Dist->ParameterName = Buffer;
+					bChanged = true;
+				}
+				if (ImGui::DragFloat("기본값", &Dist->ParameterDefaultValue, 0.01f))
+					bChanged = true;
+			}
+			break;
+		}
+
+		ImGui::TreePop();
+	}
+
+	return bChanged;
+}
+
+bool UPropertyRenderer::RenderDistributionVectorProperty(const FProperty& Prop, void* Instance)
+{
+	FDistributionVector* Dist = Prop.GetValuePtr<FDistributionVector>(Instance);
+	if (!Dist) return false;
+
+	bool bChanged = false;
+
+	if (ImGui::TreeNode(Prop.Name))
+	{
+		bChanged |= RenderDistributionModeCombo("타입", Dist->Type);
+
+		switch (Dist->Type)
+		{
+		case EDistributionType::Constant:
+			if (ImGui::DragFloat3("값", &Dist->ConstantValue.X, 0.01f))
+				bChanged = true;
+			break;
+
+		case EDistributionType::Uniform:
+			if (ImGui::DragFloat3("최소", &Dist->MinValue.X, 0.01f))
+				bChanged = true;
+			if (ImGui::DragFloat3("최대", &Dist->MaxValue.X, 0.01f))
+				bChanged = true;
+			break;
+
+		case EDistributionType::ConstantCurve:
+			bChanged |= RenderInterpCurveVector("커브", Dist->ConstantCurve);
+			break;
+
+		case EDistributionType::UniformCurve:
+			bChanged |= RenderInterpCurveVector("최소 커브", Dist->MinCurve);
+			bChanged |= RenderInterpCurveVector("최대 커브", Dist->MaxCurve);
+			break;
+
+		case EDistributionType::ParticleParameter:
+			{
+				char Buffer[256];
+				strncpy_s(Buffer, Dist->ParameterName.c_str(), 255);
+				if (ImGui::InputText("파라미터명", Buffer, 256))
+				{
+					Dist->ParameterName = Buffer;
+					bChanged = true;
+				}
+				if (ImGui::DragFloat3("기본값", &Dist->ParameterDefaultValue.X, 0.01f))
+					bChanged = true;
+			}
+			break;
+		}
+
+		ImGui::TreePop();
+	}
+
+	return bChanged;
+}
+
+bool UPropertyRenderer::RenderDistributionColorProperty(const FProperty& Prop, void* Instance)
+{
+	FDistributionColor* Dist = Prop.GetValuePtr<FDistributionColor>(Instance);
+	if (!Dist) return false;
+
+	bool bChanged = false;
+
+	if (ImGui::TreeNode(Prop.Name))
+	{
+		// RGB (FDistributionVector)
+		if (ImGui::TreeNode("RGB"))
+		{
+			bChanged |= RenderDistributionModeCombo("타입##RGB", Dist->RGB.Type);
+
+			switch (Dist->RGB.Type)
+			{
+			case EDistributionType::Constant:
+				{
+					float RGB[3] = { Dist->RGB.ConstantValue.X, Dist->RGB.ConstantValue.Y, Dist->RGB.ConstantValue.Z };
+					if (ImGui::ColorEdit3("값", RGB))
+					{
+						Dist->RGB.ConstantValue = FVector(RGB[0], RGB[1], RGB[2]);
+						bChanged = true;
+					}
+				}
+				break;
+
+			case EDistributionType::Uniform:
+				{
+					float MinRGB[3] = { Dist->RGB.MinValue.X, Dist->RGB.MinValue.Y, Dist->RGB.MinValue.Z };
+					float MaxRGB[3] = { Dist->RGB.MaxValue.X, Dist->RGB.MaxValue.Y, Dist->RGB.MaxValue.Z };
+					if (ImGui::ColorEdit3("최소", MinRGB))
+					{
+						Dist->RGB.MinValue = FVector(MinRGB[0], MinRGB[1], MinRGB[2]);
+						bChanged = true;
+					}
+					if (ImGui::ColorEdit3("최대", MaxRGB))
+					{
+						Dist->RGB.MaxValue = FVector(MaxRGB[0], MaxRGB[1], MaxRGB[2]);
+						bChanged = true;
+					}
+				}
+				break;
+
+			case EDistributionType::ConstantCurve:
+				bChanged |= RenderInterpCurveVector("커브##RGB", Dist->RGB.ConstantCurve);
+				break;
+
+			case EDistributionType::UniformCurve:
+				bChanged |= RenderInterpCurveVector("최소 커브##RGB", Dist->RGB.MinCurve);
+				bChanged |= RenderInterpCurveVector("최대 커브##RGB", Dist->RGB.MaxCurve);
+				break;
+
+			case EDistributionType::ParticleParameter:
+				{
+					char Buffer[256];
+					strncpy_s(Buffer, Dist->RGB.ParameterName.c_str(), 255);
+					if (ImGui::InputText("파라미터명##RGB", Buffer, 256))
+					{
+						Dist->RGB.ParameterName = Buffer;
+						bChanged = true;
+					}
+				}
+				break;
+			}
+			ImGui::TreePop();
+		}
+
+		// Alpha (FDistributionFloat)
+		if (ImGui::TreeNode("Alpha"))
+		{
+			bChanged |= RenderDistributionModeCombo("타입##Alpha", Dist->Alpha.Type);
+
+			switch (Dist->Alpha.Type)
+			{
+			case EDistributionType::Constant:
+				if (ImGui::SliderFloat("값", &Dist->Alpha.ConstantValue, 0.0f, 1.0f))
+					bChanged = true;
+				break;
+
+			case EDistributionType::Uniform:
+				if (ImGui::SliderFloat("최소", &Dist->Alpha.MinValue, 0.0f, 1.0f))
+					bChanged = true;
+				if (ImGui::SliderFloat("최대", &Dist->Alpha.MaxValue, 0.0f, 1.0f))
+					bChanged = true;
+				break;
+
+			case EDistributionType::ConstantCurve:
+				bChanged |= RenderInterpCurveFloat("커브##Alpha", Dist->Alpha.ConstantCurve);
+				break;
+
+			case EDistributionType::UniformCurve:
+				bChanged |= RenderInterpCurveFloat("최소 커브##Alpha", Dist->Alpha.MinCurve);
+				bChanged |= RenderInterpCurveFloat("최대 커브##Alpha", Dist->Alpha.MaxCurve);
+				break;
+
+			case EDistributionType::ParticleParameter:
+				{
+					char Buffer[256];
+					strncpy_s(Buffer, Dist->Alpha.ParameterName.c_str(), 255);
+					if (ImGui::InputText("파라미터명##Alpha", Buffer, 256))
+					{
+						Dist->Alpha.ParameterName = Buffer;
+						bChanged = true;
+					}
+				}
+				break;
+			}
+			ImGui::TreePop();
+		}
+
+		ImGui::TreePop();
+	}
+
+	return bChanged;
 }
