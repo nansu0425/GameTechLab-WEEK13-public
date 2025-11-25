@@ -22,6 +22,8 @@
 #include "ImGui/imgui_curve.hpp"
 #include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 #include "EnumRegistry.generated.h"
+#include "ParticleSystemComponent.h"
+#include "ParticleSystem.h"
 
 // 정적 멤버 변수 초기화
 TArray<FString> UPropertyRenderer::CachedSkeletalMeshPaths;
@@ -38,6 +40,8 @@ TArray<FString> UPropertyRenderer::CachedSoundPaths;
 TArray<const char*> UPropertyRenderer::CachedSoundItems;
 TArray<FString> UPropertyRenderer::CachedScriptPaths;
 TArray<const char*> UPropertyRenderer::CachedScriptItems;
+TArray<FString> UPropertyRenderer::CachedParticleSystemPaths;
+TArray<FString> UPropertyRenderer::CachedParticleSystemItems;
 
 static bool ItemsGetter(void* Data, int Index, const char** CItem)
 {
@@ -131,6 +135,10 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 
 	case EPropertyType::Curve:
 		bChanged = RenderCurveProperty(Property, ObjectInstance);
+		break;
+
+	case EPropertyType::ParticleSystem:
+		bChanged = RenderParticleSystemProperty(Property, ObjectInstance);
 		break;
 
 	case EPropertyType::Array:
@@ -543,6 +551,34 @@ void UPropertyRenderer::CacheResources()
             CachedSoundItems.push_back(path.c_str());
         }
     }
+
+	// 6. ParticleSystem (.particle) - 파일 시스템 스캔
+	if (CachedParticleSystemPaths.IsEmpty() && CachedParticleSystemItems.IsEmpty())
+	{
+		// "None" 항목 추가
+		CachedParticleSystemPaths.Add("");
+		CachedParticleSystemItems.Add("None");
+
+		// Data/Particles/ 디렉토리 스캔
+		const FString ParticleDir = GDataDir + "/Particles/";
+		if (fs::exists(UTF8ToWide(ParticleDir)) && fs::is_directory(UTF8ToWide(ParticleDir)))
+		{
+			for (const auto& Entry : fs::recursive_directory_iterator(UTF8ToWide(ParticleDir)))
+			{
+				if (Entry.is_regular_file())
+				{
+					FString Ext = WideToUTF8(Entry.path().extension().wstring());
+					std::transform(Ext.begin(), Ext.end(), Ext.begin(), ::tolower);
+					if (Ext == ".particle")
+					{
+						FString Path = NormalizePath(WideToUTF8(Entry.path().wstring()));
+						CachedParticleSystemPaths.Add(Path);
+						CachedParticleSystemItems.Add(WideToUTF8(Entry.path().filename().wstring()));
+					}
+				}
+			}
+		}
+	}
 }
 
 void UPropertyRenderer::ClearResourcesCache()
@@ -561,6 +597,8 @@ void UPropertyRenderer::ClearResourcesCache()
 	CachedSoundItems.Empty();
 	CachedScriptPaths.Empty();
 	CachedScriptItems.Empty();
+	CachedParticleSystemPaths.Empty();
+	CachedParticleSystemItems.Empty();
 }
 
 // ===== 타입별 렌더링 구현 =====
@@ -1751,6 +1789,93 @@ bool UPropertyRenderer::RenderStaticMeshProperty(const FProperty& Prop, void* In
 			}
 		}
 
+		ImGui::EndTooltip();
+	}
+
+	return false;
+}
+
+bool UPropertyRenderer::RenderParticleSystemProperty(const FProperty& Prop, void* Instance)
+{
+	UParticleSystem** ParticlePtr = Prop.GetValuePtr<UParticleSystem*>(Instance);
+
+	FString CurrentPath;
+	if (*ParticlePtr)
+	{
+		CurrentPath = (*ParticlePtr)->GetFilePath();
+	}
+
+	if (CachedParticleSystemPaths.empty())
+	{
+		ImGui::Text("%s: <No Particle Systems>", Prop.Name);
+		return false;
+	}
+
+	int SelectedIdx = 0; // Default to "None"
+	for (int i = 0; i < static_cast<int>(CachedParticleSystemPaths.size()); ++i)
+	{
+		if (CachedParticleSystemPaths[i] == CurrentPath)
+		{
+			SelectedIdx = i;
+			break;
+		}
+	}
+
+	// TArray<FString>을 const char* 배열로 변환
+	TArray<const char*> ItemsPtr;
+	ItemsPtr.reserve(CachedParticleSystemItems.size());
+	for (const FString& item : CachedParticleSystemItems)
+	{
+		ItemsPtr.push_back(item.c_str());
+	}
+
+	ImGui::SetNextItemWidth(240);
+	if (ImGui::Combo(Prop.Name, &SelectedIdx, ItemsPtr.data(), static_cast<int>(ItemsPtr.size())))
+	{
+		if (SelectedIdx >= 0 && SelectedIdx < static_cast<int>(CachedParticleSystemPaths.size()))
+		{
+			// ParticleSystemComponent인 경우 SetTemplate 호출
+			UObject* Object = static_cast<UObject*>(Instance);
+			if (UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Object))
+			{
+				if (CachedParticleSystemPaths[SelectedIdx].empty())
+				{
+					PSC->SetTemplate(nullptr);
+				}
+				else
+				{
+					UParticleSystem* NewTemplate = UResourceManager::GetInstance().Load<UParticleSystem>(CachedParticleSystemPaths[SelectedIdx]);
+					PSC->SetTemplate(NewTemplate);
+				}
+			}
+			else
+			{
+				// 일반적인 경우 직접 할당
+				if (CachedParticleSystemPaths[SelectedIdx].empty())
+				{
+					*ParticlePtr = nullptr;
+				}
+				else
+				{
+					*ParticlePtr = UResourceManager::GetInstance().Load<UParticleSystem>(CachedParticleSystemPaths[SelectedIdx]);
+				}
+			}
+			return true;
+		}
+	}
+
+	// 툴팁: 전체 경로 표시
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::BeginTooltip();
+		if (CurrentPath.empty())
+		{
+			ImGui::Text("None");
+		}
+		else
+		{
+			ImGui::TextUnformatted(CurrentPath.c_str());
+		}
 		ImGui::EndTooltip();
 	}
 

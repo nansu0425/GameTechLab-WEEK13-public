@@ -423,8 +423,16 @@ void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 			{
 				float Increment = (SpawnCount > 1) ? (DeltaTime / SpawnCount) : 0.0f;
 
-				// 언리얼 엔진 호환: EmitterOrigin을 InitialLocation으로 전달
-				SpawnParticles(SpawnCount, 0.0f, Increment, CachedEmitterOrigin, FVector(0.0f, 0.0f, 0.0f));
+				// 컴포넌트의 월드 트랜스폼을 적용한 스폰 위치 계산
+				// (ParticleModuleLocation이 없는 경우에도 컴포넌트 위치에서 스폰되도록)
+				FVector WorldSpawnLocation = CachedEmitterOrigin;
+				if (Component)
+				{
+					const FTransform& ComponentTransform = Component->GetWorldTransform();
+					WorldSpawnLocation = ComponentTransform.TransformPosition(CachedEmitterOrigin);
+				}
+
+				SpawnParticles(SpawnCount, 0.0f, Increment, WorldSpawnLocation, FVector(0.0f, 0.0f, 0.0f));
 			}
 		}
 	}

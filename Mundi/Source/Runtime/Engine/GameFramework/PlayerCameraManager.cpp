@@ -99,6 +99,16 @@ void APlayerCameraManager::Destroy()
 	UE_LOG("[warning] PlayerCameraManager는 삭제할 수 없습니다. (새로운 매니저를 만들고 삭제하면 가능)");
 }
 
+void APlayerCameraManager::Serialize(const bool bInIsLoading, JSON& InOutHandle)
+{
+	Super::Serialize(bInIsLoading, InOutHandle);
+
+	if (bInIsLoading)
+	{
+		CurrentViewCamera = Cast<UCameraComponent>(RootComponent);
+	}
+}
+
 // 만약 현재 월드에 카메라가 없었으면 이 카메라가 View로 등록됨
 void APlayerCameraManager::RegisterView(UCameraComponent* RegisterViewTarget)
 {

@@ -157,12 +157,10 @@ void UParticleSystemComponent::OnRegister(UWorld* InWorld)
 		return;
 	}
 
-	// Template이 없으면 디버그용 기본 파티클 시스템 생성
+	// Template이 없으면 파티클을 생성하지 않음 (에디터에서 리소스 선택 필요)
 	if (!Template)
 	{
-		CreateDebugMeshParticleSystem();        // 메시 파티클 테스트
-		//CreateDebugSpriteParticleSystem();  // 스프라이트 파티클 테스트
-		//CreateDebugBeamParticleSystem();
+		return;
 	}
 
 	// 에디터에서도 파티클 미리보기를 위해 자동 활성화
@@ -509,10 +507,15 @@ void UParticleSystemComponent::SetTemplate(UParticleSystem* NewTemplate)
 	{
 		Template = NewTemplate;
 
-		// 활성 상태면 재초기화
+		// 기존 이미터 인스턴스가 있으면 정리
 		if (EmitterInstances.Num() > 0)
 		{
 			ClearEmitterInstances();
+		}
+
+		// 새 Template이 유효하고 World에 등록되어 있으면 초기화
+		if (Template && GetWorld())
+		{
 			InitializeEmitterInstances();
 		}
 	}
