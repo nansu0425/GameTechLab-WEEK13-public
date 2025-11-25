@@ -58,6 +58,15 @@
     <FxCompile Include="Shaders\Utility\SceneDepth_PS.hlsl">
       <Filter>Shaders\Utility</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\Particle\ParticleSprite.hlsl">
+      <Filter>Shaders\Particle</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Particle\ParticleMesh.hlsl">
+      <Filter>Shaders\Particle</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Particle\ParticleBeam.hlsl">
+      <Filter>Shaders\Particle</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
@@ -2345,6 +2354,9 @@
     </Filter>
     <Filter Include="BuildTools\CodeGenerator">
       <UniqueIdentifier>{29e91712-b847-4488-b3f1-4ea4f274df95}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\Particle">
+      <UniqueIdentifier>{3909ef3b-bebf-4ae0-8ef6-005273aa628f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
