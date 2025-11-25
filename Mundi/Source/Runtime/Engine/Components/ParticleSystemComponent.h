@@ -108,6 +108,11 @@ private:
 	void ClearEmitterInstances();
 	void UpdateRenderData();
 
+	// === 테스트용 리소스 (디버그 함수에서 생성, Component가 소유) ===
+	UParticleSystem* TestTemplate = nullptr;
+	TArray<UMaterialInterface*> TestMaterials;
+	void CleanupTestResources();
+
 	// 테스트용 디버그 파티클 시스템 생성
 	void CreateDebugParticleSystem();        // 메시 파티클 테스트
 	void CreateDebugSpriteParticleSystem();  // 스프라이트 파티클 테스트

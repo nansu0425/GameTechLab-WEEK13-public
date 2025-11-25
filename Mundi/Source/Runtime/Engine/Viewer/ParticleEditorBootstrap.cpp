@@ -17,6 +17,7 @@
 #include "Modules/ParticleModuleColor.h"
 #include "Modules/ParticleModuleTypeDataSprite.h"
 #include "JsonSerializer.h"
+#include "ResourceManager.h"
 
 ViewerState* ParticleEditorBootstrap::CreateViewerState(const char* Name, UWorld* InWorld,
 	ID3D11Device* InDevice, UEditorAssetPreviewContext* Context)
@@ -230,6 +231,14 @@ UParticleSystem* ParticleEditorBootstrap::LoadParticleSystem(const FString& File
 		return nullptr;
 	}
 
+	// ResourceManager에서 이미 로드된 파티클 시스템 확인
+	UParticleSystem* ExistingSystem = UResourceManager::GetInstance().Get<UParticleSystem>(FilePath);
+	if (ExistingSystem)
+	{
+		UE_LOG("[ParticleEditorBootstrap] LoadParticleSystem: 캐시된 시스템 반환: %s", FilePath.c_str());
+		return ExistingSystem;
+	}
+
 	// FString을 FWideString으로 변환
 	FWideString WidePath(FilePath.begin(), FilePath.end());
 
@@ -251,6 +260,9 @@ UParticleSystem* ParticleEditorBootstrap::LoadParticleSystem(const FString& File
 
 	// ParticleSystem 역직렬화 (true = 로딩 모드)
 	LoadedSystem->Serialize(true, JsonHandle);
+
+	// ResourceManager에 등록
+	UResourceManager::GetInstance().Add<UParticleSystem>(FilePath, LoadedSystem);
 
 	UE_LOG("[ParticleEditorBootstrap] LoadParticleSystem: 로드 성공: %s", FilePath.c_str());
 	return LoadedSystem;
