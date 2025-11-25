@@ -161,8 +161,8 @@ void UParticleSystemComponent::OnRegister(UWorld* InWorld)
 	if (!Template)
 	{
 		//CreateDebugParticleSystem();        // 메시 파티클 테스트
-		//CreateDebugSpriteParticleSystem();  // 스프라이트 파티클 테스트
-		CreateDebugBeamParticleSystem();
+		CreateDebugSpriteParticleSystem();  // 스프라이트 파티클 테스트
+		//CreateDebugBeamParticleSystem();
 	}
 
 	// 에디터에서도 파티클 미리보기를 위해 자동 활성화
@@ -364,27 +364,27 @@ void UParticleSystemComponent::CreateDebugBeamParticleSystem()
 	UParticleLODLevel* LODLevel = NewObject<UParticleLODLevel>();
 	LODLevel->bEnabled = true;
 
-	// 필수 모듈 생성
-	LODLevel->RequiredModule = NewObject<UParticleModuleRequired>();
+	// 필수 모듈 생성 (Modules 배열에 추가)
+	UParticleModuleRequired* RequiredModule = NewObject<UParticleModuleRequired>();
+	LODLevel->Modules.Add(RequiredModule);
 
 	// 빔용 Material 설정 (나중에 빔 셰이더로 교체)
 	UMaterial* BeamMaterial = NewObject<UMaterial>();
 	UShader* BeamShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Particle/ParticleBeam.hlsl");
 	BeamMaterial->SetShader(BeamShader);
-	LODLevel->RequiredModule->Material = BeamMaterial;
+	RequiredModule->Material = BeamMaterial;
 
-	// 빔 타입 데이터 모듈 생성
+	// 빔 타입 데이터 모듈 생성 (Modules 배열에 추가)
 	UParticleModuleTypeDataBeam* BeamTypeData = NewObject<UParticleModuleTypeDataBeam>();
 	BeamTypeData->SegmentCount = 6;
 	BeamTypeData->BeamWidth = 1.0f;
 	BeamTypeData->NoiseStrength = 1.0f;
-	LODLevel->TypeDataModule = BeamTypeData;
+	LODLevel->Modules.Add(BeamTypeData);
 
-	// 스폰 모듈 생성 - 빔은 최소 2개의 파티클(시작/끝)이 필요
+	// 스폰 모듈 생성 - 빔은 최소 2개의 파티클(시작/끝)이 필요 (Modules 배열에 추가)
 	UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
 	SpawnModule->SpawnRate = FDistributionFloat(0.0f);    // 연속 스폰 안함
 	SpawnModule->BurstCount = FDistributionFloat(2.0f);      // 시작 시 2개(시작점, 끝점) 버스트
-	LODLevel->SpawnModule = SpawnModule;
 	LODLevel->Modules.Add(SpawnModule);
 
 	// 라이프타임 모듈 생성 (빔의 전체 수명)
