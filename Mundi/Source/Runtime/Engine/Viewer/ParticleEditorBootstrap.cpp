@@ -130,8 +130,8 @@ UParticleSystem* ParticleEditorBootstrap::CreateDefaultParticleTemplate()
 
 	// 2. Spawn 모듈 (필수)
 	UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
-	SpawnModule->SpawnRate = 20.0f;
-	SpawnModule->BurstCount = 0;
+	SpawnModule->SpawnRate = FDistributionFloat(20.0f);
+	SpawnModule->BurstCount = FDistributionFloat(0.0f);
 	LOD->SpawnModule = SpawnModule;
 
 	// 스프라이트용 Material 설정
@@ -153,26 +153,23 @@ UParticleSystem* ParticleEditorBootstrap::CreateDefaultParticleTemplate()
 
 	// 3. Lifetime 모듈
 	UParticleModuleLifetime* LifetimeModule = NewObject<UParticleModuleLifetime>();
-	LifetimeModule->MinLifetime = 1.0f;
-	LifetimeModule->MaxLifetime = 1.0f;
+	LifetimeModule->Lifetime = FDistributionFloat(1.0f);  // 1초 고정
 	LOD->Modules.Add(LifetimeModule);
 
 	// 4. Initial Size 모듈
 	UParticleModuleSize* SizeModule = NewObject<UParticleModuleSize>();
-	SizeModule->StartSize = FVector(1.0f, 1.0f, 1.0f);
-	SizeModule->StartSizeRange = FVector(1.0f, 1.0f, 1.0f);
+	SizeModule->StartSize = FDistributionVector(FVector(0.0f, 0.0f, 0.0f), FVector(2.0f, 2.0f, 2.0f));  // 0~2 랜덤
 	LOD->Modules.Add(SizeModule);
 
 	// 5. Initial Velocity 모듈
 	UParticleModuleVelocity* VelocityModule = NewObject<UParticleModuleVelocity>();
-	VelocityModule->StartVelocity = FVector(1.0f, 1.0f, 10.0f);
-	VelocityModule->StartVelocityRange = FVector(1.0f, 1.0f, 11.0f);
+	VelocityModule->StartVelocity = FDistributionVector(FVector(0.0f, 0.0f, 0.0f), FVector(2.0f, 2.0f, 21.0f));  // 랜덤 범위
 	LOD->Modules.Add(VelocityModule);
 
 	// 6. Color Over Life 모듈
 	UParticleModuleColor* ColorModule = NewObject<UParticleModuleColor>();
-	ColorModule->StartColor = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f);
-	ColorModule->EndColor = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	ColorModule->StartColor = FDistributionColor(FLinearColor(1.0f, 1.0f, 1.0f, 1.0f));
+	ColorModule->EndColor = FDistributionColor(FLinearColor(1.0f, 1.0f, 1.0f, 1.0f));
 	LOD->Modules.Add(ColorModule);
 
 	// 모듈 캐싱
