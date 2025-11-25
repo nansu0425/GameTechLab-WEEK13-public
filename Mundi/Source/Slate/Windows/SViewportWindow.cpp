@@ -445,6 +445,9 @@ void SViewportWindow::LoadToolbarIcons(ID3D11Device* Device)
 	IconGPUSkinning = NewObject<UTexture>();
 	IconGPUSkinning->Load(GDataDir + "/Icon/Viewport_SkinningGPU.png", Device);
 
+	IconParticles = NewObject<UTexture>();
+	IconParticles->Load(GDataDir + "/Icon/ParticleSystemIcon.png", Device);
+
 	// 뷰포트 레이아웃 전환 아이콘 로드
 	IconSingleToMultiViewport = NewObject<UTexture>();
 	IconSingleToMultiViewport->Load(GDataDir + "/Icon/Viewport_SingleToMultiViewport.png", Device);
@@ -1408,6 +1411,7 @@ void SViewportWindow::RenderShowFlagDropdownMenu()
 				UStatsOverlayD2D::Get().SetShowLights(false);
 				UStatsOverlayD2D::Get().SetShowShadow(false);
 				UStatsOverlayD2D::Get().SetShowSkinning(false);
+				UStatsOverlayD2D::Get().SetShowParticles(false);
 			}
 
 			if (ImGui::IsItemHovered())
@@ -1505,6 +1509,16 @@ void SViewportWindow::RenderShowFlagDropdownMenu()
 			if (ImGui::IsItemHovered())
 			{
 				ImGui::SetTooltip("스키닝 통계를 표시합니다. (GPU/CPU 스키닝 메시 개수, 버텍스 개수)");
+			}
+
+			bool bParticleStats = UStatsOverlayD2D::Get().IsParticlesVisible();
+			if (ImGui::Checkbox(" PARTICLES", &bParticleStats))
+			{
+				UStatsOverlayD2D::Get().ToggleParticles();
+			}
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip("파티클 시스템 통계를 표시합니다. (시스템 수, 이미터 수, 파티클 수, 메모리 사용량)");
 			}
 
 			ImGui::EndMenu();
@@ -1607,6 +1621,24 @@ void SViewportWindow::RenderShowFlagDropdownMenu()
 		if (ImGui::IsItemHovered())
 		{
 			ImGui::SetTooltip("스텔레탈 메시 렌더링을 표시합니다.");
+		}
+
+		// Particle System
+		bool bParticles = RenderSettings.IsShowFlagEnabled(EEngineShowFlags::SF_Particles);
+		if (ImGui::Checkbox("##Particles", &bParticles))
+		{
+			RenderSettings.ToggleShowFlag(EEngineShowFlags::SF_Particles);
+		}
+		ImGui::SameLine();
+		if (IconParticles && IconParticles->GetShaderResourceView())
+		{
+			ImGui::Image((void*)IconParticles->GetShaderResourceView(), IconSize);
+			ImGui::SameLine(0, 4);
+		}
+		ImGui::Text(" 파티클 시스템");
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip("파티클 시스템 렌더링을 표시합니다.");
 		}
 
 		// Billboard

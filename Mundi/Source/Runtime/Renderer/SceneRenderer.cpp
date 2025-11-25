@@ -50,6 +50,12 @@
 #include "FbxLoader.h"
 #include "SkinnedMeshComponent.h"
 #include "ParticleSystemComponent.h"
+#include "ParticleStats.h"
+#include "ParticleEmitterInstance.h"
+#include "ParticleLODLevel.h"
+#include "Modules/ParticleModuleTypeDataMesh.h"
+#include "Modules/ParticleModuleTypeDataBeam.h"
+#include "Modules/ParticleModuleTypeDataRibbon.h"
 
 FSceneRenderer::FSceneRenderer(UWorld* InWorld, FSceneView* InView, URenderer* InOwnerRenderer)
 	: World(InWorld)
@@ -1099,7 +1105,68 @@ void FSceneRenderer::RenderDecalPass()
 
 void FSceneRenderer::RenderParticleSystemPass()
 {
+	// 파티클 통계 수집
+	FParticleStats Stats;
+	Stats.ParticleSystemCount = static_cast<int32>(Proxies.ParticleSystems.size());
+
+	for (UParticleSystemComponent* ParticleSystem : Proxies.ParticleSystems)
+	{
+		if (ParticleSystem && ParticleSystem->IsVisible())
+		{
+			for (FParticleEmitterInstance* EmitterInst : ParticleSystem->EmitterInstances)
+			{
+				if (EmitterInst)
+				{
+					Stats.EmitterCount++;
+					Stats.SpawnedThisFrame += EmitterInst->FrameSpawnedCount;
+					Stats.KilledThisFrame += EmitterInst->FrameKilledCount;
+
+					// 타입별 파티클 카운트
+					UParticleModuleTypeDataBase* TypeData = nullptr;
+					if (EmitterInst->CurrentLODLevel)
+					{
+						TypeData = EmitterInst->CurrentLODLevel->TypeDataModule;
+					}
+
+					if (!TypeData)
+					{
+						// TypeData가 없으면 Sprite (기본 타입)
+						Stats.SpriteParticleCount += EmitterInst->ActiveParticles;
+					}
+					else if (Cast<UParticleModuleTypeDataMesh>(TypeData))
+					{
+						Stats.MeshParticleCount += EmitterInst->ActiveParticles;
+					}
+					else if (Cast<UParticleModuleTypeDataBeam>(TypeData))
+					{
+						Stats.BeamParticleCount += EmitterInst->ActiveParticles;
+					}
+					else if (Cast<UParticleModuleTypeDataRibbon>(TypeData))
+					{
+						Stats.RibbonParticleCount += EmitterInst->ActiveParticles;
+					}
+					else
+					{
+						// 알 수 없는 타입은 Sprite로 처리
+						Stats.SpriteParticleCount += EmitterInst->ActiveParticles;
+					}
+
+					// 메모리 계산: ParticleData + ParticleIndices + InstanceData
+					Stats.MemoryBytes += EmitterInst->MaxActiveParticles * EmitterInst->ParticleStride;
+					Stats.MemoryBytes += EmitterInst->MaxActiveParticles * sizeof(uint16);
+					Stats.MemoryBytes += EmitterInst->InstancePayloadSize;
+				}
+			}
+		}
+	}
+
+	FParticleStatManager::GetInstance().UpdateStats(Stats);
+
 	if (Proxies.ParticleSystems.empty())
+		return;
+
+	// Show flag 체크 - 파티클 시스템 숨김 시 스킵
+	if (!World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Particles))
 		return;
 
 	// WorldNormal 모드에서는 파티클 렌더링 스킵

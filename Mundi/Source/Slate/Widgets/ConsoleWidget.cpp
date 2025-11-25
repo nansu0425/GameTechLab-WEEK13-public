@@ -58,6 +58,7 @@ void UConsoleWidget::Initialize()
 	HelpCommandList.Add("STAT NONE");
 	HelpCommandList.Add("STAT LIGHT");
 	HelpCommandList.Add("STAT SHADOW");
+	HelpCommandList.Add("STAT PARTICLES");
 	HelpCommandList.Add("MINIDUMP");
 	HelpCommandList.Add("CAUSECRASH");
 	HelpCommandList.Add("CRASHIN <seconds>");
@@ -364,8 +365,10 @@ void UConsoleWidget::ExecCommand(const char* command_line)
 		AddLog("- STAT PICKING");
 		AddLog("- STAT DECAL");
 		AddLog("- STAT SKINNING");
-		AddLog("- STAT ALL");
 		AddLog("- STAT LIGHT");
+		AddLog("- STAT SHADOW");
+		AddLog("- STAT PARTICLES");
+		AddLog("- STAT ALL");
 		AddLog("- STAT NONE");
 	}
 	else if (Stricmp(command_line, "STAT FPS") == 0)
@@ -400,12 +403,25 @@ void UConsoleWidget::ExecCommand(const char* command_line)
 		UStatsOverlayD2D::Get().SetShowPicking(true);
 		UStatsOverlayD2D::Get().SetShowDecal(true);
 		UStatsOverlayD2D::Get().SetShowTileCulling(true);
+		UStatsOverlayD2D::Get().SetShowSkinning(true);
+		UStatsOverlayD2D::Get().SetShowShadow(true);
+		UStatsOverlayD2D::Get().SetShowParticles(true);
 		AddLog("STAT: ON");
 	}
 	else if (Stricmp(command_line, "STAT SKINNING") == 0)
 	{
 		UStatsOverlayD2D::Get().ToggleSkinning();
 		AddLog("STAT SKINNING TOGGLED");
+	}
+	else if (Stricmp(command_line, "STAT SHADOW") == 0)
+	{
+		UStatsOverlayD2D::Get().ToggleShadow();
+		AddLog("STAT SHADOW TOGGLED");
+	}
+	else if (Stricmp(command_line, "STAT PARTICLES") == 0)
+	{
+		UStatsOverlayD2D::Get().ToggleParticles();
+		AddLog("STAT PARTICLES TOGGLED");
 	}
 	else if (Stricmp(command_line, "STAT NONE") == 0)
 	{
@@ -415,6 +431,8 @@ void UConsoleWidget::ExecCommand(const char* command_line)
 		UStatsOverlayD2D::Get().SetShowDecal(false);
 		UStatsOverlayD2D::Get().SetShowTileCulling(false);
 		UStatsOverlayD2D::Get().SetShowSkinning(false);
+		UStatsOverlayD2D::Get().SetShowShadow(false);
+		UStatsOverlayD2D::Get().SetShowParticles(false);
 		AddLog("STAT: OFF");
 	}
 	else if (Strnicmp(command_line, "SKINNING GPU", 12) == 0)
