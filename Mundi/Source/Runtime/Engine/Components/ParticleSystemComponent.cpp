@@ -350,9 +350,9 @@ void UParticleSystemComponent::CreateDebugBeamParticleSystem()
 
 	// 빔 타입 데이터 모듈 생성
 	UParticleModuleTypeDataBeam* BeamTypeData = NewObject<UParticleModuleTypeDataBeam>();
-	BeamTypeData->SegmentCount = 8;
-	BeamTypeData->BeamWidth = 10.0f;
-	BeamTypeData->NoiseStrength = 5.0f;
+	BeamTypeData->SegmentCount = 6;
+	BeamTypeData->BeamWidth = 1.0f;
+	BeamTypeData->NoiseStrength = 1.0f;
 	LODLevel->TypeDataModule = BeamTypeData;
 
 	// 스폰 모듈 생성 - 빔은 최소 2개의 파티클(시작/끝)이 필요
@@ -368,15 +368,15 @@ void UParticleSystemComponent::CreateDebugBeamParticleSystem()
 	LifetimeModule->MaxLifetime = 0.0f;
 	LODLevel->Modules.Add(LifetimeModule);
 
-	// 속도 모듈 생성 (두 파티클이 아주 미세하게 다른 방향으로 움직여 빔을 생성)
-	UParticleModuleVelocity* VelocityModule = NewObject<UParticleModuleVelocity>();
-	VelocityModule->StartVelocity = FVector(0.0f, 0.0f, 5.0f);
-	VelocityModule->StartVelocityRange = FVector(5.0f, 5.0f, 2.0f);
-	LODLevel->Modules.Add(VelocityModule);
+	// 위치 모듈 생성
+	UParticleModuleLocation* LocationModule = NewObject<UParticleModuleLocation>();
+	LODLevel->Modules.Add(LocationModule);
 
-	//// 위치 모듈 생성
-	//UParticleModuleLocation* LocationModule = NewObject<UParticleModuleLocation>();
-	//LODLevel->Modules.Add(LocationModule);
+	// 속도 모듈 생성
+	UParticleModuleVelocity* VelocityModule = NewObject<UParticleModuleVelocity>();
+	VelocityModule->StartVelocity = FVector(0.0f, 0.0f, 0.0f);
+	VelocityModule->StartVelocityRange = FVector(0.0f, 0.0f, 0.0f);
+	LODLevel->Modules.Add(VelocityModule);
 
 	// 모듈 캐싱
 	LODLevel->CacheModuleInfo();

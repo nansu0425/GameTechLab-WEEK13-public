@@ -20,7 +20,7 @@ public:
 
     // 빔 너비
     UPROPERTY(EditAnywhere, Category = "Beam")
-    float BeamWidth = 10.0f;
+    float BeamWidth = 5.0f;
 
     // 빔 흔들림 강도
     UPROPERTY(EditAnywhere, Category = "Beam")

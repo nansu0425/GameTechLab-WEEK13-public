@@ -52,6 +52,25 @@ PS_INPUT mainVS(VS_INPUT input)
 
 float4 mainPS(PS_INPUT input) : SV_Target
 {
-    // Pure color beam: ignore UV, ignore textures
-    return input.Color;
+    // 1. Settings
+    float4 beamColor = float4(1.0, 0.0, 1.0, 1.0); // Magenta color
+
+    // 2. Use the horizontal UV coordinate (UV.x)
+    float u_coord = input.UV.x;
+
+    // 3. Create a gradient that is 1.0 at the center (U=0.5) and 0.0 at the edges (U=0, U=1).
+    // This value itself will be the intensity of the beam.
+    float intensity = 1.0 - (abs(u_coord - 0.5) * 2.0);
+
+    // Optional: To make the beam's core sharper and edges fall off faster,
+    // you can apply a power function. A higher exponent means a sharper core.
+    float exponent = 4.0f;
+    intensity = pow(intensity, exponent);
+
+    // 4. The final color is the base beam color multiplied by the intensity.
+    float4 final_color;
+    final_color.rgb = beamColor.rgb * intensity;
+    final_color.a = beamColor.a * intensity; // Apply to alpha for smooth transparent edges
+
+    return final_color;
 }
