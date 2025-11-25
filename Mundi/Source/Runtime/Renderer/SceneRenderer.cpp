@@ -50,6 +50,8 @@
 #include "FbxLoader.h"
 #include "SkinnedMeshComponent.h"
 #include "ParticleSystemComponent.h"
+#include "ParticleStats.h"
+#include "ParticleEmitterInstance.h"
 
 FSceneRenderer::FSceneRenderer(UWorld* InWorld, FSceneView* InView, URenderer* InOwnerRenderer)
 	: World(InWorld)
@@ -1099,6 +1101,34 @@ void FSceneRenderer::RenderDecalPass()
 
 void FSceneRenderer::RenderParticleSystemPass()
 {
+	// 파티클 통계 수집
+	FParticleStats Stats;
+	Stats.ParticleSystemCount = static_cast<int32>(Proxies.ParticleSystems.size());
+
+	for (UParticleSystemComponent* ParticleSystem : Proxies.ParticleSystems)
+	{
+		if (ParticleSystem && ParticleSystem->IsVisible())
+		{
+			for (FParticleEmitterInstance* EmitterInst : ParticleSystem->EmitterInstances)
+			{
+				if (EmitterInst)
+				{
+					Stats.EmitterCount++;
+					Stats.ParticleCount += EmitterInst->ActiveParticles;
+					Stats.SpawnedThisFrame += EmitterInst->FrameSpawnedCount;
+					Stats.KilledThisFrame += EmitterInst->FrameKilledCount;
+
+					// 메모리 계산: ParticleData + ParticleIndices + InstanceData
+					Stats.MemoryBytes += EmitterInst->MaxActiveParticles * EmitterInst->ParticleStride;
+					Stats.MemoryBytes += EmitterInst->MaxActiveParticles * sizeof(uint16);
+					Stats.MemoryBytes += EmitterInst->InstancePayloadSize;
+				}
+			}
+		}
+	}
+
+	FParticleStatManager::GetInstance().UpdateStats(Stats);
+
 	if (Proxies.ParticleSystems.empty())
 		return;
 

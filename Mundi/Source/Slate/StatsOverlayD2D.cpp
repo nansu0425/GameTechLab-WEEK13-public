@@ -15,6 +15,7 @@
 #include "ShadowStats.h"
 #include "SkinningStats.h"
 #include "SkinnedMeshComponent.h"
+#include "ParticleStats.h"
 
 #pragma comment(lib, "d2d1")
 #pragma comment(lib, "dwrite")
@@ -165,7 +166,7 @@ static void DrawTextBlock(
 
 void UStatsOverlayD2D::Draw()
 {
-	if (!bInitialized || (!bShowFPS && !bShowMemory && !bShowPicking && !bShowDecal && !bShowTileCulling && !bShowLights && !bShowShadow && !bShowSkinning) || !SwapChain)
+	if (!bInitialized || (!bShowFPS && !bShowMemory && !bShowPicking && !bShowDecal && !bShowTileCulling && !bShowLights && !bShowShadow && !bShowSkinning && !bShowParticles) || !SwapChain)
 		return;
 
 	// D2D 리소스 초기화 (최초 1회만 실행)
@@ -484,6 +485,47 @@ void UStatsOverlayD2D::Draw()
 		NextY += skinningPanelHeight + Space;
 	}
 
+	if (bShowParticles)
+	{
+		const FParticleStats& Stats = FParticleStatManager::GetInstance().GetStats();
+
+		// 메모리를 KB 또는 MB로 표시
+		wchar_t MemoryStr[64];
+		if (Stats.MemoryBytes >= 1024 * 1024)
+		{
+			swprintf_s(MemoryStr, L"%.2f MB", Stats.MemoryBytes / (1024.0 * 1024.0));
+		}
+		else
+		{
+			swprintf_s(MemoryStr, L"%.2f KB", Stats.MemoryBytes / 1024.0);
+		}
+
+		wchar_t ParticleBuf[512];
+		swprintf_s(ParticleBuf,
+			L"[Particles]\n"
+			L"Systems: %d\n"
+			L"Emitters: %d\n"
+			L"Particles: %d\n"
+			L"Spawned: %d / Killed: %d\n"
+			L"Memory: %s",
+			Stats.ParticleSystemCount,
+			Stats.EmitterCount,
+			Stats.ParticleCount,
+			Stats.SpawnedThisFrame,
+			Stats.KilledThisFrame,
+			MemoryStr);
+
+		const float particlePanelHeight = 140.0f;
+		D2D1_RECT_F particleRc = D2D1::RectF(Margin, NextY, Margin + PanelWidth, NextY + particlePanelHeight);
+
+		DrawTextBlock(
+			D2dCtx, CachedBrush, TextFormat, ParticleBuf, particleRc,
+			D2D1::ColorF(0, 0, 0, 0.6f),
+			D2D1::ColorF(D2D1::ColorF::Orange));
+
+		NextY += particlePanelHeight + Space;
+	}
+
 	D2dCtx->EndDraw();
 	D2dCtx->SetTarget(nullptr);
 
@@ -572,4 +614,14 @@ void UStatsOverlayD2D::SetShowSkinning(bool b)
 void UStatsOverlayD2D::ToggleSkinning()
 {
 	bShowSkinning = !bShowSkinning;
+}
+
+void UStatsOverlayD2D::SetShowParticles(bool b)
+{
+	bShowParticles = b;
+}
+
+void UStatsOverlayD2D::ToggleParticles()
+{
+	bShowParticles = !bShowParticles;
 }

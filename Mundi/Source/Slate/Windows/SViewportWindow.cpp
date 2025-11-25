@@ -1408,6 +1408,7 @@ void SViewportWindow::RenderShowFlagDropdownMenu()
 				UStatsOverlayD2D::Get().SetShowLights(false);
 				UStatsOverlayD2D::Get().SetShowShadow(false);
 				UStatsOverlayD2D::Get().SetShowSkinning(false);
+				UStatsOverlayD2D::Get().SetShowParticles(false);
 			}
 
 			if (ImGui::IsItemHovered())
@@ -1505,6 +1506,16 @@ void SViewportWindow::RenderShowFlagDropdownMenu()
 			if (ImGui::IsItemHovered())
 			{
 				ImGui::SetTooltip("스키닝 통계를 표시합니다. (GPU/CPU 스키닝 메시 개수, 버텍스 개수)");
+			}
+
+			bool bParticleStats = UStatsOverlayD2D::Get().IsParticlesVisible();
+			if (ImGui::Checkbox(" PARTICLES", &bParticleStats))
+			{
+				UStatsOverlayD2D::Get().ToggleParticles();
+			}
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip("파티클 시스템 통계를 표시합니다. (시스템 수, 이미터 수, 파티클 수, 메모리 사용량)");
 			}
 
 			ImGui::EndMenu();

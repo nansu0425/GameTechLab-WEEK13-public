@@ -23,6 +23,8 @@ FParticleEmitterInstance::FParticleEmitterInstance()
 	, ParticleStride(0)
 	, ActiveParticles(0)
 	, ParticleCounter(0)
+	, FrameSpawnedCount(0)
+	, FrameKilledCount(0)
 	, MaxActiveParticles(0)
 	, SpawnFraction(0.0f)
 	, bBurstFired(false)  // 언리얼 엔진 호환: Burst 초기화
@@ -316,6 +318,10 @@ void FParticleEmitterInstance::Resize(int32 NewMaxActiveParticles)
 
 void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 {
+	// 프레임별 카운터 리셋 (stat용)
+	FrameSpawnedCount = 0;
+	FrameKilledCount = 0;
+
 	if (!CurrentLODLevel || !bEmitterEnabled)
 	{
 		return;
@@ -467,6 +473,7 @@ void FParticleEmitterInstance::SpawnParticles(int32 Count, float StartTime, floa
 		PostSpawn(Particle, static_cast<float>(i) / Count, SpawnTime);
 
 		ParticleCounter++;
+		FrameSpawnedCount++;
 	}
 }
 
@@ -578,6 +585,7 @@ void FParticleEmitterInstance::KillParticle(int32 Index)
 	}
 
 	ActiveParticles--;
+	FrameKilledCount++;
 }
 
 void FParticleEmitterInstance::KillAllParticles()
