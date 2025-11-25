@@ -37,4 +37,7 @@ public:
 	int32 CalculateSpawnCount(FParticleEmitterInstance* Owner, float DeltaTime, float& InOutSpawnFraction, bool& bInOutBurstFired);
 
 	virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
+
+	// Spawn은 세 번째로 표시 (우선순위 2)
+	virtual int32 GetDisplayPriority() const override { return 2; }
 };

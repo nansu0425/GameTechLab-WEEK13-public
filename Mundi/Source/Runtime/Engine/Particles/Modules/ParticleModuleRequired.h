@@ -73,4 +73,7 @@ public:
 	FParticleRequiredModule ToRenderThreadData() const;
 
 	virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
+
+	// Required는 두 번째로 표시 (우선순위 1)
+	virtual int32 GetDisplayPriority() const override { return 1; }
 };

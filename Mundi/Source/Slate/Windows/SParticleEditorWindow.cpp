@@ -965,28 +965,28 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 
 	int32 ModuleIdx = 0;
 
-	// 1. Required 모듈 (항상 표시)
-	if (LOD->RequiredModule)
-	{
-		RenderModuleBlock(EmitterIndex, ModuleIdx++, LOD->RequiredModule);
-	}
-
-	// 2. Spawn 모듈
-	if (LOD->SpawnModule)
-	{
-		RenderModuleBlock(EmitterIndex, ModuleIdx++, LOD->SpawnModule);
-	}
-
-	// 3. TypeData 모듈
-	if (LOD->TypeDataModule)
-	{
-		RenderModuleBlock(EmitterIndex, ModuleIdx++, LOD->TypeDataModule);
-	}
-
-	// 4. 일반 모듈들
+	// 모듈을 우선순위에 따라 정렬하여 렌더링
+	// 우선순위: TypeData(0) -> Required(1) -> Spawn(2) -> 일반(100)
+	TArray<int32> SortedIndices;
 	for (int32 i = 0; i < LOD->Modules.Num(); ++i)
 	{
-		UParticleModule* Module = LOD->Modules[i];
+		SortedIndices.Add(i);
+	}
+
+	// 우선순위 기준 정렬
+	std::sort(SortedIndices.begin(), SortedIndices.end(), [&LOD](int32 A, int32 B)
+	{
+		UParticleModule* ModuleA = LOD->Modules[A];
+		UParticleModule* ModuleB = LOD->Modules[B];
+		int32 PriorityA = ModuleA ? ModuleA->GetDisplayPriority() : 100;
+		int32 PriorityB = ModuleB ? ModuleB->GetDisplayPriority() : 100;
+		return PriorityA < PriorityB;
+	});
+
+	// 정렬된 순서로 렌더링
+	for (int32 SortedIdx : SortedIndices)
+	{
+		UParticleModule* Module = LOD->Modules[SortedIdx];
 		if (Module)
 		{
 			RenderModuleBlock(EmitterIndex, ModuleIdx++, Module);
