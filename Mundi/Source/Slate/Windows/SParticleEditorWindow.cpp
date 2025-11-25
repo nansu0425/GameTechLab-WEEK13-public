@@ -155,13 +155,6 @@ void SParticleEditorWindow::OnRender()
 			return;
 		}
 
-		// 탭이 닫힌 후 몇 프레임 동안 렌더링 건너뛰기 (리소스 정리 대기)
-		if (TabClosedSkipFrames > 0)
-		{
-			ImGui::End();
-			return;
-		}
-
 		// 윈도우 rect 업데이트
 		ImVec2 pos = ImGui::GetWindowPos();
 		ImVec2 size = ImGui::GetWindowSize();
