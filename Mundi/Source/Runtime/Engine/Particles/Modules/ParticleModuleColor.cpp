@@ -32,23 +32,85 @@ void UParticleModuleColor::Spawn(FParticleEmitterInstance* Owner, int32 Offset, 
 	ColorPayload.InitialColor = InitialColor;
 	ColorPayload.TargetColor = TargetColor;
 	ColorPayload.ColorChangeRate = 1.0f;  // 기본 변화 속도
+
+	// UniformCurve용 랜덤 비율 저장 (0~1)
+	ColorPayload.RGBRandomFactor = FVector(
+		Owner->RandomStream.GetFraction(),
+		Owner->RandomStream.GetFraction(),
+		Owner->RandomStream.GetFraction()
+	);
+	ColorPayload.AlphaRandomFactor = Owner->RandomStream.GetFraction();
 }
 
 // 언리얼 엔진 호환: Context를 사용한 업데이트 (페이로드 시스템)
 void UParticleModuleColor::Update(FModuleUpdateContext& Context)
 {
-	// BEGIN_UPDATE_LOOP/END_UPDATE_LOOP 매크로 사용
-	// 언리얼 엔진 표준 패턴: 역방향 순회, Freeze 자동 스킵
+	// Distribution 타입 확인 (RGB와 Alpha 각각)
+	const EDistributionType RGBDistType = StartColor.RGB.Type;
+	const EDistributionType AlphaDistType = StartColor.Alpha.Type;
+
 	BEGIN_UPDATE_LOOP
 		// 언리얼 엔진 호환: PARTICLE_ELEMENT 매크로 (CurrentOffset 자동 증가)
 		PARTICLE_ELEMENT(FParticleColorPayload, ColorPayload);
 
-		// 색상 보간 (OverLife 패턴)
-		float Alpha = Particle.RelativeTime * ColorPayload.ColorChangeRate;
-		Alpha = FMath::Clamp(Alpha, 0.0f, 1.0f);
+		FLinearColor CurrentColor;
 
-		// 페이로드에 저장된 초기/목표 색상을 사용하여 보간
-		Particle.Color = FLinearColor::Lerp(ColorPayload.InitialColor, ColorPayload.TargetColor, Alpha);
+		// RGB 처리
+		switch (RGBDistType)
+		{
+		case EDistributionType::ConstantCurve:
+			{
+				FVector RGB = StartColor.RGB.ConstantCurve.Eval(Particle.RelativeTime);
+				CurrentColor.R = RGB.X;
+				CurrentColor.G = RGB.Y;
+				CurrentColor.B = RGB.Z;
+			}
+			break;
+
+		case EDistributionType::UniformCurve:
+			{
+				FVector MinRGB = StartColor.RGB.MinCurve.Eval(Particle.RelativeTime);
+				FVector MaxRGB = StartColor.RGB.MaxCurve.Eval(Particle.RelativeTime);
+				CurrentColor.R = FMath::Lerp(MinRGB.X, MaxRGB.X, ColorPayload.RGBRandomFactor.X);
+				CurrentColor.G = FMath::Lerp(MinRGB.Y, MaxRGB.Y, ColorPayload.RGBRandomFactor.Y);
+				CurrentColor.B = FMath::Lerp(MinRGB.Z, MaxRGB.Z, ColorPayload.RGBRandomFactor.Z);
+			}
+			break;
+
+		default:
+			{
+				float Alpha = FMath::Clamp(Particle.RelativeTime, 0.0f, 1.0f);
+				CurrentColor.R = FMath::Lerp(ColorPayload.InitialColor.R, ColorPayload.TargetColor.R, Alpha);
+				CurrentColor.G = FMath::Lerp(ColorPayload.InitialColor.G, ColorPayload.TargetColor.G, Alpha);
+				CurrentColor.B = FMath::Lerp(ColorPayload.InitialColor.B, ColorPayload.TargetColor.B, Alpha);
+			}
+			break;
+		}
+
+		// Alpha 처리
+		switch (AlphaDistType)
+		{
+		case EDistributionType::ConstantCurve:
+			CurrentColor.A = StartColor.Alpha.ConstantCurve.Eval(Particle.RelativeTime);
+			break;
+
+		case EDistributionType::UniformCurve:
+			{
+				float MinA = StartColor.Alpha.MinCurve.Eval(Particle.RelativeTime);
+				float MaxA = StartColor.Alpha.MaxCurve.Eval(Particle.RelativeTime);
+				CurrentColor.A = FMath::Lerp(MinA, MaxA, ColorPayload.AlphaRandomFactor);
+			}
+			break;
+
+		default:
+			{
+				float Alpha = FMath::Clamp(Particle.RelativeTime, 0.0f, 1.0f);
+				CurrentColor.A = FMath::Lerp(ColorPayload.InitialColor.A, ColorPayload.TargetColor.A, Alpha);
+			}
+			break;
+		}
+
+		Particle.Color = CurrentColor;
 	END_UPDATE_LOOP
 }
 

@@ -22,8 +22,8 @@ int32 UParticleModuleSpawn::CalculateSpawnCount(FParticleEmitterInstance* Owner,
 	}
 
 	// 2. SpawnRate에 따른 정상 스폰 (부드러운 스폰)
-	// Distribution에서 현재 SpawnRate 값 가져오기
-	float SpawnRateValue = SpawnRate.GetValue(0.0f, Owner->RandomStream, Owner->Component);
+	// Distribution에서 현재 SpawnRate 값 가져오기 (이미터 시간 기반 - 커브 타입 지원)
+	float SpawnRateValue = SpawnRate.GetValue(Owner->EmitterTime, Owner->RandomStream, Owner->Component);
 	if (SpawnRateValue > 0.0f)
 	{
 		// 언리얼 엔진 방식: 분수 누적으로 프레임 독립적 스폰

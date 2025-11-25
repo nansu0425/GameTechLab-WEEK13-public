@@ -4,13 +4,14 @@
 #include "Distribution.h"
 #include "UParticleModuleVelocity.generated.h"
 
-// 언리얼 엔진 호환: 페이로드 시스템 예시
+// 언리얼 엔진 호환: 페이로드 시스템 예시 (32바이트, 16바이트 정렬)
 // 파티클별 추가 데이터를 저장하는 구조체
 struct FParticleVelocityPayload
 {
-	FVector InitialVelocity;      // 생성 시 초기 속도 (Distribution 샘플링 후)
-	float VelocityMagnitude;      // 속도 크기 (최적화: 매 프레임 계산 대신 저장)
-	float Padding[2];             // 16바이트 정렬 유지 (32바이트 총 크기)
+	FVector InitialVelocity;      // 생성 시 초기 속도 (Distribution 샘플링 후) (12바이트)
+	float VelocityMagnitude;      // 속도 크기 (최적화: 매 프레임 계산 대신 저장) (4바이트)
+	float Padding[4];             // 정렬 패딩 (16바이트)
+	// 총 32바이트
 };
 
 UCLASS(DisplayName="속도 모듈", Description="파티클의 초기 속도와 방향을 설정하는 모듈입니다")

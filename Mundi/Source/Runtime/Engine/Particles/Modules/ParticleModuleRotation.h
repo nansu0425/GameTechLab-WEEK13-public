@@ -9,8 +9,8 @@ struct FParticleRotationPayload
 {
 	float InitialRotation;      // 초기 회전값 (라디안) (4바이트)
 	float TargetRotation;       // 목표 회전값 (RotationOverLife용) (4바이트)
-	float Padding0;             // 정렬 패딩 (4바이트)
-	float Padding1;             // 정렬 패딩 (4바이트)
+	float RandomFactor;         // UniformCurve용 랜덤 비율 (0~1) (4바이트)
+	float Padding;              // 정렬 패딩 (4바이트)
 	// 총 16바이트
 };
 
