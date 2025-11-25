@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "SParticleEditorWindow.h"
+#include <unordered_map>
 #include "SlateManager.h"
 #include "Source/Runtime/Engine/Viewer/ParticleEditorBootstrap.h"
 #include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
@@ -405,24 +406,22 @@ void SParticleEditorWindow::RenderRightPanel()
 	{
 		if (ImGui::MenuItem("새 파티클 스프라이트 이미터"))
 		{
-			// 새 이미터 생성
-			UParticleEmitter* NewEmitter = NewObject<UParticleEmitter>();
-			UParticleLODLevel* NewLOD = NewObject<UParticleLODLevel>();
-			NewLOD->bEnabled = true;
-			NewLOD->RequiredModule = NewObject<UParticleModuleRequired>();
-			NewLOD->SpawnModule = NewObject<UParticleModuleSpawn>();
+			// 기본 템플릿에서 이미터 가져오기
+			UParticleSystem* DefaultTemplate = ParticleEditorBootstrap::CreateDefaultParticleTemplate();
+			if (DefaultTemplate && DefaultTemplate->Emitters.Num() > 0)
+			{
+				UParticleEmitter* NewEmitter = DefaultTemplate->Emitters[0];
+				System->Emitters.Add(NewEmitter);
 
-			// 기본 스프라이트 타입 데이터 설정
-			UParticleModuleTypeDataSprite* SpriteTypeData = NewObject<UParticleModuleTypeDataSprite>();
-			NewLOD->TypeDataModule = SpriteTypeData;
+				// EmitterInstances 재생성
+				if (State->PreviewComponent)
+				{
+					State->PreviewComponent->RefreshEmitterInstances();
+				}
+				State->bIsDirty = true;
 
-			NewEmitter->LODLevels.Add(NewLOD);
-			NewEmitter->CacheEmitterModuleInfo();
-
-			System->Emitters.Add(NewEmitter);
-			State->bIsDirty = true;
-
-			UE_LOG("[ParticleEditor] 새 스프라이트 이미터 추가: %d", System->Emitters.Num() - 1);
+				UE_LOG("[ParticleEditor] 새 스프라이트 이미터 추가: %d", System->Emitters.Num() - 1);
+			}
 		}
 		ImGui::EndPopup();
 	}
@@ -825,8 +824,8 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 	}
 
 	// ========== 이미터 헤더 ==========
-	bool bEmitterSelected = (State->SelectedEmitterIndex == EmitterIndex &&
-							 State->SelectedModuleIndex == -1);
+	// 이미터가 선택되었거나 해당 이미터의 모듈이 선택된 경우 하이라이트
+	bool bEmitterSelected = (State->SelectedEmitterIndex == EmitterIndex);
 
 	// 헤더 배경색 (선택 시 주황색)
 	ImVec4 HeaderBgColor = bEmitterSelected
@@ -850,7 +849,7 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 	ImDrawList* HeaderDrawList = ImGui::GetWindowDrawList();
 
 	// 체크박스 배경 (밝은 색상)
-	ImU32 CheckboxBgColor = LOD->bEnabled ? IM_COL32(100, 200, 100, 255) : IM_COL32(200, 80, 80, 255);
+	ImU32 CheckboxBgColor = LOD->bEnabled ? IM_COL32(0, 255, 0, 255) : IM_COL32(255, 0, 0, 255);
 	HeaderDrawList->AddRectFilled(CheckboxPos, ImVec2(CheckboxPos.x + CheckboxSize.x, CheckboxPos.y + CheckboxSize.y), CheckboxBgColor);
 	HeaderDrawList->AddRect(CheckboxPos, ImVec2(CheckboxPos.x + CheckboxSize.x, CheckboxPos.y + CheckboxSize.y), IM_COL32(60, 60, 60, 255));
 
@@ -1050,17 +1049,17 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 			if (System && EmitterIndex < System->Emitters.Num())
 			{
 				System->Emitters.RemoveAt(EmitterIndex);
+				// EmitterInstances 재생성
+				if (State->PreviewComponent)
+				{
+					State->PreviewComponent->RefreshEmitterInstances();
+				}
 				State->SelectedEmitterIndex = -1;
 				State->SelectedModuleIndex = -1;
 				State->SelectedModule = nullptr;
 				State->bIsDirty = true;
 			}
 		}
-		if (ImGui::MenuItem("이미터 복제"))
-		{
-			// TODO: 이미터 복제 로직 (Duplicate 사용)
-		}
-
 		ImGui::EndPopup();
 	}
 
@@ -1077,6 +1076,32 @@ void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx,
 	if (DisplayName.empty())
 	{
 		DisplayName = Module->GetClass()->Name ? Module->GetClass()->Name : "Unknown";
+		// "UParticleModule" 접두사 제거
+		const FString Prefix = "UParticleModule";
+		if (DisplayName.find(Prefix) == 0)
+		{
+			DisplayName = DisplayName.substr(Prefix.length());
+		}
+
+		// 언리얼 엔진 표준 모듈 이름 매핑
+		static const std::unordered_map<FString, FString> ModuleNameMap = {
+			{"Color", "Color Over Life"},
+			{"Size", "Initial Size"},
+			{"Velocity", "Initial Velocity"},
+			{"Lifetime", "Lifetime"},
+			{"Spawn", "Spawn"},
+			{"Required", "Required"},
+			{"TypeDataSprite", "Sprite TypeData"},
+			{"TypeDataMesh", "Mesh TypeData"},
+			{"TypeDataRibbon", "Ribbon TypeData"},
+			{"TypeDataBeam", "Beam TypeData"}
+		};
+
+		auto it = ModuleNameMap.find(DisplayName);
+		if (it != ModuleNameMap.end())
+		{
+			DisplayName = it->second;
+		}
 	}
 
 	// 클래스 이름 (색상 결정용)
@@ -1092,17 +1117,17 @@ void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx,
 	{
 		ModuleBgColor = ImVec4(0.8f, 0.5f, 0.2f, 1.0f);  // 선택 시 주황색
 	}
+	else if (ClassName.find("TypeData") != std::string::npos)
+	{
+		ModuleBgColor = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);  // TypeData: 검정
+	}
 	else if (ClassName.find("Required") != std::string::npos)
 	{
-		ModuleBgColor = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);  // Required: 검정
+		ModuleBgColor = ImVec4(0.6f, 0.6f, 0.2f, 1.0f);  // Required: 노랑
 	}
 	else if (ClassName.find("Spawn") != std::string::npos)
 	{
-		ModuleBgColor = ImVec4(0.6f, 0.3f, 0.3f, 1.0f);  // Spawn: 빨강
-	}
-	else if (ClassName.find("Lifetime") != std::string::npos)
-	{
-		ModuleBgColor = ImVec4(0.6f, 0.6f, 0.3f, 1.0f);  // Lifetime: 노랑
+		ModuleBgColor = ImVec4(0.8f, 0.3f, 0.3f, 1.0f);  // Spawn: 빨강
 	}
 	else
 	{
@@ -1120,6 +1145,10 @@ void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx,
 	// 모듈 블록 높이
 	const float ModuleHeight = 24.0f;
 
+	// TypeData, Required가 아닌 경우에만 체크박스 표시
+	bool bShowCheckbox = (ClassName.find("TypeData") == std::string::npos) &&
+						 (ClassName.find("Required") == std::string::npos);
+
 	// 모듈 배경 그리기
 	ImGui::PushStyleColor(ImGuiCol_ChildBg, ModuleBgColor);
 	char ModuleChildId[64];
@@ -1130,6 +1159,56 @@ void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx,
 	ImGui::SetCursorPosX(5.0f);
 	ImGui::SetCursorPosY((ModuleHeight - ImGui::GetTextLineHeight()) * 0.5f);
 	ImGui::Text("%s", DisplayName.c_str());
+
+	// 체크박스 (모듈 블록 내부에서 그리기)
+	if (bShowCheckbox)
+	{
+		float CheckboxX = ImGui::GetWindowWidth() - 38.0f;
+		float CheckboxY = (ModuleHeight - 14.0f) * 0.5f;
+
+		ImGui::SetCursorPos(ImVec2(CheckboxX, CheckboxY));
+
+		ImVec2 CheckboxSize(14, 14);
+		ImVec2 CheckboxPos = ImGui::GetCursorScreenPos();
+		ImDrawList* DrawList = ImGui::GetWindowDrawList();
+
+		ImU32 CheckboxBgColor = Module->bEnabled ? IM_COL32(0, 255, 0, 255) : IM_COL32(255, 0, 0, 255);
+		DrawList->AddRectFilled(CheckboxPos, ImVec2(CheckboxPos.x + CheckboxSize.x, CheckboxPos.y + CheckboxSize.y), CheckboxBgColor);
+		DrawList->AddRect(CheckboxPos, ImVec2(CheckboxPos.x + CheckboxSize.x, CheckboxPos.y + CheckboxSize.y), IM_COL32(60, 60, 60, 255));
+
+		if (Module->bEnabled)
+		{
+			// 체크 표시
+			DrawList->AddLine(
+				ImVec2(CheckboxPos.x + 3, CheckboxPos.y + 7),
+				ImVec2(CheckboxPos.x + 6, CheckboxPos.y + 10),
+				IM_COL32(255, 255, 255, 255), 2.0f);
+			DrawList->AddLine(
+				ImVec2(CheckboxPos.x + 6, CheckboxPos.y + 10),
+				ImVec2(CheckboxPos.x + 11, CheckboxPos.y + 4),
+				IM_COL32(255, 255, 255, 255), 2.0f);
+		}
+		else
+		{
+			// X 표시
+			DrawList->AddLine(
+				ImVec2(CheckboxPos.x + 3, CheckboxPos.y + 3),
+				ImVec2(CheckboxPos.x + 11, CheckboxPos.y + 11),
+				IM_COL32(255, 255, 255, 255), 2.0f);
+			DrawList->AddLine(
+				ImVec2(CheckboxPos.x + 11, CheckboxPos.y + 3),
+				ImVec2(CheckboxPos.x + 3, CheckboxPos.y + 11),
+				IM_COL32(255, 255, 255, 255), 2.0f);
+		}
+
+		char CheckboxId[64];
+		sprintf_s(CheckboxId, "##ModuleEnabled_%d_%d", EmitterIdx, ModuleIdx);
+		if (ImGui::InvisibleButton(CheckboxId, CheckboxSize))
+		{
+			Module->bEnabled = !Module->bEnabled;
+			State->bIsDirty = true;
+		}
+	}
 
 	// 클릭 감지 (전체 영역)
 	ImVec2 BlockMin = ImGui::GetWindowPos();
@@ -1144,67 +1223,12 @@ void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx,
 	ImGui::EndChild();
 	ImGui::PopStyleColor();
 
-	// 체크박스 (우측에 오버레이)
-	ImGui::SameLine(ImGui::GetWindowWidth() - 25.0f);
-	ImGui::SetCursorPosY(ImGui::GetCursorPosY() - ModuleHeight + 4.0f);
-
-	// 커스텀 체크박스
-	ImVec2 CheckboxSize(14, 14);
-	ImVec2 CheckboxPos = ImGui::GetCursorScreenPos();
-	ImDrawList* DrawList = ImGui::GetWindowDrawList();
-
-	ImU32 CheckboxBgColor = Module->bEnabled ? IM_COL32(100, 200, 100, 255) : IM_COL32(200, 80, 80, 255);
-	DrawList->AddRectFilled(CheckboxPos, ImVec2(CheckboxPos.x + CheckboxSize.x, CheckboxPos.y + CheckboxSize.y), CheckboxBgColor);
-	DrawList->AddRect(CheckboxPos, ImVec2(CheckboxPos.x + CheckboxSize.x, CheckboxPos.y + CheckboxSize.y), IM_COL32(60, 60, 60, 255));
-
-	if (Module->bEnabled)
-	{
-		// 체크 표시
-		DrawList->AddLine(
-			ImVec2(CheckboxPos.x + 3, CheckboxPos.y + 7),
-			ImVec2(CheckboxPos.x + 6, CheckboxPos.y + 10),
-			IM_COL32(255, 255, 255, 255), 2.0f);
-		DrawList->AddLine(
-			ImVec2(CheckboxPos.x + 6, CheckboxPos.y + 10),
-			ImVec2(CheckboxPos.x + 11, CheckboxPos.y + 4),
-			IM_COL32(255, 255, 255, 255), 2.0f);
-	}
-	else
-	{
-		// X 표시
-		DrawList->AddLine(
-			ImVec2(CheckboxPos.x + 3, CheckboxPos.y + 3),
-			ImVec2(CheckboxPos.x + 11, CheckboxPos.y + 11),
-			IM_COL32(255, 255, 255, 255), 2.0f);
-		DrawList->AddLine(
-			ImVec2(CheckboxPos.x + 11, CheckboxPos.y + 3),
-			ImVec2(CheckboxPos.x + 3, CheckboxPos.y + 11),
-			IM_COL32(255, 255, 255, 255), 2.0f);
-	}
-
-	char CheckboxId[64];
-	sprintf_s(CheckboxId, "##ModuleEnabled_%d_%d", EmitterIdx, ModuleIdx);
-	if (ImGui::InvisibleButton(CheckboxId, CheckboxSize))
-	{
-		Module->bEnabled = !Module->bEnabled;
-		State->bIsDirty = true;
-	}
-
 	// 모듈 우클릭 컨텍스트 메뉴
 	char ContextMenuId[64];
 	sprintf_s(ContextMenuId, "ModuleContextMenu_%d_%d", EmitterIdx, ModuleIdx);
 
 	if (ImGui::BeginPopupContextItem(ContextMenuId))
 	{
-		// 활성화/비활성화 토글
-		if (ImGui::MenuItem(Module->bEnabled ? "비활성화" : "활성화"))
-		{
-			Module->bEnabled = !Module->bEnabled;
-			State->bIsDirty = true;
-		}
-
-		ImGui::Separator();
-
 		// 삭제 (Required, Spawn 모듈은 삭제 불가)
 		bool bCanDelete = true;
 		UParticleLODLevel* LOD = nullptr;
@@ -1249,12 +1273,7 @@ void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx,
 		}
 		else
 		{
-			ImGui::TextDisabled("(필수 모듈)");
-		}
-
-		if (ImGui::MenuItem("모듈 복제"))
-		{
-			// TODO: 모듈 복제 로직
+			ImGui::TextDisabled("(삭제 불가)");
 		}
 
 		ImGui::EndPopup();

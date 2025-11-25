@@ -518,6 +518,13 @@ void UParticleSystemComponent::SetTemplate(UParticleSystem* NewTemplate)
 	}
 }
 
+void UParticleSystemComponent::RefreshEmitterInstances()
+{
+	// 동일한 템플릿의 내용이 변경되었을 때 EmitterInstances 재생성
+	ClearEmitterInstances();
+	InitializeEmitterInstances();
+}
+
 void UParticleSystemComponent::InitializeEmitterInstances()
 {
 	ClearEmitterInstances();

@@ -85,6 +85,9 @@ public:
 	// 템플릿 설정
 	void SetTemplate(UParticleSystem* NewTemplate);
 
+	// 템플릿 내용 변경 시 EmitterInstances 재생성 (에디터용)
+	void RefreshEmitterInstances();
+
 	// 언리얼 엔진 호환: 인스턴스 파라미터 제어
 	void SetFloatParameter(const FString& ParameterName, float Value);
 	void SetVectorParameter(const FString& ParameterName, const FVector& Value);
