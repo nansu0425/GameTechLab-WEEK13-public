@@ -851,7 +851,7 @@ void SParticleEditorWindow::SaveParticleSystemAs()
 
 	// 저장 파일 다이얼로그 열기
 	std::filesystem::path SavePath = FPlatformProcess::OpenSaveFileDialog(
-		L"Content",              // 기본 디렉토리
+		L"Data/Particles",       // 기본 디렉토리
 		L"particle",             // 기본 확장자
 		L"Particle Files",       // 파일 타입 설명
 		L"NewParticleSystem"     // 기본 파일명
@@ -893,7 +893,7 @@ void SParticleEditorWindow::LoadParticleSystem()
 
 	// 불러오기 파일 다이얼로그 열기
 	std::filesystem::path LoadPath = FPlatformProcess::OpenLoadFileDialog(
-		L"Content",          // 기본 디렉토리
+		L"Data/Particles",   // 기본 디렉토리
 		L"particle",         // 확장자 필터
 		L"Particle Files"    // 파일 타입 설명
 	);
