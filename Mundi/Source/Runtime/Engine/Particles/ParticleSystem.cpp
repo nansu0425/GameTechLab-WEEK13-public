@@ -3,6 +3,25 @@
 #include "ObjectFactory.h"
 #include "JsonSerializer.h"
 
+void UParticleSystem::Load(const FString& InFilePath, ID3D11Device* InDevice)
+{
+	// FString을 FWideString으로 변환
+	FWideString WidePath(InFilePath.begin(), InFilePath.end());
+
+	// 파일에서 JSON 로드
+	JSON JsonHandle;
+	if (!FJsonSerializer::LoadJsonFromFile(JsonHandle, WidePath))
+	{
+		UE_LOG("[UParticleSystem] Load 실패: %s", InFilePath.c_str());
+		return;
+	}
+
+	// 역직렬화 (true = 로딩 모드)
+	Serialize(true, JsonHandle);
+
+	UE_LOG("[UParticleSystem] Load 성공: %s", InFilePath.c_str());
+}
+
 UParticleSystem::~UParticleSystem()
 {
 	// 모든 이미터 삭제

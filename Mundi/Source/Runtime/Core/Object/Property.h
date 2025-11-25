@@ -25,6 +25,7 @@ enum class EPropertyType : uint8
 	Curve,
 	UClass,         // UClass* 타입 (클래스 선택 UI)
 	Enum,           // enum class 타입 (콤보박스 UI)
+	ParticleSystem, // UParticleSystem* 타입 (파티클 시스템 선택 UI)
 	// 추후 추가될 프로퍼티들은 직접 해줘야함.
 	Count			// 요소 개수, 항상 마지막!
 };
