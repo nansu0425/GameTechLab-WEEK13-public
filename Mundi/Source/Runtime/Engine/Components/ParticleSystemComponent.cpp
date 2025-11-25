@@ -19,11 +19,6 @@
 #include "Modules/ParticleModuleRotationRate.h"
 #include "Modules/ParticleModuleLocation.h"
 
-// Static 멤버 정의
-ID3D11Buffer* UParticleSystemComponent::SpriteQuadVertexBuffer = nullptr;
-ID3D11Buffer* UParticleSystemComponent::SpriteQuadIndexBuffer = nullptr;
-bool UParticleSystemComponent::bQuadBuffersInitialized = false;
-
 // Quad 버텍스 구조체 (UV만 포함)
 struct FSpriteQuadVertex
 {
@@ -53,7 +48,7 @@ void UParticleSystemComponent::InitializeQuadBuffers()
 	D3D11_SUBRESOURCE_DATA VBData = {};
 	VBData.pSysMem = Vertices;
 
-	Device->CreateBuffer(&VBDesc, &VBData, &SpriteQuadVertexBuffer);
+	Device->CreateBuffer(&VBDesc, &VBData, SpriteQuadVertexBuffer.GetAddressOf());
 
 	// 6개 인덱스 (2개 삼각형)
 	uint32 Indices[6] = { 0, 1, 2, 2, 1, 3 };
@@ -66,25 +61,11 @@ void UParticleSystemComponent::InitializeQuadBuffers()
 	D3D11_SUBRESOURCE_DATA IBData = {};
 	IBData.pSysMem = Indices;
 
-	Device->CreateBuffer(&IBDesc, &IBData, &SpriteQuadIndexBuffer);
+	Device->CreateBuffer(&IBDesc, &IBData, SpriteQuadIndexBuffer.GetAddressOf());
 
 	bQuadBuffersInitialized = true;
 }
-
-void UParticleSystemComponent::ReleaseQuadBuffers()
-{
-	if (SpriteQuadVertexBuffer)
-	{
-		SpriteQuadVertexBuffer->Release();
-		SpriteQuadVertexBuffer = nullptr;
-	}
-	if (SpriteQuadIndexBuffer)
-	{
-		SpriteQuadIndexBuffer->Release();
-		SpriteQuadIndexBuffer = nullptr;
-	}
-	bQuadBuffersInitialized = false;
-}
+// Note: ReleaseQuadBuffers 제거됨 - ComPtr이 프로그램 종료 시 자동 해제
 
 UParticleSystemComponent::UParticleSystemComponent()
 {
@@ -1045,9 +1026,9 @@ void UParticleSystemComponent::CreateSpriteParticleBatch(TArray<FMeshBatchElemen
 	BatchElement.InputLayout = ShaderVariant->InputLayout;
 	BatchElement.Material = Material;
 
-	// Quad 버퍼 사용
-	BatchElement.VertexBuffer = SpriteQuadVertexBuffer;
-	BatchElement.IndexBuffer = SpriteQuadIndexBuffer;
+	// Quad 버퍼 사용 (ComPtr에서 raw 포인터 추출)
+	BatchElement.VertexBuffer = SpriteQuadVertexBuffer.Get();
+	BatchElement.IndexBuffer = SpriteQuadIndexBuffer.Get();
 	BatchElement.VertexStride = sizeof(FSpriteQuadVertex);
 
 	// 인스턴싱 데이터

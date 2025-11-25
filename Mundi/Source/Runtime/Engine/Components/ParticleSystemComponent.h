@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include <wrl/client.h>
 #include "PrimitiveComponent.h"
 #include "Source/Runtime/Engine/Particles/ParticleSystem.h"
 #include "Source/Runtime/Engine/Particles/ParticleEmitterInstance.h"
@@ -54,11 +55,11 @@ public:
 	uint32 AllocatedSpriteInstanceCount = 0;
 
 	// Shared Quad Mesh (스프라이트 인스턴싱용)
-	static ID3D11Buffer* SpriteQuadVertexBuffer;
-	static ID3D11Buffer* SpriteQuadIndexBuffer;
-	static bool bQuadBuffersInitialized;
+	// ComPtr + static inline: 프로그램 종료 시 자동 해제, cpp 정의 불필요
+	static inline Microsoft::WRL::ComPtr<ID3D11Buffer> SpriteQuadVertexBuffer;
+	static inline Microsoft::WRL::ComPtr<ID3D11Buffer> SpriteQuadIndexBuffer;
+	static inline bool bQuadBuffersInitialized = false;
 	static void InitializeQuadBuffers();
-	static void ReleaseQuadBuffers();
 
 	UParticleSystemComponent();
 	virtual ~UParticleSystemComponent();
