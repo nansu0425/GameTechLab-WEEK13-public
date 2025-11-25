@@ -172,13 +172,15 @@ void UParticleSystemComponent::CreateDebugParticleSystem()
 	UParticleLODLevel* LODLevel = NewObject<UParticleLODLevel>();
 	LODLevel->bEnabled = true;
 
-	// 필수 모듈 생성
-	LODLevel->RequiredModule = NewObject<UParticleModuleRequired>();
+	// 필수 모듈 생성 - Modules 배열에 추가
+	UParticleModuleRequired* RequiredModule = NewObject<UParticleModuleRequired>();
+	LODLevel->Modules.Add(RequiredModule);
 
-	// 메시 타입 데이터 모듈 생성 (스프라이트 대신 메시 사용)
+	// 메시 타입 데이터 모듈 생성 - Modules 배열에 추가
 	UParticleModuleTypeDataMesh* MeshTypeData = NewObject<UParticleModuleTypeDataMesh>();
 	// 테스트용 메시 로드 (큐브) - ResourceManager가 관리하는 공유 리소스
 	MeshTypeData->Mesh = UResourceManager::GetInstance().Load<UStaticMesh>(GDataDir + "/cube-tex.obj");
+	LODLevel->Modules.Add(MeshTypeData);
 
 	// 메시 파티클용 Material 설정 (테스트용으로 직접 생성)
 	UMaterial* MeshParticleMaterial = NewObject<UMaterial>();
@@ -200,14 +202,12 @@ void UParticleSystemComponent::CreateDebugParticleSystem()
 			}
 		}
 	}
-	LODLevel->RequiredModule->Material = MeshParticleMaterial;
-	LODLevel->TypeDataModule = MeshTypeData;
+	RequiredModule->Material = MeshParticleMaterial;
 
-	// 스폰 모듈 생성
+	// 스폰 모듈 생성 - Modules 배열에 추가
 	UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
 	SpawnModule->SpawnRate = FDistributionFloat(10000.0f);   // 초당 100개 파티클 (메시는 무거우므로 줄임)
 	SpawnModule->BurstCount = FDistributionFloat(100.0f);     // 시작 시 100개 버스트
-	LODLevel->SpawnModule = SpawnModule;
 	LODLevel->Modules.Add(SpawnModule);
 
 	// 라이프타임 모듈 생성 (파티클 수명 설정)
@@ -261,8 +261,13 @@ void UParticleSystemComponent::CreateDebugSpriteParticleSystem()
 	UParticleLODLevel* LODLevel = NewObject<UParticleLODLevel>();
 	LODLevel->bEnabled = true;
 
-	// 필수 모듈 생성
-	LODLevel->RequiredModule = NewObject<UParticleModuleRequired>();
+	// 필수 모듈 생성 - Modules 배열에 추가
+	UParticleModuleRequired* RequiredModule = NewObject<UParticleModuleRequired>();
+	LODLevel->Modules.Add(RequiredModule);
+
+	// 스프라이트 타입 데이터 모듈 - Modules 배열에 추가
+	UParticleModuleTypeDataSprite* SpriteTypeData = NewObject<UParticleModuleTypeDataSprite>();
+	LODLevel->Modules.Add(SpriteTypeData);
 
 	// 스프라이트용 Material 설정 (테스트용으로 직접 생성)
 	UMaterial* SpriteMaterial = NewObject<UMaterial>();
@@ -276,17 +281,12 @@ void UParticleSystemComponent::CreateDebugSpriteParticleSystem()
 	SpriteMaterial->SetMaterialInfo(MatInfo);
 	SpriteMaterial->ResolveTextures();
 
-	LODLevel->RequiredModule->Material = SpriteMaterial;
+	RequiredModule->Material = SpriteMaterial;
 
-	// 스프라이트 타입 데이터 모듈 (TypeDataModule이 nullptr이면 기본적으로 스프라이트)
-	UParticleModuleTypeDataSprite* SpriteTypeData = NewObject<UParticleModuleTypeDataSprite>();
-	LODLevel->TypeDataModule = SpriteTypeData;
-
-	// 스폰 모듈 생성
+	// 스폰 모듈 생성 - Modules 배열에 추가
 	UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
 	SpawnModule->SpawnRate = FDistributionFloat(5000.0f);    // 초당 50개 파티클
 	SpawnModule->BurstCount = FDistributionFloat(10000.0f);      // 시작 시 20개 버스트
-	LODLevel->SpawnModule = SpawnModule;
 	LODLevel->Modules.Add(SpawnModule);
 
 	// 라이프타임 모듈 생성
@@ -611,6 +611,10 @@ void UParticleSystemComponent::DuplicateSubObjects()
 	AllocatedMeshInstanceCount = 0;
 	SpriteInstanceBuffer = nullptr;
 	AllocatedSpriteInstanceCount = 0;
+
+	// 테스트용 리소스 포인터 초기화 (원본 소유, 복사본에서 삭제하면 안됨)
+	TestTemplate = nullptr;
+	TestMaterials.Empty();
 }
 
 void UParticleSystemComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View)
