@@ -55,7 +55,7 @@ struct FParticleEmitterInstance
 	float SpawnFraction;
 
 	// Burst 상태 (언리얼 엔진 호환)
-	bool bBurstFired;  // Burst가 이미 발생했는지 여부
+	TArray<bool> BurstFired;  // 각 버스트 항목별 발생 여부 추적
 
 	// 랜덤 스트림 (언리얼 엔진 호환)
 	FParticleRandomStream RandomStream;

@@ -221,7 +221,7 @@ void UParticleSystemComponent::CreateDebugMeshParticleSystem()
 	// 스폰 모듈 생성 - Modules 배열에 추가
 	UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
 	SpawnModule->SpawnRate = FDistributionFloat(10000.0f);   // 초당 100개 파티클 (메시는 무거우므로 줄임)
-	SpawnModule->BurstCount = FDistributionFloat(100.0f);     // 시작 시 100개 버스트
+	SpawnModule->BurstList.Add(FParticleBurst(100, 0.0f));   // 시작 시 100개 버스트
 	LODLevel->Modules.Add(SpawnModule);
 
 	// 라이프타임 모듈 생성 (파티클 수명 설정)
@@ -300,7 +300,7 @@ void UParticleSystemComponent::CreateDebugSpriteParticleSystem()
 	// 스폰 모듈 생성 - Modules 배열에 추가
 	UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
 	SpawnModule->SpawnRate = FDistributionFloat(5000.0f);    // 초당 50개 파티클
-	SpawnModule->BurstCount = FDistributionFloat(10000.0f);      // 시작 시 20개 버스트
+	SpawnModule->BurstList.Add(FParticleBurst(10000, 0.0f)); // 시작 시 10000개 버스트
 	LODLevel->Modules.Add(SpawnModule);
 
 	// 라이프타임 모듈 생성
@@ -384,7 +384,7 @@ void UParticleSystemComponent::CreateDebugBeamParticleSystem()
 	// 스폰 모듈 생성 - 빔은 최소 2개의 파티클(시작/끝)이 필요 (Modules 배열에 추가)
 	UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
 	SpawnModule->SpawnRate = FDistributionFloat(0.0f);    // 연속 스폰 안함
-	SpawnModule->BurstCount = FDistributionFloat(2.0f);      // 시작 시 2개(시작점, 끝점) 버스트
+	SpawnModule->BurstList.Add(FParticleBurst(2, 0.0f));  // 시작 시 2개(시작점, 끝점) 버스트
 	LODLevel->Modules.Add(SpawnModule);
 
 	// 라이프타임 모듈 생성 (빔의 전체 수명)

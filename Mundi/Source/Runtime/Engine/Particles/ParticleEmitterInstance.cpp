@@ -27,7 +27,7 @@ FParticleEmitterInstance::FParticleEmitterInstance()
 	, FrameKilledCount(0)
 	, MaxActiveParticles(0)
 	, SpawnFraction(0.0f)
-	, bBurstFired(false)  // 언리얼 엔진 호환: Burst 초기화
+	// BurstFired는 TArray이므로 기본 초기화됨
 	, EmitterTime(0.0f)
 	, SecondsSinceCreation(0.0f)
 	, EmitterDurationActual(0.0f)
@@ -79,7 +79,7 @@ void FParticleEmitterInstance::Init(UParticleSystemComponent* InComponent, UPart
 	CurrentLoopCount = 0;
 	bEmitterEnabled = true;
 	bDelayComplete = false;
-	bBurstFired = false;  // Burst도 초기화
+	// BurstFired 배열은 SetupEmitter()에서 초기화됨
 	SpawnFraction = 0.0f;
 
 	// 언리얼 엔진 호환: Required 모듈에서 설정 읽기
@@ -151,7 +151,7 @@ void FParticleEmitterInstance::SetLODLevel(int32 NewLODIndex)
 
 	// 수명/스폰 관련 상태 초기화
 	SpawnFraction = 0.f;
-	bBurstFired = false;
+	// BurstFired 배열은 SetupEmitter()에서 초기화됨
 
 	// 언리얼 엔진 호환: 타이밍 상태 리셋
 	EmitterTime = 0.0f;
@@ -262,6 +262,18 @@ void FParticleEmitterInstance::SetupEmitter()
 	{
 		InstanceData = new uint8[InstancePayloadSize];
 		memset(InstanceData, 0, InstancePayloadSize);
+	}
+
+	// BurstFired 배열 초기화 (SpawnModule의 BurstList 크기에 맞춤)
+	BurstFired.Empty();
+	if (CurrentLODLevel->SpawnModule)
+	{
+		int32 BurstCount = CurrentLODLevel->SpawnModule->BurstList.Num();
+		BurstFired.SetNum(BurstCount);
+		for (int32 i = 0; i < BurstCount; ++i)
+		{
+			BurstFired[i] = false;
+		}
 	}
 }
 
@@ -374,7 +386,11 @@ void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 				// 루프 재시작
 				CurrentLoopCount++;
 				EmitterTime = 0.0f;
-				bBurstFired = false;
+				// BurstFired 배열 리셋
+				for (int32 i = 0; i < BurstFired.Num(); ++i)
+				{
+					BurstFired[i] = false;
+				}
 				SpawnFraction = 0.0f;
 				bSuppressSpawningDuration = false;
 
@@ -401,7 +417,7 @@ void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 
 		if (SpawnModule && SpawnModule->bEnabled)
 		{
-			int32 SpawnCount = SpawnModule->CalculateSpawnCount(this, DeltaTime, SpawnFraction, bBurstFired);
+			int32 SpawnCount = SpawnModule->CalculateSpawnCount(this, DeltaTime, SpawnFraction);
 
 			if (SpawnCount > 0)
 			{
