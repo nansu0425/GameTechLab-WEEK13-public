@@ -3,6 +3,7 @@
 #include "ImGui/imgui.h"
 #include "Vector.h"
 #include "Color.h"
+#include "Distribution.h"
 #include "SceneComponent.h"
 #include "ResourceManager.h"
 #include "Texture.h"
@@ -245,6 +246,19 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 	case EPropertyType::Sound:
 		bChanged = RenderSoundProperty(Property, ObjectInstance);
 		break;
+
+	case EPropertyType::DistributionFloat:
+		bChanged = RenderDistributionFloatProperty(Property, ObjectInstance);
+		break;
+
+	case EPropertyType::DistributionVector:
+		bChanged = RenderDistributionVectorProperty(Property, ObjectInstance);
+		break;
+
+	case EPropertyType::DistributionColor:
+		bChanged = RenderDistributionColorProperty(Property, ObjectInstance);
+		break;
+
 	default:
 		ImGui::Text("%s: [Unknown Type]", Property.Name);
 		break;
@@ -2321,4 +2335,361 @@ bool UPropertyRenderer::RenderTransformProperty(const FProperty& Prop, void* Ins
 	ImGui::PopID();
 
 	return bAnyChanged;
+}
+
+// ============================================================
+// Distribution 렌더링 함수들
+// ============================================================
+
+bool UPropertyRenderer::RenderDistributionModeCombo(const char* Label, EDistributionType& Type)
+{
+	static const char* ModeNames[] = {
+		"Constant",
+		"Uniform",
+		"ConstantCurve",
+		"UniformCurve",
+		"ParticleParameter"
+	};
+
+	int CurrentMode = static_cast<int>(Type);
+	if (ImGui::Combo(Label, &CurrentMode, ModeNames, IM_ARRAYSIZE(ModeNames)))
+	{
+		Type = static_cast<EDistributionType>(CurrentMode);
+		return true;
+	}
+	return false;
+}
+
+bool UPropertyRenderer::RenderInterpCurveFloat(const char* Label, FInterpCurveFloat& Curve)
+{
+	bool bChanged = false;
+
+	if (ImGui::TreeNode(Label))
+	{
+		// 키프레임 개수 표시
+		ImGui::Text("키프레임: %d", Curve.Points.Num());
+
+		// 키프레임 추가 버튼
+		if (ImGui::Button("키 추가"))
+		{
+			float NewTime = Curve.Points.IsEmpty() ? 0.0f : Curve.Points.Last().InVal + 0.1f;
+			float NewValue = Curve.Points.IsEmpty() ? 0.0f : Curve.Points.Last().OutVal;
+			Curve.AddPoint(NewTime, NewValue);
+			bChanged = true;
+		}
+
+		// 각 키프레임 편집
+		for (int32 i = 0; i < Curve.Points.Num(); ++i)
+		{
+			ImGui::PushID(i);
+
+			FInterpCurvePointFloat& Point = Curve.Points[i];
+
+			ImGui::Text("[%d]", i);
+			ImGui::SameLine();
+
+			// 시간 편집
+			ImGui::SetNextItemWidth(60.0f);
+			if (ImGui::DragFloat("T", &Point.InVal, 0.01f, 0.0f, 1.0f))
+				bChanged = true;
+			ImGui::SameLine();
+
+			// 값 편집
+			ImGui::SetNextItemWidth(80.0f);
+			if (ImGui::DragFloat("V", &Point.OutVal, 0.01f))
+				bChanged = true;
+			ImGui::SameLine();
+
+			// 삭제 버튼
+			if (ImGui::Button("X"))
+			{
+				Curve.Points.RemoveAt(i);
+				bChanged = true;
+				ImGui::PopID();
+				break;
+			}
+
+			ImGui::PopID();
+		}
+
+		ImGui::TreePop();
+	}
+
+	return bChanged;
+}
+
+bool UPropertyRenderer::RenderInterpCurveVector(const char* Label, FInterpCurveVector& Curve)
+{
+	bool bChanged = false;
+
+	if (ImGui::TreeNode(Label))
+	{
+		ImGui::Text("키프레임: %d", Curve.Points.Num());
+
+		if (ImGui::Button("키 추가"))
+		{
+			float NewTime = Curve.Points.IsEmpty() ? 0.0f : Curve.Points.Last().InVal + 0.1f;
+			FVector NewValue = Curve.Points.IsEmpty() ? FVector(0, 0, 0) : Curve.Points.Last().OutVal;
+			Curve.AddPoint(NewTime, NewValue);
+			bChanged = true;
+		}
+
+		for (int32 i = 0; i < Curve.Points.Num(); ++i)
+		{
+			ImGui::PushID(i);
+
+			FInterpCurvePointVector& Point = Curve.Points[i];
+
+			ImGui::Text("[%d]", i);
+
+			ImGui::SetNextItemWidth(60.0f);
+			if (ImGui::DragFloat("Time", &Point.InVal, 0.01f, 0.0f, 1.0f))
+				bChanged = true;
+
+			if (ImGui::DragFloat3("Value", &Point.OutVal.X, 0.01f))
+				bChanged = true;
+
+			ImGui::SameLine();
+			if (ImGui::Button("삭제"))
+			{
+				Curve.Points.RemoveAt(i);
+				bChanged = true;
+				ImGui::PopID();
+				break;
+			}
+
+			ImGui::PopID();
+		}
+
+		ImGui::TreePop();
+	}
+
+	return bChanged;
+}
+
+bool UPropertyRenderer::RenderDistributionFloatProperty(const FProperty& Prop, void* Instance)
+{
+	FDistributionFloat* Dist = Prop.GetValuePtr<FDistributionFloat>(Instance);
+	if (!Dist) return false;
+
+	bool bChanged = false;
+
+	if (ImGui::TreeNode(Prop.Name))
+	{
+		bChanged |= RenderDistributionModeCombo("타입", Dist->Type);
+
+		switch (Dist->Type)
+		{
+		case EDistributionType::Constant:
+			if (ImGui::DragFloat("값", &Dist->ConstantValue, 0.01f))
+				bChanged = true;
+			break;
+
+		case EDistributionType::Uniform:
+			if (ImGui::DragFloat("최소", &Dist->MinValue, 0.01f))
+				bChanged = true;
+			if (ImGui::DragFloat("최대", &Dist->MaxValue, 0.01f))
+				bChanged = true;
+			break;
+
+		case EDistributionType::ConstantCurve:
+			bChanged |= RenderInterpCurveFloat("커브", Dist->ConstantCurve);
+			break;
+
+		case EDistributionType::UniformCurve:
+			bChanged |= RenderInterpCurveFloat("최소 커브", Dist->MinCurve);
+			bChanged |= RenderInterpCurveFloat("최대 커브", Dist->MaxCurve);
+			break;
+
+		case EDistributionType::ParticleParameter:
+			{
+				char Buffer[256];
+				strncpy_s(Buffer, Dist->ParameterName.c_str(), 255);
+				if (ImGui::InputText("파라미터명", Buffer, 256))
+				{
+					Dist->ParameterName = Buffer;
+					bChanged = true;
+				}
+				if (ImGui::DragFloat("기본값", &Dist->ParameterDefaultValue, 0.01f))
+					bChanged = true;
+			}
+			break;
+		}
+
+		ImGui::TreePop();
+	}
+
+	return bChanged;
+}
+
+bool UPropertyRenderer::RenderDistributionVectorProperty(const FProperty& Prop, void* Instance)
+{
+	FDistributionVector* Dist = Prop.GetValuePtr<FDistributionVector>(Instance);
+	if (!Dist) return false;
+
+	bool bChanged = false;
+
+	if (ImGui::TreeNode(Prop.Name))
+	{
+		bChanged |= RenderDistributionModeCombo("타입", Dist->Type);
+
+		switch (Dist->Type)
+		{
+		case EDistributionType::Constant:
+			if (ImGui::DragFloat3("값", &Dist->ConstantValue.X, 0.01f))
+				bChanged = true;
+			break;
+
+		case EDistributionType::Uniform:
+			if (ImGui::DragFloat3("최소", &Dist->MinValue.X, 0.01f))
+				bChanged = true;
+			if (ImGui::DragFloat3("최대", &Dist->MaxValue.X, 0.01f))
+				bChanged = true;
+			break;
+
+		case EDistributionType::ConstantCurve:
+			bChanged |= RenderInterpCurveVector("커브", Dist->ConstantCurve);
+			break;
+
+		case EDistributionType::UniformCurve:
+			bChanged |= RenderInterpCurveVector("최소 커브", Dist->MinCurve);
+			bChanged |= RenderInterpCurveVector("최대 커브", Dist->MaxCurve);
+			break;
+
+		case EDistributionType::ParticleParameter:
+			{
+				char Buffer[256];
+				strncpy_s(Buffer, Dist->ParameterName.c_str(), 255);
+				if (ImGui::InputText("파라미터명", Buffer, 256))
+				{
+					Dist->ParameterName = Buffer;
+					bChanged = true;
+				}
+				if (ImGui::DragFloat3("기본값", &Dist->ParameterDefaultValue.X, 0.01f))
+					bChanged = true;
+			}
+			break;
+		}
+
+		ImGui::TreePop();
+	}
+
+	return bChanged;
+}
+
+bool UPropertyRenderer::RenderDistributionColorProperty(const FProperty& Prop, void* Instance)
+{
+	FDistributionColor* Dist = Prop.GetValuePtr<FDistributionColor>(Instance);
+	if (!Dist) return false;
+
+	bool bChanged = false;
+
+	if (ImGui::TreeNode(Prop.Name))
+	{
+		// RGB (FDistributionVector)
+		if (ImGui::TreeNode("RGB"))
+		{
+			bChanged |= RenderDistributionModeCombo("타입##RGB", Dist->RGB.Type);
+
+			switch (Dist->RGB.Type)
+			{
+			case EDistributionType::Constant:
+				{
+					float RGB[3] = { Dist->RGB.ConstantValue.X, Dist->RGB.ConstantValue.Y, Dist->RGB.ConstantValue.Z };
+					if (ImGui::ColorEdit3("값", RGB))
+					{
+						Dist->RGB.ConstantValue = FVector(RGB[0], RGB[1], RGB[2]);
+						bChanged = true;
+					}
+				}
+				break;
+
+			case EDistributionType::Uniform:
+				{
+					float MinRGB[3] = { Dist->RGB.MinValue.X, Dist->RGB.MinValue.Y, Dist->RGB.MinValue.Z };
+					float MaxRGB[3] = { Dist->RGB.MaxValue.X, Dist->RGB.MaxValue.Y, Dist->RGB.MaxValue.Z };
+					if (ImGui::ColorEdit3("최소", MinRGB))
+					{
+						Dist->RGB.MinValue = FVector(MinRGB[0], MinRGB[1], MinRGB[2]);
+						bChanged = true;
+					}
+					if (ImGui::ColorEdit3("최대", MaxRGB))
+					{
+						Dist->RGB.MaxValue = FVector(MaxRGB[0], MaxRGB[1], MaxRGB[2]);
+						bChanged = true;
+					}
+				}
+				break;
+
+			case EDistributionType::ConstantCurve:
+				bChanged |= RenderInterpCurveVector("커브##RGB", Dist->RGB.ConstantCurve);
+				break;
+
+			case EDistributionType::UniformCurve:
+				bChanged |= RenderInterpCurveVector("최소 커브##RGB", Dist->RGB.MinCurve);
+				bChanged |= RenderInterpCurveVector("최대 커브##RGB", Dist->RGB.MaxCurve);
+				break;
+
+			case EDistributionType::ParticleParameter:
+				{
+					char Buffer[256];
+					strncpy_s(Buffer, Dist->RGB.ParameterName.c_str(), 255);
+					if (ImGui::InputText("파라미터명##RGB", Buffer, 256))
+					{
+						Dist->RGB.ParameterName = Buffer;
+						bChanged = true;
+					}
+				}
+				break;
+			}
+			ImGui::TreePop();
+		}
+
+		// Alpha (FDistributionFloat)
+		if (ImGui::TreeNode("Alpha"))
+		{
+			bChanged |= RenderDistributionModeCombo("타입##Alpha", Dist->Alpha.Type);
+
+			switch (Dist->Alpha.Type)
+			{
+			case EDistributionType::Constant:
+				if (ImGui::SliderFloat("값", &Dist->Alpha.ConstantValue, 0.0f, 1.0f))
+					bChanged = true;
+				break;
+
+			case EDistributionType::Uniform:
+				if (ImGui::SliderFloat("최소", &Dist->Alpha.MinValue, 0.0f, 1.0f))
+					bChanged = true;
+				if (ImGui::SliderFloat("최대", &Dist->Alpha.MaxValue, 0.0f, 1.0f))
+					bChanged = true;
+				break;
+
+			case EDistributionType::ConstantCurve:
+				bChanged |= RenderInterpCurveFloat("커브##Alpha", Dist->Alpha.ConstantCurve);
+				break;
+
+			case EDistributionType::UniformCurve:
+				bChanged |= RenderInterpCurveFloat("최소 커브##Alpha", Dist->Alpha.MinCurve);
+				bChanged |= RenderInterpCurveFloat("최대 커브##Alpha", Dist->Alpha.MaxCurve);
+				break;
+
+			case EDistributionType::ParticleParameter:
+				{
+					char Buffer[256];
+					strncpy_s(Buffer, Dist->Alpha.ParameterName.c_str(), 255);
+					if (ImGui::InputText("파라미터명##Alpha", Buffer, 256))
+					{
+						Dist->Alpha.ParameterName = Buffer;
+						bChanged = true;
+					}
+				}
+				break;
+			}
+			ImGui::TreePop();
+		}
+
+		ImGui::TreePop();
+	}
+
+	return bChanged;
 }
