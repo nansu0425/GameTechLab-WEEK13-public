@@ -78,9 +78,6 @@ private:
 	UTexture* IconLODNext = nullptr;
 	UTexture* IconLODLast = nullptr;
 
-	// 원점축 렌더링
-	ULineComponent* OriginAxisLineComponent = nullptr;
-
 	// 툴바 상태
 	void LoadToolbarIcons();
 
@@ -89,6 +86,4 @@ private:
 	{
 		return static_cast<ParticleEditorState*>(ActiveState);
 	}
-
-	void CreateOriginAxisLines();
 };

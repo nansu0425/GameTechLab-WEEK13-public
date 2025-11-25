@@ -18,6 +18,39 @@
 #include "Modules/ParticleModuleTypeDataSprite.h"
 #include "JsonSerializer.h"
 #include "EditorAssetPreviewContext.h"
+#include "Source/Runtime/Engine/Components/LineComponent.h"
+
+// 원점축 라인 생성 헬퍼 함수
+static void CreateOriginAxisLines(ULineComponent* LineComp)
+{
+	if (!LineComp) return;
+
+	LineComp->ClearLines();
+
+	const float AxisLength = 10.0f;
+	const FVector Origin = FVector(0.0f, 0.0f, 0.0f);
+
+	// X축 - 빨강
+	LineComp->AddLine(
+		Origin,
+		Origin + FVector(AxisLength, 0.0f, 0.0f),
+		FVector4(0.796f, 0.086f, 0.105f, 1.0f)
+	);
+
+	// Y축 - 초록
+	LineComp->AddLine(
+		Origin,
+		Origin + FVector(0.0f, AxisLength, 0.0f),
+		FVector4(0.125f, 0.714f, 0.113f, 1.0f)
+	);
+
+	// Z축 - 파랑
+	LineComp->AddLine(
+		Origin,
+		Origin + FVector(0.0f, 0.0f, AxisLength),
+		FVector4(0.054f, 0.155f, 0.527f, 1.0f)
+	);
+}
 
 ViewerState* ParticleEditorBootstrap::CreateViewerState(const char* Name, UWorld* InWorld,
 	ID3D11Device* InDevice, UEditorAssetPreviewContext* Context)
@@ -92,6 +125,15 @@ ViewerState* ParticleEditorBootstrap::CreateViewerState(const char* Name, UWorld
 
 			State->EditingTemplate = Template;
 			State->PreviewComponent->SetTemplate(Template);
+
+			// 원점축 LineComponent 생성 및 연결
+			ULineComponent* OriginLineComp = NewObject<ULineComponent>();
+			OriginLineComp->SetAlwaysOnTop(true);
+			PreviewActor->AddOwnedComponent(OriginLineComp);
+			OriginLineComp->RegisterComponent(State->World);
+			CreateOriginAxisLines(OriginLineComp);
+			OriginLineComp->SetLineVisible(false); // 기본값: 숨김
+			State->OriginAxisLineComponent = OriginLineComp;
 		}
 	}
 

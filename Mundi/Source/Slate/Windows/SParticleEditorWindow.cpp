@@ -19,11 +19,6 @@ SParticleEditorWindow::SParticleEditorWindow()
 	LeftPanelRatio = 0.2f;   // 20% 왼쪽 (뷰포트 + 디테일)
 	RightPanelRatio = 0.6f;  // 60% 오른쪽 (이미터 패널)
 	bHasBottomPanel = true;
-
-	// 원점축 LineComponent 생성
-	OriginAxisLineComponent = NewObject<ULineComponent>();
-	OriginAxisLineComponent->SetAlwaysOnTop(true); // 항상 위에 표시
-	CreateOriginAxisLines();
 }
 
 SParticleEditorWindow::~SParticleEditorWindow()
@@ -95,14 +90,7 @@ SParticleEditorWindow::~SParticleEditorWindow()
 		IconLODLast = nullptr;
 	}
 
-	// LineComponent 정리
-	if (OriginAxisLineComponent)
-	{
-		DeleteObject(OriginAxisLineComponent);
-		OriginAxisLineComponent = nullptr;
-	}
-
-	// 탭 정리
+	// 탭 정리 (OriginAxisLineComponent는 탭별 State가 소유하므로 따로 정리 불필요)
 	for (int i = 0; i < Tabs.Num(); ++i)
 	{
 		ViewerState* State = Tabs[i];
@@ -163,6 +151,13 @@ void SParticleEditorWindow::OnRender()
 		if (!bIsOpen)
 		{
 			USlateManager::GetInstance().RequestCloseDetachedWindow(this);
+			ImGui::End();
+			return;
+		}
+
+		// 탭이 닫힌 후 몇 프레임 동안 렌더링 건너뛰기 (리소스 정리 대기)
+		if (TabClosedSkipFrames > 0)
+		{
 			ImGui::End();
 			return;
 		}
@@ -236,18 +231,10 @@ void SParticleEditorWindow::PreRenderViewportUpdate()
 			State->Client->SetBackgroundColor(State->BackgroundColor);
 		}
 
-		// 원점축 LineComponent 처리
-		if (State->PreviewActor && OriginAxisLineComponent)
+		// 원점축 LineComponent 가시성 제어 (각 탭이 자체 컴포넌트 소유)
+		if (State->OriginAxisLineComponent)
 		{
-			// LineComponent가 아직 PreviewActor에 연결되지 않았으면 연결
-			if (OriginAxisLineComponent->GetOwner() != State->PreviewActor)
-			{
-				State->PreviewActor->AddOwnedComponent(OriginAxisLineComponent);
-				OriginAxisLineComponent->RegisterComponent(State->World);
-			}
-
-			// bShowOriginAxis 플래그에 따라 가시성 제어
-			OriginAxisLineComponent->SetLineVisible(State->bShowOriginAxis);
+			State->OriginAxisLineComponent->SetLineVisible(State->bShowOriginAxis);
 		}
 	}
 }
@@ -304,6 +291,8 @@ ViewerState* SParticleEditorWindow::CreateViewerState(const char* Name, UEditorA
 
 void SParticleEditorWindow::DestroyViewerState(ViewerState*& State)
 {
+	// OriginAxisLineComponent는 각 탭의 PreviewActor가 소유하므로
+	// World 삭제 시 자동으로 정리됨
 	ParticleEditorBootstrap::DestroyViewerState(State);
 }
 
@@ -1003,39 +992,6 @@ void SParticleEditorWindow::RenderRightCurveArea()
 		RenderBottomPanel();
 	}
 	ImGui::EndChild();
-}
-
-void SParticleEditorWindow::CreateOriginAxisLines()
-{
-	if (!OriginAxisLineComponent) return;
-
-	// 기존 라인 제거
-	OriginAxisLineComponent->ClearLines();
-
-	// 축 길이 설정
-	const float AxisLength = 10.0f;
-	const FVector Origin = FVector(0.0f, 0.0f, 0.0f);
-
-	// X축 - 빨강
-	OriginAxisLineComponent->AddLine(
-		Origin,
-		Origin + FVector(AxisLength, 0.0f, 0.0f),
-		FVector4(0.796f, 0.086f, 0.105f, 1.0f)
-	);
-
-	// Y축 - 초록
-	OriginAxisLineComponent->AddLine(
-		Origin,
-		Origin + FVector(0.0f, AxisLength, 0.0f),
-		FVector4(0.125f, 0.714f, 0.113f, 1.0f)
-	);
-
-	// Z축 - 파랑
-	OriginAxisLineComponent->AddLine(
-		Origin,
-		Origin + FVector(0.0f, 0.0f, AxisLength),
-		FVector4(0.054f, 0.155f, 0.527f, 1.0f)
-	);
 }
 
 void SParticleEditorWindow::OpenOrFocusTab(UEditorAssetPreviewContext* Context)
