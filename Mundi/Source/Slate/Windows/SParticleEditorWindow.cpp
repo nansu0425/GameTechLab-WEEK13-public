@@ -29,6 +29,9 @@
 #include "Modules/ParticleModuleRotationRate.h"
 #include "Modules/ParticleModuleSizeScaleBySpeed.h"
 #include "Material.h"
+#include "StaticMesh.h"
+#include "ResourceManager.h"
+#include "Shader.h"
 
 SParticleEditorWindow::SParticleEditorWindow()
 {
@@ -852,6 +855,8 @@ static void AddModuleToLOD(UParticleLODLevel* LOD, ParticleEditorState* State)
 }
 
 // 타입 데이터 모듈 설정 헬퍼 함수
+// TODO: 타입 데이터 모듈 별로 다시 만들어줘야함.
+// 예: SetMeshTypeDataModule()
 template<typename T>
 static void SetTypeDataModule(UParticleLODLevel* LOD, ParticleEditorState* State)
 {
@@ -866,6 +871,59 @@ static void SetTypeDataModule(UParticleLODLevel* LOD, ParticleEditorState* State
 	LOD->TypeDataModule = NewModule;
 	LOD->Modules.Add(NewModule);
 	LOD->CacheModuleInfo();
+	if (State->PreviewComponent)
+	{
+		State->PreviewComponent->RefreshEmitterInstances();
+	}
+	State->bIsDirty = true;
+}
+
+// 메시 타입 데이터 모듈 설정 (기본 메시 및 머티리얼 포함)
+static void SetMeshTypeDataModule(UParticleLODLevel* LOD, ParticleEditorState* State)
+{
+	// 기존 타입 데이터가 있으면 Modules 배열에서 제거
+	if (LOD->TypeDataModule)
+	{
+		LOD->Modules.Remove(LOD->TypeDataModule);
+	}
+
+	// 메시 타입 데이터 생성
+	UParticleModuleTypeDataMesh* MeshTypeData = NewObject<UParticleModuleTypeDataMesh>();
+
+	// 기본 메시 로드
+	MeshTypeData->Mesh = UResourceManager::GetInstance().Load<UStaticMesh>(GDataDir + "/cube-tex.obj");
+
+	// 메시 파티클용 머티리얼 생성
+	UMaterial* MeshParticleMaterial = NewObject<UMaterial>();
+	UShader* MeshShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Particle/ParticleMesh.hlsl");
+	MeshParticleMaterial->SetShader(MeshShader);
+
+	// 메시의 내장 머티리얼에서 텍스처 정보 가져오기
+	if (MeshTypeData->Mesh)
+	{
+		const TArray<FGroupInfo>& GroupInfos = MeshTypeData->Mesh->GetMeshGroupInfo();
+		if (!GroupInfos.IsEmpty() && !GroupInfos[0].InitialMaterialName.empty())
+		{
+			UMaterial* MeshMaterial = UResourceManager::GetInstance().Load<UMaterial>(GroupInfos[0].InitialMaterialName);
+			if (MeshMaterial)
+			{
+				MeshParticleMaterial->SetMaterialInfo(MeshMaterial->GetMaterialInfo());
+				MeshParticleMaterial->ResolveTextures();
+			}
+		}
+	}
+
+	// RequiredModule에 머티리얼 설정
+	if (LOD->RequiredModule)
+	{
+		LOD->RequiredModule->Material = MeshParticleMaterial;
+	}
+
+	// 타입 데이터 설정
+	LOD->TypeDataModule = MeshTypeData;
+	LOD->Modules.Add(MeshTypeData);
+	LOD->CacheModuleInfo();
+
 	if (State->PreviewComponent)
 	{
 		State->PreviewComponent->RefreshEmitterInstances();
@@ -1101,7 +1159,7 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 				}
 				else
 				{
-					SetTypeDataModule<UParticleModuleTypeDataMesh>(LOD, State);
+					SetMeshTypeDataModule(LOD, State);
 				}
 			}
 			if (ImGui::MenuItem("리본"))
