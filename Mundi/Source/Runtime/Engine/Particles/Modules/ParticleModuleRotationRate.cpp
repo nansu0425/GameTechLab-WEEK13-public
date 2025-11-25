@@ -24,6 +24,9 @@ void UParticleModuleRotationRate::Spawn(FParticleEmitterInstance* Owner, int32 O
 	float TargetRate = EndRotationRate.GetValue(0.0f, Owner->RandomStream, Owner->Component);
 	Payload.TargetRotationRate = TargetRate;
 
+	// UniformCurve용 랜덤 비율 저장 (0~1)
+	Payload.RandomFactor = Owner->RandomStream.GetFraction();
+
 	// 파티클의 초기 회전 속도 설정
 	ParticleBase->RotationRate = InitialRate;
 	ParticleBase->BaseRotationRate = InitialRate;
@@ -43,17 +46,39 @@ void UParticleModuleRotationRate::Update(FModuleUpdateContext& Context)
 		return;
 	}
 
+	// Distribution 타입 확인
+	const EDistributionType DistType = StartRotationRate.Type;
+
 	// 언리얼 엔진 방식: 모든 파티클 업데이트
 	BEGIN_UPDATE_LOOP;
 		// 언리얼 엔진 호환: PARTICLE_ELEMENT 매크로 (CurrentOffset 자동 증가)
 		PARTICLE_ELEMENT(FParticleRotationRatePayload, Payload);
 
-		// 수명에 따라 회전 속도 선형 보간 (InitialRotationRate -> TargetRotationRate)
-		float InterpolatedRotationRate = Payload.InitialRotationRate +
-			(Payload.TargetRotationRate - Payload.InitialRotationRate) * Particle.RelativeTime;
+		float CurrentRotationRate;
+
+		switch (DistType)
+		{
+		case EDistributionType::ConstantCurve:
+			CurrentRotationRate = StartRotationRate.ConstantCurve.Eval(Particle.RelativeTime);
+			break;
+
+		case EDistributionType::UniformCurve:
+			{
+				float MinAtTime = StartRotationRate.MinCurve.Eval(Particle.RelativeTime);
+				float MaxAtTime = StartRotationRate.MaxCurve.Eval(Particle.RelativeTime);
+				CurrentRotationRate = FMath::Lerp(MinAtTime, MaxAtTime, Payload.RandomFactor);
+			}
+			break;
+
+		default:
+			// Constant, Uniform, ParticleParameter: Initial -> Target 선형 보간
+			CurrentRotationRate = Payload.InitialRotationRate +
+				(Payload.TargetRotationRate - Payload.InitialRotationRate) * Particle.RelativeTime;
+			break;
+		}
 
 		// 회전 속도 업데이트
-		Particle.RotationRate = InterpolatedRotationRate;
+		Particle.RotationRate = CurrentRotationRate;
 	END_UPDATE_LOOP;
 }
 
