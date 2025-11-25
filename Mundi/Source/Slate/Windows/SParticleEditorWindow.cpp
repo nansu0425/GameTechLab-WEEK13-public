@@ -810,6 +810,19 @@ void SParticleEditorWindow::RenderDetailsPanel(float PanelWidth)
 	ImGui::TextDisabled("모듈을 선택하세요 (5단계에서 구현)");
 }
 
+template<typename T>
+static void AddModuleToLOD(UParticleLODLevel* LOD, ParticleEditorState* State)
+{
+	T* NewModule = NewObject<T>();
+	LOD->Modules.Add(NewModule);
+	LOD->CacheModuleInfo();
+	if (State->PreviewComponent)
+	{
+		State->PreviewComponent->RefreshEmitterInstances();
+	}
+	State->bIsDirty = true;
+}
+
 void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmitter* Emitter)
 {
 	ParticleEditorState* State = GetActiveParticleState();
@@ -823,7 +836,6 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 		return;
 	}
 
-	// ========== 이미터 헤더 ==========
 	// 이미터가 선택되었거나 해당 이미터의 모듈이 선택된 경우 하이라이트
 	bool bEmitterSelected = (State->SelectedEmitterIndex == EmitterIndex);
 
@@ -1010,33 +1022,13 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 		if (ImGui::BeginMenu("모듈 추가"))
 		{
 			if (ImGui::MenuItem("Lifetime"))
-			{
-				UParticleModuleLifetime* NewModule = NewObject<UParticleModuleLifetime>();
-				LOD->Modules.Add(NewModule);
-				LOD->CacheModuleInfo();
-				State->bIsDirty = true;
-			}
+				AddModuleToLOD<UParticleModuleLifetime>(LOD, State);
 			if (ImGui::MenuItem("Size"))
-			{
-				UParticleModuleSize* NewModule = NewObject<UParticleModuleSize>();
-				LOD->Modules.Add(NewModule);
-				LOD->CacheModuleInfo();
-				State->bIsDirty = true;
-			}
+				AddModuleToLOD<UParticleModuleSize>(LOD, State);
 			if (ImGui::MenuItem("Velocity"))
-			{
-				UParticleModuleVelocity* NewModule = NewObject<UParticleModuleVelocity>();
-				LOD->Modules.Add(NewModule);
-				LOD->CacheModuleInfo();
-				State->bIsDirty = true;
-			}
+				AddModuleToLOD<UParticleModuleVelocity>(LOD, State);
 			if (ImGui::MenuItem("Color"))
-			{
-				UParticleModuleColor* NewModule = NewObject<UParticleModuleColor>();
-				LOD->Modules.Add(NewModule);
-				LOD->CacheModuleInfo();
-				State->bIsDirty = true;
-			}
+				AddModuleToLOD<UParticleModuleColor>(LOD, State);
 			ImGui::EndMenu();
 		}
 
@@ -1049,15 +1041,15 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 			if (System && EmitterIndex < System->Emitters.Num())
 			{
 				System->Emitters.RemoveAt(EmitterIndex);
-				// EmitterInstances 재생성
-				if (State->PreviewComponent)
-				{
-					State->PreviewComponent->RefreshEmitterInstances();
-				}
+				
 				State->SelectedEmitterIndex = -1;
 				State->SelectedModuleIndex = -1;
 				State->SelectedModule = nullptr;
 				State->bIsDirty = true;
+				if (State->PreviewComponent)
+				{
+					State->PreviewComponent->RefreshEmitterInstances();
+				}
 			}
 		}
 		ImGui::EndPopup();
@@ -1265,9 +1257,14 @@ void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx,
 						LOD->Modules.Remove(Module);
 					}
 					LOD->CacheModuleInfo();
+					
 					State->SelectedModule = nullptr;
 					State->SelectedModuleIndex = -1;
 					State->bIsDirty = true;
+					if (State->PreviewComponent)
+					{
+						State->PreviewComponent->RefreshEmitterInstances();
+					}
 				}
 			}
 		}
