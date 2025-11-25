@@ -13,6 +13,7 @@
 #include "Modules/ParticleModuleTypeDataMesh.h"
 #include "Modules/ParticleModuleTypeDataSprite.h"
 #include "Modules/ParticleModuleTypeDataBeam.h"
+#include "Modules/ParticleModuleTypeDataRibbon.h"
 #include "Modules/ParticleModuleMeshRotation.h"
 #include "Modules/ParticleModuleSize.h"
 #include "Modules/ParticleModuleColor.h"
@@ -123,6 +124,18 @@ UParticleSystemComponent::~UParticleSystemComponent()
 		BeamIndexBuffer = nullptr;
 	}
 
+	// 리본 버퍼 해제
+	if (RibbonVertexBuffer)
+	{
+		RibbonVertexBuffer->Release();
+		RibbonVertexBuffer = nullptr;
+	}
+	if (RibbonIndexBuffer)
+	{
+		RibbonIndexBuffer->Release();
+		RibbonIndexBuffer = nullptr;
+	}
+
 	// 테스트용 리소스 정리 (디버그 함수에서 생성한 리소스)
 	CleanupTestResources();
 }
@@ -160,9 +173,10 @@ void UParticleSystemComponent::OnRegister(UWorld* InWorld)
 	// Template이 없으면 디버그용 기본 파티클 시스템 생성
 	if (!Template)
 	{
-		//CreateDebugParticleSystem();        // 메시 파티클 테스트
-		CreateDebugSpriteParticleSystem();  // 스프라이트 파티클 테스트
-		//CreateDebugBeamParticleSystem();
+		//CreateDebugMeshParticleSystem();        // 메시 파티클 테스트
+		//CreateDebugSpriteParticleSystem();  // 스프라이트 파티클 테스트
+		//CreateDebugBeamParticleSystem();		// 빔 파티클 테스트
+		CreateDebugRibbonParticleSystem(); // 리본 파티클 테스트
 	}
 
 	// 에디터에서도 파티클 미리보기를 위해 자동 활성화
@@ -413,6 +427,66 @@ void UParticleSystemComponent::CreateDebugBeamParticleSystem()
 	// Note: ResourceManager에 등록하지 않음 - TestTemplate은 이 Component가 소유
 }
 
+void UParticleSystemComponent::CreateDebugRibbonParticleSystem()
+{
+	// 디버그/테스트용 리본 파티클 시스템 생성
+	TestTemplate = NewObject<UParticleSystem>();
+	Template = TestTemplate;
+
+	// 이미터 생성
+	UParticleEmitter* Emitter = NewObject<UParticleEmitter>();
+
+	// LOD 레벨 생성
+	UParticleLODLevel* LODLevel = NewObject<UParticleLODLevel>();
+	LODLevel->bEnabled = true;
+
+	// 필수 모듈 생성
+	UParticleModuleRequired* RequiredModule = NewObject<UParticleModuleRequired>();
+	LODLevel->Modules.Add(RequiredModule);
+
+	// 리본용 Material 설정
+	UMaterial* RibbonMaterial = NewObject<UMaterial>();
+	TestMaterials.Add(RibbonMaterial); // 소유권 등록
+	UShader* RibbonShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Particle/ParticleRibbon.hlsl");
+	RibbonMaterial->SetShader(RibbonShader);
+	RequiredModule->Material = RibbonMaterial;
+
+	// 리본 타입 데이터 모듈 생성
+	UParticleModuleTypeDataRibbon* RibbonTypeData = NewObject<UParticleModuleTypeDataRibbon>();
+	RibbonTypeData->RibbonWidth = 3.0f;
+	LODLevel->Modules.Add(RibbonTypeData);
+
+	// 스폰 모듈 생성 - 리본은 연속적인 파티클 스트림이 필요
+	UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
+	SpawnModule->SpawnRate = FDistributionFloat(10.0f); // 초당 30개 파티클
+	SpawnModule->BurstCount = FDistributionFloat(0.0f);
+	LODLevel->Modules.Add(SpawnModule);
+
+	// 라이프타임 모듈 생성
+	UParticleModuleLifetime* LifetimeModule = NewObject<UParticleModuleLifetime>();
+	LifetimeModule->Lifetime = FDistributionFloat(2.0f); // 모든 파티클이 2초 동안 생존
+	LODLevel->Modules.Add(LifetimeModule);
+
+	// 속도 모듈 생성 (파티클이 움직이며 궤적을 남기도록)
+	UParticleModuleVelocity* VelocityModule = NewObject<UParticleModuleVelocity>();
+	VelocityModule->StartVelocity = FDistributionVector(FVector(5.0f, 0.0f, 50.0f));
+	LODLevel->Modules.Add(VelocityModule);
+    
+    // 위치 모듈 생성 (기즈모 조작 지원)
+    UParticleModuleLocation* LocationModule = NewObject<UParticleModuleLocation>();
+    LODLevel->Modules.Add(LocationModule);
+
+	// 모듈 캐싱
+	LODLevel->CacheModuleInfo();
+
+	// LOD 레벨을 이미터에 추가
+	Emitter->LODLevels.Add(LODLevel);
+	Emitter->CacheEmitterModuleInfo();
+
+	// 이미터를 시스템에 추가
+	TestTemplate->Emitters.Add(Emitter);
+}
+
 void UParticleSystemComponent::OnUnregister()
 {
 	// 이미터 인스턴스 정리
@@ -458,6 +532,21 @@ void UParticleSystemComponent::OnUnregister()
 		BeamIndexBuffer = nullptr;
 	}
 	AllocatedBeamIndexCount = 0;
+
+	// 리본 버퍼 정리
+	if (RibbonVertexBuffer)
+	{
+		RibbonVertexBuffer->Release();
+		RibbonVertexBuffer = nullptr;
+	}
+	AllocatedRibbonVertexCount = 0;
+
+	if (RibbonIndexBuffer)
+	{
+		RibbonIndexBuffer->Release();
+		RibbonIndexBuffer = nullptr;
+	}
+	AllocatedRibbonIndexCount = 0;
 
 	Super::OnUnregister();
 }
@@ -789,6 +878,33 @@ void UParticleSystemComponent::CollectMeshBatches(TArray<FMeshBatchElement>& Out
 	{
 		FillBeamBuffers(View);
 		CreateBeamParticleBatch(OutMeshBatchElements);
+	}
+
+	// 6. 리본 파티클 처리 (동적 메시 생성)
+	uint32 TotalRibbonVertices = 0;
+	uint32 TotalRibbonIndices = 0;
+	for (FDynamicEmitterDataBase* EmitterData : EmitterRenderData)
+	{
+		if (!EmitterData)
+			continue;
+
+		const FDynamicEmitterReplayDataBase& Source = EmitterData->GetSource();
+		if (Source.eEmitterType == EDynamicEmitterType::Ribbon)
+		{
+			const auto& RibbonSource = static_cast<const FDynamicRibbonEmitterReplayDataBase&>(Source);
+			if (RibbonSource.RibbonPoints.Num() > 1)
+			{
+				const int32 NumPoints = RibbonSource.RibbonPoints.Num();
+				TotalRibbonVertices += NumPoints * 2;      // 각 포인트마다 2개의 정점 (스트립)
+				TotalRibbonIndices += (NumPoints - 1) * 6; // 각 세그먼트마다 2개의 삼각형 (6개의 인덱스)
+			}
+		}
+	}
+
+	if (TotalRibbonVertices > 0 && TotalRibbonIndices > 0)
+	{
+		FillRibbonBuffers(View);
+		CreateRibbonParticleBatch(OutMeshBatchElements);
 	}
 }
 
@@ -1379,5 +1495,238 @@ void UParticleSystemComponent::CreateBeamParticleBatch(TArray<FMeshBatchElement>
 		// Update offsets for the next beam
 		VertexOffset += NumVertices;
 		IndexOffset += NumIndices;
+	}
+}
+
+void UParticleSystemComponent::FillRibbonBuffers(const FSceneView* View)
+{
+	if (!View)
+	{
+		return;
+	}
+
+	// 1. 필요한 총 정점 및 인덱스 수 계산
+	uint32 TotalVertices = 0;
+	uint32 TotalIndices = 0;
+	for (FDynamicEmitterDataBase* EmitterData : EmitterRenderData)
+	{
+		if (EmitterData && EmitterData->GetSource().eEmitterType == EDynamicEmitterType::Ribbon)
+		{
+			const auto& RibbonSource = static_cast<const FDynamicRibbonEmitterReplayDataBase&>(EmitterData->GetSource());
+			const int32 NumPoints = RibbonSource.RibbonPoints.Num();
+			if (NumPoints > 1)
+			{
+				TotalVertices += NumPoints * 2;
+				TotalIndices += (NumPoints - 1) * 6;
+			}
+		}
+	}
+
+	if (TotalVertices == 0 || TotalIndices == 0)
+	{
+		return;
+	}
+
+	ID3D11Device* Device = GEngine.GetRHIDevice()->GetDevice();
+	ID3D11DeviceContext* Context = GEngine.GetRHIDevice()->GetDeviceContext();
+
+	// 2. 버퍼 생성/리사이즈
+	if (TotalVertices > AllocatedRibbonVertexCount)
+	{
+		if (RibbonVertexBuffer) RibbonVertexBuffer->Release();
+		uint32 NewCount = FMath::Max(TotalVertices * 2, 128u);
+		D3D11_BUFFER_DESC Desc = {};
+		Desc.ByteWidth = NewCount * sizeof(FParticleRibbonVertex);
+		Desc.Usage = D3D11_USAGE_DYNAMIC;
+		Desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		Desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		if (SUCCEEDED(Device->CreateBuffer(&Desc, nullptr, &RibbonVertexBuffer)))
+		{
+			AllocatedRibbonVertexCount = NewCount;
+		}
+	}
+
+	if (TotalIndices > AllocatedRibbonIndexCount)
+	{
+		if (RibbonIndexBuffer) RibbonIndexBuffer->Release();
+		uint32 NewCount = FMath::Max(TotalIndices * 2, 256u);
+		D3D11_BUFFER_DESC Desc = {};
+		Desc.ByteWidth = NewCount * sizeof(uint32);
+		Desc.Usage = D3D11_USAGE_DYNAMIC;
+		Desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+		Desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		if (SUCCEEDED(Device->CreateBuffer(&Desc, nullptr, &RibbonIndexBuffer)))
+		{
+			AllocatedRibbonIndexCount = NewCount;
+		}
+	}
+
+	if (!RibbonVertexBuffer || !RibbonIndexBuffer)
+	{
+		return;
+	}
+
+	// 3. 버퍼 매핑
+	D3D11_MAPPED_SUBRESOURCE VBMappedData, IBMappedData;
+	if (FAILED(Context->Map(RibbonVertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &VBMappedData)) ||
+		FAILED(Context->Map(RibbonIndexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &IBMappedData)))
+	{
+		if (VBMappedData.pData) Context->Unmap(RibbonVertexBuffer, 0);
+		if (IBMappedData.pData) Context->Unmap(RibbonIndexBuffer, 0);
+		return;
+	}
+
+	auto* Vertices = static_cast<FParticleRibbonVertex*>(VBMappedData.pData);
+	auto* Indices = static_cast<uint32*>(IBMappedData.pData);
+
+	uint32 VertexOffset = 0;
+	uint32 IndexOffset = 0;
+
+	FVector ViewDirection = View->ViewRotation.GetForwardVector();
+	
+	// 4. 이미터 순회하며 버퍼 채우기
+	for (FDynamicEmitterDataBase* EmitterData : EmitterRenderData)
+	{
+		if (!EmitterData || EmitterData->GetSource().eEmitterType != EDynamicEmitterType::Ribbon)
+			continue;
+	
+		const auto& RibbonSource = static_cast<const FDynamicRibbonEmitterReplayDataBase&>(EmitterData->GetSource());
+		const TArray<FVector>& RibbonPoints = RibbonSource.RibbonPoints;
+		const float RibbonWidth = RibbonSource.Width;
+		const int32 NumPoints = RibbonPoints.Num();
+	
+		if (NumPoints < 2)
+			continue;
+	
+		uint32 EmitterBaseVertexIndex = VertexOffset;
+	
+		// 1. 모든 정점을 먼저 생성 (Triangle Strip 방식)
+		for (int32 i = 0; i < NumPoints; ++i)
+		{
+			const FVector& P = RibbonPoints[i];
+			FVector SegmentDir;
+			if (i < NumPoints - 1)
+			{
+				SegmentDir = RibbonPoints[i + 1] - P;
+			}
+			else
+			{
+				SegmentDir = P - RibbonPoints[i - 1];
+			}
+			SegmentDir.Normalize();
+	
+			FVector Up = FVector::Cross(SegmentDir, ViewDirection);
+			Up.Normalize();
+				
+			float HalfWidth = RibbonWidth * 0.5f;
+	
+			// UV의 V좌표는 리본의 길이에 따라 0에서 1까지 변함
+			float V = (float)i / (float)(NumPoints - 1);
+							
+			// 각 포인트마다 2개의 정점(좌, 우) 생성
+			// TODO: 파티클별 색상/크기 적용
+			Vertices[VertexOffset++] = { 
+				P - Up * HalfWidth,						// Position
+				P,										// ControlPoint (use particle position as default)
+				SegmentDir,								// Tangent
+				FLinearColor(1.0f, 1.0f, 1.0f, 1.0f),	// Color
+				FVector2D(0.0f, V)						// UV
+			};
+			Vertices[VertexOffset++] = { 
+				P + Up * HalfWidth,						// Position
+				P,										// ControlPoint
+				SegmentDir,								// Tangent
+				FLinearColor(1.0f, 1.0f, 1.0f, 1.0f),	// Color
+				FVector2D(1.0f, V)						// UV
+			};
+		}		
+		// 2. 정점들을 연결하여 인덱스 생성
+		for (int32 i = 0; i < NumPoints - 1; ++i)
+		{
+			uint32 V0 = EmitterBaseVertexIndex + i * 2;
+			uint32 V1 = V0 + 1;
+			uint32 V2 = EmitterBaseVertexIndex + (i + 1) * 2;
+			uint32 V3 = V2 + 1;
+
+			Indices[IndexOffset++] = V0;
+			Indices[IndexOffset++] = V2;
+			Indices[IndexOffset++] = V1;
+
+			Indices[IndexOffset++] = V1;
+			Indices[IndexOffset++] = V2;
+			Indices[IndexOffset++] = V3;
+		}
+	}
+
+	Context->Unmap(RibbonVertexBuffer, 0);
+	Context->Unmap(RibbonIndexBuffer, 0);
+}
+
+void UParticleSystemComponent::CreateRibbonParticleBatch(TArray<FMeshBatchElement>& OutMeshBatchElements)
+{
+	if (!RibbonVertexBuffer || !RibbonIndexBuffer)
+	{
+		return;
+	}
+
+	uint32 VertexOffset = 0;
+	uint32 IndexOffset = 0;
+
+	for (FDynamicEmitterDataBase* EmitterData : EmitterRenderData)
+	{
+		if (!EmitterData || EmitterData->GetSource().eEmitterType != EDynamicEmitterType::Ribbon)
+			continue;
+
+		const auto& RibbonSource = static_cast<const FDynamicRibbonEmitterReplayDataBase&>(EmitterData->GetSource());
+		const int32 NumPoints = RibbonSource.RibbonPoints.Num();
+
+		if (NumPoints < 2)
+			continue;
+
+		UMaterialInterface* Material = RibbonSource.Material;
+		if (!Material)
+		{
+			// Fallback to a default material if none is set
+			Material = UResourceManager::GetInstance().Load<UMaterial>("Shaders/Particle/ParticleRibbon.hlsl");
+		}
+
+		if (!Material || !Material->GetShader())
+		{
+			continue;
+		}
+
+		UShader* Shader = Material->GetShader();
+		FShaderVariant* ShaderVariant = Shader->GetOrCompileShaderVariant(Material->GetShaderMacros());
+
+		const uint32 NumVerticesForThisRibbon = NumPoints * 2;
+		const uint32 NumIndicesForThisRibbon = (NumPoints - 1) * 6;
+
+		FMeshBatchElement BatchElement;
+		BatchElement.VertexShader = ShaderVariant->VertexShader;
+		BatchElement.PixelShader = ShaderVariant->PixelShader;
+		BatchElement.InputLayout = ShaderVariant->InputLayout;
+		BatchElement.Material = Material;
+
+		BatchElement.VertexBuffer = RibbonVertexBuffer;
+		BatchElement.IndexBuffer = RibbonIndexBuffer;
+		BatchElement.VertexStride = sizeof(FParticleRibbonVertex);
+
+		BatchElement.NumInstances = 1; // Not instanced
+		BatchElement.InstanceBuffer = nullptr;
+		BatchElement.InstanceStride = 0;
+
+		BatchElement.IndexCount = NumIndicesForThisRibbon;
+		BatchElement.StartIndex = IndexOffset;
+		BatchElement.BaseVertexIndex = VertexOffset;
+
+		BatchElement.WorldMatrix = FMatrix::Identity();
+		BatchElement.ObjectID = InternalIndex;
+		BatchElement.PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+
+		OutMeshBatchElements.Add(BatchElement);
+
+		// Update offsets for the next ribbon emitter
+		VertexOffset += NumVerticesForThisRibbon;
+		IndexOffset += NumIndicesForThisRibbon;
 	}
 }

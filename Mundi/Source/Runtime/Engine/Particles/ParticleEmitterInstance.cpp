@@ -888,26 +888,36 @@ bool FParticleEmitterInstance::BuildRibbonDynamicData(FDynamicRibbonEmitterData*
 	if (ActiveParticles <= 1)
 		return false; // 최소 2개 파티클 필요
 
-	// Material
+	// Material & Width 설정
 	Data->Source.Material = CurrentLODLevel->RequiredModule
 		? CurrentLODLevel->RequiredModule->Material
 		: nullptr;
+	Data->Source.Width = RibbonType->RibbonWidth;
 
-	// Width
-	float RibbonWidth = RibbonType->RibbonWidth;
+	// 파티클을 나이(RelativeTime)순으로 정렬하기 위해 인덱스 배열을 복사하고 정렬합니다.
+	// 오래된 파티클(RelativeTime이 큰 값)이 트레일의 앞쪽이 됩니다.
+	TArray<uint16> SortedIndices;
+	SortedIndices.Reserve(ActiveParticles);
+	for (int32 i = 0; i < ActiveParticles; ++i)
+	{
+		SortedIndices.Add(ParticleIndices[i]);
+	}
 
-	// RibbonPoints 배열 채우기
+	std::sort(SortedIndices.begin(), SortedIndices.end(), [&](uint16 A, uint16 B) {
+		const FBaseParticle* ParticleA = reinterpret_cast<const FBaseParticle*>(ParticleData + A * ParticleStride);
+		const FBaseParticle* ParticleB = reinterpret_cast<const FBaseParticle*>(ParticleData + B * ParticleStride);
+		return ParticleA->RelativeTime > ParticleB->RelativeTime; // 내림차순 정렬 (오래된 것이 먼저)
+	});
+
+	// 정렬된 순서대로 RibbonPoints 배열 채우기
 	Data->Source.RibbonPoints.Empty();
 	Data->Source.RibbonPoints.Reserve(ActiveParticles);
 
 	for (int32 i = 0; i < ActiveParticles; i++)
 	{
-		const FBaseParticle* P = GetParticleAtIndex(ParticleIndices[i]);
+		const FBaseParticle* P = reinterpret_cast<const FBaseParticle*>(ParticleData + SortedIndices[i] * ParticleStride);
 		Data->Source.RibbonPoints.Add(P->Location);
 	}
-
-	// UV, Color, Tangent 같은 추가 정보는 이후 확장 가능
-	// Renderer에서 RibbonPoints를 기반으로 Triangle Strip을 만들면 됨.
 
 	return true;
 }
