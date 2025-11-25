@@ -160,8 +160,8 @@ void UParticleSystemComponent::OnRegister(UWorld* InWorld)
 	// Template이 없으면 디버그용 기본 파티클 시스템 생성
 	if (!Template)
 	{
-		//CreateDebugParticleSystem();        // 메시 파티클 테스트
-		CreateDebugSpriteParticleSystem();  // 스프라이트 파티클 테스트
+		CreateDebugMeshParticleSystem();        // 메시 파티클 테스트
+		//CreateDebugSpriteParticleSystem();  // 스프라이트 파티클 테스트
 		//CreateDebugBeamParticleSystem();
 	}
 
@@ -768,7 +768,7 @@ void UParticleSystemComponent::CollectMeshBatches(TArray<FMeshBatchElement>& Out
 	if (TotalMeshInstances > 0)
 	{
 		FillMeshInstanceBuffer(TotalMeshInstances);
-		CreateMeshParticleBatch(OutMeshBatchElements);
+		CreateMeshParticleBatch(OutMeshBatchElements, View);
 	}
 
 	// 5. 빔 파티클 처리 (동적 메시 생성)
@@ -924,7 +924,7 @@ void UParticleSystemComponent::FillMeshInstanceBuffer(uint32 TotalInstances)
 	Context->Unmap(MeshInstanceBuffer, 0);
 }
 
-void UParticleSystemComponent::CreateMeshParticleBatch(TArray<FMeshBatchElement>& OutMeshBatchElements)
+void UParticleSystemComponent::CreateMeshParticleBatch(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View)
 {
 	if (!MeshInstanceBuffer)
 	{
@@ -964,7 +964,14 @@ void UParticleSystemComponent::CreateMeshParticleBatch(TArray<FMeshBatchElement>
 	}
 
 	UShader* Shader = Material->GetShader();
-	FShaderVariant* ShaderVariant = Shader->GetOrCompileShaderVariant(Material->GetShaderMacros());
+
+	// 메시 파티클은 뷰 모드 매크로 적용 (Lit 모드 지원)
+	TArray<FShaderMacro> ShaderMacros = View->ViewShaderMacros;
+	if (Material->GetShaderMacros().Num() > 0)
+	{
+		ShaderMacros.Append(Material->GetShaderMacros());
+	}
+	FShaderVariant* ShaderVariant = Shader->GetOrCompileShaderVariant(ShaderMacros);
 
 	// FMeshBatchElement 생성
 	FMeshBatchElement BatchElement;
@@ -995,6 +1002,9 @@ void UParticleSystemComponent::CreateMeshParticleBatch(TArray<FMeshBatchElement>
 
 	// 텍스처는 Material 시스템을 통해 바인딩됨 (UberLit과 동일)
 	// DrawMeshBatches에서 Material->GetTexture()를 사용하여 자동으로 바인딩
+
+	// 메시 파티클: 불투명 렌더링 (backface culling, depth write)
+	BatchElement.RenderMode = EBatchRenderMode::Opaque;
 
 	OutMeshBatchElements.Add(BatchElement);
 }
@@ -1173,6 +1183,9 @@ void UParticleSystemComponent::CreateSpriteParticleBatch(TArray<FMeshBatchElemen
 	BatchElement.WorldMatrix = FMatrix::Identity();
 	BatchElement.ObjectID = InternalIndex;
 	BatchElement.PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+
+	// 스프라이트 파티클: 반투명 렌더링 (no culling, depth read-only, alpha blend)
+	BatchElement.RenderMode = EBatchRenderMode::Translucent;
 
 	OutMeshBatchElements.Add(BatchElement);
 }
@@ -1380,6 +1393,9 @@ void UParticleSystemComponent::CreateBeamParticleBatch(TArray<FMeshBatchElement>
 		BatchElement.WorldMatrix = FMatrix::Identity();
 		BatchElement.ObjectID = InternalIndex;
 		BatchElement.PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+
+		// 빔 파티클: 반투명 렌더링 (no culling, depth read-only, alpha blend)
+		BatchElement.RenderMode = EBatchRenderMode::Translucent;
 
 		OutMeshBatchElements.Add(BatchElement);
 

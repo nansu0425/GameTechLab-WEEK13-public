@@ -107,7 +107,7 @@ public:
 
 	// 메시 파티클 인스턴싱
 	void FillMeshInstanceBuffer(uint32 TotalInstances);
-	void CreateMeshParticleBatch(TArray<FMeshBatchElement>& OutMeshBatchElements);
+	void CreateMeshParticleBatch(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View);
 
 	// 스프라이트 파티클 인스턴싱
 	void FillSpriteInstanceBuffer(uint32 TotalInstances);

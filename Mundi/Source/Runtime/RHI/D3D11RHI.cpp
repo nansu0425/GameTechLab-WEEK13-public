@@ -68,6 +68,7 @@ void D3D11RHI::Release()
 
     if (DefaultRasterizerState) { DefaultRasterizerState->Release();   DefaultRasterizerState = nullptr; }
     if (WireFrameRasterizerState) { WireFrameRasterizerState->Release();   WireFrameRasterizerState = nullptr; }
+    if (WireFrameNoCullRasterizerState) { WireFrameNoCullRasterizerState->Release();   WireFrameNoCullRasterizerState = nullptr; }
     if (DecalRasterizerState) { DecalRasterizerState->Release();   DecalRasterizerState = nullptr; }
     if (ShadowRasterizerState) { ShadowRasterizerState->Release();   ShadowRasterizerState = nullptr; }
     if (NoCullRasterizerState) { NoCullRasterizerState->Release();   NoCullRasterizerState = nullptr; }
@@ -364,6 +365,10 @@ void D3D11RHI::RSSetState(ERasterizerMode ViewMode)
 
 	case ERasterizerMode::Solid_NoCull:
 		DeviceContext->RSSetState(NoCullRasterizerState);
+        break;
+
+	case ERasterizerMode::Wireframe_NoCull:
+		DeviceContext->RSSetState(WireFrameNoCullRasterizerState);
         break;
 
 	case ERasterizerMode::Decal:
@@ -720,6 +725,14 @@ void D3D11RHI::CreateRasterizerState()
     wireframerasterizerdesc.DepthClipEnable = TRUE; // 근/원거리 평면 클리핑
 
     Device->CreateRasterizerState(&wireframerasterizerdesc, &WireFrameRasterizerState);
+
+    // 와이어프레임 + 양면 렌더링 (파티클용)
+    D3D11_RASTERIZER_DESC wireframeNoCullDesc = {};
+    wireframeNoCullDesc.FillMode = D3D11_FILL_WIREFRAME;
+    wireframeNoCullDesc.CullMode = D3D11_CULL_NONE;
+    wireframeNoCullDesc.DepthClipEnable = TRUE;
+
+    Device->CreateRasterizerState(&wireframeNoCullDesc, &WireFrameNoCullRasterizerState);
 
     D3D11_RASTERIZER_DESC nocullRasterizerDesc = {};
     nocullRasterizerDesc.FillMode = D3D11_FILL_SOLID;
