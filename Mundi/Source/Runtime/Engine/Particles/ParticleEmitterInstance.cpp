@@ -784,19 +784,92 @@ bool FParticleEmitterInstance::BuildBeamDynamicData(FDynamicBeamEmitterData* Dat
 	if (!Data || !BeamType)
 		return false;
 
-	// Always generate dummy data for a single segment to test the pipeline
-	Data->Source.Width = BeamType->BeamWidth > 0 ? BeamType->BeamWidth : 15.0f;
+	// Beam은 보통 하나의 EmitterInstance에서 한 개의 Beam 생성 (단순 버전)
+	// SegmentCount는 TypeData에서 관리한다고 가정
+	const int32 SegmentCount = BeamType->SegmentCount;   // 예: 8
+	if (SegmentCount <= 0)
+		return false;
+
+	// 현 프레임에서 Beam을 구성할 파티클 포인트가 필요함.
+	// 간단한 형태: 첫 번째 파티클 = StartPoint, 마지막 파티클 = EndPoint로 사용
+	if (ActiveParticles < 2)
+		return false;
+
+	// Source 설정
+	Data->Source.Width = BeamType->BeamWidth;
 	Data->Source.Material = CurrentLODLevel->RequiredModule
 		? CurrentLODLevel->RequiredModule->Material
 		: nullptr;
 
-	Data->Source.BeamPoints.Empty();
-	
-	FVector StartPos = Component ? Component->GetOwner()->GetActorLocation() : FVector::Zero();
-	FVector EndPos = StartPos + FVector(100.0f, 0.0f, 0.0f); // A 100-unit beam along X-axis
+	// -----------------------------
+	// 1) BeamPoints 채우기
+	// -----------------------------
 
-	Data->Source.BeamPoints.Add(StartPos);
-	Data->Source.BeamPoints.Add(EndPos);
+	Data->Source.BeamPoints.Empty();
+	Data->Source.BeamPoints.Reserve(SegmentCount + 1);
+
+	// Start / End를 파티클 데이터에서 얻는다.
+	// 첫 번째 활성 파티클 → Start
+	// 마지막 활성 파티클 → End
+	const FBaseParticle* StartParticle = GetParticleAtIndex(0);
+	const FBaseParticle* EndParticle = GetParticleAtIndex(ActiveParticles - 1);
+
+	if (!StartParticle || !EndParticle)
+		return false;
+
+	FVector StartPos = StartParticle->Location;
+	FVector EndPos = EndParticle->Location;
+
+	FVector BeamDir = EndPos - StartPos;
+	float BeamLen = BeamDir.Size();
+	if (BeamLen > KINDA_SMALL_NUMBER)
+	{
+		BeamDir.Normalize();
+	}
+	else
+	{
+		BeamDir = FVector(0.0f, 0.0f, 1.0f);
+	}
+	
+	float NoiseStrength = BeamType->NoiseStrength;
+
+	// 세그먼트 분할
+	for (int32 i = 0; i <= SegmentCount; i++)
+	{
+		float T = (float)i / (float)SegmentCount;
+		FVector P = FMath::Lerp(StartPos, EndPos, T);
+
+		if (i > 0 && i < SegmentCount && NoiseStrength > KINDA_SMALL_NUMBER)
+		{
+			FVector RandomDir = FVector(
+				RandomStream.GetRangeFloat(-1.0f, 1.0f),
+				RandomStream.GetRangeFloat(-1.0f, 1.0f),
+				RandomStream.GetRangeFloat(-1.0f, 1.0f)
+			);
+			RandomDir.Normalize();
+
+			FVector DisplacementDir = RandomDir - (BeamDir * FVector::Dot(RandomDir, BeamDir));
+
+			if (DisplacementDir.SizeSquared() > KINDA_SMALL_NUMBER)
+			{
+				DisplacementDir.Normalize();
+			}
+			else
+			{
+				DisplacementDir = FVector::Cross(BeamDir, FVector(0.0f, 1.0f, 0.0f));
+				if (DisplacementDir.SizeSquared() < KINDA_SMALL_NUMBER)
+				{
+					DisplacementDir = FVector::Cross(BeamDir, FVector(1.0f, 0.0f, 0.0f));
+				}
+				DisplacementDir.Normalize();
+			}
+
+			float DisplacementMagnitude = RandomStream.GetRangeFloat(0.0f, NoiseStrength);
+			P += DisplacementDir * DisplacementMagnitude;
+		}
+
+		Data->Source.BeamPoints.Add(P);
+	}
 
 	return true;
 }
