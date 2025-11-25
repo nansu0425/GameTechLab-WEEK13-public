@@ -188,7 +188,6 @@ UParticleSystem* ParticleEditorBootstrap::CreateDefaultParticleTemplate()
 
 bool ParticleEditorBootstrap::SaveParticleSystem(UParticleSystem* System, const FString& FilePath)
 {
-	// TODO: Save 로직 구현
 	// 입력 검증
 	if (!System)
 	{
@@ -224,7 +223,6 @@ bool ParticleEditorBootstrap::SaveParticleSystem(UParticleSystem* System, const 
 
 UParticleSystem* ParticleEditorBootstrap::LoadParticleSystem(const FString& FilePath)
 {
-	// TODO: Load 로직 구현
 	// 입력 검증
 	if (FilePath.empty())
 	{

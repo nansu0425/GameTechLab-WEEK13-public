@@ -91,8 +91,7 @@ void UParticleLODLevel::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 				UClass* ModuleClass = UClass::FindClass(TypeString);
 				if (ModuleClass)
 				{
-					UParticleModule* Module = Cast<UParticleModule>(
-						ObjectFactory::NewObject(ModuleClass));
+					UParticleModule* Module = Cast<UParticleModule>(ObjectFactory::NewObject(ModuleClass));
 					if (Module)
 					{
 						Module->Serialize(true, ModuleData);

@@ -800,7 +800,6 @@ void SParticleEditorWindow::RenderViewportArea(float width, float height)
 
 void SParticleEditorWindow::SaveParticleSystem()
 {
-	// TODO: Save 로직 구현
 	ParticleEditorState* State = GetActiveParticleState();
 	if (!State)
 	{
@@ -837,7 +836,6 @@ void SParticleEditorWindow::SaveParticleSystem()
 
 void SParticleEditorWindow::SaveParticleSystemAs()
 {
-	// TODO: Save 로직 구현
 	ParticleEditorState* State = GetActiveParticleState();
 	if (!State)
 	{
@@ -886,7 +884,6 @@ void SParticleEditorWindow::SaveParticleSystemAs()
 
 void SParticleEditorWindow::LoadParticleSystem()
 {
-	// TODO: Load 로직 구현
 	ParticleEditorState* State = GetActiveParticleState();
 	if (!State)
 	{
