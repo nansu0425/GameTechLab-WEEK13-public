@@ -733,10 +733,14 @@ void SParticleEditorWindow::RenderTrackList()
 		int32 ModuleIndex = UniqueModules.Find(Track.Module);
 		ImU32 ModuleColor = ModuleColors[ModuleIndex % NumColors];
 
+		// 스크롤바 존재 여부에 따라 우측 여백 조정
+		float ScrollbarReserve = (ImGui::GetScrollMaxY() > 0) ? ImGui::GetStyle().ScrollbarSize : 0;
+		float RightEdge = WindowPos.x + WindowSize.x - HorizontalMargin - ScrollbarReserve;
+
 		// 트랙 배경 (회색)
 		DrawList->AddRectFilled(
 			ImVec2(WindowPos.x + HorizontalMargin, RowStartY),
-			ImVec2(WindowPos.x + WindowSize.x - HorizontalMargin, RowStartY + RowHeight - 2),
+			ImVec2(RightEdge, RowStartY + RowHeight - 2),
 			IM_COL32(50, 50, 50, 255));
 
 		// 모듈별 색상 바 렌더링
@@ -765,35 +769,81 @@ void SParticleEditorWindow::RenderTrackList()
 		// 2행 Y 위치
 		float SecondRowY = RowStartY + LineHeight + 15.0f;
 
-		// 2행 좌측: RGB 토글 박스 (Vector 커브만)
+		// 2행 좌측: 채널 토글 박스
+		float BoxX = WindowPos.x + ContentStartX;
+		float BoxY = SecondRowY;
+		float BoxSpacing = ToggleBoxSize + 2.0f;
+
 		if (Track.VectorCurve)
 		{
-			float BoxX = WindowPos.x + ContentStartX;
-			float BoxY = SecondRowY;
-			float BoxSpacing = ToggleBoxSize + 2.0f;
-
-			// R 박스
+			// VectorCurve: R, G, B 박스 (X, Y, Z 채널)
 			ImU32 RColor = Track.bShowX ? IM_COL32(200, 60, 60, 255) : IM_COL32(30, 30, 30, 255);
 			DrawList->AddRectFilled(
 				ImVec2(BoxX, BoxY),
 				ImVec2(BoxX + ToggleBoxSize, BoxY + ToggleBoxSize),
 				RColor);
 
-			// G 박스
 			ImU32 GColor = Track.bShowY ? IM_COL32(60, 200, 60, 255) : IM_COL32(30, 30, 30, 255);
 			DrawList->AddRectFilled(
 				ImVec2(BoxX + BoxSpacing, BoxY),
 				ImVec2(BoxX + BoxSpacing + ToggleBoxSize, BoxY + ToggleBoxSize),
 				GColor);
 
-			// B 박스
 			ImU32 BColor = Track.bShowZ ? IM_COL32(60, 60, 200, 255) : IM_COL32(30, 30, 30, 255);
 			DrawList->AddRectFilled(
 				ImVec2(BoxX + BoxSpacing * 2, BoxY),
 				ImVec2(BoxX + BoxSpacing * 2 + ToggleBoxSize, BoxY + ToggleBoxSize),
 				BColor);
 
-			// RGB 클릭 감지 (화면 좌표로 직접 체크)
+			// RGB 클릭 감지
+			ImVec2 MousePos = ImGui::GetMousePos();
+			bool bMouseClicked = ImGui::IsMouseClicked(0);
+
+			if (bMouseClicked &&
+				MousePos.x >= BoxX && MousePos.x <= BoxX + ToggleBoxSize &&
+				MousePos.y >= BoxY && MousePos.y <= BoxY + ToggleBoxSize)
+			{
+				Track.bShowX = !Track.bShowX;
+			}
+
+			if (bMouseClicked &&
+				MousePos.x >= BoxX + BoxSpacing && MousePos.x <= BoxX + BoxSpacing + ToggleBoxSize &&
+				MousePos.y >= BoxY && MousePos.y <= BoxY + ToggleBoxSize)
+			{
+				Track.bShowY = !Track.bShowY;
+			}
+
+			if (bMouseClicked &&
+				MousePos.x >= BoxX + BoxSpacing * 2 && MousePos.x <= BoxX + BoxSpacing * 2 + ToggleBoxSize &&
+				MousePos.y >= BoxY && MousePos.y <= BoxY + ToggleBoxSize)
+			{
+				Track.bShowZ = !Track.bShowZ;
+			}
+		}
+		else if (Track.FloatCurve)
+		{
+			// FloatCurve: 타입에 따라 버튼 개수 결정
+			EDistributionType Type = Track.FloatCurve->Type;
+			bool bIsUniform = (Type == EDistributionType::Uniform || Type == EDistributionType::UniformCurve);
+
+			// R 박스 (모든 FloatCurve에 표시 - 값 또는 Min)
+			ImU32 RColor = Track.bShowX ? IM_COL32(200, 60, 60, 255) : IM_COL32(30, 30, 30, 255);
+			DrawList->AddRectFilled(
+				ImVec2(BoxX, BoxY),
+				ImVec2(BoxX + ToggleBoxSize, BoxY + ToggleBoxSize),
+				RColor);
+
+			// G 박스 (Uniform/UniformCurve에만 표시 - Max)
+			if (bIsUniform)
+			{
+				ImU32 GColor = Track.bShowY ? IM_COL32(60, 200, 60, 255) : IM_COL32(30, 30, 30, 255);
+				DrawList->AddRectFilled(
+					ImVec2(BoxX + BoxSpacing, BoxY),
+					ImVec2(BoxX + BoxSpacing + ToggleBoxSize, BoxY + ToggleBoxSize),
+					GColor);
+			}
+
+			// 클릭 감지
 			ImVec2 MousePos = ImGui::GetMousePos();
 			bool bMouseClicked = ImGui::IsMouseClicked(0);
 
@@ -805,25 +855,17 @@ void SParticleEditorWindow::RenderTrackList()
 				Track.bShowX = !Track.bShowX;
 			}
 
-			// G 클릭
-			if (bMouseClicked &&
+			// G 클릭 (Uniform만)
+			if (bIsUniform && bMouseClicked &&
 				MousePos.x >= BoxX + BoxSpacing && MousePos.x <= BoxX + BoxSpacing + ToggleBoxSize &&
 				MousePos.y >= BoxY && MousePos.y <= BoxY + ToggleBoxSize)
 			{
 				Track.bShowY = !Track.bShowY;
 			}
-
-			// B 클릭
-			if (bMouseClicked &&
-				MousePos.x >= BoxX + BoxSpacing * 2 && MousePos.x <= BoxX + BoxSpacing * 2 + ToggleBoxSize &&
-				MousePos.y >= BoxY && MousePos.y <= BoxY + ToggleBoxSize)
-			{
-				Track.bShowZ = !Track.bShowZ;
-			}
 		}
 
 		// 2행 우측: 가시성 토글 박스 (주황/회색)
-		float VisBoxX = WindowPos.x + WindowSize.x - HorizontalMargin - 4 - ToggleBoxSize;
+		float VisBoxX = RightEdge - 4 - ToggleBoxSize;
 		float VisBoxY = SecondRowY;
 		ImU32 VisColor = Track.bVisible ? IM_COL32(255, 180, 0, 255) : IM_COL32(80, 80, 80, 255);
 		DrawList->AddRectFilled(
@@ -849,7 +891,7 @@ void SParticleEditorWindow::RenderTrackList()
 		float SeparatorY = RowStartY + RowHeight - 2;
 		DrawList->AddLine(
 			ImVec2(WindowPos.x + HorizontalMargin, SeparatorY),
-			ImVec2(WindowPos.x + WindowSize.x - HorizontalMargin, SeparatorY),
+			ImVec2(RightEdge, SeparatorY),
 			IM_COL32(80, 80, 80, 255), 1.0f);
 
 		ImGui::PopID();
@@ -966,55 +1008,150 @@ void SParticleEditorWindow::RenderGraphView()
 
 void SParticleEditorWindow::RenderTrackCurve(ImDrawList* DrawList, ImVec2 CanvasPos, ImVec2 CanvasSize, FCurveTrack& Track)
 {
+	// 값을 Y 좌표로 변환하는 헬퍼 람다
+	auto ValueToY = [&](float Value) -> float {
+		float y = CanvasPos.y + CanvasSize.y -
+			((Value - CurveEditorState.ViewMinValue) /
+			 (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue)) * CanvasSize.y;
+		return FMath::Clamp(y, CanvasPos.y, CanvasPos.y + CanvasSize.y);
+	};
+
 	if (Track.FloatCurve)
 	{
-		// 상수 커브 또는 유니폼 커브 모드인지 확인
-		if (Track.FloatCurve->Type != EDistributionType::ConstantCurve &&
-			Track.FloatCurve->Type != EDistributionType::UniformCurve)
+		// 채널 색상: R=빨강(값/Min), G=초록(Max)
+		ImU32 RColor = IM_COL32(255, 80, 80, 255);
+		ImU32 GColor = IM_COL32(80, 255, 80, 255);
+
+		EDistributionType Type = Track.FloatCurve->Type;
+
+		if (Type == EDistributionType::Constant)
 		{
-			return;  // 커브 모드가 아니면 스킵
-		}
-
-		FInterpCurveFloat& Curve = Track.FloatCurve->ConstantCurve;
-		if (Curve.Points.Num() == 0) return;
-
-		ImU32 CurveColor = Track.TrackColor;
-		const int NumSamples = 100;
-		ImVec2 PrevPoint;
-
-		for (int i = 0; i <= NumSamples; ++i)
-		{
-			float t = (float)i / NumSamples;
-			float Time = FMath::Lerp(CurveEditorState.ViewMinTime, CurveEditorState.ViewMaxTime, t);
-			float Value = Curve.Eval(Time);
-
-			float x = CanvasPos.x + t * CanvasSize.x;
-			float y = CanvasPos.y + CanvasSize.y -
-				((Value - CurveEditorState.ViewMinValue) /
-				 (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue)) * CanvasSize.y;
-
-			y = FMath::Clamp(y, CanvasPos.y, CanvasPos.y + CanvasSize.y);
-
-			ImVec2 Point(x, y);
-			if (i > 0)
+			// Constant: 단일 수평선 (R 채널)
+			if (Track.bShowX)
 			{
-				DrawList->AddLine(PrevPoint, Point, CurveColor, 2.0f);
+				float Value = Track.FloatCurve->ConstantValue;
+				float y = ValueToY(Value);
+				DrawList->AddLine(
+					ImVec2(CanvasPos.x, y),
+					ImVec2(CanvasPos.x + CanvasSize.x, y),
+					RColor, 2.0f);
 			}
-			PrevPoint = Point;
+		}
+		else if (Type == EDistributionType::Uniform)
+		{
+			// Uniform: min(R)/max(G) 두 개의 수평선
+			float MinVal = Track.FloatCurve->MinValue;
+			float MaxVal = Track.FloatCurve->MaxValue;
+
+			// Min 수평선 (R 채널)
+			if (Track.bShowX)
+			{
+				float yMin = ValueToY(MinVal);
+				DrawList->AddLine(
+					ImVec2(CanvasPos.x, yMin),
+					ImVec2(CanvasPos.x + CanvasSize.x, yMin),
+					RColor, 2.0f);
+			}
+
+			// Max 수평선 (G 채널)
+			if (Track.bShowY)
+			{
+				float yMax = ValueToY(MaxVal);
+				DrawList->AddLine(
+					ImVec2(CanvasPos.x, yMax),
+					ImVec2(CanvasPos.x + CanvasSize.x, yMax),
+					GColor, 2.0f);
+			}
+		}
+		else if (Type == EDistributionType::ConstantCurve)
+		{
+			// ConstantCurve: 단일 커브 (R 채널)
+			if (Track.bShowX)
+			{
+				FInterpCurveFloat& Curve = Track.FloatCurve->ConstantCurve;
+				if (Curve.Points.Num() == 0) return;
+
+				const int NumSamples = 100;
+				ImVec2 PrevPoint;
+
+				for (int i = 0; i <= NumSamples; ++i)
+				{
+					float t = (float)i / NumSamples;
+					float Time = FMath::Lerp(CurveEditorState.ViewMinTime, CurveEditorState.ViewMaxTime, t);
+					float Value = Curve.Eval(Time);
+
+					float x = CanvasPos.x + t * CanvasSize.x;
+					float y = ValueToY(Value);
+
+					ImVec2 Point(x, y);
+					if (i > 0)
+					{
+						DrawList->AddLine(PrevPoint, Point, RColor, 2.0f);
+					}
+					PrevPoint = Point;
+				}
+			}
+		}
+		else if (Type == EDistributionType::UniformCurve)
+		{
+			// UniformCurve: Min 커브(R) + Max 커브(G)
+			const int NumSamples = 100;
+
+			// Min 커브 (R 채널)
+			if (Track.bShowX)
+			{
+				FInterpCurveFloat& MinCurve = Track.FloatCurve->MinCurve;
+				if (MinCurve.Points.Num() > 0)
+				{
+					ImVec2 PrevPoint;
+					for (int i = 0; i <= NumSamples; ++i)
+					{
+						float t = (float)i / NumSamples;
+						float Time = FMath::Lerp(CurveEditorState.ViewMinTime, CurveEditorState.ViewMaxTime, t);
+						float Value = MinCurve.Eval(Time);
+
+						float x = CanvasPos.x + t * CanvasSize.x;
+						float y = ValueToY(Value);
+
+						ImVec2 Point(x, y);
+						if (i > 0)
+						{
+							DrawList->AddLine(PrevPoint, Point, RColor, 2.0f);
+						}
+						PrevPoint = Point;
+					}
+				}
+			}
+
+			// Max 커브 (G 채널)
+			if (Track.bShowY)
+			{
+				FInterpCurveFloat& MaxCurve = Track.FloatCurve->MaxCurve;
+				if (MaxCurve.Points.Num() > 0)
+				{
+					ImVec2 PrevPoint;
+					for (int i = 0; i <= NumSamples; ++i)
+					{
+						float t = (float)i / NumSamples;
+						float Time = FMath::Lerp(CurveEditorState.ViewMinTime, CurveEditorState.ViewMaxTime, t);
+						float Value = MaxCurve.Eval(Time);
+
+						float x = CanvasPos.x + t * CanvasSize.x;
+						float y = ValueToY(Value);
+
+						ImVec2 Point(x, y);
+						if (i > 0)
+						{
+							DrawList->AddLine(PrevPoint, Point, GColor, 2.0f);
+						}
+						PrevPoint = Point;
+					}
+				}
+			}
 		}
 	}
 	else if (Track.VectorCurve)
 	{
-		// 상수 커브 또는 유니폼 커브 모드인지 확인
-		if (Track.VectorCurve->Type != EDistributionType::ConstantCurve &&
-			Track.VectorCurve->Type != EDistributionType::UniformCurve)
-		{
-			return;  // 커브 모드가 아니면 스킵
-		}
-
-		FInterpCurveVector& Curve = Track.VectorCurve->ConstantCurve;
-		if (Curve.Points.Num() == 0) return;
-
 		// 채널별 색상
 		ImU32 Colors[3] = {
 			IM_COL32(255, 80, 80, 255),   // X - 빨강
@@ -1023,34 +1160,141 @@ void SParticleEditorWindow::RenderTrackCurve(ImDrawList* DrawList, ImVec2 Canvas
 		};
 		bool ShowChannel[3] = { Track.bShowX, Track.bShowY, Track.bShowZ };
 
-		for (int axis = 0; axis < 3; ++axis)
+		EDistributionType Type = Track.VectorCurve->Type;
+
+		if (Type == EDistributionType::Constant)
 		{
-			if (!ShowChannel[axis]) continue;
+			// Constant: 각 채널별 수평선
+			FVector Value = Track.VectorCurve->ConstantValue;
+			float Values[3] = { Value.X, Value.Y, Value.Z };
+
+			for (int axis = 0; axis < 3; ++axis)
+			{
+				if (!ShowChannel[axis]) continue;
+				float y = ValueToY(Values[axis]);
+				DrawList->AddLine(
+					ImVec2(CanvasPos.x, y),
+					ImVec2(CanvasPos.x + CanvasSize.x, y),
+					Colors[axis], 2.0f);
+			}
+		}
+		else if (Type == EDistributionType::Uniform)
+		{
+			// Uniform: 각 채널별 min/max 수평선
+			FVector MinVal = Track.VectorCurve->MinValue;
+			FVector MaxVal = Track.VectorCurve->MaxValue;
+			float MinValues[3] = { MinVal.X, MinVal.Y, MinVal.Z };
+			float MaxValues[3] = { MaxVal.X, MaxVal.Y, MaxVal.Z };
+
+			for (int axis = 0; axis < 3; ++axis)
+			{
+				if (!ShowChannel[axis]) continue;
+				ImU32 LineColor = (Colors[axis] & 0x00FFFFFF) | 0xAA000000;
+				float yMin = ValueToY(MinValues[axis]);
+				float yMax = ValueToY(MaxValues[axis]);
+				DrawList->AddLine(
+					ImVec2(CanvasPos.x, yMin),
+					ImVec2(CanvasPos.x + CanvasSize.x, yMin),
+					LineColor, 1.5f);
+				DrawList->AddLine(
+					ImVec2(CanvasPos.x, yMax),
+					ImVec2(CanvasPos.x + CanvasSize.x, yMax),
+					LineColor, 1.5f);
+			}
+		}
+		else if (Type == EDistributionType::ConstantCurve)
+		{
+			// ConstantCurve: 단일 커브
+			FInterpCurveVector& Curve = Track.VectorCurve->ConstantCurve;
+			if (Curve.Points.Num() == 0) return;
+
+			for (int axis = 0; axis < 3; ++axis)
+			{
+				if (!ShowChannel[axis]) continue;
+
+				const int NumSamples = 100;
+				ImVec2 PrevPoint;
+
+				for (int i = 0; i <= NumSamples; ++i)
+				{
+					float t = (float)i / NumSamples;
+					float Time = FMath::Lerp(CurveEditorState.ViewMinTime, CurveEditorState.ViewMaxTime, t);
+					FVector Value = Curve.Eval(Time);
+
+					float AxisValue = (axis == 0) ? Value.X : (axis == 1) ? Value.Y : Value.Z;
+
+					float x = CanvasPos.x + t * CanvasSize.x;
+					float y = ValueToY(AxisValue);
+
+					ImVec2 Point(x, y);
+					if (i > 0)
+					{
+						DrawList->AddLine(PrevPoint, Point, Colors[axis], 2.0f);
+					}
+					PrevPoint = Point;
+				}
+			}
+		}
+		else if (Type == EDistributionType::UniformCurve)
+		{
+			// UniformCurve: Min 커브 + Max 커브 (각 축별)
+			FInterpCurveVector& MinCurve = Track.VectorCurve->MinCurve;
+			FInterpCurveVector& MaxCurve = Track.VectorCurve->MaxCurve;
 
 			const int NumSamples = 100;
-			ImVec2 PrevPoint;
 
-			for (int i = 0; i <= NumSamples; ++i)
+			for (int axis = 0; axis < 3; ++axis)
 			{
-				float t = (float)i / NumSamples;
-				float Time = FMath::Lerp(CurveEditorState.ViewMinTime, CurveEditorState.ViewMaxTime, t);
-				FVector Value = Curve.Eval(Time);
+				if (!ShowChannel[axis]) continue;
 
-				float AxisValue = (axis == 0) ? Value.X : (axis == 1) ? Value.Y : Value.Z;
-
-				float x = CanvasPos.x + t * CanvasSize.x;
-				float y = CanvasPos.y + CanvasSize.y -
-					((AxisValue - CurveEditorState.ViewMinValue) /
-					 (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue)) * CanvasSize.y;
-
-				y = FMath::Clamp(y, CanvasPos.y, CanvasPos.y + CanvasSize.y);
-
-				ImVec2 Point(x, y);
-				if (i > 0)
+				// Min 커브 (실선)
+				if (MinCurve.Points.Num() > 0)
 				{
-					DrawList->AddLine(PrevPoint, Point, Colors[axis], 2.0f);
+					ImVec2 PrevPoint;
+					for (int i = 0; i <= NumSamples; ++i)
+					{
+						float t = (float)i / NumSamples;
+						float Time = FMath::Lerp(CurveEditorState.ViewMinTime, CurveEditorState.ViewMaxTime, t);
+						FVector Value = MinCurve.Eval(Time);
+
+						float AxisValue = (axis == 0) ? Value.X : (axis == 1) ? Value.Y : Value.Z;
+
+						float x = CanvasPos.x + t * CanvasSize.x;
+						float y = ValueToY(AxisValue);
+
+						ImVec2 Point(x, y);
+						if (i > 0)
+						{
+							DrawList->AddLine(PrevPoint, Point, Colors[axis], 2.0f);
+						}
+						PrevPoint = Point;
+					}
 				}
-				PrevPoint = Point;
+
+				// Max 커브 (점선 스타일 - 약간 투명)
+				if (MaxCurve.Points.Num() > 0)
+				{
+					ImU32 MaxColor = (Colors[axis] & 0x00FFFFFF) | 0x99000000;
+					ImVec2 PrevPoint;
+					for (int i = 0; i <= NumSamples; ++i)
+					{
+						float t = (float)i / NumSamples;
+						float Time = FMath::Lerp(CurveEditorState.ViewMinTime, CurveEditorState.ViewMaxTime, t);
+						FVector Value = MaxCurve.Eval(Time);
+
+						float AxisValue = (axis == 0) ? Value.X : (axis == 1) ? Value.Y : Value.Z;
+
+						float x = CanvasPos.x + t * CanvasSize.x;
+						float y = ValueToY(AxisValue);
+
+						ImVec2 Point(x, y);
+						if (i > 0)
+						{
+							DrawList->AddLine(PrevPoint, Point, MaxColor, 1.5f);
+						}
+						PrevPoint = Point;
+					}
+				}
 			}
 		}
 	}
@@ -2918,8 +3162,6 @@ bool SParticleEditorWindow::HasCurveProperties(UParticleModule* Module)
 	return false;
 }
 
-// OpenCurveEditor() 제거됨 - ToggleCurveTrack()으로 대체
-
 void SParticleEditorWindow::AutoFitCurveView()
 {
 	// 트랙이 없으면 기본값 유지
@@ -2943,40 +3185,125 @@ void SParticleEditorWindow::AutoFitCurveView()
 	{
 		if (Track.FloatCurve)
 		{
-			// 커브 모드 확인
-			if (Track.FloatCurve->Type != EDistributionType::ConstantCurve &&
-				Track.FloatCurve->Type != EDistributionType::UniformCurve)
-			{
-				continue;
-			}
+			EDistributionType Type = Track.FloatCurve->Type;
 
-			FInterpCurveFloat& Curve = Track.FloatCurve->ConstantCurve;
-			for (int32 i = 0; i < Curve.Points.Num(); ++i)
+			if (Type == EDistributionType::Constant)
 			{
-				MinTime = FMath::Min(MinTime, Curve.Points[i].InVal);
-				MaxTime = FMath::Max(MaxTime, Curve.Points[i].InVal);
-				MinValue = FMath::Min(MinValue, Curve.Points[i].OutVal);
-				MaxValue = FMath::Max(MaxValue, Curve.Points[i].OutVal);
+				// Constant: 단일 값
+				float Value = Track.FloatCurve->ConstantValue;
+				MinValue = FMath::Min(MinValue, Value);
+				MaxValue = FMath::Max(MaxValue, Value);
+				// 시간 범위는 기본값 사용 (0~1)
+				MinTime = FMath::Min(MinTime, 0.0f);
+				MaxTime = FMath::Max(MaxTime, 1.0f);
 				bFoundValidCurve = true;
+			}
+			else if (Type == EDistributionType::Uniform)
+			{
+				// Uniform: min/max 값
+				float MinVal = Track.FloatCurve->MinValue;
+				float MaxVal = Track.FloatCurve->MaxValue;
+				MinValue = FMath::Min(MinValue, FMath::Min(MinVal, MaxVal));
+				MaxValue = FMath::Max(MaxValue, FMath::Max(MinVal, MaxVal));
+				MinTime = FMath::Min(MinTime, 0.0f);
+				MaxTime = FMath::Max(MaxTime, 1.0f);
+				bFoundValidCurve = true;
+			}
+			else if (Type == EDistributionType::ConstantCurve)
+			{
+				// ConstantCurve: 단일 커브 포인트 순회
+				FInterpCurveFloat& Curve = Track.FloatCurve->ConstantCurve;
+				for (int32 i = 0; i < Curve.Points.Num(); ++i)
+				{
+					MinTime = FMath::Min(MinTime, Curve.Points[i].InVal);
+					MaxTime = FMath::Max(MaxTime, Curve.Points[i].InVal);
+					MinValue = FMath::Min(MinValue, Curve.Points[i].OutVal);
+					MaxValue = FMath::Max(MaxValue, Curve.Points[i].OutVal);
+					bFoundValidCurve = true;
+				}
+			}
+			else if (Type == EDistributionType::UniformCurve)
+			{
+				// UniformCurve: Min/Max 커브 포인트 순회
+				FInterpCurveFloat& MinCurve = Track.FloatCurve->MinCurve;
+				FInterpCurveFloat& MaxCurve = Track.FloatCurve->MaxCurve;
+				for (int32 i = 0; i < MinCurve.Points.Num(); ++i)
+				{
+					MinTime = FMath::Min(MinTime, MinCurve.Points[i].InVal);
+					MaxTime = FMath::Max(MaxTime, MinCurve.Points[i].InVal);
+					MinValue = FMath::Min(MinValue, MinCurve.Points[i].OutVal);
+					MaxValue = FMath::Max(MaxValue, MinCurve.Points[i].OutVal);
+					bFoundValidCurve = true;
+				}
+				for (int32 i = 0; i < MaxCurve.Points.Num(); ++i)
+				{
+					MinTime = FMath::Min(MinTime, MaxCurve.Points[i].InVal);
+					MaxTime = FMath::Max(MaxTime, MaxCurve.Points[i].InVal);
+					MinValue = FMath::Min(MinValue, MaxCurve.Points[i].OutVal);
+					MaxValue = FMath::Max(MaxValue, MaxCurve.Points[i].OutVal);
+					bFoundValidCurve = true;
+				}
 			}
 		}
 		else if (Track.VectorCurve)
 		{
-			// 커브 모드 확인
-			if (Track.VectorCurve->Type != EDistributionType::ConstantCurve &&
-				Track.VectorCurve->Type != EDistributionType::UniformCurve)
-			{
-				continue;
-			}
+			EDistributionType Type = Track.VectorCurve->Type;
 
-			FInterpCurveVector& Curve = Track.VectorCurve->ConstantCurve;
-			for (int32 i = 0; i < Curve.Points.Num(); ++i)
+			if (Type == EDistributionType::Constant)
 			{
-				MinTime = FMath::Min(MinTime, Curve.Points[i].InVal);
-				MaxTime = FMath::Max(MaxTime, Curve.Points[i].InVal);
-				MinValue = FMath::Min(MinValue, FMath::Min(Curve.Points[i].OutVal.X, FMath::Min(Curve.Points[i].OutVal.Y, Curve.Points[i].OutVal.Z)));
-				MaxValue = FMath::Max(MaxValue, FMath::Max(Curve.Points[i].OutVal.X, FMath::Max(Curve.Points[i].OutVal.Y, Curve.Points[i].OutVal.Z)));
+				// Constant: 단일 벡터 값
+				FVector Value = Track.VectorCurve->ConstantValue;
+				MinValue = FMath::Min(MinValue, FMath::Min(Value.X, FMath::Min(Value.Y, Value.Z)));
+				MaxValue = FMath::Max(MaxValue, FMath::Max(Value.X, FMath::Max(Value.Y, Value.Z)));
+				MinTime = FMath::Min(MinTime, 0.0f);
+				MaxTime = FMath::Max(MaxTime, 1.0f);
 				bFoundValidCurve = true;
+			}
+			else if (Type == EDistributionType::Uniform)
+			{
+				// Uniform: min/max 벡터 값
+				FVector MinVec = Track.VectorCurve->MinValue;
+				FVector MaxVec = Track.VectorCurve->MaxValue;
+				MinValue = FMath::Min(MinValue, FMath::Min(MinVec.X, FMath::Min(MinVec.Y, FMath::Min(MinVec.Z, FMath::Min(MaxVec.X, FMath::Min(MaxVec.Y, MaxVec.Z))))));
+				MaxValue = FMath::Max(MaxValue, FMath::Max(MaxVec.X, FMath::Max(MaxVec.Y, FMath::Max(MaxVec.Z, FMath::Max(MinVec.X, FMath::Max(MinVec.Y, MinVec.Z))))));
+				MinTime = FMath::Min(MinTime, 0.0f);
+				MaxTime = FMath::Max(MaxTime, 1.0f);
+				bFoundValidCurve = true;
+			}
+			else if (Type == EDistributionType::ConstantCurve)
+			{
+				// ConstantCurve: 단일 커브 포인트 순회
+				FInterpCurveVector& Curve = Track.VectorCurve->ConstantCurve;
+				for (int32 i = 0; i < Curve.Points.Num(); ++i)
+				{
+					MinTime = FMath::Min(MinTime, Curve.Points[i].InVal);
+					MaxTime = FMath::Max(MaxTime, Curve.Points[i].InVal);
+					MinValue = FMath::Min(MinValue, FMath::Min(Curve.Points[i].OutVal.X, FMath::Min(Curve.Points[i].OutVal.Y, Curve.Points[i].OutVal.Z)));
+					MaxValue = FMath::Max(MaxValue, FMath::Max(Curve.Points[i].OutVal.X, FMath::Max(Curve.Points[i].OutVal.Y, Curve.Points[i].OutVal.Z)));
+					bFoundValidCurve = true;
+				}
+			}
+			else if (Type == EDistributionType::UniformCurve)
+			{
+				// UniformCurve: Min/Max 커브 포인트 순회
+				FInterpCurveVector& MinCurve = Track.VectorCurve->MinCurve;
+				FInterpCurveVector& MaxCurve = Track.VectorCurve->MaxCurve;
+				for (int32 i = 0; i < MinCurve.Points.Num(); ++i)
+				{
+					MinTime = FMath::Min(MinTime, MinCurve.Points[i].InVal);
+					MaxTime = FMath::Max(MaxTime, MinCurve.Points[i].InVal);
+					MinValue = FMath::Min(MinValue, FMath::Min(MinCurve.Points[i].OutVal.X, FMath::Min(MinCurve.Points[i].OutVal.Y, MinCurve.Points[i].OutVal.Z)));
+					MaxValue = FMath::Max(MaxValue, FMath::Max(MinCurve.Points[i].OutVal.X, FMath::Max(MinCurve.Points[i].OutVal.Y, MinCurve.Points[i].OutVal.Z)));
+					bFoundValidCurve = true;
+				}
+				for (int32 i = 0; i < MaxCurve.Points.Num(); ++i)
+				{
+					MinTime = FMath::Min(MinTime, MaxCurve.Points[i].InVal);
+					MaxTime = FMath::Max(MaxTime, MaxCurve.Points[i].InVal);
+					MinValue = FMath::Min(MinValue, FMath::Min(MaxCurve.Points[i].OutVal.X, FMath::Min(MaxCurve.Points[i].OutVal.Y, MaxCurve.Points[i].OutVal.Z)));
+					MaxValue = FMath::Max(MaxValue, FMath::Max(MaxCurve.Points[i].OutVal.X, FMath::Max(MaxCurve.Points[i].OutVal.Y, MaxCurve.Points[i].OutVal.Z)));
+					bFoundValidCurve = true;
+				}
 			}
 		}
 	}
