@@ -453,7 +453,7 @@ void UParticleSystemComponent::CreateDebugRibbonParticleSystem()
 
 	// 리본 타입 데이터 모듈 생성
 	UParticleModuleTypeDataRibbon* RibbonTypeData = NewObject<UParticleModuleTypeDataRibbon>();
-	RibbonTypeData->RibbonWidth = 3.0f;
+	RibbonTypeData->RibbonWidth = 1.0f;
 	LODLevel->Modules.Add(RibbonTypeData);
 
 	// 스폰 모듈 생성 - 리본은 연속적인 파티클 스트림이 필요
@@ -1652,10 +1652,14 @@ void UParticleSystemComponent::FillRibbonBuffers(const FSceneView* View)
 			FVector Up = FVector::Cross(SegmentDir, ViewDirection);
 			Up.Normalize();
 
-			float HalfWidth = RibbonWidth * 0.5f;
-
 			// UV의 V좌표는 리본의 길이에 따라 0에서 1까지 변함
 			float V = (float)i / (float)(NumPoints - 1);
+
+			// 테이퍼링: 끝으로 갈수록 너비 감소 (뾰족한 끝 방지)
+			// V=0 (오래된 파티클, 트레일 끝) → 너비 0
+			// V=1 (새로운 파티클, 트레일 시작) → 너비 100%
+			float WidthScale = V;  // 선형 테이퍼링 (V*V or sqrt(V))
+			float HalfWidth = (RibbonWidth * 0.5f) * WidthScale;
 
 			// 각 포인트마다 2개의 정점(좌, 우) 생성
 			Vertices[VertexOffset++] = {
