@@ -60,6 +60,9 @@ SParticleEditorWindow::SParticleEditorWindow()
 
 SParticleEditorWindow::~SParticleEditorWindow()
 {
+	// 포커스 플래그 리셋 (윈도우 파괴 시)
+	bIsAnyParticleEditorFocused = false;
+
 	// 툴바 아이콘 정리
 	if (IconSave)
 	{
@@ -195,6 +198,9 @@ static void RestoreToSpriteTypeData(UParticleLODLevel* LOD, ParticleEditorState*
 
 void SParticleEditorWindow::OnRender()
 {
+	// 매 프레임 시작 시 포커스 플래그 리셋 (윈도우가 닫혀도 리셋되도록)
+	bIsAnyParticleEditorFocused = false;
+
 	// 윈도우가 닫혔으면 정리 요청
 	if (!bIsOpen)
 	{
