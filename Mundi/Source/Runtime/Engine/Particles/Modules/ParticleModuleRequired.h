@@ -72,6 +72,9 @@ public:
 	// 로드 시 생성한 Material 소유 여부 (true면 소멸자에서 삭제)
 	bool bOwnsMaterial = false;
 
+	// LOD 복제 시 Material도 복제 (bOwnsMaterial=true인 경우)
+	virtual void DuplicateSubObjects() override;
+
 	// 언리얼 엔진 호환: 렌더 스레드용 데이터로 변환
 	FParticleRequiredModule ToRenderThreadData() const;
 

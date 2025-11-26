@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "ParticleModule.h"
 #include "Distribution.h"
@@ -16,6 +16,8 @@ struct FParticleColorPayload
 	float Padding[3];             // 정렬 패딩 (12바이트)
 	// 총 64바이트
 };
+static_assert(sizeof(FParticleColorPayload) == 64, "FParticleColorPayload must be 64 bytes");
+// WARNING : 페이로드는 항상 16바이트의 배수여야 함!!
 
 UCLASS(DisplayName="색상 모듈", Description="파티클의 색상을 정의하며, 시간에 따른 색상 변화를 설정할 수 있습니다")
 class UParticleModuleColor : public UParticleModule
