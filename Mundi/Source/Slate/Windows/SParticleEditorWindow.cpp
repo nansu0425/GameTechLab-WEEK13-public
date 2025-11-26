@@ -1167,14 +1167,14 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 
 	ImGui::EndGroup();
 
-	// 헤더 클릭 감지 (전체 영역)
+	// 헤더 클릭 감지 (전체 영역) - 이미터 헤더 + 필수 모듈 선택
 	ImVec2 HeaderMin = ImGui::GetWindowPos();
 	ImVec2 HeaderMax = ImVec2(HeaderMin.x + ImGui::GetWindowWidth(), HeaderMin.y + 70);
 	if (ImGui::IsMouseClicked(0) && ImGui::IsMouseHoveringRect(HeaderMin, HeaderMax))
 	{
 		State->SelectedEmitterIndex = EmitterIndex;
-		State->SelectedModuleIndex = -1;
-		State->SelectedModule = nullptr;
+		State->SelectedModule = LOD->RequiredModule;
+		State->SelectedModuleIndex = LOD->RequiredModule ? 1 : -1;  // Required 모듈의 표시 우선순위는 1
 	}
 
 	// 썸네일 영역 (우측 상단에 배치)
@@ -1254,12 +1254,12 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 		}
 	}
 
-	// 모듈 리스트 빈 영역 좌클릭 → 이미터 선택
+	// 모듈 리스트 빈 영역 좌클릭 → 이미터 헤더 + 필수 모듈 선택
 	if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered())
 	{
 		State->SelectedEmitterIndex = EmitterIndex;
-		State->SelectedModuleIndex = -1;
-		State->SelectedModule = nullptr;
+		State->SelectedModule = LOD->RequiredModule;
+		State->SelectedModuleIndex = LOD->RequiredModule ? 1 : -1;  // Required 모듈의 표시 우선순위는 1
 	}
 
 	// 이미터 영역 우클릭 → 모듈 추가/이미터 관리 메뉴
@@ -1370,15 +1370,23 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 		}
 
 		// 회전
+		// 메시 타입 데이터인 경우 메시 회전만, 그 외에는 초기 회전만 표시
+		bool bIsMeshTypeData = Cast<UParticleModuleTypeDataMesh>(LOD->TypeDataModule) != nullptr;
 		if (ImGui::BeginMenu("회전"))
 		{
-			if (ImGui::MenuItem("초기 회전"))
+			if (bIsMeshTypeData)
 			{
-				AddModuleToLOD<UParticleModuleRotation>(LOD, State);
+				if (ImGui::MenuItem("메시 회전"))
+				{
+					AddModuleToLOD<UParticleModuleMeshRotation>(LOD, State);
+				}
 			}
-			if (ImGui::MenuItem("메시 회전"))
+			else
 			{
-				AddModuleToLOD<UParticleModuleMeshRotation>(LOD, State);
+				if (ImGui::MenuItem("초기 회전"))
+				{
+					AddModuleToLOD<UParticleModuleRotation>(LOD, State);
+				}
 			}
 			ImGui::EndMenu();
 		}
