@@ -1220,26 +1220,31 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 	// 이미터가 선택되었거나 해당 이미터의 모듈이 선택된 경우 하이라이트
 	bool bEmitterSelected = (State->SelectedEmitterIndex == EmitterIndex);
 
-	// 헤더 배경색 (선택: 연보라색)
+	// 헤더 배경색 (선택: 연보라색, 기본: 청회색)
 	ImVec4 HeaderBgColor = bEmitterSelected
 		? ImVec4(0.25f, 0.2f, 0.5f, 1.0f)
-		: ImVec4(0.15f, 0.15f, 0.15f, 1.0f);
+		: ImVec4(0.20f, 0.22f, 0.28f, 1.0f);
 
 	ImGui::PushStyleColor(ImGuiCol_ChildBg, HeaderBgColor);
 	ImGui::BeginChild(("##EmitterHeader" + std::to_string(EmitterIndex)).c_str(), ImVec2(0, 70), false);
 
+	ImDrawList* HeaderDrawList = ImGui::GetWindowDrawList();
+	ImVec2 WindowPos = ImGui::GetWindowPos();
+
 	// 첫 번째 줄: "Particle Emitter" 텍스트
-	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 5.0f);
-	ImGui::Text("Particle Emitter");
+	const char* HeaderText = "Particle Emitter";
+	ImVec2 TextPos(WindowPos.x + 5.0f, WindowPos.y + 3.0f);
+	HeaderDrawList->AddText(ImVec2(TextPos.x + 1, TextPos.y + 1), IM_COL32(0, 0, 0, 180), HeaderText);  // 그림자
+	HeaderDrawList->AddText(TextPos, IM_COL32(255, 255, 255, 255), HeaderText);  // 본문
 
 	// 두 번째 줄: 체크박스 + 파티클 개수
+	ImGui::SetCursorPosY(ImGui::GetTextLineHeightWithSpacing() + 5.0f);
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 5.0f);
 	ImGui::BeginGroup();
 
 	// 커스텀 체크박스 (체크/X 토글)
 	ImVec2 CheckboxSize(14, 14);
 	ImVec2 CheckboxPos = ImGui::GetCursorScreenPos();
-	ImDrawList* HeaderDrawList = ImGui::GetWindowDrawList();
 
 	// 체크박스 배경 (밝은 색상)
 	ImU32 CheckboxBgColor = LOD->bEnabled ? IM_COL32(0, 255, 0, 255) : IM_COL32(255, 0, 0, 255);
@@ -1282,9 +1287,8 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 	}
 
 	ImGui::SameLine();
-	ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 3.0f);  // 체크박스와 높이 정렬
 
-	// 파티클 개수 표시
+	// 파티클 개수 표시 (그림자 효과)
 	int32 ParticleCount = 0;
 	if (State->PreviewComponent && EmitterIndex < State->PreviewComponent->EmitterInstances.Num())
 	{
@@ -1294,7 +1298,12 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 			ParticleCount = Instance->ActiveParticles;
 		}
 	}
-	ImGui::Text("%d", ParticleCount);
+	char CountText[32];
+	sprintf_s(CountText, "%d", ParticleCount);
+	ImVec2 CountPos = ImGui::GetCursorScreenPos();
+	CountPos.y -= 3.0f;  // 체크박스와 높이 정렬
+	HeaderDrawList->AddText(ImVec2(CountPos.x + 1, CountPos.y + 1), IM_COL32(0, 0, 0, 180), CountText);  // 그림자
+	HeaderDrawList->AddText(CountPos, IM_COL32(255, 255, 255, 255), CountText);  // 본문
 
 	ImGui::EndGroup();
 
@@ -1702,11 +1711,13 @@ void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx,
 		ImGui::EndDragDropSource();
 	}
 
-	// 모듈 이름 (DrawList로 직접 그리기)
+	// 모듈 이름
 	ImDrawList* DrawList = ImGui::GetWindowDrawList();
 	ImVec2 WindowPos = ImGui::GetWindowPos();
 	float TextY = WindowPos.y + (ModuleHeight - ImGui::GetTextLineHeight()) * 0.5f;
-	DrawList->AddText(ImVec2(WindowPos.x + 5.0f, TextY), IM_COL32(255, 255, 255, 255), DisplayName.c_str());
+	ImVec2 ModuleTextPos(WindowPos.x + 5.0f, TextY);
+	DrawList->AddText(ImVec2(ModuleTextPos.x + 1, ModuleTextPos.y + 1), IM_COL32(0, 0, 0, 180), DisplayName.c_str());  // 그림자
+	DrawList->AddText(ModuleTextPos, IM_COL32(255, 255, 255, 255), DisplayName.c_str());  // 본문
 
 	// 체크박스 (모듈 블록 내부에서 그리기)
 	if (bShowCheckbox)
