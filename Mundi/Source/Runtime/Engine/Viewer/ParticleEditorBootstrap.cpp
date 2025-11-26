@@ -212,6 +212,7 @@ UParticleSystem* ParticleEditorBootstrap::CreateDefaultParticleTemplate()
 	SpriteMaterial->ResolveTextures();
 
 	RequiredModule->Material = SpriteMaterial;
+	RequiredModule->bOwnsMaterial = true;
 
 	// 4. Lifetime 모듈
 	UParticleModuleLifetime* LifetimeModule = NewObject<UParticleModuleLifetime>();

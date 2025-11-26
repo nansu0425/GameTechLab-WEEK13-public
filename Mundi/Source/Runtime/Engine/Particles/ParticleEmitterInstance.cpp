@@ -146,19 +146,12 @@ void FParticleEmitterInstance::SetLODLevel(int32 NewLODIndex)
 	if (!NewLODLevel || !NewLODLevel->bEnabled)
 		return;
 
-	// Update State
+	// Update State (기존 파티클 유지, 새 스폰만 새 LOD 설정 사용)
 	CurrentLODLevelIndex = NewLODIndex;
 	CurrentLODLevel = NewLODLevel;
 
-	// 수명/스폰 관련 상태 초기화
+	// 스폰 관련 상태만 초기화 (기존 파티클은 유지)
 	SpawnFraction = 0.f;
-	// BurstFired 배열은 SetupEmitter()에서 초기화됨
-
-	// 언리얼 엔진 호환: 타이밍 상태 리셋
-	EmitterTime = 0.0f;
-	CurrentLoopCount = 0;
-	bDelayComplete = false;
-	bEmitterEnabled = true;
 
 	// 새 LOD의 Delay/Duration 재계산
 	if (NewLODLevel->RequiredModule)
@@ -204,11 +197,20 @@ void FParticleEmitterInstance::SetLODLevel(int32 NewLODIndex)
 		}
 	}
 
-	KillAllParticles();
+	// 새 LOD의 모듈 오프셋 및 BurstFired 배열 업데이트
+	uint32 OldParticleStride = ParticleStride;
 	SetupEmitter();
 
-	// ParticleDataContainer 재할당
-	Resize(MaxActiveParticles);
+	// Stride가 다르면 기존 파티클과 호환되지 않으므로 리셋
+	// (LOD 간 모듈 구성이 다른 경우 - LOD 0 마스터 설계로 일반적으로 발생하지 않음)
+	if (ParticleStride != OldParticleStride)
+	{
+		UE_LOG("[ParticleEmitterInstance] WARNING: LOD %d -> %d 전환 시 Stride 불일치 (%u -> %u). "
+			"LOD 0에서만 모듈 구성을 변경해야 합니다. 파티클이 리셋됩니다.",
+			CurrentLODLevelIndex, NewLODIndex, OldParticleStride, ParticleStride);
+		KillAllParticles();
+		Resize(MaxActiveParticles);
+	}
 }
 
 void FParticleEmitterInstance::SetupEmitter()

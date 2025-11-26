@@ -758,6 +758,70 @@ void UParticleSystemComponent::SetTemplate(UParticleSystem* NewTemplate)
 	}
 }
 
+void UParticleSystemComponent::SetEditorLODLevel(int32 LODLevel)
+{
+	for (FParticleEmitterInstance* Instance : EmitterInstances)
+	{
+		if (Instance)
+		{
+			Instance->SetLODLevel(LODLevel);
+		}
+	}
+}
+
+void UParticleSystemComponent::SetLODLevel(int32 NewLODLevel)
+{
+	if (!Template || CurrentLODLevel == NewLODLevel)
+		return;
+
+	// LOD 레벨 클램프
+	int32 MaxLOD = 0;
+	for (UParticleEmitter* Emitter : Template->Emitters)
+	{
+		if (Emitter)
+			MaxLOD = FMath::Max(MaxLOD, Emitter->LODLevels.Num() - 1);
+	}
+	NewLODLevel = FMath::Clamp(NewLODLevel, 0, MaxLOD);
+
+	if (CurrentLODLevel == NewLODLevel)
+		return;
+
+	CurrentLODLevel = NewLODLevel;
+
+	// 각 EmitterInstance의 LOD 레벨 변경
+	for (FParticleEmitterInstance* Instance : EmitterInstances)
+	{
+		if (Instance)
+		{
+			Instance->SetLODLevel(CurrentLODLevel);
+		}
+	}
+}
+
+void UParticleSystemComponent::UpdateLODLevels(const FVector& CameraPosition)
+{
+	if (!Template || !Template->bUseLOD || Template->LODDistances.IsEmpty())
+		return;
+
+	// 카메라와의 거리 계산
+	FVector ComponentPosition = GetWorldLocation();
+	float Distance = (CameraPosition - ComponentPosition).Size();
+
+	// 거리 기반 LOD 레벨 결정
+	int32 NewLOD = 0;
+	for (int32 i = 0; i < Template->LODDistances.Num(); i++)
+	{
+		if (Distance > Template->LODDistances[i])
+			NewLOD = i + 1;
+	}
+
+	// LOD 변경
+	if (NewLOD != CurrentLODLevel)
+	{
+		SetLODLevel(NewLOD);
+	}
+}
+
 void UParticleSystemComponent::RefreshEmitterInstances()
 {
 	// 동일한 템플릿의 내용이 변경되었을 때 EmitterInstances 재생성
@@ -982,6 +1046,12 @@ void UParticleSystemComponent::DuplicateSubObjects()
 
 void UParticleSystemComponent::CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View)
 {
+	// 0. 런타임 LOD 업데이트 (카메라 거리 기반)
+	if (View)
+	{
+		UpdateLODLevels(View->ViewLocation);
+	}
+
 	// 1. 유효성 검사
 	if (!IsVisible() || EmitterRenderData.Num() == 0)
 	{
