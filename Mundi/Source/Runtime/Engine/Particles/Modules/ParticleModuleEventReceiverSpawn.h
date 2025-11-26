@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ParticleModuleEventReceiverBase.h"
+#include "Distribution.h"
 #include "UParticleModuleEventReceiverSpawn.generated.h"
 
 /**
@@ -16,8 +17,8 @@ public:
 
 public:
 	// 이벤트당 스폰할 파티클 수
-	UPROPERTY(EditAnywhere, Category="Spawn", meta=(ClampMin="1", ToolTip="이벤트당 스폰할 파티클 수"))
-	int32 SpawnCount = 1;
+	UPROPERTY(EditAnywhere, Category="Spawn", meta=(ToolTip="이벤트당 스폰할 파티클 수"))
+	FDistributionFloat SpawnCount = FDistributionFloat(1.0f);
 
 	// 이벤트 위치에서 스폰할지 여부 (false면 이미터 원점에서 스폰)
 	UPROPERTY(EditAnywhere, Category="Spawn", meta=(ToolTip="이벤트 발생 위치에서 스폰할지 여부"))
@@ -28,8 +29,8 @@ public:
 	bool bInheritVelocity = false;
 
 	// 속도 상속 비율 (0~1)
-	UPROPERTY(EditAnywhere, Category="Spawn", meta=(ClampMin="0.0", ClampMax="1.0", ToolTip="속도 상속 비율"))
-	float VelocityScale = 1.0f;
+	UPROPERTY(EditAnywhere, Category="Spawn", meta=(ToolTip="속도 상속 비율"))
+	FDistributionFloat VelocityScale = FDistributionFloat(1.0f);
 
 	UParticleModuleEventReceiverSpawn()
 	{

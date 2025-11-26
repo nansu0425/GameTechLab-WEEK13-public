@@ -265,7 +265,7 @@ void UParticleSystemComponent::CreateDebugMeshParticleSystem()
 	// 충돌 모듈 생성
 	UParticleModuleCollision* CollisionModule = NewObject<UParticleModuleCollision>();
 	CollisionModule->DampingFactor = FDistributionVector(FVector(0.8f, 0.8f, 0.6f));  // 탄성 계수
-	CollisionModule->MaxCollisions = 5;      // 5번까지 바운스
+	CollisionModule->MaxCollisions = FDistributionFloat(5.0f);      // 5번까지 바운스
 	CollisionModule->CollisionCompletionOption = EParticleCollisionComplete::HaltCollisions;  // 5번 후 충돌 무시
 	CollisionModule->ParticleRadius = 0.5f;  // 파티클 충돌 반지름
 	CollisionModule->bGenerateCollisionEvents = true;  // 충돌 이벤트 생성

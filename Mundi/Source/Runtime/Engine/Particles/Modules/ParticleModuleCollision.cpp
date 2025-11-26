@@ -29,6 +29,11 @@ void UParticleModuleCollision::Spawn(FParticleEmitterInstance* Owner, int32 Offs
 	CollPayload.UsedCollisionCount = 0;
 	CollPayload.DelayTimer = 0.0f;
 	CollPayload.UsedDampingFactor = DampingFactor.GetValue(Owner->EmitterTime, Owner->RandomStream, Owner->Component);
+
+	// 분포에서 값 샘플링
+	float MaxCollFloat = MaxCollisions.GetValue(Owner->EmitterTime, Owner->RandomStream, Owner->Component);
+	CollPayload.UsedMaxCollisions = FMath::Max(0, static_cast<int32>(MaxCollFloat + 0.5f));
+	CollPayload.UsedDelayAmount = DelayAmount.GetValue(Owner->EmitterTime, Owner->RandomStream, Owner->Component);
 }
 
 void UParticleModuleCollision::Update(FModuleUpdateContext& Context)
@@ -61,15 +66,17 @@ void UParticleModuleCollision::Update(FModuleUpdateContext& Context)
 
 		// 딜레이 체크
 		CollPayload.DelayTimer += DeltaTime;
-		if (CollPayload.DelayTimer < DelayAmount)
+		if (CollPayload.DelayTimer < CollPayload.UsedDelayAmount)
 		{
+			CurrentOffset = Offset;  // continue 전 오프셋 리셋 필수!
 			continue;
 		}
 
 		// MaxCollisions 체크
-		if (CollPayload.UsedCollisionCount >= MaxCollisions)
+		if (CollPayload.UsedCollisionCount >= CollPayload.UsedMaxCollisions)
 		{
 			HandleCollisionComplete(Particle, CollPayload);
+			CurrentOffset = Offset;  // continue 전 오프셋 리셋 필수!
 			continue;
 		}
 
@@ -305,14 +312,16 @@ void UParticleModuleCollision::Serialize(const bool bInIsLoading, JSON& InOutHan
 	{
 		if (FJsonSerializer::ReadObject(InOutHandle, "DampingFactor", TempJson))
 			DampingFactor.Serialize(true, TempJson);
-		FJsonSerializer::ReadInt32(InOutHandle, "MaxCollisions", MaxCollisions);
+		if (FJsonSerializer::ReadObject(InOutHandle, "MaxCollisions", TempJson))
+			MaxCollisions.Serialize(true, TempJson);
+		if (FJsonSerializer::ReadObject(InOutHandle, "DelayAmount", TempJson))
+			DelayAmount.Serialize(true, TempJson);
 
 		// CollisionCompletionOption enum 직렬화
 		int32 OptionValue = 0;
 		FJsonSerializer::ReadInt32(InOutHandle, "CollisionCompletionOption", OptionValue);
 		CollisionCompletionOption = static_cast<EParticleCollisionComplete>(OptionValue);
 
-		FJsonSerializer::ReadFloat(InOutHandle, "DelayAmount", DelayAmount);
 		FJsonSerializer::ReadFloat(InOutHandle, "ParticleRadius", ParticleRadius);
 		FJsonSerializer::ReadBool(InOutHandle, "bGenerateCollisionEvents", bGenerateCollisionEvents);
 	}
@@ -321,9 +330,16 @@ void UParticleModuleCollision::Serialize(const bool bInIsLoading, JSON& InOutHan
 		TempJson = JSON::Make(JSON::Class::Object);
 		DampingFactor.Serialize(false, TempJson);
 		InOutHandle["DampingFactor"] = TempJson;
-		InOutHandle["MaxCollisions"] = MaxCollisions;
+
+		TempJson = JSON::Make(JSON::Class::Object);
+		MaxCollisions.Serialize(false, TempJson);
+		InOutHandle["MaxCollisions"] = TempJson;
+
+		TempJson = JSON::Make(JSON::Class::Object);
+		DelayAmount.Serialize(false, TempJson);
+		InOutHandle["DelayAmount"] = TempJson;
+
 		InOutHandle["CollisionCompletionOption"] = static_cast<int32>(CollisionCompletionOption);
-		InOutHandle["DelayAmount"] = DelayAmount;
 		InOutHandle["ParticleRadius"] = ParticleRadius;
 		InOutHandle["bGenerateCollisionEvents"] = bGenerateCollisionEvents;
 	}

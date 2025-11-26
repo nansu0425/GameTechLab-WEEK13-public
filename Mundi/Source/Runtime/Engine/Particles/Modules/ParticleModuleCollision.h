@@ -9,11 +9,14 @@
 struct FParticleCollisionPayload
 {
 	FVector UsedDampingFactor;      // 12B - 실제 적용된 감쇠값
-	int32 UsedCollisionCount;        // 4B - 현재 충돌 횟수
-	float DelayTimer;                // 4B - 딜레이 타이머
-	float Padding[3];                // 12B - 16바이트 정렬
-	// 총 32바이트
+	int32 UsedMaxCollisions;        // 4B - 스폰 시 샘플링된 최대 충돌 횟수
+	float UsedDelayAmount;          // 4B - 스폰 시 샘플링된 딜레이
+	int32 UsedCollisionCount;       // 4B - 현재 충돌 횟수
+	float DelayTimer;               // 4B - 딜레이 타이머
+	float Padding;                  // 4B - 16바이트 정렬
+	// 총 32바이트 (16의 배수)
 };
+static_assert(sizeof(FParticleCollisionPayload) == 32, "FParticleCollisionPayload must be 32 bytes");
 
 UCLASS(DisplayName="충돌 모듈", Description="파티클과 ShapeComponent 간의 충돌을 처리하는 모듈입니다")
 class UParticleModuleCollision : public UParticleModule
@@ -28,16 +31,16 @@ public:
 	FDistributionVector DampingFactor = FDistributionVector(FVector(0.5f, 0.5f, 0.3f));
 
 	// 최대 충돌 횟수 (이 횟수에 도달하면 CollisionCompletionOption 적용)
-	UPROPERTY(EditAnywhere, Category="Collision", meta=(ClampMin="1", ToolTip="최대 충돌 횟수"))
-	int32 MaxCollisions = 1;
+	UPROPERTY(EditAnywhere, Category="Collision", meta=(ToolTip="최대 충돌 횟수"))
+	FDistributionFloat MaxCollisions = FDistributionFloat(1.0f);
 
 	// MaxCollisions 도달 시 동작
 	UPROPERTY(EditAnywhere, Category="Collision", meta=(ToolTip="최대 충돌 도달 시 동작"))
 	EParticleCollisionComplete CollisionCompletionOption = EParticleCollisionComplete::Kill;
 
 	// 충돌 검사 시작 전 딜레이 (초)
-	UPROPERTY(EditAnywhere, Category="Collision", meta=(ClampMin="0.0", ToolTip="충돌 검사 시작 전 딜레이 (초)"))
-	float DelayAmount = 0.0f;
+	UPROPERTY(EditAnywhere, Category="Collision", meta=(ToolTip="충돌 검사 시작 전 딜레이 (초)"))
+	FDistributionFloat DelayAmount = FDistributionFloat(0.0f);
 
 	// 파티클 충돌 반지름
 	UPROPERTY(EditAnywhere, Category="Collision", meta=(ClampMin="0.1", ToolTip="파티클 충돌 반지름"))

@@ -42,9 +42,12 @@ void UParticleModuleEventReceiverSpawn::HandleEvent(FParticleEmitterInstance* Ow
 		return;
 	}
 
+	// 분포에서 값 샘플링
+	float ActualVelocityScale = VelocityScale.GetValue(Owner->EmitterTime, Owner->RandomStream, Owner->Component);
+
 	// 위치 및 속도 결정
 	FVector SpawnLocation = bUseEventLocation ? Event.Position : Owner->CachedEmitterOrigin;
-	FVector SpawnVelocity = bInheritVelocity ? Event.Velocity * VelocityScale : FVector(0.0f, 0.0f, 0.0f);
+	FVector SpawnVelocity = bInheritVelocity ? Event.Velocity * ActualVelocityScale : FVector(0.0f, 0.0f, 0.0f);
 
 	SpawnParticlesAtLocation(Owner, SpawnLocation, SpawnVelocity);
 }
@@ -62,9 +65,12 @@ void UParticleModuleEventReceiverSpawn::HandleCollisionEvent(FParticleEmitterIns
 		return;
 	}
 
+	// 분포에서 값 샘플링
+	float ActualVelocityScale = VelocityScale.GetValue(Owner->EmitterTime, Owner->RandomStream, Owner->Component);
+
 	// 위치 및 속도 결정
 	FVector SpawnLocation = bUseEventLocation ? Event.Position : Owner->CachedEmitterOrigin;
-	FVector SpawnVelocity = bInheritVelocity ? Event.Velocity * VelocityScale : FVector(0.0f, 0.0f, 0.0f);
+	FVector SpawnVelocity = bInheritVelocity ? Event.Velocity * ActualVelocityScale : FVector(0.0f, 0.0f, 0.0f);
 
 	// 충돌 이벤트의 경우 법선 방향으로 속도 조정 가능
 	// (충돌 후 튕겨나가는 효과)
@@ -74,34 +80,47 @@ void UParticleModuleEventReceiverSpawn::HandleCollisionEvent(FParticleEmitterIns
 
 void UParticleModuleEventReceiverSpawn::SpawnParticlesAtLocation(FParticleEmitterInstance* Owner, const FVector& Location, const FVector& Velocity)
 {
-	if (!Owner || SpawnCount <= 0)
+	if (!Owner)
 	{
 		return;
 	}
 
+	// 분포에서 스폰 수 샘플링
+	float SpawnCountFloat = SpawnCount.GetValue(Owner->EmitterTime, Owner->RandomStream, Owner->Component);
+	int32 ActualSpawnCount = FMath::Max(1, static_cast<int32>(SpawnCountFloat + 0.5f));
+
 	// 파티클 스폰
 	// StartTime = 0 (현재 프레임에서 즉시 스폰)
 	// Increment = 0 (모든 파티클이 같은 시간에 스폰)
-	Owner->SpawnParticles(SpawnCount, 0.0f, 0.0f, Location, Velocity);
+	Owner->SpawnParticles(ActualSpawnCount, 0.0f, 0.0f, Location, Velocity);
 }
 
 void UParticleModuleEventReceiverSpawn::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
 	UParticleModuleEventReceiverBase::Serialize(bInIsLoading, InOutHandle);
 
+	JSON TempJson;
 	if (bInIsLoading)
 	{
-		FJsonSerializer::ReadInt32(InOutHandle, "SpawnCount", SpawnCount);
+		if (FJsonSerializer::ReadObject(InOutHandle, "SpawnCount", TempJson))
+			SpawnCount.Serialize(true, TempJson);
 		FJsonSerializer::ReadBool(InOutHandle, "bUseEventLocation", bUseEventLocation);
 		FJsonSerializer::ReadBool(InOutHandle, "bInheritVelocity", bInheritVelocity);
-		FJsonSerializer::ReadFloat(InOutHandle, "VelocityScale", VelocityScale);
+		if (FJsonSerializer::ReadObject(InOutHandle, "VelocityScale", TempJson))
+			VelocityScale.Serialize(true, TempJson);
 	}
 	else
 	{
-		InOutHandle["SpawnCount"] = SpawnCount;
+		TempJson = JSON::Make(JSON::Class::Object);
+		SpawnCount.Serialize(false, TempJson);
+		InOutHandle["SpawnCount"] = TempJson;
+
 		InOutHandle["bUseEventLocation"] = bUseEventLocation;
 		InOutHandle["bInheritVelocity"] = bInheritVelocity;
-		InOutHandle["VelocityScale"] = VelocityScale;
+
+		TempJson = JSON::Make(JSON::Class::Object);
+		VelocityScale.Serialize(false, TempJson);
+		InOutHandle["VelocityScale"] = TempJson;
 	}
 }
 
