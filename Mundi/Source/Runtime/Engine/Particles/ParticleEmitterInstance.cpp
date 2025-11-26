@@ -1,6 +1,7 @@
 ﻿#include "pch.h"
 #include "ParticleEmitterInstance.h"
 #include "ParticleSystemComponent.h"
+#include "ParticleEventTypes.h"
 #include "Modules/ParticleModule.h"
 #include "Modules/ParticleModuleSpawn.h"
 #include "Modules/ParticleModuleMeshRotation.h"
@@ -145,19 +146,12 @@ void FParticleEmitterInstance::SetLODLevel(int32 NewLODIndex)
 	if (!NewLODLevel || !NewLODLevel->bEnabled)
 		return;
 
-	// Update State
+	// Update State (기존 파티클 유지, 새 스폰만 새 LOD 설정 사용)
 	CurrentLODLevelIndex = NewLODIndex;
 	CurrentLODLevel = NewLODLevel;
 
-	// 수명/스폰 관련 상태 초기화
+	// 스폰 관련 상태만 초기화 (기존 파티클은 유지)
 	SpawnFraction = 0.f;
-	// BurstFired 배열은 SetupEmitter()에서 초기화됨
-
-	// 언리얼 엔진 호환: 타이밍 상태 리셋
-	EmitterTime = 0.0f;
-	CurrentLoopCount = 0;
-	bDelayComplete = false;
-	bEmitterEnabled = true;
 
 	// 새 LOD의 Delay/Duration 재계산
 	if (NewLODLevel->RequiredModule)
@@ -203,11 +197,20 @@ void FParticleEmitterInstance::SetLODLevel(int32 NewLODIndex)
 		}
 	}
 
-	KillAllParticles();
+	// 새 LOD의 모듈 오프셋 및 BurstFired 배열 업데이트
+	uint32 OldParticleStride = ParticleStride;
 	SetupEmitter();
 
-	// ParticleDataContainer 재할당
-	Resize(MaxActiveParticles);
+	// Stride가 다르면 기존 파티클과 호환되지 않으므로 리셋
+	// (LOD 간 모듈 구성이 다른 경우 - LOD 0 마스터 설계로 일반적으로 발생하지 않음)
+	if (ParticleStride != OldParticleStride)
+	{
+		UE_LOG("[ParticleEmitterInstance] WARNING: LOD %d -> %d 전환 시 Stride 불일치 (%u -> %u). "
+			"LOD 0에서만 모듈 구성을 변경해야 합니다. 파티클이 리셋됩니다.",
+			CurrentLODLevelIndex, NewLODIndex, OldParticleStride, ParticleStride);
+		KillAllParticles();
+		Resize(MaxActiveParticles);
+	}
 }
 
 void FParticleEmitterInstance::SetupEmitter()
@@ -527,7 +530,28 @@ void FParticleEmitterInstance::PreSpawn(FBaseParticle* Particle, const FVector& 
 
 void FParticleEmitterInstance::PostSpawn(FBaseParticle* Particle, float InterpolationParameter, float SpawnTime)
 {
-	// 생성 후 추가 로직을 여기에 추가할 수 있음
+	if (!Particle)
+	{
+		return;
+	}
+
+	// 언리얼 엔진 호환: 스폰 후 처리
+
+	// 1. 월드 스페이스일 때 이미터 이동 보간 (TODO: LocalSpace 플래그 확인 필요)
+	// if (CurrentLODLevel && CurrentLODLevel->RequiredModule && !CurrentLODLevel->RequiredModule->bUseLocalSpace)
+	// {
+	//     // 이미터가 이동한 경우 보간
+	// }
+
+	// 2. OldLocation 초기화 (충돌 터널링 방지용)
+	Particle->OldLocation = Particle->Location;
+
+	// 3. 스폰 시간만큼 미리 이동 (서브프레임 보간)
+	// 같은 프레임에 여러 파티클이 생성될 때 자연스러운 분포를 위함
+	Particle->Location += Particle->Velocity * SpawnTime;
+
+	// 4. 플래그 설정 - 방금 생성된 파티클임을 표시
+	Particle->Flags |= STATE_Particle_JustSpawned;
 }
 
 void FParticleEmitterInstance::UpdateParticles(float DeltaTime)
@@ -598,6 +622,19 @@ void FParticleEmitterInstance::KillParticle(int32 Index)
 	if (Index < 0 || Index >= ActiveParticles)
 	{
 		return;
+	}
+
+	// 언리얼 엔진 호환: Death 이벤트 생성
+	FBaseParticle* Particle = GetParticleAtIndex(Index);
+	if (Particle && Component)
+	{
+		FParticleEventData DeathEvent;
+		DeathEvent.Type = EParticleEventType::Death;
+		DeathEvent.Position = Particle->Location;
+		DeathEvent.Velocity = Particle->Velocity;
+		DeathEvent.EmitterTime = EmitterTime;
+		DeathEvent.ParticleIndex = Index;
+		Component->AddDeathEvent(DeathEvent);
 	}
 
 	// 마지막 활성 파티클과 교체

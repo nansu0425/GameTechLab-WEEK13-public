@@ -4,6 +4,7 @@
 #include "PrimitiveComponent.h"
 #include "Source/Runtime/Engine/Particles/ParticleSystem.h"
 #include "Source/Runtime/Engine/Particles/ParticleEmitterInstance.h"
+#include "Source/Runtime/Engine/Particles/ParticleEventTypes.h"
 #include "UParticleSystemComponent.generated.h"
 
 struct FMeshBatchElement;
@@ -45,6 +46,18 @@ public:
 	};
 
 	TArray<FParticleParameter> InstanceParameters;
+
+	// 파티클 이벤트 배열 (이번 프레임에 발생한 이벤트들)
+	TArray<FParticleEventCollideData> CollisionEvents;  // 충돌 이벤트
+	TArray<FParticleEventData> SpawnEvents;             // 스폰 이벤트
+	TArray<FParticleEventData> DeathEvents;             // 사망 이벤트
+
+	// 이벤트 관리 함수
+	void ClearEvents();
+	void AddCollisionEvent(const FParticleEventCollideData& Event);
+	void AddSpawnEvent(const FParticleEventData& Event);
+	void AddDeathEvent(const FParticleEventData& Event);
+	void DispatchEventsToReceivers();  // EventReceiver 모듈에 이벤트 전달
 
 	// Dynamic Instance Buffer (메시 파티클 인스턴싱용)
 	ID3D11Buffer* MeshInstanceBuffer = nullptr;
@@ -93,6 +106,14 @@ public:
 
 	// 템플릿 내용 변경 시 EmitterInstances 재생성 (에디터용)
 	void RefreshEmitterInstances();
+
+	// 에디터용: 모든 이미터의 LOD 레벨 설정
+	void SetEditorLODLevel(int32 LODLevel);
+
+	// 런타임 LOD 시스템
+	int32 CurrentLODLevel = 0;
+	void SetLODLevel(int32 NewLODLevel);
+	void UpdateLODLevels(const FVector& CameraPosition);
 
 	// 언리얼 엔진 호환: 인스턴스 파라미터 제어
 	void SetFloatParameter(const FString& ParameterName, float Value);
