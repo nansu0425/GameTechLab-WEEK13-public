@@ -420,6 +420,7 @@ void UParticleSystemComponent::CreateDebugBeamParticleSystem()
 	BeamTypeData->SegmentCount = 6;
 	BeamTypeData->BeamWidth = 1.0f;
 	BeamTypeData->NoiseStrength = 1.0f;
+	BeamTypeData->bUseTarget = true;  // 동적 타겟 추적 활성화 (테스트용)
 	LODLevel->Modules.Add(BeamTypeData);
 
 	// 스폰 모듈 생성 - 빔은 최소 2개의 파티클(시작/끝)이 필요 (Modules 배열에 추가)
@@ -584,6 +585,30 @@ void UParticleSystemComponent::OnUnregister()
 void UParticleSystemComponent::TickComponent(float DeltaTime)
 {
 	USceneComponent::TickComponent(DeltaTime);
+
+	// === 테스트: Beam 타겟 추적 (bUseTarget = true일 때만 동작) ===
+	if (TestTemplate)  // 디버그 파티클일 때만
+	{
+		// 원을 그리며 회전하는 타겟 생성
+		/*static float TestTime = 0.0f;
+		TestTime += DeltaTime;
+		
+		float Radius = 50.0f;  // 반지름
+		float Speed = 2.0f;    // 회전 속도
+		
+		FVector TargetOffset(
+		  cos(TestTime * Speed) * Radius,
+		  sin(TestTime * Speed) * Radius,
+		  0.0f
+		);
+		
+		// 컴포넌트 로컬 공간 기준으로 타겟 설정
+		SetVectorParameter("BeamTarget", GetWorldTransform().TransformPosition(TargetOffset));*/
+
+		// 타겟을 월드 원점에 고정 (시작점은 기즈모로 직접 이동 가능)
+		FVector WorldOrigin(0.0f, 0.0f, 0.0f);
+		SetVectorParameter("BeamTarget", WorldOrigin);
+	}
 
 	// 모든 이미터 인스턴스 틱
 	for (FParticleEmitterInstance* Instance : EmitterInstances)
