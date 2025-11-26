@@ -115,6 +115,11 @@ public:
 	void DeactivateSystem();
 	void ResetParticles();
 
+	// 시뮬레이션 속도 제어 (에디터용)
+	void SetSimulationSpeed(float Speed) { CustomTimeScale = Speed; }
+	float GetSimulationSpeed() const { return CustomTimeScale; }
+	float CustomTimeScale = 1.0f;
+
 	// 템플릿 설정
 	void SetTemplate(UParticleSystem* NewTemplate);
 

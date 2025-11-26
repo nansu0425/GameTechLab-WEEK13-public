@@ -189,6 +189,9 @@ private:
 	bool bShowTime = true;            // 시간 표시
 	bool bShowMemory = true;          // 메모리 표시
 
+	// 시간 메뉴 상태
+	bool bIsLooping = true;           // 에디터 전체 루프 토글
+
 	// 헬퍼 함수
 	ParticleEditorState* GetActiveParticleState() const
 	{

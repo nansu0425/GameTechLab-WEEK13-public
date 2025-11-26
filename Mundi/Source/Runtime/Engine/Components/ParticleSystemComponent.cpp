@@ -656,6 +656,9 @@ void UParticleSystemComponent::TickComponent(float DeltaTime)
 	const float MaxDeltaTime = 0.1f;
 	DeltaTime = FMath::Min(DeltaTime, MaxDeltaTime);
 
+	// 시뮬레이션 속도 적용 (에디터 타임스케일)
+	DeltaTime *= CustomTimeScale;
+
 	// 이벤트 클리어 (매 프레임 시작 시)
 	ClearEvents();
 

@@ -460,6 +460,33 @@ void SParticleEditorWindow::OnRender()
 void SParticleEditorWindow::OnUpdate(float DeltaSeconds)
 {
 	SViewerWindow::OnUpdate(DeltaSeconds);
+
+	ParticleEditorState* State = GetActiveParticleState();
+	if (!State || !State->PreviewComponent)
+		return;
+
+	// 시뮬레이션 속도 적용 (일시정지면 0, 아니면 SimulationSpeed)
+	float EffectiveSpeed = State->bIsSimulating ? State->SimulationSpeed : 0.0f;
+	State->PreviewComponent->SetSimulationSpeed(EffectiveSpeed);
+
+	// 루프 체크: 모든 이미터가 완료되었으면 재시작
+	if (bIsLooping && State->bIsSimulating)
+	{
+		bool bAllEmittersComplete = true;
+		for (FParticleEmitterInstance* Instance : State->PreviewComponent->EmitterInstances)
+		{
+			if (Instance && Instance->bEmitterEnabled)
+			{
+				bAllEmittersComplete = false;
+				break;
+			}
+		}
+
+		if (bAllEmittersComplete && State->PreviewComponent->EmitterInstances.Num() > 0)
+		{
+			State->PreviewComponent->ResetParticles();
+		}
+	}
 }
 
 // AABB 기반 와이어프레임 박스 라인 생성 (12개 라인)
@@ -3134,6 +3161,72 @@ void SParticleEditorWindow::RenderViewportArea(float width, float height)
 			if (ImGui::MenuItem("그리드", nullptr, bGrid))
 			{
 				Settings.ToggleShowFlag(EEngineShowFlags::SF_Grid);
+			}
+
+			ImGui::PopStyleVar(1);
+			ImGui::PopStyleColor(4);
+			ImGui::EndPopup();
+		}
+
+		// === "시간" 버튼 (뷰 버튼 오른쪽) ===
+		ImVec2 TimeButtonPos(Pos.x + 50.0f, Pos.y + 10.0f);
+		ImGui::SetCursorScreenPos(TimeButtonPos);
+
+		// 동일한 버튼 스타일 적용
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.15f, 0.15f, 0.8f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.25f, 0.9f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.35f, 0.35f, 0.35f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f, 3.0f));
+
+		if (ImGui::Button("시간"))
+		{
+			ImGui::OpenPopup("TimeOptionsPopup");
+		}
+
+		ImGui::PopStyleVar(2);
+		ImGui::PopStyleColor(4);
+
+		if (ImGui::BeginPopup("TimeOptionsPopup"))
+		{
+			// 언리얼 스타일 팝업 색상
+			ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.12f, 0.12f, 0.12f, 0.95f));
+			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.26f, 0.59f, 0.98f, 0.35f));
+			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.26f, 0.59f, 0.98f, 0.50f));
+			ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.26f, 0.59f, 0.98f, 0.70f));
+			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 4.0f));
+
+			// 재생/일시정지 토글
+			const char* PlayPauseLabel = State->bIsSimulating ? "일시정지" : "재생";
+			if (ImGui::MenuItem(PlayPauseLabel, nullptr, false))
+			{
+				State->bIsSimulating = !State->bIsSimulating;
+			}
+
+			// 루프 토글
+			if (ImGui::MenuItem("루프", nullptr, bIsLooping))
+			{
+				bIsLooping = !bIsLooping;
+			}
+
+			// 애님 스피드 서브메뉴
+			if (ImGui::BeginMenu("애님 스피드"))
+			{
+				float CurrentSpeed = State->SimulationSpeed;
+
+				if (ImGui::MenuItem("100%", nullptr, CurrentSpeed == 1.0f))
+					State->SimulationSpeed = 1.0f;
+				if (ImGui::MenuItem("50%", nullptr, CurrentSpeed == 0.5f))
+					State->SimulationSpeed = 0.5f;
+				if (ImGui::MenuItem("25%", nullptr, CurrentSpeed == 0.25f))
+					State->SimulationSpeed = 0.25f;
+				if (ImGui::MenuItem("10%", nullptr, CurrentSpeed == 0.1f))
+					State->SimulationSpeed = 0.1f;
+				if (ImGui::MenuItem("1%", nullptr, CurrentSpeed == 0.01f))
+					State->SimulationSpeed = 0.01f;
+
+				ImGui::EndMenu();
 			}
 
 			ImGui::PopStyleVar(1);
