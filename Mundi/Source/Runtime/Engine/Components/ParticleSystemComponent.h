@@ -73,6 +73,12 @@ public:
 	uint32 AllocatedBeamVertexCount = 0;
 	uint32 AllocatedBeamIndexCount = 0;
 
+	// Dynamic Vertex / Index Buffer (리본 파티클용)
+	ID3D11Buffer* RibbonVertexBuffer = nullptr;
+	ID3D11Buffer* RibbonIndexBuffer = nullptr;
+	uint32 AllocatedRibbonVertexCount = 0;
+	uint32 AllocatedRibbonIndexCount = 0;
+
 	// Shared Quad Mesh (스프라이트 인스턴싱용)
 	// ComPtr + static inline: 프로그램 종료 시 자동 해제, cpp 정의 불필요
 	static inline Microsoft::WRL::ComPtr<ID3D11Buffer> SpriteQuadVertexBuffer;
@@ -97,6 +103,9 @@ public:
 
 	// 템플릿 설정
 	void SetTemplate(UParticleSystem* NewTemplate);
+
+	// 템플릿 내용 변경 시 EmitterInstances 재생성 (에디터용)
+	void RefreshEmitterInstances();
 
 	// 언리얼 엔진 호환: 인스턴스 파라미터 제어
 	void SetFloatParameter(const FString& ParameterName, float Value);
@@ -127,6 +136,10 @@ public:
 	void FillBeamBuffers(const FSceneView* View);
 	void CreateBeamParticleBatch(TArray<FMeshBatchElement>& OutMeshBatchElements);
 
+	// 리본 파티클 렌더링
+	void FillRibbonBuffers(const FSceneView* View);
+	void CreateRibbonParticleBatch(TArray<FMeshBatchElement>& OutMeshBatchElements);
+
 private:
 	void InitializeEmitterInstances();
 	void ClearEmitterInstances();
@@ -137,8 +150,15 @@ private:
 	TArray<UMaterialInterface*> TestMaterials;
 	void CleanupTestResources();
 
+	// === 파티클 메시용 Material 캐시 ===
+	// 원본 Material → 인스턴싱 셰이더로 변환된 Material
+	// (매 프레임 새로 생성하지 않고 캐싱하여 재사용)
+	TMap<UMaterialInterface*, UMaterial*> CachedParticleMaterials;
+	void ClearCachedMaterials();
+
 	// 테스트용 디버그 파티클 시스템 생성
 	void CreateDebugMeshParticleSystem();	// 메시 파티클 테스트
 	void CreateDebugSpriteParticleSystem();	// 스프라이트 파티클 테스트
 	void CreateDebugBeamParticleSystem();	// 빔 파티클 테스트
+	void CreateDebugRibbonParticleSystem();	// 리본 파티클 테스트
 };

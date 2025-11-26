@@ -59,6 +59,8 @@ class Property:
             return 'EPropertyType::FName'
         elif type_lower in ['fvector']:
             return 'EPropertyType::FVector'
+        elif type_lower in ['fvector2d']:
+            return 'EPropertyType::FVector2D'
         elif type_lower in ['flinearcolor']:
             return 'EPropertyType::FLinearColor'
         # UObject 포인터 타입
@@ -147,6 +149,8 @@ class Property:
                 return 'ADD_PROPERTY_MATERIAL'
             elif base_type in ['usound', 'usoundbase']:
                 return 'ADD_PROPERTY_AUDIO'
+            elif base_type == 'uparticlesystem':
+                return 'ADD_PROPERTY_PARTICLESYSTEM'
             else:
                 return 'ADD_PROPERTY'
 

@@ -4,6 +4,7 @@
 #include "StaticMesh.h"
 #include "Texture.h"
 #include "TSubclassOf.h"
+#include "Distribution.h"
 #include <type_traits>
 
 // ===== 타입 자동 감지 템플릿 =====
@@ -30,6 +31,8 @@ struct TPropertyTypeTraits
 			return EPropertyType::Float;  // Lua number는 기본적으로 double
 		else if constexpr (std::is_same_v<T, FVector>)
 			return EPropertyType::FVector;
+		else if constexpr (std::is_same_v<T, FVector2D>)
+			return EPropertyType::FVector2D;
 		else if constexpr (std::is_same_v<T, FLinearColor>)
 			return EPropertyType::FLinearColor;
 		else if constexpr (std::is_same_v<T, FString>)
@@ -54,6 +57,34 @@ struct TPropertyTypeTraits<TSubclassOf<T>>
 	static constexpr EPropertyType GetType()
 	{
 		return EPropertyType::UClass;  // TSubclassOf도 UClass로 처리
+	}
+};
+
+// Distribution 타입 특수화
+template<>
+struct TPropertyTypeTraits<FDistributionFloat>
+{
+	static constexpr EPropertyType GetType()
+	{
+		return EPropertyType::DistributionFloat;
+	}
+};
+
+template<>
+struct TPropertyTypeTraits<FDistributionVector>
+{
+	static constexpr EPropertyType GetType()
+	{
+		return EPropertyType::DistributionVector;
+	}
+};
+
+template<>
+struct TPropertyTypeTraits<FDistributionColor>
+{
+	static constexpr EPropertyType GetType()
+	{
+		return EPropertyType::DistributionColor;
 	}
 };
 
@@ -304,6 +335,22 @@ struct TPropertyTypeTraits<TSubclassOf<T>>
 		FProperty Prop; \
 		Prop.Name = #VarName; \
 		Prop.Type = EPropertyType::Material; \
+		Prop.Offset = offsetof(ThisClass_t, VarName); \
+		Prop.Category = CategoryName; \
+		Prop.bIsEditAnywhere = bEditAnywhere; \
+		Prop.Tooltip = "" __VA_ARGS__; \
+		Prop.OwnerKind = CurrentOwnerKind; \
+		Class->AddProperty(Prop); \
+	}
+
+// ParticleSystem 프로퍼티 추가
+#define ADD_PROPERTY_PARTICLESYSTEM(VarType, VarName, CategoryName, bEditAnywhere, ...) \
+	{ \
+		static_assert(std::is_array_v<std::remove_reference_t<decltype(CategoryName)>>, \
+		              "CategoryName must be a string literal!"); \
+		FProperty Prop; \
+		Prop.Name = #VarName; \
+		Prop.Type = EPropertyType::ParticleSystem; \
 		Prop.Offset = offsetof(ThisClass_t, VarName); \
 		Prop.Category = CategoryName; \
 		Prop.bIsEditAnywhere = bEditAnywhere; \

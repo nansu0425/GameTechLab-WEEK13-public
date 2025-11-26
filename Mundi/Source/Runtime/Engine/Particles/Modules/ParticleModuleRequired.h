@@ -67,10 +67,16 @@ public:
 	bool bDelayFirstLoopOnly = false;
 
 	UParticleModuleRequired() = default;
-	virtual ~UParticleModuleRequired() = default;
+	virtual ~UParticleModuleRequired();
+
+	// 로드 시 생성한 Material 소유 여부 (true면 소멸자에서 삭제)
+	bool bOwnsMaterial = false;
 
 	// 언리얼 엔진 호환: 렌더 스레드용 데이터로 변환
 	FParticleRequiredModule ToRenderThreadData() const;
 
 	virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
+
+	// Required는 두 번째로 표시 (우선순위 1)
+	virtual int32 GetDisplayPriority() const override { return 1; }
 };

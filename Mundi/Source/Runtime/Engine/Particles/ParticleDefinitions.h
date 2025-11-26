@@ -237,10 +237,14 @@ struct FDynamicMeshEmitterReplayDataBase : public FDynamicEmitterReplayDataBase
 	// -1이면 MeshRotation 모듈이 없음
 	int32 MeshRotationPayloadOffset;
 
+	// true면 MaterialInterface를 사용, false면 메시의 섹션별 Material 사용
+	bool bOverrideMaterial;
+
 	FDynamicMeshEmitterReplayDataBase()
 		: MaterialInterface(nullptr)
 		, MeshData(nullptr)
 		, MeshRotationPayloadOffset(-1)
+		, bOverrideMaterial(false)
 	{
 		eEmitterType = EDynamicEmitterType::Mesh;
 	}
@@ -253,11 +257,15 @@ struct FDynamicBeamEmitterReplayDataBase : public FDynamicEmitterReplayDataBase
 {
 	TArray<FVector> BeamPoints;
 	float Width;
+	float TileU;
+	FLinearColor Color;
 	UMaterialInterface* Material;
 
 	FDynamicBeamEmitterReplayDataBase()
 		: BeamPoints()
-		, Width(0)
+		, Width(1.f)
+		, TileU(1.f)
+		, Color(FLinearColor(1.f, 0.f, 1.f, 1.f))  // 마젠타, 알파 포함
 		, Material(nullptr)
 	{
 		eEmitterType = EDynamicEmitterType::Beam;
@@ -268,11 +276,13 @@ struct FDynamicBeamEmitterReplayDataBase : public FDynamicEmitterReplayDataBase
 struct FDynamicRibbonEmitterReplayDataBase : public FDynamicEmitterReplayDataBase
 {
 	TArray<FVector> RibbonPoints;
+	TArray<FLinearColor> RibbonColors;  // 각 포인트의 색상 (알파 페이드 포함)
 	float Width;
 	UMaterialInterface* Material;
 
 	FDynamicRibbonEmitterReplayDataBase()
 		: RibbonPoints()
+		, RibbonColors()
 		, Width(0)
 		, Material(nullptr)
 	{

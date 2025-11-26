@@ -28,7 +28,7 @@ FParticleEmitterInstance::FParticleEmitterInstance()
 	, FrameKilledCount(0)
 	, MaxActiveParticles(0)
 	, SpawnFraction(0.0f)
-	, bBurstFired(false)  // 언리얼 엔진 호환: Burst 초기화
+	// BurstFired는 TArray이므로 기본 초기화됨
 	, EmitterTime(0.0f)
 	, SecondsSinceCreation(0.0f)
 	, EmitterDurationActual(0.0f)
@@ -80,7 +80,7 @@ void FParticleEmitterInstance::Init(UParticleSystemComponent* InComponent, UPart
 	CurrentLoopCount = 0;
 	bEmitterEnabled = true;
 	bDelayComplete = false;
-	bBurstFired = false;  // Burst도 초기화
+	// BurstFired 배열은 SetupEmitter()에서 초기화됨
 	SpawnFraction = 0.0f;
 
 	// 언리얼 엔진 호환: Required 모듈에서 설정 읽기
@@ -152,7 +152,7 @@ void FParticleEmitterInstance::SetLODLevel(int32 NewLODIndex)
 
 	// 수명/스폰 관련 상태 초기화
 	SpawnFraction = 0.f;
-	bBurstFired = false;
+	// BurstFired 배열은 SetupEmitter()에서 초기화됨
 
 	// 언리얼 엔진 호환: 타이밍 상태 리셋
 	EmitterTime = 0.0f;
@@ -264,6 +264,18 @@ void FParticleEmitterInstance::SetupEmitter()
 		InstanceData = new uint8[InstancePayloadSize];
 		memset(InstanceData, 0, InstancePayloadSize);
 	}
+
+	// BurstFired 배열 초기화 (SpawnModule의 BurstList 크기에 맞춤)
+	BurstFired.Empty();
+	if (CurrentLODLevel->SpawnModule)
+	{
+		int32 BurstCount = CurrentLODLevel->SpawnModule->BurstList.Num();
+		BurstFired.SetNum(BurstCount);
+		for (int32 i = 0; i < BurstCount; ++i)
+		{
+			BurstFired[i] = false;
+		}
+	}
 }
 
 void FParticleEmitterInstance::Resize(int32 NewMaxActiveParticles)
@@ -323,7 +335,7 @@ void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 	FrameSpawnedCount = 0;
 	FrameKilledCount = 0;
 
-	if (!CurrentLODLevel || !bEmitterEnabled)
+	if (!CurrentLODLevel || !bEmitterEnabled || !CurrentLODLevel->bEnabled)
 	{
 		return;
 	}
@@ -375,7 +387,11 @@ void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 				// 루프 재시작
 				CurrentLoopCount++;
 				EmitterTime = 0.0f;
-				bBurstFired = false;
+				// BurstFired 배열 리셋
+				for (int32 i = 0; i < BurstFired.Num(); ++i)
+				{
+					BurstFired[i] = false;
+				}
 				SpawnFraction = 0.0f;
 				bSuppressSpawningDuration = false;
 
@@ -402,14 +418,22 @@ void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 
 		if (SpawnModule && SpawnModule->bEnabled)
 		{
-			int32 SpawnCount = SpawnModule->CalculateSpawnCount(this, DeltaTime, SpawnFraction, bBurstFired);
+			int32 SpawnCount = SpawnModule->CalculateSpawnCount(this, DeltaTime, SpawnFraction);
 
 			if (SpawnCount > 0)
 			{
 				float Increment = (SpawnCount > 1) ? (DeltaTime / SpawnCount) : 0.0f;
 
-				// 언리얼 엔진 호환: EmitterOrigin을 InitialLocation으로 전달
-				SpawnParticles(SpawnCount, 0.0f, Increment, CachedEmitterOrigin, FVector(0.0f, 0.0f, 0.0f));
+				// 컴포넌트의 월드 트랜스폼을 적용한 스폰 위치 계산
+				// (ParticleModuleLocation이 없는 경우에도 컴포넌트 위치에서 스폰되도록)
+				FVector WorldSpawnLocation = CachedEmitterOrigin;
+				if (Component)
+				{
+					const FTransform& ComponentTransform = Component->GetWorldTransform();
+					WorldSpawnLocation = ComponentTransform.TransformPosition(CachedEmitterOrigin);
+				}
+
+				SpawnParticles(SpawnCount, 0.0f, Increment, WorldSpawnLocation, FVector(0.0f, 0.0f, 0.0f));
 			}
 		}
 	}
@@ -642,8 +666,8 @@ FBaseParticle* FParticleEmitterInstance::GetParticleAtIndex(int32 Index)
 
 FDynamicEmitterDataBase* FParticleEmitterInstance::GetDynamicData(bool bSelected)
 {
-	// 필수 객체 nullptr 체크
-	if (!ParticleData || !CurrentLODLevel || ActiveParticles <= 0)
+	// 필수 객체 nullptr 체크 및 LOD 활성화 체크
+	if (!ParticleData || !CurrentLODLevel || ActiveParticles <= 0 || !CurrentLODLevel->bEnabled)
 	{
 		return nullptr;
 	}
@@ -803,6 +827,7 @@ bool FParticleEmitterInstance::BuildMeshDynamicData(FDynamicMeshEmitterData* Dat
 	if (MeshType)
 	{
 		Data->MeshSource.MeshData = MeshType->Mesh;
+		Data->MeshSource.bOverrideMaterial = MeshType->bOverrideMaterial;
 	}
 	Data->MeshSource.MaterialInterface = CurrentLODLevel->RequiredModule ? CurrentLODLevel->RequiredModule->Material : nullptr;
 	Data->MeshSource.SortMode = CurrentLODLevel->RequiredModule ? CurrentLODLevel->RequiredModule->SortMode : 0;
@@ -836,38 +861,38 @@ bool FParticleEmitterInstance::BuildBeamDynamicData(FDynamicBeamEmitterData* Dat
 	if (SegmentCount <= 0)
 		return false;
 
-	// 현 프레임에서 Beam을 구성할 파티클 포인트가 필요함.
-	// 간단한 형태: 첫 번째 파티클 = StartPoint, 마지막 파티클 = EndPoint로 사용
-	if (ActiveParticles < 2)
-		return false;
-
 	// Source 설정
-	Data->Source.Width = BeamType->BeamWidth;
-	Data->Source.Material = CurrentLODLevel->RequiredModule
+	FDynamicBeamEmitterReplayDataBase& Source = Data->Source;
+	Source.Width = BeamType->BeamWidth;
+	Source.TileU = BeamType->TileU;
+	Source.Color = FLinearColor(1.f, 0.f, 1.f, 1.f);
+	Source.Material = (CurrentLODLevel && CurrentLODLevel->RequiredModule)
 		? CurrentLODLevel->RequiredModule->Material
 		: nullptr;
 
 	// -----------------------------
 	// 1) BeamPoints 채우기
 	// -----------------------------
-
-	Data->Source.BeamPoints.Empty();
-	Data->Source.BeamPoints.Reserve(SegmentCount + 1);
-
-	// Start / End를 파티클 데이터에서 얻는다.
-	// 첫 번째 활성 파티클 → Start
-	// 마지막 활성 파티클 → End
-	const FBaseParticle* StartParticle = GetParticleAtIndex(0);
-	const FBaseParticle* EndParticle = GetParticleAtIndex(ActiveParticles - 1);
-
-	if (!StartParticle || !EndParticle) // Keep the null checks, even if the particle positions are ignored later.
-		return false;
+	Source.BeamPoints.Empty();
+	Source.BeamPoints.Reserve(SegmentCount + 1);
 
 	// NOTE: 파티클 위치를 사용하는 대신, 컴포넌트 로컬 공간에 정적인 빔을 직접 정의합니다.
 	// 이렇게 하면 기즈모 조작에 따라 움직이는, 길이가 고정된 빔을 안정적으로 테스트할 수 있습니다.
-	const FMatrix& ComponentToWorld = Component->GetWorldTransform().ToMatrix();
-	FVector StartPos = ComponentToWorld.TransformPosition(FVector::Zero());
-	FVector EndPos = ComponentToWorld.TransformPosition(FVector(50.f, 0.f, 0.f));
+
+	const FTransform& ComponentTransform = Component->GetWorldTransform();
+	FVector StartPos = ComponentTransform.Translation;  // 컴포넌트 월드 위치
+	FVector EndPos;
+
+	if (!BeamType->bUseTarget)
+	{
+		// bUseTarget = false) 고정된 목표점 (TargetPoint) 사용
+		EndPos = ComponentTransform.TransformPosition(BeamType->TargetPoint);
+	}
+	else
+	{
+		// bUseTarget = true) 동적 타겟 사용 (파티클 / 액터 추적)
+		EndPos = StartPos + ComponentTransform.ToMatrix().GetUnitAxisX() * 50.f;	// tmp
+	}
 
 	FVector BeamDir = EndPos - StartPos;
 	float BeamLen = BeamDir.Size();
@@ -899,25 +924,21 @@ bool FParticleEmitterInstance::BuildBeamDynamicData(FDynamicBeamEmitterData* Dat
 
 			FVector DisplacementDir = RandomDir - (BeamDir * FVector::Dot(RandomDir, BeamDir));
 
-			if (DisplacementDir.SizeSquared() > KINDA_SMALL_NUMBER)
-			{
-				DisplacementDir.Normalize();
-			}
-			else
+			if (DisplacementDir.SizeSquared() <= KINDA_SMALL_NUMBER)
 			{
 				DisplacementDir = FVector::Cross(BeamDir, FVector(0.0f, 1.0f, 0.0f));
 				if (DisplacementDir.SizeSquared() < KINDA_SMALL_NUMBER)
 				{
 					DisplacementDir = FVector::Cross(BeamDir, FVector(1.0f, 0.0f, 0.0f));
 				}
-				DisplacementDir.Normalize();
 			}
+			DisplacementDir.Normalize();
 
 			float DisplacementMagnitude = RandomStream.GetRangeFloat(0.0f, NoiseStrength);
 			P += DisplacementDir * DisplacementMagnitude;
 		}
 
-		Data->Source.BeamPoints.Add(P);
+		Source.BeamPoints.Add(P);
 	}
 
 	return true;
@@ -931,26 +952,47 @@ bool FParticleEmitterInstance::BuildRibbonDynamicData(FDynamicRibbonEmitterData*
 	if (ActiveParticles <= 1)
 		return false; // 최소 2개 파티클 필요
 
-	// Material
+	// Material & Width 설정
 	Data->Source.Material = CurrentLODLevel->RequiredModule
 		? CurrentLODLevel->RequiredModule->Material
 		: nullptr;
+	Data->Source.Width = RibbonType->RibbonWidth;
 
-	// Width
-	float RibbonWidth = RibbonType->RibbonWidth;
+	// 파티클을 나이(RelativeTime)순으로 정렬하기 위해 인덱스 배열을 복사하고 정렬합니다.
+	// 오래된 파티클(RelativeTime이 큰 값)이 트레일의 앞쪽이 됩니다.
+	TArray<uint16> SortedIndices;
+	SortedIndices.Reserve(ActiveParticles);
+	for (int32 i = 0; i < ActiveParticles; ++i)
+	{
+		SortedIndices.Add(ParticleIndices[i]);
+	}
 
-	// RibbonPoints 배열 채우기
+	std::sort(SortedIndices.begin(), SortedIndices.end(), [&](uint16 A, uint16 B) {
+		const FBaseParticle* ParticleA = reinterpret_cast<const FBaseParticle*>(ParticleData + A * ParticleStride);
+		const FBaseParticle* ParticleB = reinterpret_cast<const FBaseParticle*>(ParticleData + B * ParticleStride);
+		return ParticleA->RelativeTime > ParticleB->RelativeTime; // 내림차순 정렬 (오래된 것이 먼저)
+	});
+
+	// 정렬된 순서대로 RibbonPoints와 RibbonColors 배열 채우기
 	Data->Source.RibbonPoints.Empty();
 	Data->Source.RibbonPoints.Reserve(ActiveParticles);
+	Data->Source.RibbonColors.Empty();
+	Data->Source.RibbonColors.Reserve(ActiveParticles);
 
 	for (int32 i = 0; i < ActiveParticles; i++)
 	{
-		const FBaseParticle* P = GetParticleAtIndex(ParticleIndices[i]);
-		Data->Source.RibbonPoints.Add(P->Location);
-	}
+		const FBaseParticle* P = reinterpret_cast<const FBaseParticle*>(ParticleData + SortedIndices[i] * ParticleStride);
 
-	// UV, Color, Tangent 같은 추가 정보는 이후 확장 가능
-	// Renderer에서 RibbonPoints를 기반으로 Triangle Strip을 만들면 됨.
+		// 위치 추가
+		Data->Source.RibbonPoints.Add(P->Location);
+
+		// 색상 추가 (페이드 아웃 효과: 오래된 파티클일수록 투명)
+		FLinearColor ParticleColor = P->Color;
+		// RelativeTime: 0 (새로 생성) → 1 (소멸 직전)
+		// 알파: 1.0 (새 파티클) → 0.0 (오래된 파티클)
+		ParticleColor.A *= (1.0f - P->RelativeTime);
+		Data->Source.RibbonColors.Add(ParticleColor);
+	}
 
 	return true;
 }

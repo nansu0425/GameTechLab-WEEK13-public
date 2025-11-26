@@ -565,6 +565,18 @@ void UResourceManager::InitShaderILMap()
     layout.Add({ "TEXCOORD", 1, DXGI_FORMAT_R32_FLOAT, 0, 36, D3D11_INPUT_PER_VERTEX_DATA, 0 });
     ShaderToInputLayoutMap["Shaders/Particle/ParticleBeam.hlsl"] = layout;
     layout.clear();
+
+    // ────────────────────────────────
+    // 파티클 Ribbon 전용 InputLayout
+    // FParticleRibbonVertex 구조체와 1:1 매칭
+    // ────────────────────────────────
+    layout.Add({ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 });
+    layout.Add({ "CONTROLPOINT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 });
+    layout.Add({ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 });
+    layout.Add({ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 36, D3D11_INPUT_PER_VERTEX_DATA, 0 });
+    layout.Add({ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 52, D3D11_INPUT_PER_VERTEX_DATA, 0 });
+    ShaderToInputLayoutMap["Shaders/Particle/ParticleRibbon.hlsl"] = layout;
+    layout.clear();
 }
 
 TArray<D3D11_INPUT_ELEMENT_DESC>& UResourceManager::GetProperInputLayout(const FString& InShaderName)

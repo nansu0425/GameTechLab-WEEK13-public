@@ -17,6 +17,9 @@ public:
 	UParticleSystem() = default;
 	virtual ~UParticleSystem();
 
+	// 리소스 로드 (ResourceManager에서 호출)
+	void Load(const FString& InFilePath, ID3D11Device* InDevice);
+
 	// 인덱스로 이미터 가져오기
 	UParticleEmitter* GetEmitter(int32 EmitterIndex) const;
 

@@ -193,7 +193,7 @@ UParticleSystem* ParticleEditorBootstrap::CreateDefaultParticleTemplate()
 	// 2. Spawn 모듈 (필수) - Modules 배열에 추가
 	UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>();
 	SpawnModule->SpawnRate = FDistributionFloat(20.0f);
-	SpawnModule->BurstCount = FDistributionFloat(0.0f);
+	// BurstList는 비어있음 (버스트 없음)
 	LOD->Modules.Add(SpawnModule);
 
 	// 3. 스프라이트 타입 데이터 모듈 - Modules 배열에 추가

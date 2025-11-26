@@ -11,6 +11,7 @@
 #include "AmbientLightComponent.h"
 #include "World.h"
 #include "JsonSerializer.h"
+#include "SceneComponent.h"
 
 static inline FString RemoveObjExtension(const FString& FileName)
 {
@@ -64,6 +65,9 @@ void ULevel::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 
     if (bInIsLoading)
     {
+        // 이전 씬의 dangling pointer 방지를 위해 SceneIdMap 클리어
+        USceneComponent::GetSceneIdMap().clear();
+
         // 카메라 정보
         JSON PerspectiveCameraData;
         if (FJsonSerializer::ReadObject(InOutHandle, "PerspectiveCamera", PerspectiveCameraData))

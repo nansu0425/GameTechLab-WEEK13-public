@@ -1681,7 +1681,9 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 		// 3. IA (Input Assembler) 상태 변경
 		{
 			// 인스턴싱 여부에 따라 버텍스 버퍼 바인딩 방식이 다름
-			if (Batch.NumInstances > 1 && Batch.InstanceBuffer)
+			// NumInstances >= 1이고 InstanceBuffer가 있으면 인스턴싱 경로 사용
+			// (NumInstances == 1이어도 인스턴싱 사용 - 파티클 시스템의 stride 불일치 방지)
+			if (Batch.NumInstances >= 1 && Batch.InstanceBuffer)
 			{
 				// 인스턴싱: 2개 스트림 (슬롯 0: 메시, 슬롯 1: 인스턴스)
 				ID3D11Buffer* Buffers[2] = { Batch.VertexBuffer, Batch.InstanceBuffer };
@@ -1691,7 +1693,13 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 			}
 			else
 			{
-				// 일반: 1개 스트림
+				// 일반: 1개 스트림 (인스턴스 버퍼 없음)
+				// 슬롯 1에 남아있는 이전 버퍼를 해제하여 Input Layout stride 불일치 방지
+				ID3D11Buffer* NullBuffer = nullptr;
+				UINT NullStride = 0;
+				UINT NullOffset = 0;
+				RHIDevice->GetDeviceContext()->IASetVertexBuffers(1, 1, &NullBuffer, &NullStride, &NullOffset);
+
 				UINT Stride = Batch.VertexStride;
 				UINT Offset = 0;
 				RHIDevice->GetDeviceContext()->IASetVertexBuffers(0, 1, &Batch.VertexBuffer, &Stride, &Offset);
@@ -1714,7 +1722,9 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 		RHIDevice->GetDeviceContext()->VSSetConstantBuffers(6, 1, &BoneBuffer);
 
 		// 5. 드로우 콜 실행
-		if (Batch.NumInstances > 1)
+		// InstanceBuffer가 있으면 NumInstances가 1이어도 DrawIndexedInstanced 사용
+		// (파티클 시스템처럼 인스턴싱 기반 셰이더를 사용하는 경우)
+		if (Batch.NumInstances >= 1 && Batch.InstanceBuffer)
 		{
 			// GPU 인스턴싱
 			RHIDevice->GetDeviceContext()->DrawIndexedInstanced(
@@ -1722,12 +1732,12 @@ void FSceneRenderer::DrawMeshBatches(TArray<FMeshBatchElement>& InMeshBatches, b
 				Batch.NumInstances,
 				Batch.StartIndex,
 				Batch.BaseVertexIndex,
-				0  // StartInstanceLocation
+				Batch.StartInstanceLocation
 			);
 		}
 		else
 		{
-			// 일반 드로우
+			// 일반 드로우 (인스턴스 버퍼 없음)
 			RHIDevice->GetDeviceContext()->DrawIndexed(Batch.IndexCount, Batch.StartIndex, Batch.BaseVertexIndex);
 		}
 	}

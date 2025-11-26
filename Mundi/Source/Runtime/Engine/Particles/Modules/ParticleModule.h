@@ -63,4 +63,8 @@ public:
 
 	// 직렬화
 	virtual void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
+
+	// 에디터 표시 우선순위 (낮을수록 먼저 표시)
+	// TypeData: 0, Required: 1, Spawn: 2, 일반 모듈: 100
+	virtual int32 GetDisplayPriority() const { return 100; }
 };
