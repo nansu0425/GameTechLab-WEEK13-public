@@ -24,7 +24,7 @@ public:
 
     // 빔 흔들림 강도
     UPROPERTY(EditAnywhere, Category = "Beam")
-    float NoiseStrength = 0.0f;
+    float NoiseStrength = 1.0f;
 
     // 목표 위치가 고정인지, 타겟 파티클 또는 Actor가 있는지 여부
     UPROPERTY(EditAnywhere, Category = "Beam")

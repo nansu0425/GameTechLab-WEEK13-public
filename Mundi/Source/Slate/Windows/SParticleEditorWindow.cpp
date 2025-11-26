@@ -1073,6 +1073,91 @@ static void SetMeshTypeDataModule(UParticleLODLevel* LOD, ParticleEditorState* S
 	State->bIsDirty = true;
 }
 
+// 빔 타입 데이터 모듈 설정
+static void SetBeamTypeDataModule(UParticleLODLevel* LOD, ParticleEditorState* State)
+{
+	// 기존 타입 데이터가 있으면 제거 및 삭제
+	if (LOD->TypeDataModule)
+	{
+		LOD->Modules.Remove(LOD->TypeDataModule);
+		DeleteObject(LOD->TypeDataModule);
+		LOD->TypeDataModule = nullptr;
+	}
+
+	// 빔 타입 데이터 생성
+	UParticleModuleTypeDataBeam* BeamTypeData = NewObject<UParticleModuleTypeDataBeam>();
+
+	// RequiredModule->Material에 빔 파티클용 셰이더 설정
+	if (LOD->RequiredModule)
+	{
+		// 기존 Material이 NewObject로 생성된 것이면 삭제 (FilePath가 비어있음)
+		UMaterialInterface* OldMaterial = LOD->RequiredModule->Material;
+		if (OldMaterial && OldMaterial->GetFilePath().empty())
+		{
+			DeleteObject(OldMaterial);
+		}
+
+		UMaterial* BeamMaterial = NewObject<UMaterial>();
+		UShader* BeamShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Particle/ParticleBeam.hlsl");
+		BeamMaterial->SetShader(BeamShader);
+		LOD->RequiredModule->Material = BeamMaterial;
+	}
+
+	// 타입 데이터 설정
+	LOD->TypeDataModule = BeamTypeData;
+	LOD->Modules.Add(BeamTypeData);
+	LOD->CacheModuleInfo();
+
+	if (State->PreviewComponent)
+	{
+		State->PreviewComponent->RefreshEmitterInstances();
+	}
+	State->bIsDirty = true;
+}
+
+// 리본 타입 데이터 모듈 설정
+static void SetRibbonTypeDataModule(UParticleLODLevel* LOD, ParticleEditorState* State)
+{
+	// 기존 타입 데이터가 있으면 제거 및 삭제
+	if (LOD->TypeDataModule)
+	{
+		LOD->Modules.Remove(LOD->TypeDataModule);
+		DeleteObject(LOD->TypeDataModule);
+		LOD->TypeDataModule = nullptr;
+	}
+
+	// 리본 타입 데이터 생성
+	UParticleModuleTypeDataRibbon* RibbonTypeData = NewObject<UParticleModuleTypeDataRibbon>();
+	RibbonTypeData->RibbonWidth = 1.0f;
+
+	// RequiredModule->Material에 리본 파티클용 셰이더 설정
+	if (LOD->RequiredModule)
+	{
+		// 기존 Material이 NewObject로 생성된 것이면 삭제 (FilePath가 비어있음)
+		UMaterialInterface* OldMaterial = LOD->RequiredModule->Material;
+		if (OldMaterial && OldMaterial->GetFilePath().empty())
+		{
+			DeleteObject(OldMaterial);
+		}
+
+		UMaterial* RibbonMaterial = NewObject<UMaterial>();
+		UShader* RibbonShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Particle/ParticleRibbon.hlsl");
+		RibbonMaterial->SetShader(RibbonShader);
+		LOD->RequiredModule->Material = RibbonMaterial;
+	}
+
+	// 타입 데이터 설정
+	LOD->TypeDataModule = RibbonTypeData;
+	LOD->Modules.Add(RibbonTypeData);
+	LOD->CacheModuleInfo();
+
+	if (State->PreviewComponent)
+	{
+		State->PreviewComponent->RefreshEmitterInstances();
+	}
+	State->bIsDirty = true;
+}
+
 void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmitter* Emitter)
 {
 	ParticleEditorState* State = GetActiveParticleState();
@@ -1304,17 +1389,6 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 					SetMeshTypeDataModule(LOD, State);
 				}
 			}
-			if (ImGui::MenuItem("리본"))
-			{
-				if (bHasNonSpriteTypeData)
-				{
-					bShowTypeDataExistsPopup = true;
-				}
-				else
-				{
-					SetTypeDataModule<UParticleModuleTypeDataRibbon>(LOD, State);
-				}
-			}
 			if (ImGui::MenuItem("빔"))
 			{
 				if (bHasNonSpriteTypeData)
@@ -1323,7 +1397,18 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 				}
 				else
 				{
-					SetTypeDataModule<UParticleModuleTypeDataBeam>(LOD, State);
+					SetBeamTypeDataModule(LOD, State);
+				}
+			}
+			if (ImGui::MenuItem("리본"))
+			{
+				if (bHasNonSpriteTypeData)
+				{
+					bShowTypeDataExistsPopup = true;
+				}
+				else
+				{
+					SetRibbonTypeDataModule(LOD, State);
 				}
 			}
 			ImGui::EndMenu();

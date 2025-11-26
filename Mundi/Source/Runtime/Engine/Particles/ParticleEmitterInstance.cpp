@@ -826,11 +826,6 @@ bool FParticleEmitterInstance::BuildBeamDynamicData(FDynamicBeamEmitterData* Dat
 	if (SegmentCount <= 0)
 		return false;
 
-	// 현 프레임에서 Beam을 구성할 파티클 포인트가 필요함.
-	// 간단한 형태: 첫 번째 파티클 = StartPoint, 마지막 파티클 = EndPoint로 사용
-	if (ActiveParticles < 2)
-		return false;
-
 	// Source 설정
 	FDynamicBeamEmitterReplayDataBase& Source = Data->Source;
 	Source.Width = BeamType->BeamWidth;
@@ -845,15 +840,6 @@ bool FParticleEmitterInstance::BuildBeamDynamicData(FDynamicBeamEmitterData* Dat
 	// -----------------------------
 	Source.BeamPoints.Empty();
 	Source.BeamPoints.Reserve(SegmentCount + 1);
-
-	// Start / End를 파티클 데이터에서 얻는다.
-	// 첫 번째 활성 파티클 → Start
-	// 마지막 활성 파티클 → End
-	const FBaseParticle* StartParticle = GetParticleAtIndex(0);
-	const FBaseParticle* EndParticle = GetParticleAtIndex(ActiveParticles - 1);
-
-	if (!StartParticle || !EndParticle) // Keep the null checks, even if the particle positions are ignored later.
-		return false;
 
 	// NOTE: 파티클 위치를 사용하는 대신, 컴포넌트 로컬 공간에 정적인 빔을 직접 정의합니다.
 	// 이렇게 하면 기즈모 조작에 따라 움직이는, 길이가 고정된 빔을 안정적으로 테스트할 수 있습니다.
