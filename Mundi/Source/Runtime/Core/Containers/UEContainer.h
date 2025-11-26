@@ -265,6 +265,15 @@ public:
     {
         std::sort(this->begin(), this->end(), Pred);
     }
+
+    /** 두 요소 위치 교환 */
+    void Swap(int32 IndexA, int32 IndexB)
+    {
+        if (IndexA >= 0 && IndexA < Num() && IndexB >= 0 && IndexB < Num())
+        {
+            std::swap((*this)[IndexA], (*this)[IndexB]);
+        }
+    }
 };
 
 /** TSet - 해시 기반 집합 */
