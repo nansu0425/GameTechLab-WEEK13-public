@@ -9,6 +9,16 @@
 struct FMeshBatchElement;
 struct FSceneView;
 
+// 디버그 파티클 타입 (Template이 없을 때 사용)
+UENUM()
+enum class EDebugParticleType : uint8
+{
+	Sprite = 0,
+	Mesh = 1,
+	Beam = 2,
+	Ribbon = 3
+};
+
 UCLASS(DisplayName="파티클 시스템 컴포넌트", Description="파티클 시스템을 씬에 배치하는 컴포넌트입니다")
 class UParticleSystemComponent : public UPrimitiveComponent
 {
@@ -21,6 +31,10 @@ public:
 
 	UPROPERTY(EditAnywhere, Category="Particle System")
 	bool bAutoActivate = true;
+
+	// Template이 없을 때 사용할 디버그 파티클 타입
+	UPROPERTY(EditAnywhere, Category="Particle System")
+	EDebugParticleType DebugParticleType = EDebugParticleType::Sprite;
 
 	// 이미터 인스턴스 (런타임)
 	TArray<FParticleEmitterInstance*> EmitterInstances;
@@ -93,6 +107,9 @@ public:
 
 	// 템플릿 내용 변경 시 EmitterInstances 재생성 (에디터용)
 	void RefreshEmitterInstances();
+
+	// DebugParticleType 변경 시 디버그 파티클 시스템 재생성 (에디터용)
+	void RefreshDebugParticleSystem();
 
 	// 언리얼 엔진 호환: 인스턴스 파라미터 제어
 	void SetFloatParameter(const FString& ParameterName, float Value);

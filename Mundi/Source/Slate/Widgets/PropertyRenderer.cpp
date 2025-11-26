@@ -313,6 +313,15 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 		{
 			LightComponent->UpdateLightData();
 		}
+
+		// ParticleSystemComponent DebugParticleType 프로퍼티가 변경되면 디버그 파티클 시스템 재생성
+		if (UParticleSystemComponent* ParticleComponent = Cast<UParticleSystemComponent>(Obj))
+		{
+			if (strcmp(Property.Name, "DebugParticleType") == 0)
+			{
+				ParticleComponent->RefreshDebugParticleSystem();
+			}
+		}
 	}
 
 	return bChanged;

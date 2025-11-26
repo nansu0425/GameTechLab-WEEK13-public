@@ -186,13 +186,24 @@ void UParticleSystemComponent::OnRegister(UWorld* InWorld)
 		return;
 	}
 
-	// Template이 없으면 파티클을 생성하지 않음 (에디터에서 리소스 선택 필요)
+	// Template이 없으면 디버그 파티클 생성 (에디터에서 타입 선택 가능)
 	if (!Template)
 	{
-		//CreateDebugMeshParticleSystem();        // 메시 파티클 테스트
-		//CreateDebugSpriteParticleSystem();  // 스프라이트 파티클 테스트
-		//CreateDebugBeamParticleSystem();		// 빔 파티클 테스트
-		CreateDebugRibbonParticleSystem(); // 리본 파티클 테스트
+		switch (DebugParticleType)
+		{
+		case EDebugParticleType::Sprite:
+			CreateDebugSpriteParticleSystem();
+			break;
+		case EDebugParticleType::Mesh:
+			CreateDebugMeshParticleSystem();
+			break;
+		case EDebugParticleType::Beam:
+			CreateDebugBeamParticleSystem();
+			break;
+		case EDebugParticleType::Ribbon:
+			CreateDebugRibbonParticleSystem();
+			break;
+		}
 	}
 
 	// 에디터에서도 파티클 미리보기를 위해 자동 활성화
@@ -661,6 +672,39 @@ void UParticleSystemComponent::RefreshEmitterInstances()
 	// stride 불일치 경고가 발생할 수 있음
 	UpdateRenderData();
 }
+
+void UParticleSystemComponent::RefreshDebugParticleSystem()
+{
+	// TestTemplate이 null이면 디버그 파티클이 아니므로 무시
+	if (!TestTemplate)
+	{
+		return;
+	}
+
+	// 기존 디버그 파티클 시스템 정리
+	CleanupTestResources();
+
+	// DebugParticleType에 따라 새로운 디버그 파티클 시스템 생성
+	switch (DebugParticleType)
+	{
+	case EDebugParticleType::Sprite:
+		CreateDebugSpriteParticleSystem();
+		break;
+	case EDebugParticleType::Mesh:
+		CreateDebugMeshParticleSystem();
+		break;
+	case EDebugParticleType::Beam:
+		CreateDebugBeamParticleSystem();
+		break;
+	case EDebugParticleType::Ribbon:
+		CreateDebugRibbonParticleSystem();
+		break;
+	}
+
+	// EmitterInstances 재생성
+	RefreshEmitterInstances();
+}
+
 void UParticleSystemComponent::InitializeEmitterInstances()
 {
 	ClearEmitterInstances();
