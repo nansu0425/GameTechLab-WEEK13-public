@@ -33,6 +33,7 @@
 #include "Modules/ParticleModuleEventReceiver.h"
 #include "Modules/ParticleModuleEventReceiverKill.h"
 #include "Modules/ParticleModuleEventReceiverSpawn.h"
+#include "Modules/ParticleModuleTrailSource.h"
 #include "Material.h"
 #include "StaticMesh.h"
 #include "ResourceManager.h"
@@ -2708,6 +2709,16 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 			ImGui::EndMenu();
 		}
 
+		// 트레일
+		if (ImGui::BeginMenu("트레일"))
+		{
+			if (ImGui::MenuItem("트레일 소스"))
+			{
+				AddModuleToLOD<UParticleModuleTrailSource>(LOD, State);
+			}
+			ImGui::EndMenu();
+		}
+
 		ImGui::EndDisabled();  // LOD 0 체크 종료
 
 		ImGui::EndPopup();
@@ -2754,7 +2765,8 @@ void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx,
 			{"Collision", "콜리전"},
 			{"EventGenerator", "이벤트 제네레이터"},
 			{"EventReceiverKill", "이벤트 리시버 킬"},
-			{"EventReceiverSpawn", "이벤트 리시버 스폰"}
+			{"EventReceiverSpawn", "이벤트 리시버 스폰"},
+			{"TrailSource", "트레일 소스"}
 		};
 
 		auto it = ModuleNameMap.find(DisplayName);
