@@ -727,8 +727,42 @@ void SParticleEditorWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
 	for (int i = 0; i < Tabs.Num(); ++i)
 	{
 		ViewerState* State = Tabs[i];
+		ParticleEditorState* PState = static_cast<ParticleEditorState*>(State);
 		bool open = true;
-		if (ImGui::BeginTabItem(State->Name.ToString().c_str(), &open))
+
+		// 동적 탭 이름 생성
+		FString TabDisplayName;
+		if (PState->CurrentFilePath.empty())
+		{
+			TabDisplayName = "Untitled";
+		}
+		else
+		{
+			// 파일 경로에서 파일명만 추출 (확장자 제외)
+			size_t lastSlash = PState->CurrentFilePath.find_last_of("/\\");
+			FString filename = (lastSlash != FString::npos)
+				? PState->CurrentFilePath.substr(lastSlash + 1)
+				: PState->CurrentFilePath;
+
+			// 확장자 제거
+			size_t dotPos = filename.find_last_of('.');
+			if (dotPos != FString::npos)
+				filename = filename.substr(0, dotPos);
+
+			TabDisplayName = filename;
+		}
+
+		// 수정됨 표시 추가
+		if (PState->bIsDirty)
+		{
+			TabDisplayName += "*";
+		}
+
+		// ImGui ID 충돌 방지: ##뒤에 고유 식별자 추가 (표시되지 않음)
+		TabDisplayName += "##";
+		TabDisplayName += State->Name.ToString();
+
+		if (ImGui::BeginTabItem(TabDisplayName.c_str(), &open))
 		{
 			ActiveTabIndex = i;
 			ActiveState = State;
@@ -745,11 +779,12 @@ void SParticleEditorWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
 	// + 버튼 (새 탭 추가)
 	if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing))
 	{
+		// 내부 식별용 고유 이름 생성 (표시 이름은 RenderTabsAndToolbar에서 동적 생성)
 		int maxViewerNum = 0;
 		for (int i = 0; i < Tabs.Num(); ++i)
 		{
 			const FString& tabName = Tabs[i]->Name.ToString();
-			const char* prefix = "Particle Editor ";
+			const char* prefix = "ParticleTab";
 			if (strncmp(tabName.c_str(), prefix, strlen(prefix)) == 0)
 			{
 				const char* numberPart = tabName.c_str() + strlen(prefix);
@@ -762,7 +797,7 @@ void SParticleEditorWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
 		}
 
 		char label[64];
-		sprintf_s(label, "Particle Editor %d", maxViewerNum + 1);
+		sprintf_s(label, "ParticleTab%d", maxViewerNum + 1);
 		OpenNewTab(label);
 	}
 	ImGui::EndTabBar();
