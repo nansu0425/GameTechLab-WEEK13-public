@@ -27,6 +27,7 @@ private:
 	static bool RenderInt32Property(const FProperty& Prop, void* Instance);
 	static bool RenderFloatProperty(const FProperty& Prop, void* Instance);
 	static bool RenderVectorProperty(const FProperty& Prop, void* Instance);
+	static bool RenderVector2DProperty(const FProperty& Prop, void* Instance);
 	static bool RenderColorProperty(const FProperty& Prop, void* Instance);
 	static bool RenderStringProperty(const FProperty& Prop, void* Instance);
 	static bool RenderNameProperty(const FProperty& Prop, void* Instance);
@@ -62,7 +63,8 @@ private:
 	static bool RenderDistributionColorProperty(const FProperty& Prop, void* Instance);
 
 	// Distribution 헬퍼 함수
-	static bool RenderDistributionModeCombo(const char* Label, enum class EDistributionType& Type);
+	static bool RenderDistributionFloatModeCombo(const char* Label, enum class EDistributionType& Type);
+	static bool RenderDistributionVectorModeCombo(const char* Label, enum class EDistributionType& Type);
 	static bool RenderInterpCurveFloat(const char* Label, struct FInterpCurveFloat& Curve);
 	static bool RenderInterpCurveVector(const char* Label, struct FInterpCurveVector& Curve);
 

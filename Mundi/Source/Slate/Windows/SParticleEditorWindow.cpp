@@ -34,6 +34,13 @@
 #include "Shader.h"
 #include "Widgets/PropertyRenderer.h"
 
+// 모듈 드래그 앤 드롭 페이로드 구조체
+struct FModuleDragPayload
+{
+	int32 EmitterIndex;
+	UParticleModule* Module;
+};
+
 SParticleEditorWindow::SParticleEditorWindow()
 {
 	CenterRect = FRect(0, 0, 0, 0);
@@ -328,6 +335,40 @@ void SParticleEditorWindow::OnRender()
 					State->SelectedEmitterIndex = -1;
 					State->SelectedModuleIndex = -1;
 					State->SelectedModule = nullptr;
+					State->bIsDirty = true;
+					if (State->PreviewComponent)
+					{
+						State->PreviewComponent->RefreshEmitterInstances();
+					}
+				}
+			}
+		}
+
+		// 좌/우 방향키로 이미터 순서 변경
+		if (bIsWindowFocused && State && State->SelectedEmitterIndex >= 0)
+		{
+			UParticleSystem* System = State->EditingTemplate;
+			if (System)
+			{
+				int32 EmitterIndex = State->SelectedEmitterIndex;
+				int32 EmitterCount = System->Emitters.Num();
+
+				// 왼쪽 방향키: 이미터를 왼쪽으로 이동
+				if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow) && EmitterIndex > 0)
+				{
+					System->Emitters.Swap(EmitterIndex, EmitterIndex - 1);
+					State->SelectedEmitterIndex--;
+					State->bIsDirty = true;
+					if (State->PreviewComponent)
+					{
+						State->PreviewComponent->RefreshEmitterInstances();
+					}
+				}
+				// 오른쪽 방향키: 이미터를 오른쪽으로 이동
+				else if (ImGui::IsKeyPressed(ImGuiKey_RightArrow) && EmitterIndex < EmitterCount - 1)
+				{
+					System->Emitters.Swap(EmitterIndex, EmitterIndex + 1);
+					State->SelectedEmitterIndex++;
 					State->bIsDirty = true;
 					if (State->PreviewComponent)
 					{
@@ -1252,14 +1293,14 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 
 	ImGui::EndGroup();
 
-	// 헤더 클릭 감지 (전체 영역)
+	// 헤더 클릭 감지 (전체 영역) - 이미터 헤더 + 필수 모듈 선택
 	ImVec2 HeaderMin = ImGui::GetWindowPos();
 	ImVec2 HeaderMax = ImVec2(HeaderMin.x + ImGui::GetWindowWidth(), HeaderMin.y + 70);
 	if (ImGui::IsMouseClicked(0) && ImGui::IsMouseHoveringRect(HeaderMin, HeaderMax))
 	{
 		State->SelectedEmitterIndex = EmitterIndex;
-		State->SelectedModuleIndex = -1;
-		State->SelectedModule = nullptr;
+		State->SelectedModule = LOD->RequiredModule;
+		State->SelectedModuleIndex = LOD->RequiredModule ? 1 : -1;  // Required 모듈의 표시 우선순위는 1
 	}
 
 	// 썸네일 영역 (우측 상단에 배치)
@@ -1339,12 +1380,12 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 		}
 	}
 
-	// 모듈 리스트 빈 영역 좌클릭 → 이미터 선택
+	// 모듈 리스트 빈 영역 좌클릭 → 이미터 헤더 + 필수 모듈 선택
 	if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered())
 	{
 		State->SelectedEmitterIndex = EmitterIndex;
-		State->SelectedModuleIndex = -1;
-		State->SelectedModule = nullptr;
+		State->SelectedModule = LOD->RequiredModule;
+		State->SelectedModuleIndex = LOD->RequiredModule ? 1 : -1;  // Required 모듈의 표시 우선순위는 1
 	}
 
 	// 이미터 영역 우클릭 → 모듈 추가/이미터 관리 메뉴
@@ -1455,15 +1496,23 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 		}
 
 		// 회전
+		// 메시 타입 데이터인 경우 메시 회전만, 그 외에는 초기 회전만 표시
+		bool bIsMeshTypeData = Cast<UParticleModuleTypeDataMesh>(LOD->TypeDataModule) != nullptr;
 		if (ImGui::BeginMenu("회전"))
 		{
-			if (ImGui::MenuItem("초기 회전"))
+			if (bIsMeshTypeData)
 			{
-				AddModuleToLOD<UParticleModuleRotation>(LOD, State);
+				if (ImGui::MenuItem("메시 회전"))
+				{
+					AddModuleToLOD<UParticleModuleMeshRotation>(LOD, State);
+				}
 			}
-			if (ImGui::MenuItem("메시 회전"))
+			else
 			{
-				AddModuleToLOD<UParticleModuleMeshRotation>(LOD, State);
+				if (ImGui::MenuItem("초기 회전"))
+				{
+					AddModuleToLOD<UParticleModuleRotation>(LOD, State);
+				}
 			}
 			ImGui::EndMenu();
 		}
@@ -1559,6 +1608,25 @@ void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx,
 	bool bSelected = (State->SelectedEmitterIndex == EmitterIdx &&
 					  State->SelectedModule == Module);
 
+	// LOD 및 이동 가능 여부 확인
+	UParticleLODLevel* LOD = nullptr;
+	bool bCanMove = false;
+	if (State->EditingTemplate && EmitterIdx < State->EditingTemplate->Emitters.Num())
+	{
+		UParticleEmitter* Emitter = State->EditingTemplate->Emitters[EmitterIdx];
+		if (Emitter)
+		{
+			LOD = Emitter->GetLODLevel(State->CurrentLODLevel);
+			if (LOD)
+			{
+				// Required, Spawn, TypeData 모듈은 이동 불가
+				bCanMove = (Module != LOD->RequiredModule) &&
+						   (Module != LOD->SpawnModule) &&
+						   (Module != LOD->TypeDataModule);
+			}
+		}
+	}
+
 	// 모듈 타입에 따른 배경색
 	ImVec4 ModuleBgColor;
 	if (bSelected)
@@ -1603,10 +1671,39 @@ void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx,
 	sprintf_s(ModuleChildId, "##ModuleBlock_%d_%d", EmitterIdx, ModuleIdx);
 	ImGui::BeginChild(ModuleChildId, ImVec2(0, ModuleHeight), false);
 
-	// 모듈 이름
-	ImGui::SetCursorPosX(5.0f);
-	ImGui::SetCursorPosY((ModuleHeight - ImGui::GetTextLineHeight()) * 0.5f);
-	ImGui::Text("%s", DisplayName.c_str());
+	// 스프라이트 타입데이터는 선택 불가
+	bool bIsSpriteTypeData = Cast<UParticleModuleTypeDataSprite>(Module) != nullptr;
+
+	// 드래그 가능 영역 (체크박스 제외)
+	float DragAreaWidth = bShowCheckbox ? (ImGui::GetWindowWidth() - 42.0f) : ImGui::GetWindowWidth();
+	char DragAreaId[64];
+	sprintf_s(DragAreaId, "##ModuleDragArea_%d_%d", EmitterIdx, ModuleIdx);
+	ImGui::InvisibleButton(DragAreaId, ImVec2(DragAreaWidth, ModuleHeight));
+
+	// 클릭 감지
+	if (ImGui::IsItemClicked(0) && !bIsSpriteTypeData)
+	{
+		State->SelectedEmitterIndex = EmitterIdx;
+		State->SelectedModuleIndex = ModuleIdx;
+		State->SelectedModule = Module;
+	}
+
+	// 드래그 소스 (이동 가능한 모듈만)
+	if (bCanMove && ImGui::BeginDragDropSource())
+	{
+		FModuleDragPayload Payload;
+		Payload.EmitterIndex = EmitterIdx;
+		Payload.Module = Module;
+		ImGui::SetDragDropPayload("MODULE_REORDER", &Payload, sizeof(FModuleDragPayload));
+		ImGui::Text("모듈 이동: %s", DisplayName.c_str());
+		ImGui::EndDragDropSource();
+	}
+
+	// 모듈 이름 (DrawList로 직접 그리기)
+	ImDrawList* DrawList = ImGui::GetWindowDrawList();
+	ImVec2 WindowPos = ImGui::GetWindowPos();
+	float TextY = WindowPos.y + (ModuleHeight - ImGui::GetTextLineHeight()) * 0.5f;
+	DrawList->AddText(ImVec2(WindowPos.x + 5.0f, TextY), IM_COL32(255, 255, 255, 255), DisplayName.c_str());
 
 	// 체크박스 (모듈 블록 내부에서 그리기)
 	if (bShowCheckbox)
@@ -1618,7 +1715,6 @@ void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx,
 
 		ImVec2 CheckboxSize(14, 14);
 		ImVec2 CheckboxPos = ImGui::GetCursorScreenPos();
-		ImDrawList* DrawList = ImGui::GetWindowDrawList();
 
 		ImU32 CheckboxBgColor = Module->bEnabled ? IM_COL32(0, 255, 0, 255) : IM_COL32(255, 0, 0, 255);
 		DrawList->AddRectFilled(CheckboxPos, ImVec2(CheckboxPos.x + CheckboxSize.x, CheckboxPos.y + CheckboxSize.y), CheckboxBgColor);
@@ -1658,20 +1754,54 @@ void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx,
 		}
 	}
 
-	// 클릭 감지 (전체 영역)
-	// 스프라이트 타입데이터는 선택 불가
-	bool bIsSpriteTypeData = Cast<UParticleModuleTypeDataSprite>(Module) != nullptr;
-	ImVec2 BlockMin = ImGui::GetWindowPos();
-	ImVec2 BlockMax = ImVec2(BlockMin.x + ImGui::GetWindowWidth(), BlockMin.y + ModuleHeight);
-	if (ImGui::IsMouseClicked(0) && ImGui::IsMouseHoveringRect(BlockMin, BlockMax) && !bIsSpriteTypeData)
-	{
-		State->SelectedEmitterIndex = EmitterIdx;
-		State->SelectedModuleIndex = ModuleIdx;
-		State->SelectedModule = Module;
-	}
-
 	ImGui::EndChild();
 	ImGui::PopStyleColor();
+
+	// Child 윈도우 전체를 드롭 타겟으로 설정 (Required/Spawn/TypeData도 드롭 대상이 될 수 있도록)
+	if (LOD && ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload* Payload = ImGui::AcceptDragDropPayload("MODULE_REORDER"))
+		{
+			FModuleDragPayload* DragPayload = (FModuleDragPayload*)Payload->Data;
+
+			// 같은 이미터 내에서만 이동 가능
+			if (DragPayload->EmitterIndex == EmitterIdx)
+			{
+				UParticleModule* DraggedModule = DragPayload->Module;
+
+				// Modules 배열에서 드래그된 모듈의 인덱스 찾기
+				int32 SourceIdx = LOD->Modules.Find(DraggedModule);
+				int32 TargetIdx = LOD->Modules.Find(Module);
+
+				// 타겟이 Required/Spawn/TypeData가 아닌 경우에만 (Modules 배열에 있는 경우)
+				if (SourceIdx >= 0 && TargetIdx >= 0 && SourceIdx != TargetIdx)
+				{
+					// 원래 타겟 인덱스 기억 (Remove 전)
+					int32 InsertIdx = TargetIdx;
+
+					// 모듈 순서 변경
+					LOD->Modules.Remove(DraggedModule);
+
+					// 아래로 이동 시: 원래 타겟 위치에 삽입 (타겟 뒤로 이동)
+					// 위로 이동 시: 원래 타겟 위치에 삽입 (타겟 자리로 이동)
+					if (InsertIdx > LOD->Modules.Num())
+					{
+						InsertIdx = LOD->Modules.Num();
+					}
+					LOD->Modules.Insert(DraggedModule, InsertIdx);
+
+					LOD->CacheModuleInfo();
+					State->bIsDirty = true;
+
+					if (State->PreviewComponent)
+					{
+						State->PreviewComponent->RefreshEmitterInstances();
+					}
+				}
+			}
+		}
+		ImGui::EndDragDropTarget();
+	}
 
 	// 모듈 우클릭 컨텍스트 메뉴
 	char ContextMenuId[64];
@@ -1680,28 +1810,13 @@ void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx,
 	if (ImGui::BeginPopupContextItem(ContextMenuId))
 	{
 		// 삭제 (Required, Spawn, 스프라이트 타입데이터 모듈은 삭제 불가)
-		bool bCanDelete = true;
-		UParticleLODLevel* LOD = nullptr;
-		if (State->EditingTemplate && EmitterIdx < State->EditingTemplate->Emitters.Num())
+		// LOD는 이미 위에서 구함
+		bool bCanDelete = false;
+		if (LOD)
 		{
-			UParticleEmitter* Emitter = State->EditingTemplate->Emitters[EmitterIdx];
-			if (Emitter)
-			{
-				LOD = Emitter->GetLODLevel(State->CurrentLODLevel);
-				if (LOD)
-				{
-					// Required, Spawn 모듈은 삭제 불가
-					if (Module == LOD->RequiredModule || Module == LOD->SpawnModule)
-					{
-						bCanDelete = false;
-					}
-					// 스프라이트 타입데이터는 삭제 불가 (기본 타입이므로)
-					if (Cast<UParticleModuleTypeDataSprite>(Module))
-					{
-						bCanDelete = false;
-					}
-				}
-			}
+			bCanDelete = (Module != LOD->RequiredModule) &&
+						 (Module != LOD->SpawnModule) &&
+						 !Cast<UParticleModuleTypeDataSprite>(Module);
 		}
 
 		if (bCanDelete)

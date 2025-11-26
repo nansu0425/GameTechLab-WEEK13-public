@@ -8,6 +8,7 @@ enum class EPropertyType : uint8
 	Int32,
 	Float,
 	FVector,
+	FVector2D,
 	FLinearColor,
 	FString,
 	FName,

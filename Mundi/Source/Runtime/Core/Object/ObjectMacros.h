@@ -31,6 +31,8 @@ struct TPropertyTypeTraits
 			return EPropertyType::Float;  // Lua number는 기본적으로 double
 		else if constexpr (std::is_same_v<T, FVector>)
 			return EPropertyType::FVector;
+		else if constexpr (std::is_same_v<T, FVector2D>)
+			return EPropertyType::FVector2D;
 		else if constexpr (std::is_same_v<T, FLinearColor>)
 			return EPropertyType::FLinearColor;
 		else if constexpr (std::is_same_v<T, FString>)
