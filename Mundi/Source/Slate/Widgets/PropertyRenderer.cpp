@@ -82,6 +82,10 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 		bChanged = RenderVectorProperty(Property, ObjectInstance);
 		break;
 
+	case EPropertyType::FVector2D:
+		bChanged = RenderVector2DProperty(Property, ObjectInstance);
+		break;
+
 	case EPropertyType::FLinearColor:
 		bChanged = RenderColorProperty(Property, ObjectInstance);
 		break;
@@ -683,6 +687,13 @@ bool UPropertyRenderer::RenderVectorProperty(const FProperty& Prop, void* Instan
 	// 일반 Vector 프로퍼티는 기본 렌더링
 	FVector* Value = Prop.GetValuePtr<FVector>(Instance);
 	return ImGui::DragFloat3(Prop.Name, &Value->X, 0.1f);
+}
+
+bool UPropertyRenderer::RenderVector2DProperty(const FProperty& Prop, void* Instance)
+{
+	// 2D 벡터 프로퍼티 렌더링 (X, Y)
+	FVector2D* Value = Prop.GetValuePtr<FVector2D>(Instance);
+	return ImGui::DragFloat2(Prop.Name, &Value->X, 0.1f);
 }
 
 bool UPropertyRenderer::RenderColorProperty(const FProperty& Prop, void* Instance)
