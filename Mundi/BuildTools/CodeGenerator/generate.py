@@ -101,6 +101,15 @@ public: \\
             Str.ArrayRemoveAt = [](void* ArrayPtr, int32 Index) {{ \\
                 static_cast<TArray<{struct_name}>*>(ArrayPtr)->RemoveAt(Index); \\
             }}; \\
+            Str.ArrayInsertAt = [](void* ArrayPtr, int32 Index) {{ \\
+                static_cast<TArray<{struct_name}>*>(ArrayPtr)->Insert({struct_name}(), Index); \\
+            }}; \\
+            Str.ArrayDuplicateAt = [](void* ArrayPtr, int32 Index) {{ \\
+                auto* Arr = static_cast<TArray<{struct_name}>*>(ArrayPtr); \\
+                if (Index >= 0 && Index < Arr->Num()) {{ \\
+                    Arr->Insert((*Arr)[Index], Index + 1); \\
+                }} \\
+            }}; \\
             Str.ArrayNum = [](void* ArrayPtr) -> int32 {{ \\
                 return static_cast<TArray<{struct_name}>*>(ArrayPtr)->Num(); \\
             }}; \\
