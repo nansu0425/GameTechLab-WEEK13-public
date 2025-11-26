@@ -609,28 +609,45 @@ void UParticleSystemComponent::TickComponent(float DeltaTime)
 {
 	USceneComponent::TickComponent(DeltaTime);
 
-	// === 테스트: Beam 타겟 추적 (bUseTarget = true일 때만 동작) ===
+	// === 테스트: 디버그 파티클 자동 이동 ===
 	if (TestTemplate)  // 디버그 파티클일 때만
 	{
-		// 원을 그리며 회전하는 타겟 생성
-		/*static float TestTime = 0.0f;
+		static float TestTime = 0.0f;
 		TestTime += DeltaTime;
-		
-		float Radius = 50.0f;  // 반지름
-		float Speed = 2.0f;    // 회전 속도
-		
-		FVector TargetOffset(
-		  cos(TestTime * Speed) * Radius,
-		  sin(TestTime * Speed) * Radius,
-		  0.0f
-		);
-		
-		// 컴포넌트 로컬 공간 기준으로 타겟 설정
-		SetVectorParameter("BeamTarget", GetWorldTransform().TransformPosition(TargetOffset));*/
 
-		// 타겟을 월드 원점에 고정 (시작점은 기즈모로 직접 이동 가능)
-		FVector WorldOrigin(0.0f, 0.0f, 0.0f);
-		SetVectorParameter("BeamTarget", WorldOrigin);
+		if (DebugParticleType == EDebugParticleType::Beam)
+		{
+			// Beam: 타겟 위치를 원형으로 회전
+			float Radius = 50.0f;
+			float Speed = 2.0f;
+
+			FVector TargetOffset(
+			  cos(TestTime * Speed) * Radius,
+			  sin(TestTime * Speed) * Radius,
+			  0.0f
+			);
+
+			SetVectorParameter("BeamTarget", GetWorldTransform().TransformPosition(TargetOffset));
+
+			// 타겟을 월드 원점에 고정 (시작점은 기즈모로 직접 이동 가능)
+			/*FVector WorldOrigin(0.0f, 0.0f, 0.0f);
+			SetVectorParameter("BeamTarget", WorldOrigin);*/
+		}
+		else if (DebugParticleType == EDebugParticleType::Ribbon)
+		{
+			// Ribbon: 컴포넌트 자체를 원형으로 이동 (Trail 생성)
+			float Radius = 20.0f;   // 반지름
+			float Speed = 1.0f;     // 회전 속도
+			float Height = 15.0f;   // 상하 진폭
+
+			FVector NewPosition(
+				cos(TestTime * Speed) * Radius,
+				sin(TestTime * Speed) * Radius,
+				sin(TestTime * Speed * 2.0f) * Height  // 위아래로도 움직임
+			);
+
+			SetWorldLocation(NewPosition);
+		}
 	}
 
 	// DeltaTime 제한 (에디터 로딩/탭 전환 시 스파이크 방지)
