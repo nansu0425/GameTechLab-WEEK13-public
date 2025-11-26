@@ -1965,9 +1965,7 @@ bool UPropertyRenderer::RenderParticleSystemProperty(const FProperty& Prop, void
 				}
 				else
 				{
-					UE_LOG("[PropertyRenderer] ParticleSystem Load 경로: %s", CachedParticleSystemPaths[SelectedIdx].c_str());
 					UParticleSystem* NewTemplate = UResourceManager::GetInstance().Load<UParticleSystem>(CachedParticleSystemPaths[SelectedIdx]);
-					UE_LOG("[PropertyRenderer] Load된 Template FilePath: %s", NewTemplate ? NewTemplate->GetFilePath().c_str() : "nullptr");
 					PSC->SetTemplate(NewTemplate);
 				}
 			}
