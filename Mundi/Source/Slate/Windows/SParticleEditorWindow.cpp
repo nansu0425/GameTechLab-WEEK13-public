@@ -549,12 +549,17 @@ void SParticleEditorWindow::RenderRightPanel()
 
 	UParticleSystem* System = State->EditingTemplate;
 
+	// 이미터 열 너비 상수
+	const float EmitterColumnWidth = 200.f;
+	const float EmitterColumnSpacing = 8.0f;
+
+	// 전체 콘텐츠 너비 계산 (이미터 개수 + 새 이미터 추가 여유 공간)
+	float TotalContentWidth = (System->Emitters.Num() + 1) * (EmitterColumnWidth + EmitterColumnSpacing);
+	ImGui::SetNextWindowContentSize(ImVec2(TotalContentWidth, 0));
+
 	// 가로 스크롤 영역 시작
 	ImGui::BeginChild("EmitterScrollArea", ImVec2(0, 0), false,
 		ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar);
-
-	// 이미터 열 너비 상수
-	const float EmitterColumnWidth = 200.f;
 
 	// 각 이미터를 열로 렌더링
 	for (int32 i = 0; i < System->Emitters.Num(); ++i)
@@ -1215,9 +1220,9 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 	// 이미터가 선택되었거나 해당 이미터의 모듈이 선택된 경우 하이라이트
 	bool bEmitterSelected = (State->SelectedEmitterIndex == EmitterIndex);
 
-	// 헤더 배경색 (선택 시 주황색)
+	// 헤더 배경색 (선택: 연보라색)
 	ImVec4 HeaderBgColor = bEmitterSelected
-		? ImVec4(0.8f, 0.5f, 0.2f, 1.0f)
+		? ImVec4(0.25f, 0.2f, 0.5f, 1.0f)
 		: ImVec4(0.15f, 0.15f, 0.15f, 1.0f);
 
 	ImGui::PushStyleColor(ImGuiCol_ChildBg, HeaderBgColor);
@@ -1631,7 +1636,7 @@ void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx,
 	ImVec4 ModuleBgColor;
 	if (bSelected)
 	{
-		ModuleBgColor = ImVec4(0.8f, 0.5f, 0.2f, 1.0f);  // 선택 시 주황색
+		ModuleBgColor = ImVec4(0.25f, 0.2f, 0.5f, 1.0f);  // 선택: 연보라색
 	}
 	else if (ClassName.find("TypeData") != std::string::npos)
 	{
@@ -1650,12 +1655,10 @@ void SParticleEditorWindow::RenderModuleBlock(int32 EmitterIdx, int32 ModuleIdx,
 		ModuleBgColor = ImVec4(0.25f, 0.25f, 0.25f, 1.0f);  // 기본: 회색
 	}
 
-	// 비활성화 시 어둡게
+	// 비활성화 시 어두운 갈색 계열로 변경
 	if (!Module->bEnabled)
 	{
-		ModuleBgColor.x *= 0.5f;
-		ModuleBgColor.y *= 0.5f;
-		ModuleBgColor.z *= 0.5f;
+		ModuleBgColor = ImVec4(0.2f, 0.15f, 0.1f, 1.0f);  // 비활성화: 어두운 갈색
 	}
 
 	// 모듈 블록 높이
