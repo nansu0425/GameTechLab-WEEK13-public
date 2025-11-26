@@ -2641,7 +2641,12 @@ void SParticleEditorWindow::SaveParticleSystem()
 	{
 		// 저장 성공 - Dirty 플래그 해제
 		State->bIsDirty = false;
+
+		// ResourceManager에 등록/갱신 (캐시와 동기화)
+		UResourceManager::GetInstance().AddOrReplace<UParticleSystem>(State->CurrentFilePath, State->EditingTemplate);
+
 		UE_LOG("[SParticleEditorWindow] 파티클 시스템 저장 완료: %s", State->CurrentFilePath.c_str());
+		UE_LOG("[SParticleEditorWindow] AddOrReplace 경로: %s", State->CurrentFilePath.c_str());
 	}
 	else
 	{
@@ -2680,8 +2685,8 @@ void SParticleEditorWindow::SaveParticleSystemAs()
 		return;
 	}
 
-	// std::filesystem::path를 FString으로 변환
-	FString SavePathStr = SavePath.string();
+	// std::filesystem::path를 FString으로 변환 (상대 경로로 변환)
+	FString SavePathStr = ResolveAssetRelativePath(NormalizePath(SavePath.string()), "");
 
 	// 파일로 저장
 	if (ParticleEditorBootstrap::SaveParticleSystem(State->EditingTemplate, SavePathStr))
@@ -2689,6 +2694,10 @@ void SParticleEditorWindow::SaveParticleSystemAs()
 		// 저장 성공 - 파일 경로 설정 및 Dirty 플래그 해제
 		State->CurrentFilePath = SavePathStr;
 		State->bIsDirty = false;
+
+		// ResourceManager에 등록/갱신 (새 파일이므로 AddOrReplace 사용)
+		UResourceManager::GetInstance().AddOrReplace<UParticleSystem>(SavePathStr, State->EditingTemplate);
+
 		UE_LOG("[SParticleEditorWindow] 파티클 시스템 저장 완료: %s", SavePathStr.c_str());
 	}
 	else
@@ -2875,7 +2884,7 @@ void SParticleEditorWindow::OpenOrFocusTab(UEditorAssetPreviewContext* Context)
 		if (LoadedSystem)
 		{
 			ParticleState->EditingTemplate = LoadedSystem;
-			ParticleState->CurrentFilePath = Context->AssetPath;
+			ParticleState->CurrentFilePath = LoadedSystem->GetFilePath(); // 정규화된 경로 사용
 			ParticleState->bIsDirty = false;
 
 			// PreviewComponent에 새 템플릿 설정
