@@ -985,21 +985,16 @@ void SParticleEditorWindow::RenderGraphView()
 	for (int32 i = 0; i < CurveEditorState.Tracks.Num(); ++i)
 	{
 		FCurveTrack& Track = CurveEditorState.Tracks[i];
-		if (!Track.bVisible) continue;
+		if (!Track.bVisible)
+		{
+			continue;
+		}
 
 		RenderTrackCurve(DrawList, CanvasPos, CanvasSize, Track);
 	}
 
-	// 선택된 트랙의 키만 렌더링
-	if (CurveEditorState.SelectedTrackIndex >= 0 &&
-		CurveEditorState.SelectedTrackIndex < CurveEditorState.Tracks.Num())
-	{
-		FCurveTrack& SelectedTrack = CurveEditorState.Tracks[CurveEditorState.SelectedTrackIndex];
-		if (SelectedTrack.bVisible)
-		{
-			RenderCurveKeys(DrawList, CanvasPos, CanvasSize);
-		}
-	}
+	// 모든 visible 트랙의 키 렌더링
+	RenderCurveKeys(DrawList, CanvasPos, CanvasSize);
 
 	// 인터랙션 영역
 	ImGui::InvisibleButton("CurveCanvas", CanvasSize);
@@ -3361,114 +3356,209 @@ void SParticleEditorWindow::RenderCurveGrid(ImDrawList* DrawList, ImVec2 CanvasP
 
 void SParticleEditorWindow::RenderCurveKeys(ImDrawList* DrawList, ImVec2 CanvasPos, ImVec2 CanvasSize)
 {
-	// 선택된 트랙 가져오기
-	FCurveTrack* SelectedTrack = CurveEditorState.GetSelectedTrack();
-	if (!SelectedTrack) return;
-
-	if (SelectedTrack->FloatCurve)
+	// 모든 visible 트랙의 키 렌더링
+	for (int32 TrackIdx = 0; TrackIdx < CurveEditorState.Tracks.Num(); ++TrackIdx)
 	{
-		// 커브 모드 확인
-		if (SelectedTrack->FloatCurve->Type != EDistributionType::ConstantCurve &&
-			SelectedTrack->FloatCurve->Type != EDistributionType::UniformCurve)
+		FCurveTrack& Track = CurveEditorState.Tracks[TrackIdx];
+		if (!Track.bVisible)
 		{
-			return;
+			continue;
 		}
 
-		// 람다: 단일 커브의 키 렌더링
-		auto RenderFloatCurveKeys = [&](FInterpCurveFloat& Curve, ImU32 BaseColor, int32 CurveIndex)
-		{
-			for (int32 i = 0; i < Curve.Points.Num(); ++i)
-			{
-				FInterpCurvePointFloat& Point = Curve.Points[i];
+		bool bIsSelectedTrack = (CurveEditorState.SelectedTrackIndex == TrackIdx);
 
-				// 화면 좌표
+		if (Track.FloatCurve)
+		{
+			// 람다: 단일 커브의 키 렌더링
+			auto RenderFloatCurveKeys = [&](FInterpCurveFloat& Curve, ImU32 BaseColor, int32 CurveIndex)
+			{
+				for (int32 i = 0; i < Curve.Points.Num(); ++i)
+				{
+					FInterpCurvePointFloat& Point = Curve.Points[i];
+
+					// 화면 좌표
+					float x = CanvasPos.x +
+						((Point.InVal - CurveEditorState.ViewMinTime) /
+						 (CurveEditorState.ViewMaxTime - CurveEditorState.ViewMinTime)) * CanvasSize.x;
+					float y = CanvasPos.y + CanvasSize.y -
+						((Point.OutVal - CurveEditorState.ViewMinValue) /
+						 (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue)) * CanvasSize.y;
+
+					// 클램핑
+					x = FMath::Clamp(x, CanvasPos.x, CanvasPos.x + CanvasSize.x);
+					y = FMath::Clamp(y, CanvasPos.y, CanvasPos.y + CanvasSize.y);
+
+					// 키 사각형
+					float KeySize = 8.0f;
+					// 선택 상태: 선택된 트랙의 선택된 커브의 선택된 키면 노랑
+					bool bIsSelected = bIsSelectedTrack &&
+						(CurveEditorState.SelectedAxis == CurveIndex) &&
+						(i == CurveEditorState.SelectedKeyIndex);
+					ImU32 KeyColor = bIsSelected ? IM_COL32(255, 255, 0, 255) : BaseColor;
+
+					DrawList->AddRectFilled(
+						ImVec2(x - KeySize / 2, y - KeySize / 2),
+						ImVec2(x + KeySize / 2, y + KeySize / 2),
+						KeyColor);
+					DrawList->AddRect(
+						ImVec2(x - KeySize / 2, y - KeySize / 2),
+						ImVec2(x + KeySize / 2, y + KeySize / 2),
+						IM_COL32(0, 0, 0, 255));
+
+					// 탄젠트 핸들 (선택된 키만)
+					if (bIsSelected)
+					{
+						RenderTangentHandles(DrawList, Point, x, y, CanvasSize, CurveIndex);
+					}
+				}
+			};
+
+			// 람다: 단일 값(비커브)의 키 렌더링 (다이아몬드 형태)
+			auto RenderFloatConstantKey = [&](float Value, ImU32 BaseColor, int32 CurveIndex)
+			{
+				// 시간 중앙에 표시
+				float CenterTime = (CurveEditorState.ViewMinTime + CurveEditorState.ViewMaxTime) * 0.5f;
 				float x = CanvasPos.x +
-					((Point.InVal - CurveEditorState.ViewMinTime) /
+					((CenterTime - CurveEditorState.ViewMinTime) /
 					 (CurveEditorState.ViewMaxTime - CurveEditorState.ViewMinTime)) * CanvasSize.x;
 				float y = CanvasPos.y + CanvasSize.y -
-					((Point.OutVal - CurveEditorState.ViewMinValue) /
+					((Value - CurveEditorState.ViewMinValue) /
 					 (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue)) * CanvasSize.y;
 
 				// 클램핑
-				x = FMath::Clamp(x, CanvasPos.x, CanvasPos.x + CanvasSize.x);
 				y = FMath::Clamp(y, CanvasPos.y, CanvasPos.y + CanvasSize.y);
 
-				// 키 사각형
-				float KeySize = 8.0f;
-				// 선택 상태: 선택된 커브의 선택된 키면 노랑
-				bool bIsSelected = (CurveEditorState.SelectedAxis == CurveIndex && i == CurveEditorState.SelectedKeyIndex);
+				// 다이아몬드 형태로 비커브 키 표시
+				float KeySize = 5.0f;
+				bool bIsSelected = bIsSelectedTrack &&
+					(CurveEditorState.SelectedAxis == CurveIndex) &&
+					(CurveEditorState.SelectedKeyIndex == 0);  // Constant는 항상 인덱스 0
 				ImU32 KeyColor = bIsSelected ? IM_COL32(255, 255, 0, 255) : BaseColor;
 
-				DrawList->AddRectFilled(
-					ImVec2(x - KeySize / 2, y - KeySize / 2),
-					ImVec2(x + KeySize / 2, y + KeySize / 2),
-					KeyColor);
-				DrawList->AddRect(
-					ImVec2(x - KeySize / 2, y - KeySize / 2),
-					ImVec2(x + KeySize / 2, y + KeySize / 2),
-					IM_COL32(0, 0, 0, 255));
+				// 다이아몬드 꼭짓점
+				ImVec2 DiamondPoints[4] = {
+					ImVec2(x, y - KeySize),          // 상단
+					ImVec2(x + KeySize, y),          // 우측
+					ImVec2(x, y + KeySize),          // 하단
+					ImVec2(x - KeySize, y)           // 좌측
+				};
+				DrawList->AddConvexPolyFilled(DiamondPoints, 4, KeyColor);
+				DrawList->AddPolyline(DiamondPoints, 4, IM_COL32(0, 0, 0, 255), true, 1.5f);
+			};
 
-				// 탄젠트 핸들 (선택된 키만)
-				if (bIsSelected)
+			if (Track.FloatCurve->Type == EDistributionType::Constant)
+			{
+				// Constant: 단일 값 (흰색 다이아몬드)
+				if (Track.bShowX)
 				{
-					RenderTangentHandles(DrawList, Point, x, y, CanvasSize);
+					RenderFloatConstantKey(Track.FloatCurve->ConstantValue, IM_COL32(255, 255, 255, 255), 0);
 				}
 			}
-		};
-
-		if (SelectedTrack->FloatCurve->Type == EDistributionType::ConstantCurve)
-		{
-			// ConstantCurve: 단일 커브 (흰색)
-			if (SelectedTrack->bShowX)
+			else if (Track.FloatCurve->Type == EDistributionType::Uniform)
 			{
-				RenderFloatCurveKeys(SelectedTrack->FloatCurve->ConstantCurve, IM_COL32(255, 255, 255, 255), 0);
+				// Uniform: MinValue(빨강), MaxValue(초록) 다이아몬드
+				if (Track.bShowX)
+				{
+					RenderFloatConstantKey(Track.FloatCurve->MinValue, IM_COL32(255, 100, 100, 255), 0);
+				}
+				if (Track.bShowY)
+				{
+					RenderFloatConstantKey(Track.FloatCurve->MaxValue, IM_COL32(100, 255, 100, 255), 1);
+				}
+			}
+			else if (Track.FloatCurve->Type == EDistributionType::ConstantCurve)
+			{
+				// ConstantCurve: 단일 커브 (흰색)
+				if (Track.bShowX)
+				{
+					RenderFloatCurveKeys(Track.FloatCurve->ConstantCurve, IM_COL32(255, 255, 255, 255), 0);
+				}
+			}
+			else if (Track.FloatCurve->Type == EDistributionType::UniformCurve)
+			{
+				// UniformCurve: MinCurve(빨강), MaxCurve(초록)
+				if (Track.bShowX)
+				{
+					RenderFloatCurveKeys(Track.FloatCurve->MinCurve, IM_COL32(255, 100, 100, 255), 0);
+				}
+				if (Track.bShowY)
+				{
+					RenderFloatCurveKeys(Track.FloatCurve->MaxCurve, IM_COL32(100, 255, 100, 255), 1);
+				}
 			}
 		}
-		else // UniformCurve
+		else if (Track.VectorCurve)
 		{
-			// UniformCurve: MinCurve(빨강), MaxCurve(초록)
-			if (SelectedTrack->bShowX)
-			{
-				RenderFloatCurveKeys(SelectedTrack->FloatCurve->MinCurve, IM_COL32(255, 100, 100, 255), 0);
-			}
-			if (SelectedTrack->bShowY)
-			{
-				RenderFloatCurveKeys(SelectedTrack->FloatCurve->MaxCurve, IM_COL32(100, 255, 100, 255), 1);
-			}
-		}
-	}
-	else if (SelectedTrack->VectorCurve)
-	{
-		// 커브 모드 확인
-		if (SelectedTrack->VectorCurve->Type != EDistributionType::ConstantCurve &&
-			SelectedTrack->VectorCurve->Type != EDistributionType::UniformCurve)
-		{
-			return;
-		}
+			// 색상: X=빨강, Y=초록, Z=파랑
+			ImU32 Colors[3] = {
+				IM_COL32(255, 80, 80, 255),
+				IM_COL32(80, 255, 80, 255),
+				IM_COL32(80, 80, 255, 255)
+			};
+			// Uniform용 어두운 색상 (Min 값)
+			ImU32 DarkColors[3] = {
+				IM_COL32(180, 50, 50, 255),
+				IM_COL32(50, 180, 50, 255),
+				IM_COL32(50, 50, 180, 255)
+			};
+			bool ShowChannel[3] = { Track.bShowX, Track.bShowY, Track.bShowZ };
 
-		// 색상: X=빨강, Y=초록, Z=파랑
-		ImU32 Colors[3] = {
-			IM_COL32(255, 80, 80, 255),
-			IM_COL32(80, 255, 80, 255),
-			IM_COL32(80, 80, 255, 255)
-		};
-		// UniformCurve용 어두운 색상 (Min 커브)
-		ImU32 DarkColors[3] = {
-			IM_COL32(180, 50, 50, 255),
-			IM_COL32(50, 180, 50, 255),
-			IM_COL32(50, 50, 180, 255)
-		};
-		bool ShowChannel[3] = { SelectedTrack->bShowX, SelectedTrack->bShowY, SelectedTrack->bShowZ };
-
-		// 람다: 단일 VectorCurve의 키 렌더링
-		auto RenderVectorCurveKeys = [&](FInterpCurveVector& Curve, ImU32* ChannelColors, bool bIsMinCurve)
-		{
-			for (int32 i = 0; i < Curve.Points.Num(); ++i)
+			// 람다: 단일 VectorCurve의 키 렌더링
+			auto RenderVectorCurveKeys = [&](FInterpCurveVector& Curve, ImU32* ChannelColors, bool bIsMinCurve)
 			{
-				FInterpCurvePointVector& Point = Curve.Points[i];
+				for (int32 i = 0; i < Curve.Points.Num(); ++i)
+				{
+					FInterpCurvePointVector& Point = Curve.Points[i];
 
+					float x = CanvasPos.x +
+						((Point.InVal - CurveEditorState.ViewMinTime) /
+						 (CurveEditorState.ViewMaxTime - CurveEditorState.ViewMinTime)) * CanvasSize.x;
+
+					// 각 축별로 키 렌더링 (활성화된 채널만)
+					for (int axis = 0; axis < 3; ++axis)
+					{
+						if (!ShowChannel[axis]) continue;
+
+						int32 CurveIndex = bIsMinCurve ? (3 + axis) : axis;
+						float AxisValue = (axis == 0) ? Point.OutVal.X : (axis == 1) ? Point.OutVal.Y : Point.OutVal.Z;
+						float y = CanvasPos.y + CanvasSize.y -
+							((AxisValue - CurveEditorState.ViewMinValue) /
+							 (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue)) * CanvasSize.y;
+
+						y = FMath::Clamp(y, CanvasPos.y, CanvasPos.y + CanvasSize.y);
+
+						// 선택 상태 확인
+						bool bIsSelected = bIsSelectedTrack &&
+							(CurveEditorState.SelectedAxis == CurveIndex) &&
+							(i == CurveEditorState.SelectedKeyIndex);
+
+						float KeySize = 6.0f;
+						ImU32 KeyColor = bIsSelected ? IM_COL32(255, 255, 0, 255) : ChannelColors[axis];
+						DrawList->AddRectFilled(
+							ImVec2(x - KeySize / 2, y - KeySize / 2),
+							ImVec2(x + KeySize / 2, y + KeySize / 2),
+							KeyColor);
+						DrawList->AddRect(
+							ImVec2(x - KeySize / 2, y - KeySize / 2),
+							ImVec2(x + KeySize / 2, y + KeySize / 2),
+							IM_COL32(0, 0, 0, 255));
+
+						// 탄젠트 핸들 (선택된 키만)
+						if (bIsSelected)
+						{
+							RenderTangentHandlesVector(DrawList, Point, axis, x, y, CanvasSize, CurveIndex);
+						}
+					}
+				}
+			};
+
+			// 람다: 단일 Vector 값(비커브)의 키 렌더링 (다이아몬드 형태)
+			auto RenderVectorConstantKey = [&](const FVector& Value, ImU32* ChannelColors, bool bIsMinValue)
+			{
+				// 시간 중앙에 표시
+				float CenterTime = (CurveEditorState.ViewMinTime + CurveEditorState.ViewMaxTime) * 0.5f;
 				float x = CanvasPos.x +
-					((Point.InVal - CurveEditorState.ViewMinTime) /
+					((CenterTime - CurveEditorState.ViewMinTime) /
 					 (CurveEditorState.ViewMaxTime - CurveEditorState.ViewMinTime)) * CanvasSize.x;
 
 				// 각 축별로 키 렌더링 (활성화된 채널만)
@@ -3476,62 +3566,137 @@ void SParticleEditorWindow::RenderCurveKeys(ImDrawList* DrawList, ImVec2 CanvasP
 				{
 					if (!ShowChannel[axis]) continue;
 
-					float AxisValue = (axis == 0) ? Point.OutVal.X : (axis == 1) ? Point.OutVal.Y : Point.OutVal.Z;
+					float AxisValue = (axis == 0) ? Value.X : (axis == 1) ? Value.Y : Value.Z;
 					float y = CanvasPos.y + CanvasSize.y -
 						((AxisValue - CurveEditorState.ViewMinValue) /
 						 (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue)) * CanvasSize.y;
 
 					y = FMath::Clamp(y, CanvasPos.y, CanvasPos.y + CanvasSize.y);
 
-					float KeySize = 6.0f;
-					DrawList->AddRectFilled(
-						ImVec2(x - KeySize / 2, y - KeySize / 2),
-						ImVec2(x + KeySize / 2, y + KeySize / 2),
-						ChannelColors[axis]);
-					DrawList->AddRect(
-						ImVec2(x - KeySize / 2, y - KeySize / 2),
-						ImVec2(x + KeySize / 2, y + KeySize / 2),
-						IM_COL32(0, 0, 0, 255));
-				}
-			}
-		};
+					// 선택 상태 확인
+					int32 ExpectedAxis = bIsMinValue ? (3 + axis) : axis;
+					bool bIsSelected = bIsSelectedTrack &&
+						(CurveEditorState.SelectedAxis == ExpectedAxis) &&
+						(CurveEditorState.SelectedKeyIndex == 0);  // Constant는 항상 인덱스 0
+					ImU32 KeyColor = bIsSelected ? IM_COL32(255, 255, 0, 255) : ChannelColors[axis];
 
-		if (SelectedTrack->VectorCurve->Type == EDistributionType::ConstantCurve)
-		{
-			// ConstantCurve: 단일 커브
-			RenderVectorCurveKeys(SelectedTrack->VectorCurve->ConstantCurve, Colors, false);
-		}
-		else // UniformCurve
-		{
-			// UniformCurve: MinCurve(어두운색), MaxCurve(밝은색)
-			RenderVectorCurveKeys(SelectedTrack->VectorCurve->MinCurve, DarkColors, true);
-			RenderVectorCurveKeys(SelectedTrack->VectorCurve->MaxCurve, Colors, false);
+					// 다이아몬드 형태로 비커브 키 표시
+					float KeySize = 5.0f;
+					ImVec2 DiamondPoints[4] = {
+						ImVec2(x, y - KeySize),          // 상단
+						ImVec2(x + KeySize, y),          // 우측
+						ImVec2(x, y + KeySize),          // 하단
+						ImVec2(x - KeySize, y)           // 좌측
+					};
+					DrawList->AddConvexPolyFilled(DiamondPoints, 4, KeyColor);
+					DrawList->AddPolyline(DiamondPoints, 4, IM_COL32(0, 0, 0, 255), true, 1.5f);
+				}
+			};
+
+			if (Track.VectorCurve->Type == EDistributionType::Constant)
+			{
+				// Constant: 단일 벡터 값 (다이아몬드)
+				RenderVectorConstantKey(Track.VectorCurve->ConstantValue, Colors, false);
+			}
+			else if (Track.VectorCurve->Type == EDistributionType::Uniform)
+			{
+				// Uniform: MinValue(어두운색), MaxValue(밝은색) 다이아몬드
+				RenderVectorConstantKey(Track.VectorCurve->MinValue, DarkColors, true);
+				RenderVectorConstantKey(Track.VectorCurve->MaxValue, Colors, false);
+			}
+			else if (Track.VectorCurve->Type == EDistributionType::ParticleParameter)
+			{
+				// ParticleParameter: DefaultValue (보라색 다이아몬드)
+				ImU32 ParamColors[3] = {
+					IM_COL32(200, 100, 200, 255),  // 보라-빨강
+					IM_COL32(100, 200, 100, 255),  // 보라-초록
+					IM_COL32(100, 100, 200, 255)   // 보라-파랑
+				};
+				RenderVectorConstantKey(Track.VectorCurve->ParameterDefaultValue, ParamColors, false);
+			}
+			else if (Track.VectorCurve->Type == EDistributionType::ConstantCurve)
+			{
+				// ConstantCurve: 단일 커브
+				RenderVectorCurveKeys(Track.VectorCurve->ConstantCurve, Colors, false);
+			}
+			else if (Track.VectorCurve->Type == EDistributionType::UniformCurve)
+			{
+				// UniformCurve: MinCurve(어두운색), MaxCurve(밝은색)
+				RenderVectorCurveKeys(Track.VectorCurve->MinCurve, DarkColors, true);
+				RenderVectorCurveKeys(Track.VectorCurve->MaxCurve, Colors, false);
+			}
 		}
 	}
 }
 
 void SParticleEditorWindow::RenderTangentHandles(ImDrawList* DrawList, FInterpCurvePointFloat& Point,
-	float KeyX, float KeyY, ImVec2 CanvasSize)
+	float KeyX, float KeyY, ImVec2 CanvasSize, int32 CurveIndex)
 {
 	float HandleLength = 40.0f;
 	ImU32 HandleColor = IM_COL32(255, 255, 255, 255);
+	ImU32 SelectedColor = IM_COL32(255, 255, 0, 255);  // 선택된 핸들은 노랑
 
 	float TimeScale = CanvasSize.x / (CurveEditorState.ViewMaxTime - CurveEditorState.ViewMinTime);
 	float ValueScale = CanvasSize.y / (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue);
 
-	// 도착 탄젠트 (왼쪽)
+	// 도착 탄젠트 (왼쪽) - SelectedTangentHandle == 1
+	// Arrive 핸들은 핸들→키 방향이 접선 방향이므로 Y를 반대로 (KeyY + ArriveDy)
 	float ArriveDx = -HandleLength;
 	float ArriveDy = Point.ArriveTangent * HandleLength * (ValueScale / TimeScale);
+	bool bArriveSelected = (CurveEditorState.SelectedTangentHandle == 1) &&
+		(CurveEditorState.SelectedAxis == CurveIndex);
 	DrawList->AddLine(ImVec2(KeyX, KeyY),
-		ImVec2(KeyX + ArriveDx, KeyY - ArriveDy), HandleColor, 1.5f);
-	DrawList->AddCircleFilled(ImVec2(KeyX + ArriveDx, KeyY - ArriveDy), 4.0f, HandleColor);
+		ImVec2(KeyX + ArriveDx, KeyY + ArriveDy), HandleColor, 1.5f);
+	DrawList->AddCircleFilled(ImVec2(KeyX + ArriveDx, KeyY + ArriveDy), 5.0f,
+		bArriveSelected ? SelectedColor : HandleColor);
+
+	// 출발 탄젠트 (오른쪽) - SelectedTangentHandle == 2
+	float LeaveDx = HandleLength;
+	float LeaveDy = Point.LeaveTangent * HandleLength * (ValueScale / TimeScale);
+	bool bLeaveSelected = (CurveEditorState.SelectedTangentHandle == 2) &&
+		(CurveEditorState.SelectedAxis == CurveIndex);
+	DrawList->AddLine(ImVec2(KeyX, KeyY),
+		ImVec2(KeyX + LeaveDx, KeyY - LeaveDy), HandleColor, 1.5f);
+	DrawList->AddCircleFilled(ImVec2(KeyX + LeaveDx, KeyY - LeaveDy), 5.0f,
+		bLeaveSelected ? SelectedColor : HandleColor);
+}
+
+void SParticleEditorWindow::RenderTangentHandlesVector(ImDrawList* DrawList, FInterpCurvePointVector& Point,
+	int32 Axis, float KeyX, float KeyY, ImVec2 CanvasSize, int32 CurveIndex)
+{
+	float HandleLength = 40.0f;
+	ImU32 HandleColor = IM_COL32(255, 255, 255, 255);
+	ImU32 SelectedColor = IM_COL32(255, 255, 0, 255);
+
+	float TimeScale = CanvasSize.x / (CurveEditorState.ViewMaxTime - CurveEditorState.ViewMinTime);
+	float ValueScale = CanvasSize.y / (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue);
+
+	// 해당 축의 탄젠트 가져오기
+	float ArriveTangent = (Axis == 0) ? Point.ArriveTangent.X :
+						  (Axis == 1) ? Point.ArriveTangent.Y : Point.ArriveTangent.Z;
+	float LeaveTangent = (Axis == 0) ? Point.LeaveTangent.X :
+						 (Axis == 1) ? Point.LeaveTangent.Y : Point.LeaveTangent.Z;
+
+	// 도착 탄젠트 (왼쪽)
+	// Arrive 핸들은 핸들→키 방향이 접선 방향이므로 Y를 반대로 (KeyY + ArriveDy)
+	float ArriveDx = -HandleLength;
+	float ArriveDy = ArriveTangent * HandleLength * (ValueScale / TimeScale);
+	bool bArriveSelected = (CurveEditorState.SelectedTangentHandle == 1) &&
+		(CurveEditorState.SelectedAxis == CurveIndex);
+	DrawList->AddLine(ImVec2(KeyX, KeyY),
+		ImVec2(KeyX + ArriveDx, KeyY + ArriveDy), HandleColor, 1.5f);
+	DrawList->AddCircleFilled(ImVec2(KeyX + ArriveDx, KeyY + ArriveDy), 5.0f,
+		bArriveSelected ? SelectedColor : HandleColor);
 
 	// 출발 탄젠트 (오른쪽)
 	float LeaveDx = HandleLength;
-	float LeaveDy = Point.LeaveTangent * HandleLength * (ValueScale / TimeScale);
+	float LeaveDy = LeaveTangent * HandleLength * (ValueScale / TimeScale);
+	bool bLeaveSelected = (CurveEditorState.SelectedTangentHandle == 2) &&
+		(CurveEditorState.SelectedAxis == CurveIndex);
 	DrawList->AddLine(ImVec2(KeyX, KeyY),
 		ImVec2(KeyX + LeaveDx, KeyY - LeaveDy), HandleColor, 1.5f);
-	DrawList->AddCircleFilled(ImVec2(KeyX + LeaveDx, KeyY - LeaveDy), 4.0f, HandleColor);
+	DrawList->AddCircleFilled(ImVec2(KeyX + LeaveDx, KeyY - LeaveDy), 5.0f,
+		bLeaveSelected ? SelectedColor : HandleColor);
 }
 
 void SParticleEditorWindow::HandleCurveInteraction(ImVec2 CanvasPos, ImVec2 CanvasSize)
@@ -3541,18 +3706,159 @@ void SParticleEditorWindow::HandleCurveInteraction(ImVec2 CanvasPos, ImVec2 Canv
 	ImVec2 MousePos = ImGui::GetMousePos();
 	ParticleEditorState* State = GetActiveParticleState();
 
-	// 선택된 트랙 가져오기
-	FCurveTrack* SelectedTrack = CurveEditorState.GetSelectedTrack();
-
-	// 키 선택 (Float 커브)
-	if (ImGui::IsMouseClicked(0) && SelectedTrack && SelectedTrack->FloatCurve)
+	// 탄젠트 핸들 또는 키 선택 - 모든 visible 트랙에서 검사
+	if (ImGui::IsMouseClicked(0))
 	{
-		if (SelectedTrack->FloatCurve->Type == EDistributionType::ConstantCurve ||
-			SelectedTrack->FloatCurve->Type == EDistributionType::UniformCurve)
-		{
-			FInterpCurveFloat& Curve = SelectedTrack->FloatCurve->ConstantCurve;
-			CurveEditorState.SelectedKeyIndex = -1;
+		bool bKeyFound = false;
+		bool bTangentHandleFound = false;
+		float HandleLength = 40.0f;
+		float TimeScale = CanvasSize.x / (CurveEditorState.ViewMaxTime - CurveEditorState.ViewMinTime);
+		float ValueScale = CanvasSize.y / (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue);
 
+		// 먼저 현재 선택된 키의 탄젠트 핸들 검사 (선택된 키가 있을 때만)
+		if (CurveEditorState.SelectedKeyIndex >= 0 && CurveEditorState.SelectedAxis >= 0)
+		{
+			FCurveTrack* SelectedTrack = CurveEditorState.GetSelectedTrack();
+			if (SelectedTrack)
+			{
+				// Float 커브 탄젠트 핸들 검사
+				if (SelectedTrack->FloatCurve &&
+					(SelectedTrack->FloatCurve->Type == EDistributionType::ConstantCurve ||
+					 SelectedTrack->FloatCurve->Type == EDistributionType::UniformCurve))
+				{
+					FInterpCurveFloat* CurvePtr = nullptr;
+					if (SelectedTrack->FloatCurve->Type == EDistributionType::ConstantCurve)
+					{
+						CurvePtr = &SelectedTrack->FloatCurve->ConstantCurve;
+					}
+					else
+					{
+						CurvePtr = (CurveEditorState.SelectedAxis == 0)
+							? &SelectedTrack->FloatCurve->MinCurve
+							: &SelectedTrack->FloatCurve->MaxCurve;
+					}
+
+					if (CurvePtr && CurveEditorState.SelectedKeyIndex < CurvePtr->Points.Num())
+					{
+						FInterpCurvePointFloat& Point = CurvePtr->Points[CurveEditorState.SelectedKeyIndex];
+						float KeyX = CanvasPos.x +
+							((Point.InVal - CurveEditorState.ViewMinTime) /
+							 (CurveEditorState.ViewMaxTime - CurveEditorState.ViewMinTime)) * CanvasSize.x;
+						float KeyY = CanvasPos.y + CanvasSize.y -
+							((Point.OutVal - CurveEditorState.ViewMinValue) /
+							 (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue)) * CanvasSize.y;
+
+						// Arrive 탄젠트 핸들 (왼쪽)
+						// Arrive 핸들은 핸들→키 방향이 접선 방향이므로 Y를 반대로 (KeyY + ArriveDy)
+						float ArriveDx = -HandleLength;
+						float ArriveDy = Point.ArriveTangent * HandleLength * (ValueScale / TimeScale);
+						float ArriveX = KeyX + ArriveDx;
+						float ArriveY = KeyY + ArriveDy;
+						float distArrive = FMath::Sqrt((MousePos.x - ArriveX) * (MousePos.x - ArriveX) +
+							(MousePos.y - ArriveY) * (MousePos.y - ArriveY));
+						if (distArrive < 8.0f)
+						{
+							CurveEditorState.SelectedTangentHandle = 1;  // Arrive
+							bTangentHandleFound = true;
+						}
+
+						// Leave 탄젠트 핸들 (오른쪽)
+						if (!bTangentHandleFound)
+						{
+							float LeaveDx = HandleLength;
+							float LeaveDy = Point.LeaveTangent * HandleLength * (ValueScale / TimeScale);
+							float LeaveX = KeyX + LeaveDx;
+							float LeaveY = KeyY - LeaveDy;
+							float distLeave = FMath::Sqrt((MousePos.x - LeaveX) * (MousePos.x - LeaveX) +
+								(MousePos.y - LeaveY) * (MousePos.y - LeaveY));
+							if (distLeave < 8.0f)
+							{
+								CurveEditorState.SelectedTangentHandle = 2;  // Leave
+								bTangentHandleFound = true;
+							}
+						}
+					}
+				}
+				// Vector 커브 탄젠트 핸들 검사
+				else if (SelectedTrack->VectorCurve &&
+					(SelectedTrack->VectorCurve->Type == EDistributionType::ConstantCurve ||
+					 SelectedTrack->VectorCurve->Type == EDistributionType::UniformCurve))
+				{
+					FInterpCurveVector* CurvePtr = nullptr;
+					int32 AxisIndex = CurveEditorState.SelectedAxis % 3;
+					bool bIsMinCurve = (CurveEditorState.SelectedAxis >= 3);
+
+					if (SelectedTrack->VectorCurve->Type == EDistributionType::ConstantCurve)
+					{
+						CurvePtr = &SelectedTrack->VectorCurve->ConstantCurve;
+					}
+					else
+					{
+						CurvePtr = bIsMinCurve
+							? &SelectedTrack->VectorCurve->MinCurve
+							: &SelectedTrack->VectorCurve->MaxCurve;
+					}
+
+					if (CurvePtr && CurveEditorState.SelectedKeyIndex < CurvePtr->Points.Num())
+					{
+						FInterpCurvePointVector& Point = CurvePtr->Points[CurveEditorState.SelectedKeyIndex];
+						float KeyX = CanvasPos.x +
+							((Point.InVal - CurveEditorState.ViewMinTime) /
+							 (CurveEditorState.ViewMaxTime - CurveEditorState.ViewMinTime)) * CanvasSize.x;
+						float AxisValue = (AxisIndex == 0) ? Point.OutVal.X :
+							(AxisIndex == 1) ? Point.OutVal.Y : Point.OutVal.Z;
+						float KeyY = CanvasPos.y + CanvasSize.y -
+							((AxisValue - CurveEditorState.ViewMinValue) /
+							 (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue)) * CanvasSize.y;
+
+						float ArriveTangent = (AxisIndex == 0) ? Point.ArriveTangent.X :
+							(AxisIndex == 1) ? Point.ArriveTangent.Y : Point.ArriveTangent.Z;
+						float LeaveTangent = (AxisIndex == 0) ? Point.LeaveTangent.X :
+							(AxisIndex == 1) ? Point.LeaveTangent.Y : Point.LeaveTangent.Z;
+
+						// Arrive 탄젠트 핸들
+						// Arrive 핸들은 핸들→키 방향이 접선 방향이므로 Y를 반대로 (KeyY + ArriveDy)
+						float ArriveDx = -HandleLength;
+						float ArriveDy = ArriveTangent * HandleLength * (ValueScale / TimeScale);
+						float ArriveX = KeyX + ArriveDx;
+						float ArriveY = KeyY + ArriveDy;
+						float distArrive = FMath::Sqrt((MousePos.x - ArriveX) * (MousePos.x - ArriveX) +
+							(MousePos.y - ArriveY) * (MousePos.y - ArriveY));
+						if (distArrive < 8.0f)
+						{
+							CurveEditorState.SelectedTangentHandle = 1;
+							bTangentHandleFound = true;
+						}
+
+						// Leave 탄젠트 핸들
+						if (!bTangentHandleFound)
+						{
+							float LeaveDx = HandleLength;
+							float LeaveDy = LeaveTangent * HandleLength * (ValueScale / TimeScale);
+							float LeaveX = KeyX + LeaveDx;
+							float LeaveY = KeyY - LeaveDy;
+							float distLeave = FMath::Sqrt((MousePos.x - LeaveX) * (MousePos.x - LeaveX) +
+								(MousePos.y - LeaveY) * (MousePos.y - LeaveY));
+							if (distLeave < 8.0f)
+							{
+								CurveEditorState.SelectedTangentHandle = 2;
+								bTangentHandleFound = true;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// 탄젠트 핸들을 찾지 못했으면 키 선택 검사
+		if (!bTangentHandleFound)
+		{
+			CurveEditorState.SelectedTangentHandle = 0;  // 탄젠트 핸들 선택 해제
+		}
+
+		// 람다: Float 커브에서 키 선택 검사
+		auto CheckFloatCurveKey = [&](FInterpCurveFloat& Curve, int32 CurveIndex) -> bool
+		{
 			for (int32 i = 0; i < Curve.Points.Num(); ++i)
 			{
 				FInterpCurvePointFloat& Point = Curve.Points[i];
@@ -3568,29 +3874,470 @@ void SParticleEditorWindow::HandleCurveInteraction(ImVec2 CanvasPos, ImVec2 Canv
 				if (dist < 10.0f)
 				{
 					CurveEditorState.SelectedKeyIndex = i;
-					break;
+					CurveEditorState.SelectedAxis = CurveIndex;
+					return true;
 				}
+			}
+			return false;
+		};
+
+		// 람다: Float 단일 값(비커브)에서 키 선택 검사
+		auto CheckFloatConstantKey = [&](float Value, int32 CurveIndex) -> bool
+		{
+			// 시간 중앙에 표시
+			float CenterTime = (CurveEditorState.ViewMinTime + CurveEditorState.ViewMaxTime) * 0.5f;
+			float x = CanvasPos.x +
+				((CenterTime - CurveEditorState.ViewMinTime) /
+				 (CurveEditorState.ViewMaxTime - CurveEditorState.ViewMinTime)) * CanvasSize.x;
+			float y = CanvasPos.y + CanvasSize.y -
+				((Value - CurveEditorState.ViewMinValue) /
+				 (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue)) * CanvasSize.y;
+
+			float dist = FMath::Sqrt((MousePos.x - x) * (MousePos.x - x) + (MousePos.y - y) * (MousePos.y - y));
+			if (dist < 12.0f)  // 다이아몬드가 약간 더 크므로 범위 확대
+			{
+				CurveEditorState.SelectedKeyIndex = 0;  // Constant는 항상 인덱스 0
+				CurveEditorState.SelectedAxis = CurveIndex;
+				return true;
+			}
+			return false;
+		};
+
+		// 람다: Vector 커브에서 키 선택 검사
+		auto CheckVectorCurveKey = [&](FInterpCurveVector& Curve, bool ShowChannel[3], bool bIsMinCurve) -> bool
+		{
+			for (int32 i = 0; i < Curve.Points.Num(); ++i)
+			{
+				FInterpCurvePointVector& Point = Curve.Points[i];
+
+				float x = CanvasPos.x +
+					((Point.InVal - CurveEditorState.ViewMinTime) /
+					 (CurveEditorState.ViewMaxTime - CurveEditorState.ViewMinTime)) * CanvasSize.x;
+
+				for (int axis = 0; axis < 3; ++axis)
+				{
+					if (!ShowChannel[axis]) continue;
+
+					float AxisValue = (axis == 0) ? Point.OutVal.X : (axis == 1) ? Point.OutVal.Y : Point.OutVal.Z;
+					float y = CanvasPos.y + CanvasSize.y -
+						((AxisValue - CurveEditorState.ViewMinValue) /
+						 (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue)) * CanvasSize.y;
+
+					float dist = FMath::Sqrt((MousePos.x - x) * (MousePos.x - x) + (MousePos.y - y) * (MousePos.y - y));
+					if (dist < 10.0f)
+					{
+						CurveEditorState.SelectedKeyIndex = i;
+						CurveEditorState.SelectedAxis = bIsMinCurve ? (3 + axis) : axis;
+						return true;
+					}
+				}
+			}
+			return false;
+		};
+
+		// 람다: Vector 단일 값(비커브)에서 키 선택 검사
+		auto CheckVectorConstantKey = [&](const FVector& Value, bool ShowChannel[3], bool bIsMinValue) -> bool
+		{
+			// 시간 중앙에 표시
+			float CenterTime = (CurveEditorState.ViewMinTime + CurveEditorState.ViewMaxTime) * 0.5f;
+			float x = CanvasPos.x +
+				((CenterTime - CurveEditorState.ViewMinTime) /
+				 (CurveEditorState.ViewMaxTime - CurveEditorState.ViewMinTime)) * CanvasSize.x;
+
+			for (int axis = 0; axis < 3; ++axis)
+			{
+				if (!ShowChannel[axis]) continue;
+
+				float AxisValue = (axis == 0) ? Value.X : (axis == 1) ? Value.Y : Value.Z;
+				float y = CanvasPos.y + CanvasSize.y -
+					((AxisValue - CurveEditorState.ViewMinValue) /
+					 (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue)) * CanvasSize.y;
+
+				float dist = FMath::Sqrt((MousePos.x - x) * (MousePos.x - x) + (MousePos.y - y) * (MousePos.y - y));
+				if (dist < 10.0f)
+				{
+					CurveEditorState.SelectedKeyIndex = 0;  // Constant는 항상 인덱스 0
+					CurveEditorState.SelectedAxis = bIsMinValue ? (3 + axis) : axis;
+					return true;
+				}
+			}
+			return false;
+		};
+
+		// 모든 visible 트랙 검사 (탄젠트 핸들을 찾지 못했을 때만)
+		for (int32 TrackIdx = 0; TrackIdx < CurveEditorState.Tracks.Num() && !bKeyFound && !bTangentHandleFound; ++TrackIdx)
+		{
+			FCurveTrack& Track = CurveEditorState.Tracks[TrackIdx];
+			if (!Track.bVisible) continue;
+
+			if (Track.FloatCurve)
+			{
+				if (Track.FloatCurve->Type == EDistributionType::Constant)
+				{
+					// Constant: 단일 값
+					if (Track.bShowX && CheckFloatConstantKey(Track.FloatCurve->ConstantValue, 0))
+					{
+						CurveEditorState.SelectedTrackIndex = TrackIdx;
+						bKeyFound = true;
+					}
+				}
+				else if (Track.FloatCurve->Type == EDistributionType::Uniform)
+				{
+					// Uniform: Min/Max 값
+					if (Track.bShowX && CheckFloatConstantKey(Track.FloatCurve->MinValue, 0))
+					{
+						CurveEditorState.SelectedTrackIndex = TrackIdx;
+						bKeyFound = true;
+					}
+					else if (Track.bShowY && CheckFloatConstantKey(Track.FloatCurve->MaxValue, 1))
+					{
+						CurveEditorState.SelectedTrackIndex = TrackIdx;
+						bKeyFound = true;
+					}
+				}
+				else if (Track.FloatCurve->Type == EDistributionType::ConstantCurve)
+				{
+					if (Track.bShowX && CheckFloatCurveKey(Track.FloatCurve->ConstantCurve, 0))
+					{
+						CurveEditorState.SelectedTrackIndex = TrackIdx;
+						bKeyFound = true;
+					}
+				}
+				else if (Track.FloatCurve->Type == EDistributionType::UniformCurve)
+				{
+					if (Track.bShowX && CheckFloatCurveKey(Track.FloatCurve->MinCurve, 0))
+					{
+						CurveEditorState.SelectedTrackIndex = TrackIdx;
+						bKeyFound = true;
+					}
+					else if (Track.bShowY && CheckFloatCurveKey(Track.FloatCurve->MaxCurve, 1))
+					{
+						CurveEditorState.SelectedTrackIndex = TrackIdx;
+						bKeyFound = true;
+					}
+				}
+			}
+			else if (Track.VectorCurve)
+			{
+				bool ShowChannel[3] = { Track.bShowX, Track.bShowY, Track.bShowZ };
+
+				if (Track.VectorCurve->Type == EDistributionType::Constant)
+				{
+					// Constant: 단일 벡터 값
+					if (CheckVectorConstantKey(Track.VectorCurve->ConstantValue, ShowChannel, false))
+					{
+						CurveEditorState.SelectedTrackIndex = TrackIdx;
+						bKeyFound = true;
+					}
+				}
+				else if (Track.VectorCurve->Type == EDistributionType::Uniform)
+				{
+					// Uniform: Min/Max 벡터 값
+					if (CheckVectorConstantKey(Track.VectorCurve->MaxValue, ShowChannel, false))
+					{
+						CurveEditorState.SelectedTrackIndex = TrackIdx;
+						bKeyFound = true;
+					}
+					else if (CheckVectorConstantKey(Track.VectorCurve->MinValue, ShowChannel, true))
+					{
+						CurveEditorState.SelectedTrackIndex = TrackIdx;
+						bKeyFound = true;
+					}
+				}
+				else if (Track.VectorCurve->Type == EDistributionType::ParticleParameter)
+				{
+					// ParticleParameter: Default 벡터 값
+					if (CheckVectorConstantKey(Track.VectorCurve->ParameterDefaultValue, ShowChannel, false))
+					{
+						CurveEditorState.SelectedTrackIndex = TrackIdx;
+						bKeyFound = true;
+					}
+				}
+				else if (Track.VectorCurve->Type == EDistributionType::ConstantCurve)
+				{
+					if (CheckVectorCurveKey(Track.VectorCurve->ConstantCurve, ShowChannel, false))
+					{
+						CurveEditorState.SelectedTrackIndex = TrackIdx;
+						bKeyFound = true;
+					}
+				}
+				else if (Track.VectorCurve->Type == EDistributionType::UniformCurve)
+				{
+					if (CheckVectorCurveKey(Track.VectorCurve->MaxCurve, ShowChannel, false))
+					{
+						CurveEditorState.SelectedTrackIndex = TrackIdx;
+						bKeyFound = true;
+					}
+					else if (CheckVectorCurveKey(Track.VectorCurve->MinCurve, ShowChannel, true))
+					{
+						CurveEditorState.SelectedTrackIndex = TrackIdx;
+						bKeyFound = true;
+					}
+				}
+			}
+		}
+
+		// 키를 못 찾았고 탄젠트 핸들도 못 찾았으면 선택 해제
+		if (!bKeyFound && !bTangentHandleFound)
+		{
+			CurveEditorState.SelectedKeyIndex = -1;
+			CurveEditorState.SelectedAxis = -1;
+			CurveEditorState.SelectedTangentHandle = 0;
+		}
+	}
+
+	// 선택된 트랙 가져오기 (드래그용)
+	FCurveTrack* SelectedTrack = CurveEditorState.GetSelectedTrack();
+
+	// 키 드래그 (Float) - 탄젠트 핸들이 선택되지 않았을 때만
+	if (ImGui::IsMouseDragging(0) && CurveEditorState.SelectedKeyIndex >= 0 &&
+		CurveEditorState.SelectedAxis >= 0 && CurveEditorState.SelectedTangentHandle == 0 &&
+		SelectedTrack && SelectedTrack->FloatCurve)
+	{
+		// 마우스 위치를 값으로 변환 (Y축만 사용)
+		float v = 1.0f - (MousePos.y - CanvasPos.y) / CanvasSize.y;
+		float NewValue = FMath::Lerp(CurveEditorState.ViewMinValue, CurveEditorState.ViewMaxValue, v);
+
+		if (SelectedTrack->FloatCurve->Type == EDistributionType::Constant)
+		{
+			// Constant: 단일 값 직접 수정 (Y축만)
+			SelectedTrack->FloatCurve->ConstantValue = NewValue;
+			if (State) State->bIsDirty = true;
+		}
+		else if (SelectedTrack->FloatCurve->Type == EDistributionType::Uniform)
+		{
+			// Uniform: Min/Max 값 직접 수정 (Y축만)
+			if (CurveEditorState.SelectedAxis == 0)
+			{
+				SelectedTrack->FloatCurve->MinValue = NewValue;
+			}
+			else
+			{
+				SelectedTrack->FloatCurve->MaxValue = NewValue;
+			}
+			if (State) State->bIsDirty = true;
+		}
+		else if (SelectedTrack->FloatCurve->Type == EDistributionType::ConstantCurve ||
+				 SelectedTrack->FloatCurve->Type == EDistributionType::UniformCurve)
+		{
+			// SelectedAxis에 따라 올바른 커브 선택
+			FInterpCurveFloat* CurvePtr = nullptr;
+			if (SelectedTrack->FloatCurve->Type == EDistributionType::ConstantCurve)
+			{
+				CurvePtr = &SelectedTrack->FloatCurve->ConstantCurve;
+			}
+			else // UniformCurve
+			{
+				CurvePtr = (CurveEditorState.SelectedAxis == 0)
+					? &SelectedTrack->FloatCurve->MinCurve
+					: &SelectedTrack->FloatCurve->MaxCurve;
+			}
+
+			if (CurvePtr && CurveEditorState.SelectedKeyIndex < CurvePtr->Points.Num())
+			{
+				FInterpCurvePointFloat& Point = CurvePtr->Points[CurveEditorState.SelectedKeyIndex];
+
+				// 마우스 위치를 커브 값으로 변환
+				float t = (MousePos.x - CanvasPos.x) / CanvasSize.x;
+
+				Point.InVal = FMath::Lerp(CurveEditorState.ViewMinTime, CurveEditorState.ViewMaxTime, t);
+				Point.OutVal = NewValue;
+
+				// CurveAuto/CurveAutoClamped 모드면 탄젠트 재계산
+				CurvePtr->AutoCalculateTangents();
+
+				if (State) State->bIsDirty = true;
 			}
 		}
 	}
 
-	// 키 드래그 (Float 커브)
-	if (ImGui::IsMouseDragging(0) && CurveEditorState.SelectedKeyIndex >= 0 && SelectedTrack && SelectedTrack->FloatCurve)
+	// 키 드래그 (Vector) - 탄젠트 핸들이 선택되지 않았을 때만
+	if (ImGui::IsMouseDragging(0) && CurveEditorState.SelectedKeyIndex >= 0 &&
+		CurveEditorState.SelectedAxis >= 0 && CurveEditorState.SelectedTangentHandle == 0 &&
+		SelectedTrack && SelectedTrack->VectorCurve)
 	{
-		if (SelectedTrack->FloatCurve->Type == EDistributionType::ConstantCurve ||
-			SelectedTrack->FloatCurve->Type == EDistributionType::UniformCurve)
+		// 마우스 위치를 값으로 변환 (Y축만 사용)
+		float v = 1.0f - (MousePos.y - CanvasPos.y) / CanvasSize.y;
+		float NewValue = FMath::Lerp(CurveEditorState.ViewMinValue, CurveEditorState.ViewMaxValue, v);
+
+		// SelectedAxis에 따라 축 결정
+		// 0-2: ConstantValue/MaxValue의 X/Y/Z
+		// 3-5: MinValue의 X/Y/Z
+		int32 AxisIndex = CurveEditorState.SelectedAxis % 3;
+		bool bIsMinValue = (CurveEditorState.SelectedAxis >= 3);
+
+		if (SelectedTrack->VectorCurve->Type == EDistributionType::Constant)
 		{
-			FInterpCurveFloat& Curve = SelectedTrack->FloatCurve->ConstantCurve;
-			if (CurveEditorState.SelectedKeyIndex < Curve.Points.Num())
+			// Constant: 단일 벡터 값 직접 수정
+			FVector& Value = SelectedTrack->VectorCurve->ConstantValue;
+			if (AxisIndex == 0) Value.X = NewValue;
+			else if (AxisIndex == 1) Value.Y = NewValue;
+			else Value.Z = NewValue;
+			if (State) State->bIsDirty = true;
+		}
+		else if (SelectedTrack->VectorCurve->Type == EDistributionType::Uniform)
+		{
+			// Uniform: Min/Max 벡터 값 직접 수정
+			FVector& Value = bIsMinValue
+				? SelectedTrack->VectorCurve->MinValue
+				: SelectedTrack->VectorCurve->MaxValue;
+			if (AxisIndex == 0) Value.X = NewValue;
+			else if (AxisIndex == 1) Value.Y = NewValue;
+			else Value.Z = NewValue;
+			if (State) State->bIsDirty = true;
+		}
+		else if (SelectedTrack->VectorCurve->Type == EDistributionType::ParticleParameter)
+		{
+			// ParticleParameter: Default 벡터 값 직접 수정
+			FVector& Value = SelectedTrack->VectorCurve->ParameterDefaultValue;
+			if (AxisIndex == 0) Value.X = NewValue;
+			else if (AxisIndex == 1) Value.Y = NewValue;
+			else Value.Z = NewValue;
+			if (State) State->bIsDirty = true;
+		}
+		else if (SelectedTrack->VectorCurve->Type == EDistributionType::ConstantCurve ||
+				 SelectedTrack->VectorCurve->Type == EDistributionType::UniformCurve)
+		{
+			FInterpCurveVector* CurvePtr = nullptr;
+
+			if (SelectedTrack->VectorCurve->Type == EDistributionType::ConstantCurve)
 			{
-				FInterpCurvePointFloat& Point = Curve.Points[CurveEditorState.SelectedKeyIndex];
+				CurvePtr = &SelectedTrack->VectorCurve->ConstantCurve;
+			}
+			else // UniformCurve
+			{
+				CurvePtr = bIsMinValue
+					? &SelectedTrack->VectorCurve->MinCurve
+					: &SelectedTrack->VectorCurve->MaxCurve;
+			}
+
+			if (CurvePtr && CurveEditorState.SelectedKeyIndex < CurvePtr->Points.Num())
+			{
+				FInterpCurvePointVector& Point = CurvePtr->Points[CurveEditorState.SelectedKeyIndex];
 
 				// 마우스 위치를 커브 값으로 변환
 				float t = (MousePos.x - CanvasPos.x) / CanvasSize.x;
-				float v = 1.0f - (MousePos.y - CanvasPos.y) / CanvasSize.y;
-
 				Point.InVal = FMath::Lerp(CurveEditorState.ViewMinTime, CurveEditorState.ViewMaxTime, t);
-				Point.OutVal = FMath::Lerp(CurveEditorState.ViewMinValue, CurveEditorState.ViewMaxValue, v);
+
+				// 해당 축만 업데이트
+				if (AxisIndex == 0) Point.OutVal.X = NewValue;
+				else if (AxisIndex == 1) Point.OutVal.Y = NewValue;
+				else Point.OutVal.Z = NewValue;
+
+				// CurveAuto/CurveAutoClamped 모드면 탄젠트 재계산
+				CurvePtr->AutoCalculateTangents();
+
+				if (State) State->bIsDirty = true;
+			}
+		}
+	}
+
+	// 탄젠트 핸들 드래그 (탄젠트 핸들이 선택된 상태에서)
+	if (ImGui::IsMouseDragging(0) && CurveEditorState.SelectedTangentHandle > 0 &&
+		CurveEditorState.SelectedKeyIndex >= 0 && CurveEditorState.SelectedAxis >= 0 && SelectedTrack)
+	{
+		ImVec2 Delta = ImGui::GetMouseDragDelta(0);
+		ImGui::ResetMouseDragDelta(0);
+
+		float TimeScale = CanvasSize.x / (CurveEditorState.ViewMaxTime - CurveEditorState.ViewMinTime);
+		float ValueScale = CanvasSize.y / (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue);
+
+		// 탄젠트 변화량 계산 (마우스 Y 이동을 기울기로 변환)
+		// Leave: KeyY - LeaveDy → 위로 드래그(DeltaY<0) → 탄젠트 증가 → -DeltaY
+		// Arrive: KeyY + ArriveDy → 위로 드래그(DeltaY<0) → 탄젠트 감소 → +DeltaY
+		float HandleLength = 40.0f;
+		float Sign = (CurveEditorState.SelectedTangentHandle == 1) ? 1.0f : -1.0f;  // Arrive: +, Leave: -
+		float TangentDelta = Sign * Delta.y * TimeScale / (ValueScale * HandleLength);
+
+		// Float 커브
+		if (SelectedTrack->FloatCurve &&
+			(SelectedTrack->FloatCurve->Type == EDistributionType::ConstantCurve ||
+			 SelectedTrack->FloatCurve->Type == EDistributionType::UniformCurve))
+		{
+			FInterpCurveFloat* CurvePtr = nullptr;
+			if (SelectedTrack->FloatCurve->Type == EDistributionType::ConstantCurve)
+			{
+				CurvePtr = &SelectedTrack->FloatCurve->ConstantCurve;
+			}
+			else
+			{
+				CurvePtr = (CurveEditorState.SelectedAxis == 0)
+					? &SelectedTrack->FloatCurve->MinCurve
+					: &SelectedTrack->FloatCurve->MaxCurve;
+			}
+
+			if (CurvePtr && CurveEditorState.SelectedKeyIndex < CurvePtr->Points.Num())
+			{
+				FInterpCurvePointFloat& Point = CurvePtr->Points[CurveEditorState.SelectedKeyIndex];
+
+				// Curve 모드가 아니면 Curve 모드로 전환
+				if (Point.InterpMode != EInterpCurveMode::Curve &&
+					Point.InterpMode != EInterpCurveMode::CurveAuto &&
+					Point.InterpMode != EInterpCurveMode::CurveAutoClamped)
+				{
+					Point.InterpMode = EInterpCurveMode::Curve;
+				}
+
+				// 선택된 핸들만 조정
+				if (CurveEditorState.SelectedTangentHandle == 1)
+				{
+					Point.ArriveTangent += TangentDelta;
+				}
+				else
+				{
+					Point.LeaveTangent += TangentDelta;
+				}
+
+				if (State) State->bIsDirty = true;
+			}
+		}
+		// Vector 커브
+		else if (SelectedTrack->VectorCurve &&
+			(SelectedTrack->VectorCurve->Type == EDistributionType::ConstantCurve ||
+			 SelectedTrack->VectorCurve->Type == EDistributionType::UniformCurve))
+		{
+			FInterpCurveVector* CurvePtr = nullptr;
+			int32 AxisIndex = CurveEditorState.SelectedAxis % 3;
+			bool bIsMinCurve = (CurveEditorState.SelectedAxis >= 3);
+
+			if (SelectedTrack->VectorCurve->Type == EDistributionType::ConstantCurve)
+			{
+				CurvePtr = &SelectedTrack->VectorCurve->ConstantCurve;
+			}
+			else
+			{
+				CurvePtr = bIsMinCurve
+					? &SelectedTrack->VectorCurve->MinCurve
+					: &SelectedTrack->VectorCurve->MaxCurve;
+			}
+
+			if (CurvePtr && CurveEditorState.SelectedKeyIndex < CurvePtr->Points.Num())
+			{
+				FInterpCurvePointVector& Point = CurvePtr->Points[CurveEditorState.SelectedKeyIndex];
+
+				// Curve 모드가 아니면 Curve 모드로 전환
+				if (Point.InterpMode != EInterpCurveMode::Curve &&
+					Point.InterpMode != EInterpCurveMode::CurveAuto &&
+					Point.InterpMode != EInterpCurveMode::CurveAutoClamped)
+				{
+					Point.InterpMode = EInterpCurveMode::Curve;
+				}
+
+				// 선택된 핸들과 축에 따라 조정
+				if (CurveEditorState.SelectedTangentHandle == 1)
+				{
+					// Arrive 탄젠트
+					if (AxisIndex == 0) Point.ArriveTangent.X += TangentDelta;
+					else if (AxisIndex == 1) Point.ArriveTangent.Y += TangentDelta;
+					else Point.ArriveTangent.Z += TangentDelta;
+				}
+				else
+				{
+					// Leave 탄젠트
+					if (AxisIndex == 0) Point.LeaveTangent.X += TangentDelta;
+					else if (AxisIndex == 1) Point.LeaveTangent.Y += TangentDelta;
+					else Point.LeaveTangent.Z += TangentDelta;
+				}
 
 				if (State) State->bIsDirty = true;
 			}
