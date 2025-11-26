@@ -13,7 +13,8 @@ public:
 public:
 	UPROPERTY(EditAnywhere, Category="Emitter")
 	TArray<UParticleLODLevel*> LODLevels;
-
+	// TODO - 사실 상 필요없는 애임.
+	// 나중에 페이로드 포함 계산하려고 남겨둔 것 같은데, 실제로는 FParticleEmitterInstance에서 하니까 여기선 필요 없음.
 	// 캐시된 파티클 크기
 	int32 ParticleSize = 0;
 
