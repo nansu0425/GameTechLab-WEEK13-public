@@ -2642,14 +2642,33 @@ bool UPropertyRenderer::RenderTransformProperty(const FProperty& Prop, void* Ins
 // Distribution 렌더링 함수들
 // ============================================================
 
-bool UPropertyRenderer::RenderDistributionModeCombo(const char* Label, EDistributionType& Type)
+bool UPropertyRenderer::RenderDistributionFloatModeCombo(const char* Label, EDistributionType& Type)
 {
 	static const char* ModeNames[] = {
-		"Constant",
-		"Uniform",
-		"ConstantCurve",
-		"UniformCurve",
-		"ParticleParameter"
+		"분포 플로트 상수",
+		"분포 플로트 유니폼",
+		"분포 플로트 상수 커브",
+		"분포 플로트 유니폼 커브",
+		"분포 플로트 파티클 파라미터"
+	};
+
+	int CurrentMode = static_cast<int>(Type);
+	if (ImGui::Combo(Label, &CurrentMode, ModeNames, IM_ARRAYSIZE(ModeNames)))
+	{
+		Type = static_cast<EDistributionType>(CurrentMode);
+		return true;
+	}
+	return false;
+}
+
+bool UPropertyRenderer::RenderDistributionVectorModeCombo(const char* Label, EDistributionType& Type)
+{
+	static const char* ModeNames[] = {
+		"분포 벡터 상수",
+		"분포 벡터 유니폼",
+		"분포 벡터 상수 커브",
+		"분포 벡터 유니폼 커브",
+		"분포 벡터 파티클 파라미터"
 	};
 
 	int CurrentMode = static_cast<int>(Type);
@@ -2777,7 +2796,7 @@ bool UPropertyRenderer::RenderDistributionFloatProperty(const FProperty& Prop, v
 
 	if (ImGui::TreeNode(Prop.Name))
 	{
-		bChanged |= RenderDistributionModeCombo("타입", Dist->Type);
+		bChanged |= RenderDistributionFloatModeCombo("타입", Dist->Type);
 
 		switch (Dist->Type)
 		{
@@ -2832,7 +2851,7 @@ bool UPropertyRenderer::RenderDistributionVectorProperty(const FProperty& Prop, 
 
 	if (ImGui::TreeNode(Prop.Name))
 	{
-		bChanged |= RenderDistributionModeCombo("타입", Dist->Type);
+		bChanged |= RenderDistributionVectorModeCombo("타입", Dist->Type);
 
 		switch (Dist->Type)
 		{
@@ -2890,7 +2909,7 @@ bool UPropertyRenderer::RenderDistributionColorProperty(const FProperty& Prop, v
 		// RGB (FDistributionVector)
 		if (ImGui::TreeNode("RGB"))
 		{
-			bChanged |= RenderDistributionModeCombo("타입##RGB", Dist->RGB.Type);
+			bChanged |= RenderDistributionVectorModeCombo("타입##RGB", Dist->RGB.Type);
 
 			switch (Dist->RGB.Type)
 			{
@@ -2949,7 +2968,7 @@ bool UPropertyRenderer::RenderDistributionColorProperty(const FProperty& Prop, v
 		// Alpha (FDistributionFloat)
 		if (ImGui::TreeNode("Alpha"))
 		{
-			bChanged |= RenderDistributionModeCombo("타입##Alpha", Dist->Alpha.Type);
+			bChanged |= RenderDistributionFloatModeCombo("타입##Alpha", Dist->Alpha.Type);
 
 			switch (Dist->Alpha.Type)
 			{
