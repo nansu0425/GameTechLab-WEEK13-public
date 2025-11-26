@@ -47,6 +47,9 @@ struct FModuleDragPayload
 	UParticleModule* Module;
 };
 
+// static 변수 정의
+bool SParticleEditorWindow::bIsAnyParticleEditorFocused = false;
+
 SParticleEditorWindow::SParticleEditorWindow()
 {
 	CenterRect = FRect(0, 0, 0, 0);
@@ -57,6 +60,9 @@ SParticleEditorWindow::SParticleEditorWindow()
 
 SParticleEditorWindow::~SParticleEditorWindow()
 {
+	// 포커스 플래그 리셋 (윈도우 파괴 시)
+	bIsAnyParticleEditorFocused = false;
+
 	// 툴바 아이콘 정리
 	if (IconSave)
 	{
@@ -192,6 +198,9 @@ static void RestoreToSpriteTypeData(UParticleLODLevel* LOD, ParticleEditorState*
 
 void SParticleEditorWindow::OnRender()
 {
+	// 매 프레임 시작 시 포커스 플래그 리셋 (윈도우가 닫혀도 리셋되도록)
+	bIsAnyParticleEditorFocused = false;
+
 	// 윈도우가 닫혔으면 정리 요청
 	if (!bIsOpen)
 	{
@@ -233,6 +242,9 @@ void SParticleEditorWindow::OnRender()
 		// hover/focus 상태 캡처
 		bIsWindowHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
 		bIsWindowFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+
+		// 다른 위젯에서 참조할 수 있도록 static 변수에도 저장
+		bIsAnyParticleEditorFocused = bIsWindowFocused;
 
 		// 탭바 및 툴바 렌더링
 		RenderTabsAndToolbar(EViewerType::Particle);
@@ -1733,7 +1745,6 @@ void SParticleEditorWindow::RenderDetailsPanel(float PanelWidth)
 		UClass* ModuleClass = State->SelectedModule->GetClass();
 		const char* DisplayName = ModuleClass->DisplayName;
 		ImGui::Text("모듈: %s", DisplayName ? DisplayName : ModuleClass->Name);
-		ImGui::Separator();
 
 		// 프로퍼티 렌더링
 		ImGui::PushItemWidth(PanelWidth * 0.55f);
@@ -2893,7 +2904,6 @@ void SParticleEditorWindow::SaveParticleSystem()
 		UResourceManager::GetInstance().AddOrReplace<UParticleSystem>(State->CurrentFilePath, State->EditingTemplate);
 
 		UE_LOG("[SParticleEditorWindow] 파티클 시스템 저장 완료: %s", State->CurrentFilePath.c_str());
-		UE_LOG("[SParticleEditorWindow] AddOrReplace 경로: %s", State->CurrentFilePath.c_str());
 	}
 	else
 	{

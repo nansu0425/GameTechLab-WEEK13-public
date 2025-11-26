@@ -927,7 +927,7 @@ bool FParticleEmitterInstance::BuildBeamDynamicData(FDynamicBeamEmitterData* Dat
 	FDynamicBeamEmitterReplayDataBase& Source = Data->Source;
 	Source.Width = BeamType->BeamWidth;
 	Source.TileU = BeamType->TileU;
-	Source.Color = FLinearColor(1.f, 0.f, 1.f, 1.f);
+	Source.Color = FLinearColor(0.5f, 0.9f, 1.0f, 1.0f);
 	Source.Material = (CurrentLODLevel && CurrentLODLevel->RequiredModule)
 		? CurrentLODLevel->RequiredModule->Material
 		: nullptr;
@@ -953,7 +953,7 @@ bool FParticleEmitterInstance::BuildBeamDynamicData(FDynamicBeamEmitterData* Dat
 	else
 	{
 		// bUseTarget = true) 동적 타겟 사용 (파티클 / 액터 추적)
-		EndPos = StartPos + ComponentTransform.ToMatrix().GetUnitAxisX() * 50.f;	// tmp
+		EndPos = Component->GetVectorParameter("BeamTarget", StartPos);
 	}
 
 	FVector BeamDir = EndPos - StartPos;

@@ -191,13 +191,24 @@ void UParticleSystemComponent::OnRegister(UWorld* InWorld)
 		return;
 	}
 
-	// Template이 없으면 파티클을 생성하지 않음 (에디터에서 리소스 선택 필요)
+	// Template이 없으면 디버그 파티클 생성 (에디터에서 타입 선택 가능)
 	if (!Template)
 	{
-		//CreateDebugMeshParticleSystem();        // 메시 파티클 테스트
-		//CreateDebugSpriteParticleSystem();  // 스프라이트 파티클 테스트
-		//CreateDebugBeamParticleSystem();		// 빔 파티클 테스트
-		CreateDebugRibbonParticleSystem(); // 리본 파티클 테스트
+		switch (DebugParticleType)
+		{
+		case EDebugParticleType::Sprite:
+			CreateDebugSpriteParticleSystem();
+			break;
+		case EDebugParticleType::Mesh:
+			CreateDebugMeshParticleSystem();
+			break;
+		case EDebugParticleType::Beam:
+			CreateDebugBeamParticleSystem();
+			break;
+		case EDebugParticleType::Ribbon:
+			CreateDebugRibbonParticleSystem();
+			break;
+		}
 	}
 
 	// 에디터에서도 파티클 미리보기를 위해 자동 활성화
@@ -432,6 +443,7 @@ void UParticleSystemComponent::CreateDebugBeamParticleSystem()
 	BeamTypeData->SegmentCount = 6;
 	BeamTypeData->BeamWidth = 1.0f;
 	BeamTypeData->NoiseStrength = 1.0f;
+	BeamTypeData->bUseTarget = true;  // 동적 타겟 추적 활성화 (테스트용)
 	LODLevel->Modules.Add(BeamTypeData);
 
 	// 스폰 모듈 생성 - 빔은 최소 2개의 파티클(시작/끝)이 필요 (Modules 배열에 추가)
@@ -597,8 +609,50 @@ void UParticleSystemComponent::TickComponent(float DeltaTime)
 {
 	USceneComponent::TickComponent(DeltaTime);
 
-	// DeltaTime 제한 (일시정지 후 복귀 시 파티클 전멸 방지)
-	const float MaxDeltaTime = 1.0f;
+	// === 테스트: 디버그 파티클 자동 이동 ===
+	if (TestTemplate)  // 디버그 파티클일 때만
+	{
+		static float TestTime = 0.0f;
+		TestTime += DeltaTime;
+
+		if (DebugParticleType == EDebugParticleType::Beam)
+		{
+			// Beam: 타겟 위치를 원형으로 회전
+			float Radius = 50.0f;
+			float Speed = 2.0f;
+
+			FVector TargetOffset(
+			  cos(TestTime * Speed) * Radius,
+			  sin(TestTime * Speed) * Radius,
+			  0.0f
+			);
+
+			SetVectorParameter("BeamTarget", GetWorldTransform().TransformPosition(TargetOffset));
+
+			// 타겟을 월드 원점에 고정 (시작점은 기즈모로 직접 이동 가능)
+			/*FVector WorldOrigin(0.0f, 0.0f, 0.0f);
+			SetVectorParameter("BeamTarget", WorldOrigin);*/
+		}
+		else if (DebugParticleType == EDebugParticleType::Ribbon)
+		{
+			// Ribbon: 컴포넌트 자체를 원형으로 이동 (Trail 생성)
+			float Radius = 20.0f;   // 반지름
+			float Speed = 1.0f;     // 회전 속도
+			float Height = 15.0f;   // 상하 진폭
+
+			FVector NewPosition(
+				cos(TestTime * Speed) * Radius,
+				sin(TestTime * Speed) * Radius,
+				sin(TestTime * Speed * 2.0f) * Height  // 위아래로도 움직임
+			);
+
+			SetWorldLocation(NewPosition);
+		}
+	}
+
+	// DeltaTime 제한 (에디터 로딩/탭 전환 시 스파이크 방지)
+	// 10fps 미만은 비정상적인 상황으로 간주
+	const float MaxDeltaTime = 0.1f;
 	DeltaTime = FMath::Min(DeltaTime, MaxDeltaTime);
 
 	// 이벤트 클리어 (매 프레임 시작 시)
@@ -884,6 +938,39 @@ void UParticleSystemComponent::RefreshEmitterInstances()
 	// stride 불일치 경고가 발생할 수 있음
 	UpdateRenderData();
 }
+
+void UParticleSystemComponent::RefreshDebugParticleSystem()
+{
+	// TestTemplate이 null이면 디버그 파티클이 아니므로 무시
+	if (!TestTemplate)
+	{
+		return;
+	}
+
+	// 기존 디버그 파티클 시스템 정리
+	CleanupTestResources();
+
+	// DebugParticleType에 따라 새로운 디버그 파티클 시스템 생성
+	switch (DebugParticleType)
+	{
+	case EDebugParticleType::Sprite:
+		CreateDebugSpriteParticleSystem();
+		break;
+	case EDebugParticleType::Mesh:
+		CreateDebugMeshParticleSystem();
+		break;
+	case EDebugParticleType::Beam:
+		CreateDebugBeamParticleSystem();
+		break;
+	case EDebugParticleType::Ribbon:
+		CreateDebugRibbonParticleSystem();
+		break;
+	}
+
+	// EmitterInstances 재생성
+	RefreshEmitterInstances();
+}
+
 void UParticleSystemComponent::InitializeEmitterInstances()
 {
 	ClearEmitterInstances();
