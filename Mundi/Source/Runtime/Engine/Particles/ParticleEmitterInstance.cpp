@@ -291,6 +291,19 @@ void FParticleEmitterInstance::Resize(int32 NewMaxActiveParticles)
 		return;
 	}
 
+	// 기존 데이터 백업 (확장 시 보존을 위해)
+	int32 OldActiveParticles = ActiveParticles;
+	int32 OldMaxActiveParticles = MaxActiveParticles;
+	FParticleDataContainer OldContainer;
+
+	// 기존 파티클이 있고 확장하는 경우에만 데이터 보존
+	bool bPreserveData = (OldActiveParticles > 0) && (NewMaxActiveParticles > OldMaxActiveParticles);
+	if (bPreserveData)
+	{
+		// 기존 컨테이너를 임시로 이동 (swap)
+		OldContainer = std::move(ParticleDataContainer);
+	}
+
 	MaxActiveParticles = NewMaxActiveParticles;
 
 	if (MaxActiveParticles > 0)
@@ -305,13 +318,38 @@ void FParticleEmitterInstance::Resize(int32 NewMaxActiveParticles)
 			ParticleData = ParticleDataContainer.ParticleData;
 			ParticleIndices = ParticleDataContainer.ParticleIndices;
 
-			// 인덱스 초기화
-			if (ParticleIndices)
+			// 기존 파티클 데이터 복사 (확장 시)
+			if (bPreserveData && OldContainer.ParticleData && OldContainer.ParticleIndices)
 			{
-				for (int32 i = 0; i < MaxActiveParticles; i++)
+				// 전체 기존 데이터 복사 (KillParticle로 인해 인덱스가 섞여있을 수 있음)
+				// ParticleIndices가 [99, 50, 3, ...] 처럼 비순차적일 수 있으므로
+				// 기존 전체 슬롯을 복사해야 함
+				int32 CopySize = OldMaxActiveParticles * ParticleStride;
+				memcpy(ParticleData, OldContainer.ParticleData, CopySize);
+
+				// 인덱스도 전체 복사 (기존 매핑 유지)
+				memcpy(ParticleIndices, OldContainer.ParticleIndices, OldMaxActiveParticles * sizeof(uint16));
+
+				// 새로 확장된 부분의 인덱스만 초기화
+				for (int32 i = OldMaxActiveParticles; i < MaxActiveParticles; i++)
 				{
-					ParticleIndices[i] = i;
+					ParticleIndices[i] = static_cast<uint16>(i);
 				}
+
+				// ActiveParticles 유지
+				ActiveParticles = OldActiveParticles;
+			}
+			else
+			{
+				// 새로 할당하는 경우 인덱스 전체 초기화
+				if (ParticleIndices)
+				{
+					for (int32 i = 0; i < MaxActiveParticles; i++)
+					{
+						ParticleIndices[i] = static_cast<uint16>(i);
+					}
+				}
+				ActiveParticles = 0;
 			}
 		}
 		else
@@ -322,6 +360,7 @@ void FParticleEmitterInstance::Resize(int32 NewMaxActiveParticles)
 			ParticleData = nullptr;
 			ParticleIndices = nullptr;
 			MaxActiveParticles = 0;
+			ActiveParticles = 0;
 		}
 	}
 	else
@@ -330,9 +369,10 @@ void FParticleEmitterInstance::Resize(int32 NewMaxActiveParticles)
 		ParticleDataContainer.Free();
 		ParticleData = nullptr;
 		ParticleIndices = nullptr;
+		ActiveParticles = 0;
 	}
 
-	ActiveParticles = 0;
+	// OldContainer는 스코프 종료 시 자동 해제됨
 }
 
 void FParticleEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
