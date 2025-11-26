@@ -618,13 +618,12 @@ void UParticleSystemComponent::TickComponent(float DeltaTime)
 	// PIE에서도 동작하도록 Template과 EmitterInstances로 체크
 	if (Template && EmitterInstances.Num() > 0)
 	{
-		static float TestTime = 0.0f;
 		TestTime += DeltaTime;
 
 		if (DebugParticleType == EDebugParticleType::Beam)
 		{
 			// Beam: 타겟 위치를 원형으로 회전
-			float Radius = 50.0f;
+			/*float Radius = 50.0f;
 			float Speed = 2.0f;
 
 			FVector TargetOffset(
@@ -633,11 +632,11 @@ void UParticleSystemComponent::TickComponent(float DeltaTime)
 			  0.0f
 			);
 
-			SetVectorParameter("BeamTarget", GetWorldTransform().TransformPosition(TargetOffset));
+			SetVectorParameter("BeamTarget", GetWorldTransform().TransformPosition(TargetOffset));*/
 
 			// 타겟을 월드 원점에 고정 (시작점은 기즈모로 직접 이동 가능)
-			/*FVector WorldOrigin(0.0f, 0.0f, 0.0f);
-			SetVectorParameter("BeamTarget", WorldOrigin);*/
+			FVector WorldOrigin(0.0f, 0.0f, 0.0f);
+			SetVectorParameter("BeamTarget", WorldOrigin);
 		}
 		else if (DebugParticleType == EDebugParticleType::Ribbon)
 		{

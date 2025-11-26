@@ -176,6 +176,7 @@ private:
 	void UpdateRenderData();
 
 	// === 테스트용 리소스 (디버그 함수에서 생성, Component가 소유) ===
+	float TestTime = 0.0f;
 	UParticleSystem* TestTemplate = nullptr;
 	TArray<UMaterialInterface*> TestMaterials;
 	void CleanupTestResources();
