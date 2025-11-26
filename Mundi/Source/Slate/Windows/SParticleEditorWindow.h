@@ -52,6 +52,9 @@ struct FCurveEditorState
 	int32 SelectedKeyIndex = -1;
 	int32 SelectedAxis = -1;  // Vector 커브용: 0=X, 1=Y, 2=Z, -1=전체
 
+	// 선택된 탄젠트 핸들 (0=없음, 1=Arrive(왼쪽), 2=Leave(오른쪽))
+	int32 SelectedTangentHandle = 0;
+
 	// 헬퍼 함수
 	bool HasModule(UParticleModule* Module) const;
 	void AddModuleTracks(UParticleModule* Module);
@@ -73,6 +76,7 @@ struct FCurveEditorState
 		SelectedTrackIndex = -1;
 		SelectedKeyIndex = -1;
 		SelectedAxis = -1;
+		SelectedTangentHandle = 0;
 		ViewMinTime = 0.0f;
 		ViewMaxTime = 1.0f;
 		ViewMinValue = -1.0f;
@@ -138,6 +142,7 @@ private:
 
 	// 툴바 아이콘
 	UTexture* IconSave = nullptr;
+	UTexture* IconSaveAs = nullptr;
 	UTexture* IconLoad = nullptr;
 	UTexture* IconRestart = nullptr;
 	UTexture* IconBounds = nullptr;
@@ -163,7 +168,8 @@ private:
 	void ToggleCurveTrack(UParticleModule* Module);  // 모듈 토글 (추가/제거)
 	void RenderCurveGrid(struct ImDrawList* DrawList, struct ImVec2 CanvasPos, struct ImVec2 CanvasSize);
 	void RenderCurveKeys(struct ImDrawList* DrawList, struct ImVec2 CanvasPos, struct ImVec2 CanvasSize);
-	void RenderTangentHandles(struct ImDrawList* DrawList, FInterpCurvePointFloat& Point, float KeyX, float KeyY, struct ImVec2 CanvasSize);
+	void RenderTangentHandles(struct ImDrawList* DrawList, FInterpCurvePointFloat& Point, float KeyX, float KeyY, struct ImVec2 CanvasSize, int32 CurveIndex);
+	void RenderTangentHandlesVector(struct ImDrawList* DrawList, FInterpCurvePointVector& Point, int32 Axis, float KeyX, float KeyY, struct ImVec2 CanvasSize, int32 CurveIndex);
 	void HandleCurveInteraction(struct ImVec2 CanvasPos, struct ImVec2 CanvasSize);
 	void AutoFitCurveView();
 
