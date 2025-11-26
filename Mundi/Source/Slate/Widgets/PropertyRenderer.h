@@ -67,6 +67,8 @@ private:
 	static bool RenderDistributionVectorModeCombo(const char* Label, enum class EDistributionType& Type);
 	static bool RenderInterpCurveFloat(const char* Label, struct FInterpCurveFloat& Curve);
 	static bool RenderInterpCurveVector(const char* Label, struct FInterpCurveVector& Curve);
+	static bool RenderInterpCurveFloatUniform(const char* Label, struct FInterpCurveFloat& MinCurve, struct FInterpCurveFloat& MaxCurve);
+	static bool RenderInterpCurveVectorUniform(const char* Label, struct FInterpCurveVector& MinCurve, struct FInterpCurveVector& MaxCurve);
 
 	static void CacheResources();	// 필요할 때 리소스 목록을 멤버 변수에 캐시합니다.
 	static void ClearResourcesCache();	// 렌더링 패스가 끝날 때 캐시를 비웁니다.

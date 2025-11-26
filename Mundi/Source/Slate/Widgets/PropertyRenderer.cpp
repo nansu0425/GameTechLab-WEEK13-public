@@ -2876,6 +2876,238 @@ bool UPropertyRenderer::RenderInterpCurveVector(const char* Label, FInterpCurveV
 	return bChanged;
 }
 
+bool UPropertyRenderer::RenderInterpCurveFloatUniform(const char* Label, FInterpCurveFloat& MinCurve, FInterpCurveFloat& MaxCurve)
+{
+	bool bChanged = false;
+
+	if (ImGui::TreeNode(Label))
+	{
+		// 포인트 배열 헤더
+		int32 NumPoints = MinCurve.Points.Num();
+
+		if (ImGui::TreeNode("포인트"))
+		{
+			ImGui::SameLine();
+			ImGui::Text("배열 엘리먼트: %d", NumPoints);
+			ImGui::SameLine();
+			if (ImGui::SmallButton("+"))
+			{
+				// 두 커브에 동시에 포인트 추가
+				float NewTime = NumPoints > 0 ? MinCurve.Points[NumPoints - 1].InVal + 1.0f : 0.0f;
+				MinCurve.Points.Add(FInterpCurvePointFloat(NewTime, 0.0f));
+				MaxCurve.Points.Add(FInterpCurvePointFloat(NewTime, 0.0f));
+				bChanged = true;
+			}
+			ImGui::SameLine();
+			if (ImGui::SmallButton("-") && NumPoints > 0)
+			{
+				MinCurve.Points.RemoveAt(NumPoints - 1);
+				MaxCurve.Points.RemoveAt(NumPoints - 1);
+				bChanged = true;
+			}
+
+			// 각 포인트 렌더링
+			for (int32 i = 0; i < MinCurve.Points.Num(); ++i)
+			{
+				ImGui::PushID(i);
+
+				auto& MinPoint = MinCurve.Points[i];
+				auto& MaxPoint = MaxCurve.Points[i];
+
+				char NodeLabel[32];
+				sprintf_s(NodeLabel, "인덱스 [%d]", i);
+
+				if (ImGui::TreeNode(NodeLabel))
+				{
+					ImGui::SameLine();
+					ImGui::Text("멤버: 5");
+
+					// In 값 (두 커브 동기화)
+					if (ImGui::DragFloat("In 값", &MinPoint.InVal, 0.01f))
+					{
+						MaxPoint.InVal = MinPoint.InVal;
+						bChanged = true;
+					}
+
+					// Out Val (X, Y 두 개)
+					float OutVals[2] = { MinPoint.OutVal, MaxPoint.OutVal };
+					if (ImGui::DragFloat2("Out Val", OutVals, 0.01f))
+					{
+						MinPoint.OutVal = OutVals[0];
+						MaxPoint.OutVal = OutVals[1];
+						bChanged = true;
+					}
+
+					// 도착 탄젠트 (X, Y)
+					float ArriveTangents[2] = { MinPoint.ArriveTangent, MaxPoint.ArriveTangent };
+					if (ImGui::DragFloat2("도착 탄젠트", ArriveTangents, 0.01f))
+					{
+						MinPoint.ArriveTangent = ArriveTangents[0];
+						MaxPoint.ArriveTangent = ArriveTangents[1];
+						bChanged = true;
+					}
+
+					// 출발 탄젠트 (X, Y)
+					float LeaveTangents[2] = { MinPoint.LeaveTangent, MaxPoint.LeaveTangent };
+					if (ImGui::DragFloat2("출발 탄젠트", LeaveTangents, 0.01f))
+					{
+						MinPoint.LeaveTangent = LeaveTangents[0];
+						MaxPoint.LeaveTangent = LeaveTangents[1];
+						bChanged = true;
+					}
+
+					// 보간 모드 (두 커브 동기화)
+					if (RenderInterpModeCombo("보간 모드", MinPoint.InterpMode))
+					{
+						MaxPoint.InterpMode = MinPoint.InterpMode;
+						bChanged = true;
+					}
+
+					ImGui::TreePop();
+				}
+
+				ImGui::PopID();
+			}
+
+			ImGui::TreePop();
+		}
+
+		// 루프 옵션
+		if (ImGui::Checkbox("루프 여부", &MinCurve.bIsLooped))
+		{
+			MaxCurve.bIsLooped = MinCurve.bIsLooped;
+			bChanged = true;
+		}
+
+		if (ImGui::DragFloat("루프 키 오프셋", &MinCurve.LoopKeyOffset, 0.01f))
+		{
+			MaxCurve.LoopKeyOffset = MinCurve.LoopKeyOffset;
+			bChanged = true;
+		}
+
+		ImGui::TreePop();
+	}
+
+	return bChanged;
+}
+
+bool UPropertyRenderer::RenderInterpCurveVectorUniform(const char* Label, FInterpCurveVector& MinCurve, FInterpCurveVector& MaxCurve)
+{
+	bool bChanged = false;
+
+	if (ImGui::TreeNode(Label))
+	{
+		// 포인트 배열 헤더
+		int32 NumPoints = MinCurve.Points.Num();
+
+		if (ImGui::TreeNode("포인트"))
+		{
+			ImGui::SameLine();
+			ImGui::Text("배열 엘리먼트: %d", NumPoints);
+			ImGui::SameLine();
+			if (ImGui::SmallButton("+"))
+			{
+				float NewTime = NumPoints > 0 ? MinCurve.Points[NumPoints - 1].InVal + 1.0f : 0.0f;
+				MinCurve.Points.Add(FInterpCurvePointVector(NewTime, FVector(0.0f, 0.0f, 0.0f)));
+				MaxCurve.Points.Add(FInterpCurvePointVector(NewTime, FVector(0.0f, 0.0f, 0.0f)));
+				bChanged = true;
+			}
+			ImGui::SameLine();
+			if (ImGui::SmallButton("-") && NumPoints > 0)
+			{
+				MinCurve.Points.RemoveAt(NumPoints - 1);
+				MaxCurve.Points.RemoveAt(NumPoints - 1);
+				bChanged = true;
+			}
+
+			// 각 포인트 렌더링
+			for (int32 i = 0; i < MinCurve.Points.Num(); ++i)
+			{
+				ImGui::PushID(i);
+
+				auto& MinPoint = MinCurve.Points[i];
+				auto& MaxPoint = MaxCurve.Points[i];
+
+				char NodeLabel[32];
+				sprintf_s(NodeLabel, "인덱스 [%d]", i);
+
+				if (ImGui::TreeNode(NodeLabel))
+				{
+					ImGui::SameLine();
+					ImGui::Text("멤버: 5");
+
+					// In 값 (두 커브 동기화)
+					if (ImGui::DragFloat("In 값", &MinPoint.InVal, 0.01f))
+					{
+						MaxPoint.InVal = MinPoint.InVal;
+						bChanged = true;
+					}
+
+					// Out Val (V1, V2)
+					if (ImGui::TreeNode("Out Val"))
+					{
+						if (ImGui::DragFloat3("V1", &MinPoint.OutVal.X, 0.01f))
+							bChanged = true;
+						if (ImGui::DragFloat3("V2", &MaxPoint.OutVal.X, 0.01f))
+							bChanged = true;
+						ImGui::TreePop();
+					}
+
+					// 도착 탄젠트 (V1, V2)
+					if (ImGui::TreeNode("도착 탄젠트"))
+					{
+						if (ImGui::DragFloat3("V1", &MinPoint.ArriveTangent.X, 0.01f))
+							bChanged = true;
+						if (ImGui::DragFloat3("V2", &MaxPoint.ArriveTangent.X, 0.01f))
+							bChanged = true;
+						ImGui::TreePop();
+					}
+
+					// 출발 탄젠트 (V1, V2)
+					if (ImGui::TreeNode("출발 탄젠트"))
+					{
+						if (ImGui::DragFloat3("V1", &MinPoint.LeaveTangent.X, 0.01f))
+							bChanged = true;
+						if (ImGui::DragFloat3("V2", &MaxPoint.LeaveTangent.X, 0.01f))
+							bChanged = true;
+						ImGui::TreePop();
+					}
+
+					// 보간 모드 (두 커브 동기화)
+					if (RenderInterpModeCombo("보간 모드", MinPoint.InterpMode))
+					{
+						MaxPoint.InterpMode = MinPoint.InterpMode;
+						bChanged = true;
+					}
+
+					ImGui::TreePop();
+				}
+
+				ImGui::PopID();
+			}
+
+			ImGui::TreePop();
+		}
+
+		// 루프 옵션
+		if (ImGui::Checkbox("루프 여부", &MinCurve.bIsLooped))
+		{
+			MaxCurve.bIsLooped = MinCurve.bIsLooped;
+			bChanged = true;
+		}
+
+		if (ImGui::DragFloat("루프 키 오프셋", &MinCurve.LoopKeyOffset, 0.01f))
+		{
+			MaxCurve.LoopKeyOffset = MinCurve.LoopKeyOffset;
+			bChanged = true;
+		}
+
+		ImGui::TreePop();
+	}
+
+	return bChanged;
+}
+
 bool UPropertyRenderer::RenderDistributionFloatProperty(const FProperty& Prop, void* Instance)
 {
 	FDistributionFloat* Dist = Prop.GetValuePtr<FDistributionFloat>(Instance);
@@ -2906,8 +3138,7 @@ bool UPropertyRenderer::RenderDistributionFloatProperty(const FProperty& Prop, v
 			break;
 
 		case EDistributionType::UniformCurve:
-			bChanged |= RenderInterpCurveFloat("최소 커브", Dist->MinCurve);
-			bChanged |= RenderInterpCurveFloat("최대 커브", Dist->MaxCurve);
+			bChanged |= RenderInterpCurveFloatUniform("상수 커브", Dist->MinCurve, Dist->MaxCurve);
 			break;
 
 		case EDistributionType::ParticleParameter:
@@ -2961,8 +3192,7 @@ bool UPropertyRenderer::RenderDistributionVectorProperty(const FProperty& Prop, 
 			break;
 
 		case EDistributionType::UniformCurve:
-			bChanged |= RenderInterpCurveVector("최소 커브", Dist->MinCurve);
-			bChanged |= RenderInterpCurveVector("최대 커브", Dist->MaxCurve);
+			bChanged |= RenderInterpCurveVectorUniform("상수 커브", Dist->MinCurve, Dist->MaxCurve);
 			break;
 
 		case EDistributionType::ParticleParameter:
