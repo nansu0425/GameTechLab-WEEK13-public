@@ -967,11 +967,17 @@ void SParticleEditorWindow::RenderChannelButtons(FCurveTrack& Track)
 
 void SParticleEditorWindow::RenderGraphView()
 {
-	ImVec2 CanvasSize = ImGui::GetContentRegionAvail();
-	CanvasSize.y = FMath::Max(CanvasSize.y, 150.0f);
+	ImVec2 FullSize = ImGui::GetContentRegionAvail();
+	FullSize.y = FMath::Max(FullSize.y, 150.0f);
 
 	ImDrawList* DrawList = ImGui::GetWindowDrawList();
-	ImVec2 CanvasPos = ImGui::GetCursorScreenPos();
+	ImVec2 FullPos = ImGui::GetCursorScreenPos();
+
+	// 라벨 여백 확보 (좌측: 값 라벨, 하단: 시간 라벨)
+	const float LeftMargin = 35.0f;
+	const float BottomMargin = 20.0f;
+	ImVec2 CanvasPos = ImVec2(FullPos.x + LeftMargin, FullPos.y);
+	ImVec2 CanvasSize = ImVec2(FullSize.x - LeftMargin, FullSize.y - BottomMargin);
 
 	// 배경 (검은색)
 	DrawList->AddRectFilled(CanvasPos,
@@ -3338,19 +3344,34 @@ void SParticleEditorWindow::RenderCurveGrid(ImDrawList* DrawList, ImVec2 CanvasP
 {
 	ImU32 GridColor = IM_COL32(50, 50, 50, 255);
 	ImU32 AxisColor = IM_COL32(80, 80, 80, 255);
+	ImU32 TextColor = IM_COL32(150, 150, 150, 255);
 
-	// 수직선 (시간 축)
+	// 수직선 + 시간 라벨 (X축)
 	for (int i = 0; i <= 4; ++i)
 	{
 		float x = CanvasPos.x + (CanvasSize.x * i / 4.0f);
 		DrawList->AddLine(ImVec2(x, CanvasPos.y), ImVec2(x, CanvasPos.y + CanvasSize.y), GridColor);
+
+		// 시간 라벨 (하단)
+		float Time = CurveEditorState.ViewMinTime +
+			(CurveEditorState.ViewMaxTime - CurveEditorState.ViewMinTime) * i / 4.0f;
+		char TimeLabel[16];
+		snprintf(TimeLabel, sizeof(TimeLabel), "%.2f", Time);
+		DrawList->AddText(ImVec2(x - 12, CanvasPos.y + CanvasSize.y + 4), TextColor, TimeLabel);
 	}
 
-	// 수평선 (값 축)
+	// 수평선 + 값 라벨 (Y축)
 	for (int i = 0; i <= 4; ++i)
 	{
 		float y = CanvasPos.y + (CanvasSize.y * i / 4.0f);
 		DrawList->AddLine(ImVec2(CanvasPos.x, y), ImVec2(CanvasPos.x + CanvasSize.x, y), GridColor);
+
+		// 값 라벨 (좌측) - Y축은 위가 큰 값
+		float Value = CurveEditorState.ViewMaxValue -
+			(CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue) * i / 4.0f;
+		char ValueLabel[16];
+		snprintf(ValueLabel, sizeof(ValueLabel), "%.1f", Value);
+		DrawList->AddText(ImVec2(CanvasPos.x - 32, y - 6), TextColor, ValueLabel);
 	}
 
 	// 0 축 강조 (값이 0인 수평선)
@@ -4358,6 +4379,26 @@ void SParticleEditorWindow::HandleCurveInteraction(ImVec2 CanvasPos, ImVec2 Canv
 	if (Wheel != 0.0f)
 	{
 		float ZoomFactor = 1.0f - Wheel * 0.1f;
+
+		float CenterTime = (CurveEditorState.ViewMinTime + CurveEditorState.ViewMaxTime) * 0.5f;
+		float CenterValue = (CurveEditorState.ViewMinValue + CurveEditorState.ViewMaxValue) * 0.5f;
+		float TimeRange = (CurveEditorState.ViewMaxTime - CurveEditorState.ViewMinTime) * ZoomFactor;
+		float ValueRange = (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue) * ZoomFactor;
+
+		CurveEditorState.ViewMinTime = CenterTime - TimeRange * 0.5f;
+		CurveEditorState.ViewMaxTime = CenterTime + TimeRange * 0.5f;
+		CurveEditorState.ViewMinValue = CenterValue - ValueRange * 0.5f;
+		CurveEditorState.ViewMaxValue = CenterValue + ValueRange * 0.5f;
+	}
+
+	// 중앙 클릭 드래그로 줌
+	if (ImGui::IsMouseDragging(2))
+	{
+		ImVec2 Delta = ImGui::GetMouseDragDelta(2);
+		ImGui::ResetMouseDragDelta(2);
+
+		// Y 드래그로 줌 (아래로 드래그 = 확대, 위로 드래그 = 축소)
+		float ZoomFactor = 1.0f + Delta.y * 0.005f;
 
 		float CenterTime = (CurveEditorState.ViewMinTime + CurveEditorState.ViewMaxTime) * 0.5f;
 		float CenterValue = (CurveEditorState.ViewMinValue + CurveEditorState.ViewMaxValue) * 0.5f;
