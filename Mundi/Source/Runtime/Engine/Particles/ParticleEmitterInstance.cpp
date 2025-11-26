@@ -628,7 +628,10 @@ void FParticleEmitterInstance::UpdateParticles(float DeltaTime)
 			continue;
 		}
 
-		// Freeze 상태면 스킵
+		// 수명 업데이트 (Freeze 상태여도 수명은 계속 흐름 - 언리얼 방식)
+		Particle->RelativeTime += DeltaTime * Particle->OneOverMaxLifetime;
+
+		// Freeze 상태면 위치/회전 업데이트 스킵
 		if (Particle->Flags & STATE_Particle_Freeze)
 		{
 			continue;
@@ -636,9 +639,6 @@ void FParticleEmitterInstance::UpdateParticles(float DeltaTime)
 
 		// 이전 위치 저장 (충돌 처리용)
 		Particle->OldLocation = Particle->Location;
-
-		// 수명 업데이트 (아직 파티클을 죽이지 않음)
-		Particle->RelativeTime += DeltaTime * Particle->OneOverMaxLifetime;
 
 		// 위치 업데이트
 		if ((Particle->Flags & STATE_Particle_FreezeTranslation) == 0)

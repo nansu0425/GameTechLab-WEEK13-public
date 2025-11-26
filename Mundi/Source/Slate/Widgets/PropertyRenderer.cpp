@@ -281,7 +281,9 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 		break;
 	}
 
-	if (Property.Tooltip && Property.Tooltip[0] != '\0' && ImGui::IsItemHovered())
+	// 배열 타입은 내부에서 개별 프로퍼티마다 툴팁을 처리하므로 스킵
+	if (Property.Type != EPropertyType::Array &&
+		Property.Tooltip && Property.Tooltip[0] != '\0' && ImGui::IsItemHovered())
 	{
 		ImGui::SetTooltip("%s", Property.Tooltip);
 	}
@@ -865,20 +867,37 @@ bool UPropertyRenderer::RenderStructArrayProperty(const FProperty& Prop, void* I
 	int32 ArrayNum = StructType->ArrayNum(ArrayPtr);
 	void* ArrayData = StructType->ArrayGetData(ArrayPtr);
 
-	// TreeNode로 배열 접기
-	FString headerLabel = FString(Prop.Name) + " [" + std::to_string(ArrayNum) + "]";
-	if (ImGui::TreeNode(headerLabel.c_str()))
-	{
-		// Add 버튼
-		if (ImGui::Button("Add"))
-		{
-			StructType->ArrayAdd(ArrayPtr);
-			bChanged = true;
-		}
+	// TreeNode로 배열 접기 (Prop.Name을 고정 ID로 사용하여 배열 크기 변경 시에도 상태 유지)
+	char headerLabel[128];
+	sprintf_s(headerLabel, "%s [%d]", Prop.Name, ArrayNum);
+	bool bHeaderOpen = ImGui::TreeNode(Prop.Name, headerLabel);
 
-		// 배열 정보 갱신 (Add 후 변경될 수 있음)
+	// + 버튼을 헤더 옆에 표시
+	ImGui::SameLine();
+	if (ImGui::SmallButton("+"))
+	{
+		StructType->ArrayAdd(ArrayPtr);
+		bChanged = true;
+	}
+
+	// - 버튼 (마지막 요소 삭제)
+	ImGui::SameLine();
+	if (ImGui::SmallButton("-") && ArrayNum > 0)
+	{
+		StructType->ArrayRemoveAt(ArrayPtr, ArrayNum - 1);
+		bChanged = true;
+	}
+
+	if (bHeaderOpen)
+	{
+		// 배열 정보 갱신 (Add/Remove 후 변경될 수 있음)
 		ArrayNum = StructType->ArrayNum(ArrayPtr);
 		ArrayData = StructType->ArrayGetData(ArrayPtr);
+
+		int32 MemberCount = static_cast<int32>(StructType->GetAllProperties().size());
+
+		// 삭제 요청 추적
+		int32 DeleteRequestIndex = -1;
 
 		// 각 요소 렌더링
 		for (int32 i = 0; i < ArrayNum; ++i)
@@ -888,28 +907,49 @@ bool UPropertyRenderer::RenderStructArrayProperty(const FProperty& Prop, void* I
 			// 요소의 메모리 주소
 			void* ElementInstance = (char*)ArrayData + (ElementSize * i);
 
-			// TreeNode로 각 요소 표시
-			FString elementLabel = "[" + std::to_string(i) + "]";
-			bool bElementOpen = ImGui::TreeNode(elementLabel.c_str());
+			// TreeNode로 각 요소 표시 (인덱스 기반 - 언리얼 스타일)
+			char elementLabel[32];
+			sprintf_s(elementLabel, "인덱스 [%d]", i);
+			bool bElementOpen = ImGui::TreeNode(elementLabel);
 
-			// 삭제 버튼을 같은 줄에 표시
+			// 멤버 수 표시
 			ImGui::SameLine();
-			if (ImGui::Button("X"))
+			ImGui::TextDisabled("멤버: %d", MemberCount);
+
+			// ▼ 드롭다운 메뉴 버튼
+			ImGui::SameLine();
+			if (ImGui::SmallButton("▼"))
 			{
-				StructType->ArrayRemoveAt(ArrayPtr, i);
-				bChanged = true;
+				ImGui::OpenPopup("##menu");
+			}
 
-				if (bElementOpen)
+			// 드롭다운 메뉴 팝업
+			if (ImGui::BeginPopup("##menu"))
+			{
+				if (ImGui::MenuItem("삽입"))
 				{
-					ImGui::TreePop();
+					// 아래에 삽입 (i+1 위치)
+					if (StructType->ArrayInsertAt)
+					{
+						StructType->ArrayInsertAt(ArrayPtr, i + 1);
+						bChanged = true;
+					}
 				}
-				ImGui::PopID();
-
-				// 배열 정보 갱신
-				ArrayNum = StructType->ArrayNum(ArrayPtr);
-				ArrayData = StructType->ArrayGetData(ArrayPtr);
-				--i;  // 인덱스 조정
-				continue;
+				if (ImGui::MenuItem("삭제"))
+				{
+					DeleteRequestIndex = i;
+					bChanged = true;
+				}
+				if (ImGui::MenuItem("복제"))
+				{
+					// 복제 (현재 요소를 다음 위치에 복사)
+					if (StructType->ArrayDuplicateAt)
+					{
+						StructType->ArrayDuplicateAt(ArrayPtr, i);
+						bChanged = true;
+					}
+				}
+				ImGui::EndPopup();
 			}
 
 			if (bElementOpen)
@@ -935,6 +975,12 @@ bool UPropertyRenderer::RenderStructArrayProperty(const FProperty& Prop, void* I
 			}
 
 			ImGui::PopID();
+		}
+
+		// 루프 종료 후 삭제 처리 (ImGui 상태 안전)
+		if (DeleteRequestIndex >= 0)
+		{
+			StructType->ArrayRemoveAt(ArrayPtr, DeleteRequestIndex);
 		}
 
 		ImGui::TreePop();
@@ -2850,17 +2896,51 @@ bool UPropertyRenderer::RenderInterpCurveFloat(const char* Label, FInterpCurveFl
 				bChanged = true;
 			}
 
-			// 각 포인트 렌더링
+			// 삭제 요청 추적 (지연 삭제 패턴)
+			int32 DeleteRequestIndex = -1;
+
+			// 각 포인트 렌더링 (인덱스 기반 - 언리얼 스타일)
 			for (int32 i = 0; i < Curve.Points.Num(); ++i)
 			{
 				ImGui::PushID(i);
-
 				FInterpCurvePointFloat& Point = Curve.Points[i];
 
 				char NodeLabel[32];
 				sprintf_s(NodeLabel, "인덱스 [%d]", i);
 
-				if (ImGui::TreeNode(NodeLabel))
+				bool bNodeOpen = ImGui::TreeNode(NodeLabel);
+
+				// 드롭다운 메뉴 버튼
+				ImGui::SameLine();
+				if (ImGui::SmallButton("▼"))
+				{
+					ImGui::OpenPopup("##menu");
+				}
+
+				// 드롭다운 메뉴 팝업
+				if (ImGui::BeginPopup("##menu"))
+				{
+					if (ImGui::MenuItem("삽입"))
+					{
+						float NewTime = Point.InVal + 0.1f;
+						float NewValue = Point.OutVal;
+						Curve.Points.Insert(FInterpCurvePointFloat(NewTime, NewValue), i + 1);
+						bChanged = true;
+					}
+					if (ImGui::MenuItem("삭제"))
+					{
+						DeleteRequestIndex = i;
+						bChanged = true;
+					}
+					if (ImGui::MenuItem("복제"))
+					{
+						Curve.Points.Insert(Point, i + 1);
+						bChanged = true;
+					}
+					ImGui::EndPopup();
+				}
+
+				if (bNodeOpen)
 				{
 					ImGui::TextDisabled("멤버: 5");
 
@@ -2888,6 +2968,12 @@ bool UPropertyRenderer::RenderInterpCurveFloat(const char* Label, FInterpCurveFl
 				}
 
 				ImGui::PopID();
+			}
+
+			// 루프 종료 후 삭제 처리 (ImGui 상태 안전)
+			if (DeleteRequestIndex >= 0)
+			{
+				Curve.Points.RemoveAt(DeleteRequestIndex);
 			}
 
 			ImGui::TreePop();
@@ -2938,17 +3024,51 @@ bool UPropertyRenderer::RenderInterpCurveVector(const char* Label, FInterpCurveV
 				bChanged = true;
 			}
 
-			// 각 포인트 렌더링
+			// 삭제 요청 추적 (지연 삭제 패턴)
+			int32 DeleteRequestIndex = -1;
+
+			// 각 포인트 렌더링 (인덱스 기반 - 언리얼 스타일)
 			for (int32 i = 0; i < Curve.Points.Num(); ++i)
 			{
 				ImGui::PushID(i);
-
 				FInterpCurvePointVector& Point = Curve.Points[i];
 
 				char NodeLabel[32];
 				sprintf_s(NodeLabel, "인덱스 [%d]", i);
 
-				if (ImGui::TreeNode(NodeLabel))
+				bool bNodeOpen = ImGui::TreeNode(NodeLabel);
+
+				// 드롭다운 메뉴 버튼
+				ImGui::SameLine();
+				if (ImGui::SmallButton("▼"))
+				{
+					ImGui::OpenPopup("##menu");
+				}
+
+				// 드롭다운 메뉴 팝업
+				if (ImGui::BeginPopup("##menu"))
+				{
+					if (ImGui::MenuItem("삽입"))
+					{
+						float NewTime = Point.InVal + 0.1f;
+						FVector NewValue = Point.OutVal;
+						Curve.Points.Insert(FInterpCurvePointVector(NewTime, NewValue), i + 1);
+						bChanged = true;
+					}
+					if (ImGui::MenuItem("삭제"))
+					{
+						DeleteRequestIndex = i;
+						bChanged = true;
+					}
+					if (ImGui::MenuItem("복제"))
+					{
+						Curve.Points.Insert(Point, i + 1);
+						bChanged = true;
+					}
+					ImGui::EndPopup();
+				}
+
+				if (bNodeOpen)
 				{
 					ImGui::TextDisabled("멤버: 5");
 
@@ -2976,6 +3096,12 @@ bool UPropertyRenderer::RenderInterpCurveVector(const char* Label, FInterpCurveV
 				}
 
 				ImGui::PopID();
+			}
+
+			// 루프 종료 후 삭제 처리 (ImGui 상태 안전)
+			if (DeleteRequestIndex >= 0)
+			{
+				Curve.Points.RemoveAt(DeleteRequestIndex);
 			}
 
 			ImGui::TreePop();
@@ -3026,18 +3152,53 @@ bool UPropertyRenderer::RenderInterpCurveFloatUniform(const char* Label, FInterp
 				bChanged = true;
 			}
 
-			// 각 포인트 렌더링
+			// 삭제 요청 추적 (지연 삭제 패턴)
+			int32 DeleteRequestIndex = -1;
+
+			// 각 포인트 렌더링 (인덱스 기반 - 언리얼 스타일)
 			for (int32 i = 0; i < MinCurve.Points.Num(); ++i)
 			{
 				ImGui::PushID(i);
-
 				auto& MinPoint = MinCurve.Points[i];
 				auto& MaxPoint = MaxCurve.Points[i];
 
 				char NodeLabel[32];
 				sprintf_s(NodeLabel, "인덱스 [%d]", i);
 
-				if (ImGui::TreeNode(NodeLabel))
+				bool bNodeOpen = ImGui::TreeNode(NodeLabel);
+
+				// 드롭다운 메뉴 버튼
+				ImGui::SameLine();
+				if (ImGui::SmallButton("▼"))
+				{
+					ImGui::OpenPopup("##menu");
+				}
+
+				// 드롭다운 메뉴 팝업
+				if (ImGui::BeginPopup("##menu"))
+				{
+					if (ImGui::MenuItem("삽입"))
+					{
+						float NewTime = MinPoint.InVal + 0.1f;
+						MinCurve.Points.Insert(FInterpCurvePointFloat(NewTime, 0.0f), i + 1);
+						MaxCurve.Points.Insert(FInterpCurvePointFloat(NewTime, 0.0f), i + 1);
+						bChanged = true;
+					}
+					if (ImGui::MenuItem("삭제"))
+					{
+						DeleteRequestIndex = i;
+						bChanged = true;
+					}
+					if (ImGui::MenuItem("복제"))
+					{
+						MinCurve.Points.Insert(MinPoint, i + 1);
+						MaxCurve.Points.Insert(MaxPoint, i + 1);
+						bChanged = true;
+					}
+					ImGui::EndPopup();
+				}
+
+				if (bNodeOpen)
 				{
 					ImGui::TextDisabled("멤버: 5");
 
@@ -3086,6 +3247,13 @@ bool UPropertyRenderer::RenderInterpCurveFloatUniform(const char* Label, FInterp
 				}
 
 				ImGui::PopID();
+			}
+
+			// 루프 종료 후 삭제 처리 (ImGui 상태 안전)
+			if (DeleteRequestIndex >= 0)
+			{
+				MinCurve.Points.RemoveAt(DeleteRequestIndex);
+				MaxCurve.Points.RemoveAt(DeleteRequestIndex);
 			}
 
 			ImGui::TreePop();
@@ -3141,18 +3309,53 @@ bool UPropertyRenderer::RenderInterpCurveVectorUniform(const char* Label, FInter
 				bChanged = true;
 			}
 
-			// 각 포인트 렌더링
+			// 삭제 요청 추적 (지연 삭제 패턴)
+			int32 DeleteRequestIndex = -1;
+
+			// 각 포인트 렌더링 (인덱스 기반 - 언리얼 스타일)
 			for (int32 i = 0; i < MinCurve.Points.Num(); ++i)
 			{
 				ImGui::PushID(i);
-
 				auto& MinPoint = MinCurve.Points[i];
 				auto& MaxPoint = MaxCurve.Points[i];
 
 				char NodeLabel[32];
 				sprintf_s(NodeLabel, "인덱스 [%d]", i);
 
-				if (ImGui::TreeNode(NodeLabel))
+				bool bNodeOpen = ImGui::TreeNode(NodeLabel);
+
+				// 드롭다운 메뉴 버튼
+				ImGui::SameLine();
+				if (ImGui::SmallButton("▼"))
+				{
+					ImGui::OpenPopup("##menu");
+				}
+
+				// 드롭다운 메뉴 팝업
+				if (ImGui::BeginPopup("##menu"))
+				{
+					if (ImGui::MenuItem("삽입"))
+					{
+						float NewTime = MinPoint.InVal + 0.1f;
+						MinCurve.Points.Insert(FInterpCurvePointVector(NewTime, FVector(0.0f, 0.0f, 0.0f)), i + 1);
+						MaxCurve.Points.Insert(FInterpCurvePointVector(NewTime, FVector(0.0f, 0.0f, 0.0f)), i + 1);
+						bChanged = true;
+					}
+					if (ImGui::MenuItem("삭제"))
+					{
+						DeleteRequestIndex = i;
+						bChanged = true;
+					}
+					if (ImGui::MenuItem("복제"))
+					{
+						MinCurve.Points.Insert(MinPoint, i + 1);
+						MaxCurve.Points.Insert(MaxPoint, i + 1);
+						bChanged = true;
+					}
+					ImGui::EndPopup();
+				}
+
+				if (bNodeOpen)
 				{
 					ImGui::TextDisabled("멤버: 5");
 
@@ -3204,6 +3407,13 @@ bool UPropertyRenderer::RenderInterpCurveVectorUniform(const char* Label, FInter
 				}
 
 				ImGui::PopID();
+			}
+
+			// 루프 종료 후 삭제 처리 (ImGui 상태 안전)
+			if (DeleteRequestIndex >= 0)
+			{
+				MinCurve.Points.RemoveAt(DeleteRequestIndex);
+				MaxCurve.Points.RemoveAt(DeleteRequestIndex);
 			}
 
 			ImGui::TreePop();

@@ -193,6 +193,8 @@ struct UStruct
 	// PropertyRenderer에서 TArray<Struct>를 타입 안전하게 조작하기 위해 사용
 	void (*ArrayAdd)(void* ArrayPtr) = nullptr;           // 배열에 기본 요소 추가
 	void (*ArrayRemoveAt)(void* ArrayPtr, int32 Index) = nullptr;  // 인덱스로 요소 삭제
+	void (*ArrayInsertAt)(void* ArrayPtr, int32 Index) = nullptr;  // 특정 인덱스에 요소 삽입
+	void (*ArrayDuplicateAt)(void* ArrayPtr, int32 Index) = nullptr;  // 특정 인덱스 요소 복제
 	int32 (*ArrayNum)(void* ArrayPtr) = nullptr;          // 배열 크기 반환
 	void* (*ArrayGetData)(void* ArrayPtr) = nullptr;      // 데이터 포인터 반환
 
