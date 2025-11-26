@@ -5,6 +5,27 @@
 #include "ResourceManager.h"
 #include "Material.h"
 
+void UParticleModuleRequired::DuplicateSubObjects()
+{
+	UParticleModule::DuplicateSubObjects();
+
+	// bOwnsMaterial이 true이고 Material이 있으면 복제
+	// (false면 공유 Asset이므로 그대로 둠)
+	if (bOwnsMaterial && Material)
+	{
+		UMaterial* OldMat = Cast<UMaterial>(Material);
+		if (OldMat)
+		{
+			UMaterial* NewMat = NewObject<UMaterial>();
+			NewMat->SetShader(OldMat->GetShader());
+			NewMat->SetMaterialInfo(OldMat->GetMaterialInfo());
+			NewMat->ResolveTextures();
+			Material = NewMat;
+			// bOwnsMaterial은 이미 true로 복사되어 있음 - 새 Material도 소유
+		}
+	}
+}
+
 UParticleModuleRequired::~UParticleModuleRequired()
 {
 	// 로드 시 직접 생성한 Material만 정리

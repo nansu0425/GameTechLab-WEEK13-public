@@ -126,4 +126,16 @@ struct ParticleEditorState : public ViewerState
 
     // LOD 제어
     int32 CurrentLODLevel = 0;
+
+    // LOD 레벨 변경 (모듈 선택 초기화 포함)
+    void SetLODLevel(int32 NewLevel)
+    {
+        if (CurrentLODLevel != NewLevel)
+        {
+            CurrentLODLevel = NewLevel;
+            // LOD 변경 시 모듈 선택 초기화 (다른 LOD의 모듈을 편집하는 버그 방지)
+            SelectedModule = nullptr;
+            SelectedModuleIndex = -1;
+        }
+    }
 };

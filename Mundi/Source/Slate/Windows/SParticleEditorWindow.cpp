@@ -128,46 +128,60 @@ SParticleEditorWindow::~SParticleEditorWindow()
 	ActiveState = nullptr;
 }
 
-// 타입 데이터 삭제 시 스프라이트로 복원 (머티리얼 포함)
+// 타입 데이터 삭제 시 스프라이트로 복원 (머티리얼 포함, 모든 LOD에 동기화)
 static void RestoreToSpriteTypeData(UParticleLODLevel* LOD, ParticleEditorState* State)
 {
-	// 기존 타입 데이터 제거 및 삭제
-	if (LOD->TypeDataModule)
-	{
-		LOD->Modules.Remove(LOD->TypeDataModule);
-		DeleteObject(LOD->TypeDataModule);
-		LOD->TypeDataModule = nullptr;
-	}
+	UParticleEmitter* Emitter = State->EditingTemplate ?
+		(State->SelectedEmitterIndex >= 0 && State->SelectedEmitterIndex < State->EditingTemplate->Emitters.Num() ?
+			State->EditingTemplate->Emitters[State->SelectedEmitterIndex] : nullptr) : nullptr;
 
-	// 스프라이트 타입 데이터 생성
-	UParticleModuleTypeDataSprite* SpriteTypeData = NewObject<UParticleModuleTypeDataSprite>();
-	LOD->TypeDataModule = SpriteTypeData;
-	LOD->Modules.Add(SpriteTypeData);
-
-	// 스프라이트용 머티리얼 생성 및 설정
-	if (LOD->RequiredModule)
-	{
-		// 기존 Material이 NewObject로 생성된 것이면 삭제 (FilePath가 비어있음)
-		UMaterialInterface* OldMaterial = LOD->RequiredModule->Material;
-		if (OldMaterial && OldMaterial->GetFilePath().empty())
+	auto ApplyToLOD = [](UParticleLODLevel* TargetLOD) {
+		if (TargetLOD->TypeDataModule)
 		{
-			DeleteObject(OldMaterial);
+			TargetLOD->Modules.Remove(TargetLOD->TypeDataModule);
+			DeleteObject(TargetLOD->TypeDataModule);
+			TargetLOD->TypeDataModule = nullptr;
 		}
 
-		UMaterial* SpriteMaterial = NewObject<UMaterial>();
-		UShader* SpriteShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Particle/ParticleSprite.hlsl");
-		SpriteMaterial->SetShader(SpriteShader);
+		UParticleModuleTypeDataSprite* SpriteTypeData = NewObject<UParticleModuleTypeDataSprite>();
+		TargetLOD->TypeDataModule = SpriteTypeData;
+		TargetLOD->Modules.Add(SpriteTypeData);
 
-		// 기본 스프라이트 텍스처 설정
-		FMaterialInfo MatInfo;
-		MatInfo.DiffuseTextureFileName = GDataDir + "/Textures/Particles/OrientParticle.png";
-		SpriteMaterial->SetMaterialInfo(MatInfo);
-		SpriteMaterial->ResolveTextures();
+		if (TargetLOD->RequiredModule)
+		{
+			UMaterialInterface* OldMaterial = TargetLOD->RequiredModule->Material;
+			if (OldMaterial && OldMaterial->GetFilePath().empty())
+			{
+				DeleteObject(OldMaterial);
+			}
 
-		LOD->RequiredModule->Material = SpriteMaterial;
+			UMaterial* SpriteMaterial = NewObject<UMaterial>();
+			UShader* SpriteShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Particle/ParticleSprite.hlsl");
+			SpriteMaterial->SetShader(SpriteShader);
+
+			FMaterialInfo MatInfo;
+			MatInfo.DiffuseTextureFileName = GDataDir + "/Textures/Particles/OrientParticle.png";
+			SpriteMaterial->SetMaterialInfo(MatInfo);
+			SpriteMaterial->ResolveTextures();
+
+			TargetLOD->RequiredModule->Material = SpriteMaterial;
+			TargetLOD->RequiredModule->bOwnsMaterial = true;
+		}
+
+		TargetLOD->CacheModuleInfo();
+	};
+
+	if (Emitter)
+	{
+		for (UParticleLODLevel* LODLevel : Emitter->LODLevels)
+		{
+			if (LODLevel) ApplyToLOD(LODLevel);
+		}
 	}
-
-	LOD->CacheModuleInfo();
+	else
+	{
+		ApplyToLOD(LOD);
+	}
 }
 
 void SParticleEditorWindow::OnRender()
@@ -294,7 +308,8 @@ void SParticleEditorWindow::OnRender()
 							UParticleModule* Module = State->SelectedModule;
 
 							// 삭제 불가 모듈 체크 (Required, Spawn, 스프라이트 타입데이터)
-							bool bCanDelete = true;
+							// LOD 0에서만 모듈 삭제 가능
+							bool bCanDelete = (State->CurrentLODLevel == 0);
 							if (Module == LOD->RequiredModule || Module == LOD->SpawnModule)
 							{
 								bCanDelete = false;
@@ -313,8 +328,24 @@ void SParticleEditorWindow::OnRender()
 								}
 								else
 								{
-									LOD->Modules.Remove(Module);
-									LOD->CacheModuleInfo();
+									// 모든 LOD에서 동일 인덱스 모듈 삭제
+									int32 ModuleIndex = LOD->Modules.Find(Module);
+									if (ModuleIndex >= 0)
+									{
+										for (UParticleLODLevel* LODLevel : Emitter->LODLevels)
+										{
+											if (LODLevel && ModuleIndex < LODLevel->Modules.Num())
+											{
+												UParticleModule* ModuleToRemove = LODLevel->Modules[ModuleIndex];
+												LODLevel->Modules.RemoveAt(ModuleIndex);
+												if (ModuleToRemove)
+												{
+													DeleteObject(ModuleToRemove);
+												}
+												LODLevel->CacheModuleInfo();
+											}
+										}
+									}
 								}
 
 								State->SelectedModule = nullptr;
@@ -807,7 +838,7 @@ void SParticleEditorWindow::RenderToolbar()
 	{
 		if (ImGui::ImageButton("##LODFirst", (void*)IconLODFirst->GetShaderResourceView(), IconSizeVec))
 		{
-			State->CurrentLODLevel = 0;
+			State->SetLODLevel(0);
 		}
 		if (ImGui::IsItemHovered())
 			ImGui::SetTooltip("최하 LOD (LOD 0)");
@@ -822,8 +853,7 @@ void SParticleEditorWindow::RenderToolbar()
 		ImGui::BeginDisabled(!bCanGoPrev);
 		if (ImGui::ImageButton("##LODPrev", (void*)IconLODPrev->GetShaderResourceView(), IconSizeVec))
 		{
-			if (State->CurrentLODLevel > 0)
-				State->CurrentLODLevel--;
+			State->SetLODLevel(State->CurrentLODLevel - 1);
 		}
 		if (ImGui::IsItemHovered())
 			ImGui::SetTooltip("하위 LOD");
@@ -873,7 +903,7 @@ void SParticleEditorWindow::RenderToolbar()
 
 					if (ImGui::Selectable(LODText, bIsSelected))
 					{
-						State->CurrentLODLevel = i;
+						State->SetLODLevel(i);
 					}
 
 					if (bIsSelected)
@@ -916,8 +946,7 @@ void SParticleEditorWindow::RenderToolbar()
 		ImGui::BeginDisabled(!bCanGoNext);
 		if (ImGui::ImageButton("##LODNext", (void*)IconLODNext->GetShaderResourceView(), IconSizeVec))
 		{
-			if (State->CurrentLODLevel < MaxLODIndex)
-				State->CurrentLODLevel++;
+			State->SetLODLevel(State->CurrentLODLevel + 1);
 		}
 		if (ImGui::IsItemHovered())
 			ImGui::SetTooltip("상위 LOD");
@@ -931,7 +960,7 @@ void SParticleEditorWindow::RenderToolbar()
 	{
 		if (ImGui::ImageButton("##LODLast", (void*)IconLODLast->GetShaderResourceView(), IconSizeVec))
 		{
-			State->CurrentLODLevel = MaxLODIndex;
+			State->SetLODLevel(MaxLODIndex);
 		}
 		if (ImGui::IsItemHovered())
 			ImGui::SetTooltip("최상 LOD (LOD %d)", MaxLODIndex);
@@ -1152,13 +1181,36 @@ void SParticleEditorWindow::RenderDetailsPanel(float PanelWidth)
 	}
 }
 
-// 일반 모듈 추가 헬퍼 함수
+// 일반 모듈 추가 헬퍼 함수 (LOD 0에서 추가 시 모든 LOD에 동기화)
 template<typename T>
 static void AddModuleToLOD(UParticleLODLevel* LOD, ParticleEditorState* State)
 {
-	T* NewModule = NewObject<T>();
-	LOD->Modules.Add(NewModule);
-	LOD->CacheModuleInfo();
+	// LOD 0에만 추가 (모든 LOD에 동기화)
+	UParticleEmitter* Emitter = State->EditingTemplate ?
+		(State->SelectedEmitterIndex >= 0 && State->SelectedEmitterIndex < State->EditingTemplate->Emitters.Num() ?
+			State->EditingTemplate->Emitters[State->SelectedEmitterIndex] : nullptr) : nullptr;
+
+	if (Emitter)
+	{
+		// 모든 LOD에 동일한 모듈 타입 추가
+		for (UParticleLODLevel* LODLevel : Emitter->LODLevels)
+		{
+			if (LODLevel)
+			{
+				T* NewModule = NewObject<T>();
+				LODLevel->Modules.Add(NewModule);
+				LODLevel->CacheModuleInfo();
+			}
+		}
+	}
+	else
+	{
+		// 폴백: 단일 LOD에만 추가
+		T* NewModule = NewObject<T>();
+		LOD->Modules.Add(NewModule);
+		LOD->CacheModuleInfo();
+	}
+
 	if (State->PreviewComponent)
 	{
 		State->PreviewComponent->RefreshEmitterInstances();
@@ -1192,47 +1244,59 @@ static void SetTypeDataModule(UParticleLODLevel* LOD, ParticleEditorState* State
 	State->bIsDirty = true;
 }
 
-// 메시 타입 데이터 모듈 설정 (기본 메시 포함)
+// 메시 타입 데이터 모듈 설정 (기본 메시 포함, 모든 LOD에 동기화)
 static void SetMeshTypeDataModule(UParticleLODLevel* LOD, ParticleEditorState* State)
 {
-	// 기존 타입 데이터가 있으면 제거 및 삭제
-	if (LOD->TypeDataModule)
-	{
-		LOD->Modules.Remove(LOD->TypeDataModule);
-		DeleteObject(LOD->TypeDataModule);
-		LOD->TypeDataModule = nullptr;
-	}
+	UParticleEmitter* Emitter = State->EditingTemplate ?
+		(State->SelectedEmitterIndex >= 0 && State->SelectedEmitterIndex < State->EditingTemplate->Emitters.Num() ?
+			State->EditingTemplate->Emitters[State->SelectedEmitterIndex] : nullptr) : nullptr;
 
-	// 메시 타입 데이터 생성
-	UParticleModuleTypeDataMesh* MeshTypeData = NewObject<UParticleModuleTypeDataMesh>();
-
-	// 기본 메시 로드
-	MeshTypeData->Mesh = UResourceManager::GetInstance().Load<UStaticMesh>(GDataDir + "/cube-tex.obj");
-
-	// bOverrideMaterial = false (기본값)이므로 메시의 섹션별 Material 사용
-	// 사용자가 bOverrideMaterial을 true로 설정하면 RequiredModule->Material로 override
-
-	// RequiredModule->Material에 메시 파티클용 셰이더 설정 (override 시 사용됨)
-	if (LOD->RequiredModule)
-	{
-		// 기존 Material이 NewObject로 생성된 것이면 삭제 (FilePath가 비어있음)
-		// ResourceManager에서 로드한 Material은 삭제하지 않음 (FilePath가 있음)
-		UMaterialInterface* OldMaterial = LOD->RequiredModule->Material;
-		if (OldMaterial && OldMaterial->GetFilePath().empty())
+	auto ApplyToLOD = [](UParticleLODLevel* TargetLOD) {
+		// 기존 타입 데이터가 있으면 제거 및 삭제
+		if (TargetLOD->TypeDataModule)
 		{
-			DeleteObject(OldMaterial);
+			TargetLOD->Modules.Remove(TargetLOD->TypeDataModule);
+			DeleteObject(TargetLOD->TypeDataModule);
+			TargetLOD->TypeDataModule = nullptr;
 		}
 
-		UMaterial* MeshMaterial = NewObject<UMaterial>();
-		UShader* MeshShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Particle/ParticleMesh.hlsl");
-		MeshMaterial->SetShader(MeshShader);
-		LOD->RequiredModule->Material = MeshMaterial;
-	}
+		// 메시 타입 데이터 생성
+		UParticleModuleTypeDataMesh* MeshTypeData = NewObject<UParticleModuleTypeDataMesh>();
+		MeshTypeData->Mesh = UResourceManager::GetInstance().Load<UStaticMesh>(GDataDir + "/cube-tex.obj");
 
-	// 타입 데이터 설정
-	LOD->TypeDataModule = MeshTypeData;
-	LOD->Modules.Add(MeshTypeData);
-	LOD->CacheModuleInfo();
+		// RequiredModule->Material에 메시 파티클용 셰이더 설정
+		if (TargetLOD->RequiredModule)
+		{
+			UMaterialInterface* OldMaterial = TargetLOD->RequiredModule->Material;
+			if (OldMaterial && OldMaterial->GetFilePath().empty())
+			{
+				DeleteObject(OldMaterial);
+			}
+
+			UMaterial* MeshMaterial = NewObject<UMaterial>();
+			UShader* MeshShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Particle/ParticleMesh.hlsl");
+			MeshMaterial->SetShader(MeshShader);
+			TargetLOD->RequiredModule->Material = MeshMaterial;
+			TargetLOD->RequiredModule->bOwnsMaterial = true;
+		}
+
+		TargetLOD->TypeDataModule = MeshTypeData;
+		TargetLOD->Modules.Add(MeshTypeData);
+		TargetLOD->CacheModuleInfo();
+	};
+
+	// 모든 LOD에 적용
+	if (Emitter)
+	{
+		for (UParticleLODLevel* LODLevel : Emitter->LODLevels)
+		{
+			if (LODLevel) ApplyToLOD(LODLevel);
+		}
+	}
+	else
+	{
+		ApplyToLOD(LOD);
+	}
 
 	if (State->PreviewComponent)
 	{
@@ -1241,40 +1305,54 @@ static void SetMeshTypeDataModule(UParticleLODLevel* LOD, ParticleEditorState* S
 	State->bIsDirty = true;
 }
 
-// 빔 타입 데이터 모듈 설정
+// 빔 타입 데이터 모듈 설정 (모든 LOD에 동기화)
 static void SetBeamTypeDataModule(UParticleLODLevel* LOD, ParticleEditorState* State)
 {
-	// 기존 타입 데이터가 있으면 제거 및 삭제
-	if (LOD->TypeDataModule)
-	{
-		LOD->Modules.Remove(LOD->TypeDataModule);
-		DeleteObject(LOD->TypeDataModule);
-		LOD->TypeDataModule = nullptr;
-	}
+	UParticleEmitter* Emitter = State->EditingTemplate ?
+		(State->SelectedEmitterIndex >= 0 && State->SelectedEmitterIndex < State->EditingTemplate->Emitters.Num() ?
+			State->EditingTemplate->Emitters[State->SelectedEmitterIndex] : nullptr) : nullptr;
 
-	// 빔 타입 데이터 생성
-	UParticleModuleTypeDataBeam* BeamTypeData = NewObject<UParticleModuleTypeDataBeam>();
-
-	// RequiredModule->Material에 빔 파티클용 셰이더 설정
-	if (LOD->RequiredModule)
-	{
-		// 기존 Material이 NewObject로 생성된 것이면 삭제 (FilePath가 비어있음)
-		UMaterialInterface* OldMaterial = LOD->RequiredModule->Material;
-		if (OldMaterial && OldMaterial->GetFilePath().empty())
+	auto ApplyToLOD = [](UParticleLODLevel* TargetLOD) {
+		if (TargetLOD->TypeDataModule)
 		{
-			DeleteObject(OldMaterial);
+			TargetLOD->Modules.Remove(TargetLOD->TypeDataModule);
+			DeleteObject(TargetLOD->TypeDataModule);
+			TargetLOD->TypeDataModule = nullptr;
 		}
 
-		UMaterial* BeamMaterial = NewObject<UMaterial>();
-		UShader* BeamShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Particle/ParticleBeam.hlsl");
-		BeamMaterial->SetShader(BeamShader);
-		LOD->RequiredModule->Material = BeamMaterial;
-	}
+		UParticleModuleTypeDataBeam* BeamTypeData = NewObject<UParticleModuleTypeDataBeam>();
 
-	// 타입 데이터 설정
-	LOD->TypeDataModule = BeamTypeData;
-	LOD->Modules.Add(BeamTypeData);
-	LOD->CacheModuleInfo();
+		if (TargetLOD->RequiredModule)
+		{
+			UMaterialInterface* OldMaterial = TargetLOD->RequiredModule->Material;
+			if (OldMaterial && OldMaterial->GetFilePath().empty())
+			{
+				DeleteObject(OldMaterial);
+			}
+
+			UMaterial* BeamMaterial = NewObject<UMaterial>();
+			UShader* BeamShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Particle/ParticleBeam.hlsl");
+			BeamMaterial->SetShader(BeamShader);
+			TargetLOD->RequiredModule->Material = BeamMaterial;
+			TargetLOD->RequiredModule->bOwnsMaterial = true;
+		}
+
+		TargetLOD->TypeDataModule = BeamTypeData;
+		TargetLOD->Modules.Add(BeamTypeData);
+		TargetLOD->CacheModuleInfo();
+	};
+
+	if (Emitter)
+	{
+		for (UParticleLODLevel* LODLevel : Emitter->LODLevels)
+		{
+			if (LODLevel) ApplyToLOD(LODLevel);
+		}
+	}
+	else
+	{
+		ApplyToLOD(LOD);
+	}
 
 	if (State->PreviewComponent)
 	{
@@ -1283,41 +1361,55 @@ static void SetBeamTypeDataModule(UParticleLODLevel* LOD, ParticleEditorState* S
 	State->bIsDirty = true;
 }
 
-// 리본 타입 데이터 모듈 설정
+// 리본 타입 데이터 모듈 설정 (모든 LOD에 동기화)
 static void SetRibbonTypeDataModule(UParticleLODLevel* LOD, ParticleEditorState* State)
 {
-	// 기존 타입 데이터가 있으면 제거 및 삭제
-	if (LOD->TypeDataModule)
-	{
-		LOD->Modules.Remove(LOD->TypeDataModule);
-		DeleteObject(LOD->TypeDataModule);
-		LOD->TypeDataModule = nullptr;
-	}
+	UParticleEmitter* Emitter = State->EditingTemplate ?
+		(State->SelectedEmitterIndex >= 0 && State->SelectedEmitterIndex < State->EditingTemplate->Emitters.Num() ?
+			State->EditingTemplate->Emitters[State->SelectedEmitterIndex] : nullptr) : nullptr;
 
-	// 리본 타입 데이터 생성
-	UParticleModuleTypeDataRibbon* RibbonTypeData = NewObject<UParticleModuleTypeDataRibbon>();
-	RibbonTypeData->RibbonWidth = 1.0f;
-
-	// RequiredModule->Material에 리본 파티클용 셰이더 설정
-	if (LOD->RequiredModule)
-	{
-		// 기존 Material이 NewObject로 생성된 것이면 삭제 (FilePath가 비어있음)
-		UMaterialInterface* OldMaterial = LOD->RequiredModule->Material;
-		if (OldMaterial && OldMaterial->GetFilePath().empty())
+	auto ApplyToLOD = [](UParticleLODLevel* TargetLOD) {
+		if (TargetLOD->TypeDataModule)
 		{
-			DeleteObject(OldMaterial);
+			TargetLOD->Modules.Remove(TargetLOD->TypeDataModule);
+			DeleteObject(TargetLOD->TypeDataModule);
+			TargetLOD->TypeDataModule = nullptr;
 		}
 
-		UMaterial* RibbonMaterial = NewObject<UMaterial>();
-		UShader* RibbonShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Particle/ParticleRibbon.hlsl");
-		RibbonMaterial->SetShader(RibbonShader);
-		LOD->RequiredModule->Material = RibbonMaterial;
-	}
+		UParticleModuleTypeDataRibbon* RibbonTypeData = NewObject<UParticleModuleTypeDataRibbon>();
+		RibbonTypeData->RibbonWidth = 1.0f;
 
-	// 타입 데이터 설정
-	LOD->TypeDataModule = RibbonTypeData;
-	LOD->Modules.Add(RibbonTypeData);
-	LOD->CacheModuleInfo();
+		if (TargetLOD->RequiredModule)
+		{
+			UMaterialInterface* OldMaterial = TargetLOD->RequiredModule->Material;
+			if (OldMaterial && OldMaterial->GetFilePath().empty())
+			{
+				DeleteObject(OldMaterial);
+			}
+
+			UMaterial* RibbonMaterial = NewObject<UMaterial>();
+			UShader* RibbonShader = UResourceManager::GetInstance().Load<UShader>("Shaders/Particle/ParticleRibbon.hlsl");
+			RibbonMaterial->SetShader(RibbonShader);
+			TargetLOD->RequiredModule->Material = RibbonMaterial;
+			TargetLOD->RequiredModule->bOwnsMaterial = true;
+		}
+
+		TargetLOD->TypeDataModule = RibbonTypeData;
+		TargetLOD->Modules.Add(RibbonTypeData);
+		TargetLOD->CacheModuleInfo();
+	};
+
+	if (Emitter)
+	{
+		for (UParticleLODLevel* LODLevel : Emitter->LODLevels)
+		{
+			if (LODLevel) ApplyToLOD(LODLevel);
+		}
+	}
+	else
+	{
+		ApplyToLOD(LOD);
+	}
 
 	if (State->PreviewComponent)
 	{
@@ -1521,6 +1613,14 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 
 	if (ImGui::BeginPopupContextWindow(ContextMenuId, ImGuiPopupFlags_MouseButtonRight))
 	{
+		// LOD 0이 아닌 경우 모듈 추가/삭제 비활성화 안내
+		bool bIsLOD0 = (State->CurrentLODLevel == 0);
+		if (!bIsLOD0)
+		{
+			ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f), "LOD 0에서만 모듈 구성 변경 가능");
+			ImGui::Separator();
+		}
+
 		// 이미터 삭제
 		if (ImGui::MenuItem("이미터 삭제"))
 		{
@@ -1540,6 +1640,9 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 		}
 
 		ImGui::Separator();
+
+		// LOD 0이 아닐 때 모듈 추가 메뉴 비활성화
+		ImGui::BeginDisabled(!bIsLOD0);
 
 		// 타입 데이터 (스프라이트가 아닌 경우에만 변경 가능)
 		// 스프라이트 타입데이터는 기본값이므로 메뉴에 표시하지 않음
@@ -1677,6 +1780,8 @@ void SParticleEditorWindow::RenderEmitterColumn(int32 EmitterIndex, UParticleEmi
 			}
 			ImGui::EndMenu();
 		}
+
+		ImGui::EndDisabled();  // LOD 0 체크 종료
 
 		ImGui::EndPopup();
 	}
