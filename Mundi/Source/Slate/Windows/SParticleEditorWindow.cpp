@@ -1791,11 +1791,11 @@ void SParticleEditorWindow::RenderDetailsPanel(float PanelWidth)
 		int32 RequiredDistances = FMath::Max(0, MaxLODLevels - 1);
 		while (System->LODDistances.Num() < RequiredDistances)
 		{
-			// 이전 거리 기반으로 새 거리 계산 (이전 거리 + 500, 없으면 500)
+			// 이전 거리 기반으로 새 거리 계산 (이전 거리 + 50, 없으면 50)
 			float PrevDistance = System->LODDistances.Num() > 0
 				? System->LODDistances[System->LODDistances.Num() - 1]
 				: 0.0f;
-			float DefaultDistance = PrevDistance + 500.0f;
+			float DefaultDistance = PrevDistance + 50.0f;
 			System->LODDistances.Add(DefaultDistance);
 			State->bIsDirty = true;
 		}
@@ -1815,11 +1815,13 @@ void SParticleEditorWindow::RenderDetailsPanel(float PanelWidth)
 			sprintf_s(Label, "LOD %d → %d##LODDist%d", i, i + 1, i);
 
 			// 최소/최대값 계산 (이전 거리 ~ 다음 거리 사이로 제한)
-			float MinValue = (i > 0) ? System->LODDistances[i - 1] : 0.0f;
-			float MaxValue = (i + 1 < System->LODDistances.Num()) ? System->LODDistances[i + 1] : 50000.0f;
+			float MinValue = (i > 0) ? System->LODDistances[i - 1] + 1.0f : 0.0f;
+			float MaxValue = (i + 1 < System->LODDistances.Num()) ? System->LODDistances[i + 1] - 1.0f : 50000.0f;
 
 			if (ImGui::DragFloat(Label, &System->LODDistances[i], 10.0f, MinValue, MaxValue, "%.0f"))
 			{
+				// 더블클릭 직접 입력 시 범위 벗어날 수 있으므로 클램핑
+				System->LODDistances[i] = FMath::Clamp(System->LODDistances[i], MinValue, MaxValue);
 				State->bIsDirty = true;
 			}
 		}
@@ -3343,44 +3345,117 @@ void SParticleEditorWindow::AutoFitCurveView()
 void SParticleEditorWindow::RenderCurveGrid(ImDrawList* DrawList, ImVec2 CanvasPos, ImVec2 CanvasSize)
 {
 	ImU32 GridColor = IM_COL32(50, 50, 50, 255);
+	ImU32 SubGridColor = IM_COL32(35, 35, 35, 255);
 	ImU32 AxisColor = IM_COL32(80, 80, 80, 255);
 	ImU32 TextColor = IM_COL32(150, 150, 150, 255);
 
-	// 수직선 + 시간 라벨 (X축)
-	for (int i = 0; i <= 4; ++i)
+	// "Nice number" 계산 헬퍼 - 1, 2, 5, 10, 20, 50... 패턴
+	auto GetNiceStep = [](float Range, float TargetSteps) -> float
 	{
-		float x = CanvasPos.x + (CanvasSize.x * i / 4.0f);
-		DrawList->AddLine(ImVec2(x, CanvasPos.y), ImVec2(x, CanvasPos.y + CanvasSize.y), GridColor);
+		float RoughStep = Range / TargetSteps;
+		float Magnitude = powf(10.0f, floorf(log10f(RoughStep)));
+		float Residual = RoughStep / Magnitude;
 
-		// 시간 라벨 (하단)
-		float Time = CurveEditorState.ViewMinTime +
-			(CurveEditorState.ViewMaxTime - CurveEditorState.ViewMinTime) * i / 4.0f;
-		char TimeLabel[16];
-		snprintf(TimeLabel, sizeof(TimeLabel), "%.2f", Time);
-		DrawList->AddText(ImVec2(x - 12, CanvasPos.y + CanvasSize.y + 4), TextColor, TimeLabel);
+		float NiceResidual;
+		if (Residual <= 1.0f) NiceResidual = 1.0f;
+		else if (Residual <= 2.0f) NiceResidual = 2.0f;
+		else if (Residual <= 5.0f) NiceResidual = 5.0f;
+		else NiceResidual = 10.0f;
+
+		return NiceResidual * Magnitude;
+	};
+
+	// 라벨 포맷 결정 헬퍼
+	auto GetLabelFormat = [](float Step) -> const char*
+	{
+		if (Step >= 1.0f) return "%.0f";
+		else if (Step >= 0.1f) return "%.1f";
+		else if (Step >= 0.01f) return "%.2f";
+		else return "%.3f";
+	};
+
+	float TimeRange = CurveEditorState.ViewMaxTime - CurveEditorState.ViewMinTime;
+	float ValueRange = CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue;
+
+	// 적응형 그리드 간격 계산 (약 4-8개의 라인이 보이도록)
+	float TimeStep = GetNiceStep(TimeRange, 5.0f);
+	float ValueStep = GetNiceStep(ValueRange, 5.0f);
+
+	const char* TimeFmt = GetLabelFormat(TimeStep);
+	const char* ValueFmt = GetLabelFormat(ValueStep);
+
+	// 서브 그리드 (메인 그리드의 1/5)
+	float TimeSubStep = TimeStep / 5.0f;
+	float ValueSubStep = ValueStep / 5.0f;
+
+	// 서브 그리드 - 수직선 (시간 축)
+	float TimeStart = floorf(CurveEditorState.ViewMinTime / TimeSubStep) * TimeSubStep;
+	for (float t = TimeStart; t <= CurveEditorState.ViewMaxTime; t += TimeSubStep)
+	{
+		float x = CanvasPos.x + ((t - CurveEditorState.ViewMinTime) / TimeRange) * CanvasSize.x;
+		if (x >= CanvasPos.x && x <= CanvasPos.x + CanvasSize.x)
+		{
+			DrawList->AddLine(ImVec2(x, CanvasPos.y), ImVec2(x, CanvasPos.y + CanvasSize.y), SubGridColor);
+		}
 	}
 
-	// 수평선 + 값 라벨 (Y축)
-	for (int i = 0; i <= 4; ++i)
+	// 서브 그리드 - 수평선 (값 축)
+	float ValueStart = floorf(CurveEditorState.ViewMinValue / ValueSubStep) * ValueSubStep;
+	for (float v = ValueStart; v <= CurveEditorState.ViewMaxValue; v += ValueSubStep)
 	{
-		float y = CanvasPos.y + (CanvasSize.y * i / 4.0f);
-		DrawList->AddLine(ImVec2(CanvasPos.x, y), ImVec2(CanvasPos.x + CanvasSize.x, y), GridColor);
+		float y = CanvasPos.y + CanvasSize.y - ((v - CurveEditorState.ViewMinValue) / ValueRange) * CanvasSize.y;
+		if (y >= CanvasPos.y && y <= CanvasPos.y + CanvasSize.y)
+		{
+			DrawList->AddLine(ImVec2(CanvasPos.x, y), ImVec2(CanvasPos.x + CanvasSize.x, y), SubGridColor);
+		}
+	}
 
-		// 값 라벨 (좌측) - Y축은 위가 큰 값
-		float Value = CurveEditorState.ViewMaxValue -
-			(CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue) * i / 4.0f;
-		char ValueLabel[16];
-		snprintf(ValueLabel, sizeof(ValueLabel), "%.1f", Value);
-		DrawList->AddText(ImVec2(CanvasPos.x - 32, y - 6), TextColor, ValueLabel);
+	// 메인 그리드 - 수직선 + 시간 라벨 (X축)
+	TimeStart = floorf(CurveEditorState.ViewMinTime / TimeStep) * TimeStep;
+	for (float t = TimeStart; t <= CurveEditorState.ViewMaxTime; t += TimeStep)
+	{
+		float x = CanvasPos.x + ((t - CurveEditorState.ViewMinTime) / TimeRange) * CanvasSize.x;
+		if (x >= CanvasPos.x && x <= CanvasPos.x + CanvasSize.x)
+		{
+			DrawList->AddLine(ImVec2(x, CanvasPos.y), ImVec2(x, CanvasPos.y + CanvasSize.y), GridColor);
+
+			// 시간 라벨 (하단)
+			char TimeLabel[16];
+			snprintf(TimeLabel, sizeof(TimeLabel), TimeFmt, t);
+			DrawList->AddText(ImVec2(x - 12, CanvasPos.y + CanvasSize.y + 4), TextColor, TimeLabel);
+		}
+	}
+
+	// 메인 그리드 - 수평선 + 값 라벨 (Y축)
+	ValueStart = floorf(CurveEditorState.ViewMinValue / ValueStep) * ValueStep;
+	for (float v = ValueStart; v <= CurveEditorState.ViewMaxValue; v += ValueStep)
+	{
+		float y = CanvasPos.y + CanvasSize.y - ((v - CurveEditorState.ViewMinValue) / ValueRange) * CanvasSize.y;
+		if (y >= CanvasPos.y && y <= CanvasPos.y + CanvasSize.y)
+		{
+			DrawList->AddLine(ImVec2(CanvasPos.x, y), ImVec2(CanvasPos.x + CanvasSize.x, y), GridColor);
+
+			// 값 라벨 (좌측)
+			char ValueLabel[16];
+			snprintf(ValueLabel, sizeof(ValueLabel), ValueFmt, v);
+			DrawList->AddText(ImVec2(CanvasPos.x - 32, y - 6), TextColor, ValueLabel);
+		}
 	}
 
 	// 0 축 강조 (값이 0인 수평선)
 	if (CurveEditorState.ViewMinValue < 0 && CurveEditorState.ViewMaxValue > 0)
 	{
 		float zeroY = CanvasPos.y + CanvasSize.y -
-			((0 - CurveEditorState.ViewMinValue) /
-			 (CurveEditorState.ViewMaxValue - CurveEditorState.ViewMinValue)) * CanvasSize.y;
+			((0 - CurveEditorState.ViewMinValue) / ValueRange) * CanvasSize.y;
 		DrawList->AddLine(ImVec2(CanvasPos.x, zeroY), ImVec2(CanvasPos.x + CanvasSize.x, zeroY), AxisColor, 2.0f);
+	}
+
+	// 0 축 강조 (시간이 0인 수직선)
+	if (CurveEditorState.ViewMinTime < 0 && CurveEditorState.ViewMaxTime > 0)
+	{
+		float zeroX = CanvasPos.x +
+			((0 - CurveEditorState.ViewMinTime) / TimeRange) * CanvasSize.x;
+		DrawList->AddLine(ImVec2(zeroX, CanvasPos.y), ImVec2(zeroX, CanvasPos.y + CanvasSize.y), AxisColor, 2.0f);
 	}
 }
 
