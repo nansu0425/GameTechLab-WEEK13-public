@@ -2646,7 +2646,6 @@ void SParticleEditorWindow::SaveParticleSystem()
 		UResourceManager::GetInstance().AddOrReplace<UParticleSystem>(State->CurrentFilePath, State->EditingTemplate);
 
 		UE_LOG("[SParticleEditorWindow] 파티클 시스템 저장 완료: %s", State->CurrentFilePath.c_str());
-		UE_LOG("[SParticleEditorWindow] AddOrReplace 경로: %s", State->CurrentFilePath.c_str());
 	}
 	else
 	{
