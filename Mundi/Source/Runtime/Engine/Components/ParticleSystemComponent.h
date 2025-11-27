@@ -30,6 +30,9 @@ public:
 	UPROPERTY(EditAnywhere, Category="Particle System")
 	UParticleSystem* Template = nullptr;
 
+	// PIE/Game 모드에서 복제된 Template인지 여부 (복제된 경우 컴포넌트가 소유권 가짐)
+	bool bOwnsTemplate = false;
+
 	UPROPERTY(EditAnywhere, Category="Particle System")
 	bool bAutoActivate = true;
 

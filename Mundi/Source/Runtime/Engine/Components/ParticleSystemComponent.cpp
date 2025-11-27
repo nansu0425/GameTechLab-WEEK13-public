@@ -24,6 +24,7 @@
 #include "Modules/ParticleModuleAcceleration.h"
 #include "Modules/ParticleModuleCollision.h"
 #include "World.h"
+#include "ObjectFactory.h"
 #include "ParticleEventManager.h"
 
 // Quad 버텍스 구조체 (UV만 포함)
@@ -88,6 +89,14 @@ UParticleSystemComponent::~UParticleSystemComponent()
 	if (EmitterInstances.Num() > 0)
 	{
 		ClearEmitterInstances();
+	}
+
+	// PIE/Game 모드에서 복제된 Template 정리
+	if (bOwnsTemplate && Template)
+	{
+		DeleteObject(Template);
+		Template = nullptr;
+		bOwnsTemplate = false;
 	}
 
 	if (EmitterRenderData.Num() > 0)
@@ -836,16 +845,35 @@ void UParticleSystemComponent::SetTemplate(UParticleSystem* NewTemplate)
 {
 	if (Template != NewTemplate)
 	{
-		Template = NewTemplate;
-
 		// 기존 이미터 인스턴스가 있으면 정리
 		if (EmitterInstances.Num() > 0)
 		{
 			ClearEmitterInstances();
 		}
 
+		// 기존에 복제된 Template이 있으면 정리
+		if (bOwnsTemplate && Template)
+		{
+			DeleteObject(Template);
+			Template = nullptr;
+			bOwnsTemplate = false;
+		}
+
+		// PIE/Game 모드면 Template 복제 (원본 에셋 보호)
+		UWorld* World = GetWorld();
+		if (NewTemplate && World && World->GetWorldType() == EWorldType::Game)
+		{
+			Template = NewTemplate->Duplicate();
+			bOwnsTemplate = true;
+		}
+		else
+		{
+			Template = NewTemplate;
+			bOwnsTemplate = false;
+		}
+
 		// 새 Template이 유효하고 World에 등록되어 있으면 초기화
-		if (Template && GetWorld())
+		if (Template && World)
 		{
 			InitializeEmitterInstances();
 		}
