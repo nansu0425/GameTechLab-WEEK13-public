@@ -4,6 +4,7 @@
 #include "Source/Runtime/Engine/Viewer/ParticleEditorBootstrap.h"
 #include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 #include "PlatformProcess.h"
+#include "PathUtils.h"
 #include "ParticleSystem.h"
 #include "ParticleEmitter.h"
 #include "ParticleLODLevel.h"
@@ -3503,8 +3504,8 @@ void SParticleEditorWindow::SaveParticleSystemAs()
 		return;
 	}
 
-	// std::filesystem::path를 FString으로 변환 (상대 경로로 변환)
-	FString SavePathStr = ResolveAssetRelativePath(NormalizePath(SavePath.string()), "");
+	// std::filesystem::path를 FString으로 변환 (UTF-16 → UTF-8, 상대 경로로 변환)
+	FString SavePathStr = ResolveAssetRelativePath(NormalizePath(WideToUTF8(SavePath.wstring())), "");
 
 	// 파일로 저장
 	if (ParticleEditorBootstrap::SaveParticleSystem(State->EditingTemplate, SavePathStr))
@@ -3562,8 +3563,8 @@ void SParticleEditorWindow::LoadParticleSystem()
 		return;
 	}
 
-	// std::filesystem::path를 FString으로 변환
-	FString LoadPathStr = LoadPath.string();
+	// std::filesystem::path를 FString으로 변환 (UTF-16 → UTF-8)
+	FString LoadPathStr = WideToUTF8(LoadPath.wstring());
 
 	// 파일에서 파티클 시스템 로드
 	UParticleSystem* LoadedSystem = ParticleEditorBootstrap::LoadParticleSystem(LoadPathStr);

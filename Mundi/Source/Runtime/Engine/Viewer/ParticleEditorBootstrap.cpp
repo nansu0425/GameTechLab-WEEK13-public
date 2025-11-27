@@ -18,6 +18,7 @@
 #include "Modules/ParticleModuleTypeDataSprite.h"
 #include "JsonSerializer.h"
 #include "EditorAssetPreviewContext.h"
+#include "PathUtils.h"
 #include "Source/Runtime/Engine/Components/LineComponent.h"
 
 // 원점축 라인 생성 헬퍼 함수
@@ -274,8 +275,8 @@ bool ParticleEditorBootstrap::SaveParticleSystem(UParticleSystem* System, const 
 	// ParticleSystem 직렬화 (false = 저장 모드)
 	System->Serialize(false, JsonHandle);
 
-	// FString을 FWideString으로 변환
-	FWideString WidePath(FilePath.begin(), FilePath.end());
+	// FString을 FWideString으로 변환 (UTF-8 → UTF-16)
+	FWideString WidePath = UTF8ToWide(FilePath);
 
 	// 파일로 저장
 	if (!FJsonSerializer::SaveJsonToFile(JsonHandle, WidePath))
@@ -308,8 +309,8 @@ UParticleSystem* ParticleEditorBootstrap::LoadParticleSystem(const FString& File
 		return ExistingSystem;
 	}
 
-	// FString을 FWideString으로 변환
-	FWideString WidePath(NormalizedFilePath.begin(), NormalizedFilePath.end());
+	// FString을 FWideString으로 변환 (UTF-8 → UTF-16)
+	FWideString WidePath = UTF8ToWide(NormalizedFilePath);
 
 	// 파일에서 JSON 로드
 	JSON JsonHandle;
