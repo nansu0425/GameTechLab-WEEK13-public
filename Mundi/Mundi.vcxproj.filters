@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <FxCompile Include="Shaders\Materials\Fireball.hlsl">
@@ -708,6 +708,9 @@
       <Filter>Source\Slate\Windows</Filter>
     </ClCompile>
     <ClCompile Include="Source\Slate\Widgets\PropertyRenderer.cpp">
+      <Filter>Source\Slate\Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Slate\Widgets\CurveEditorWidget.cpp">
       <Filter>Source\Slate\Widgets</Filter>
     </ClCompile>
     <ClCompile Include="Source\Slate\Widgets\ConsoleWidget.cpp">
@@ -1807,6 +1810,9 @@
       <Filter>Source\Slate\Windows</Filter>
     </ClInclude>
     <ClInclude Include="Source\Slate\Widgets\PropertyRenderer.h">
+      <Filter>Source\Slate\Widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Slate\Widgets\CurveEditorWidget.h">
       <Filter>Source\Slate\Widgets</Filter>
     </ClInclude>
     <ClInclude Include="Source\Slate\Widgets\ConsoleWidget.h">
