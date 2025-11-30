@@ -1151,6 +1151,9 @@
     <ClCompile Include="Generated\UBodySetupCore.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
+    <ClCompile Include="Generated\UPhysicsAsset.generated.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Generated\UParticleModuleSizeScaleBySpeed.generated.h">
@@ -2430,6 +2433,9 @@
       <Filter>Source\Runtime\Engine\GameFramework</Filter>
     </ClInclude>
     <ClInclude Include="Generated\UBodySetupCore.generated.h">
+      <Filter>Generated</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UPhysicsAsset.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
   </ItemGroup>

@@ -39,11 +39,7 @@ FConstraintInstance::FConstraintInstance()
 
 FConstraintInstance::~FConstraintInstance()
 {
-    if (Joint)
-    {
-        Joint->release();
-        Joint = nullptr;
-    }
+    Reset();
 }
 
 void FConstraintInstance::Initialize(const FConstraintFrame& ChildFrame, const FConstraintFrame& ParentFrame)
@@ -114,6 +110,14 @@ void FConstraintInstance::UpdateProfile()
         PxJointLimitCone ConeLimit(YLimitRad, ZLimitRad, 0.01f);
         ConeLimit.stiffness = 0.0f;
         Joint->setSwingLimit(ConeLimit);
+    }
+
+    if (Profile.LinearMotionX == EJointMotion::Limited ||
+        Profile.LinearMotionY == EJointMotion::Limited ||
+        Profile.LinearMotionZ == EJointMotion::Limited)
+    {
+        PxJointLinearLimit LinearLimit(Profile.LinearLimit, PxSpring(0.0f, 0.0f));
+        Joint->setLinearLimit(LinearLimit);
     }
 
     if (Profile.TwistMotion == EJointMotion::Limited)
