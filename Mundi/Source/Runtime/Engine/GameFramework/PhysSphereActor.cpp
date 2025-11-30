@@ -17,8 +17,8 @@ APhysSphereActor::APhysSphereActor()
     SphereComponent->SetupAttachment(MeshComponent);
 
     // 물리 시뮬레이션 활성화
-    SphereComponent->BodyInstance.bSimulatePhysics = true;
-    SphereComponent->BodyInstance.bEnableGravity = true;
+    SphereComponent->bSimulatePhysics = true;
+    SphereComponent->bEnableGravity = true;
 }
 
 APhysSphereActor::~APhysSphereActor()
@@ -35,9 +35,9 @@ void APhysSphereActor::Tick(float DeltaTime)
     Super::Tick(DeltaTime);
 
     // 물리 결과를 MeshComponent에 반영
-    if (SphereComponent && SphereComponent->BodyInstance.IsInitialized())
+    if (SphereComponent && SphereComponent->HasValidPhysicsState())
     {
-        FTransform PhysTransform = SphereComponent->BodyInstance.GetWorldTransform();
+        FTransform PhysTransform = SphereComponent->GetBodyInstance().GetWorldTransform();
         MeshComponent->SetWorldTransform(PhysTransform);
     }
 }

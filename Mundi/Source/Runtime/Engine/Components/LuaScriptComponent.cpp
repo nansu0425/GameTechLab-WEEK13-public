@@ -40,7 +40,7 @@ void ULuaScriptComponent::BeginPlay()
 			if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Comp))
 			{
 				// 물리 시뮬레이션이 활성화되어 있거나 BodySetup이 있는 컴포넌트 선택
-				if (PrimComp->BodyInstance.bSimulatePhysics || PrimComp->GetBodySetup())
+				if (PrimComp->bSimulatePhysics || PrimComp->GetBodySetup())
 				{
 					BoundPrimitiveComponent = PrimComp;
 					BeginHandleLua = BoundPrimitiveComponent->OnComponentBeginOverlap.AddDynamic(this, &ULuaScriptComponent::OnBeginOverlap);

@@ -112,7 +112,7 @@ void UShapeComponent::TickComponent(float DeltaSeconds)
 {
     // PhysX가 물리/트리거를 처리할 때는 자체 오버랩 검사 스킵
     // (PhysicsEventCallback에서 onTrigger/onContact 이벤트를 처리함)
-    if (BodyInstance.bSimulatePhysics || BodyInstance.bIsTrigger)
+    if (bSimulatePhysics || bIsTrigger)
     {
         return;
     }

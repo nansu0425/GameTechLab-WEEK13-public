@@ -52,30 +52,20 @@ void UPrimitiveComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
     Super::Serialize(bInIsLoading, InOutHandle);
 
-    // BodyInstance 물리 파라미터 직렬화
-    // (런타임 포인터들은 BeginPlay에서 CreatePhysicsState로 생성됨)
+    // 물리 파라미터 직렬화
+    // 프로퍼티(bSimulatePhysics 등)가 단일 진실 원천
+    // BeginPlay에서 프로퍼티 → BodyInstance로 동기화됨
     if (bInIsLoading)
     {
-        // 래퍼 프로퍼티로 읽기
         FJsonSerializer::ReadBool(InOutHandle, "bSimulatePhysics", bSimulatePhysics, false, false);
         FJsonSerializer::ReadBool(InOutHandle, "bEnableGravity", bEnableGravity, true, false);
         FJsonSerializer::ReadBool(InOutHandle, "bIsTrigger", bIsTrigger, false, false);
         FJsonSerializer::ReadFloat(InOutHandle, "MassInKg", BodyInstance.MassInKg, 0.0f, false);
         FJsonSerializer::ReadFloat(InOutHandle, "LinearDamping", BodyInstance.LinearDamping, 0.01f, false);
         FJsonSerializer::ReadFloat(InOutHandle, "AngularDamping", BodyInstance.AngularDamping, 0.05f, false);
-
-        // 래퍼 프로퍼티 → BodyInstance 동기화
-        BodyInstance.bSimulatePhysics = bSimulatePhysics;
-        BodyInstance.bEnableGravity = bEnableGravity;
-        BodyInstance.bIsTrigger = bIsTrigger;
     }
     else
     {
-        // BodyInstance → 래퍼 프로퍼티 동기화 (저장 전)
-        bSimulatePhysics = BodyInstance.bSimulatePhysics;
-        bEnableGravity = BodyInstance.bEnableGravity;
-        bIsTrigger = BodyInstance.bIsTrigger;
-
         InOutHandle["bSimulatePhysics"] = bSimulatePhysics;
         InOutHandle["bEnableGravity"] = bEnableGravity;
         InOutHandle["bIsTrigger"] = bIsTrigger;
@@ -117,8 +107,8 @@ void UPrimitiveComponent::BeginPlay()
 {
     Super::BeginPlay();
 
-    // 에디터에서 설정한 래퍼 프로퍼티 → BodyInstance 동기화
-    // (에디터에서 UPROPERTY 값을 변경하면 래퍼 프로퍼티만 변경되므로)
+    // 프로퍼티 → BodyInstance 동기화
+    // 프로퍼티가 단일 진실 원천 (에디터/코드 모두 프로퍼티를 통해 설정)
     BodyInstance.bSimulatePhysics = bSimulatePhysics;
     BodyInstance.bEnableGravity = bEnableGravity;
     BodyInstance.bIsTrigger = bIsTrigger;
