@@ -269,23 +269,8 @@ bool FPhysSceneImpl::CreateScene(UWorld* InOwningWorld)
 
 void FPhysSceneImpl::StartFrame()
 {
-    if (!PScene)
-        return;
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // 비동기 모드: 이전 프레임 결과 수집
-    // ═══════════════════════════════════════════════════════════════════════
-    if (bAsyncSimulation && bSimulationPending)
-    {
-        // 이전 프레임의 시뮬레이션 결과 수집
-        // (일반적으로 프레임 시작 시점에는 시뮬레이션이 완료되어 있음)
-        PScene->fetchResults(true);
-        bSimulationPending = false;
-        bIsSimulating = false;
-
-        // Transform 캡처 (이벤트 콜백은 fetchResults 내부에서 자동 호출됨)
-        CaptureActiveActorsTransform();
-    }
+    // 비동기 모드에서는 EndFrame()에서 fetchResults() 처리
+    // StartFrame()은 확장을 위해 예약 (Pre-simulation 작업 등)
 }
 
 void FPhysSceneImpl::Simulate(float DeltaSeconds)
