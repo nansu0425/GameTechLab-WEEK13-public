@@ -41,7 +41,7 @@ public:
 
 	/** Sphere의 반지름 (로컬 스페이스) */
 	UPROPERTY(EditAnywhere, Category="SphereRadius")
-	float SphereRadius = 50.0f;
+	float SphereRadius = 1.0f;  // UBodySetup::DefaultSphereRadius
 
 	/**
 	 * Sphere 반지름을 설정합니다.

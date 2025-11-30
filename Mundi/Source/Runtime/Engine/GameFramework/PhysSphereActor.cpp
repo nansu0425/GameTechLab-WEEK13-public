@@ -1,49 +1,48 @@
-﻿#include "pch.h"
-#include "PhysBoxActor.h"
+#include "pch.h"
+#include "PhysSphereActor.h"
 #include "StaticMeshComponent.h"
-#include "BoxComponent.h"
+#include "SphereComponent.h"
 
-APhysBoxActor::APhysBoxActor()
+APhysSphereActor::APhysSphereActor()
 {
-    ObjectName = "PhysBox";
+    ObjectName = "PhysSphere";
 
     // 시각화용 StaticMeshComponent 생성
     MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>("MeshComponent");
-    MeshComponent->SetStaticMesh("Data/cube-tex.obj");
+    MeshComponent->SetStaticMesh("Data/Model/Sphere.obj");
     RootComponent = MeshComponent;
 
-    // 물리 충돌용 BoxComponent 생성 (MeshComponent에 부착)
-    BoxComponent = CreateDefaultSubobject<UBoxComponent>("BoxComponent");
-    BoxComponent->SetupAttachment(MeshComponent);
-    BoxComponent->SetBoxExtent(FVector(0.5f, 0.5f, 0.5f));  // cube-tex.obj 크기에 맞춤
+    // 물리 충돌용 SphereComponent 생성 (MeshComponent에 부착)
+    SphereComponent = CreateDefaultSubobject<USphereComponent>("SphereComponent");
+    SphereComponent->SetupAttachment(MeshComponent);
 
     // 물리 시뮬레이션 활성화
-    BoxComponent->bSimulatePhysics = true;
-    BoxComponent->bEnableGravity = true;
+    SphereComponent->bSimulatePhysics = true;
+    SphereComponent->bEnableGravity = true;
 }
 
-APhysBoxActor::~APhysBoxActor()
+APhysSphereActor::~APhysSphereActor()
 {
 }
 
-void APhysBoxActor::BeginPlay()
+void APhysSphereActor::BeginPlay()
 {
     Super::BeginPlay();  // CreatePhysicsState() 자동 호출
 }
 
-void APhysBoxActor::Tick(float DeltaTime)
+void APhysSphereActor::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
     // 물리 결과를 MeshComponent에 반영
-    if (BoxComponent && BoxComponent->HasValidPhysicsState())
+    if (SphereComponent && SphereComponent->HasValidPhysicsState())
     {
-        FTransform PhysTransform = BoxComponent->GetBodyInstance().GetWorldTransform();
+        FTransform PhysTransform = SphereComponent->GetBodyInstance().GetWorldTransform();
         MeshComponent->SetWorldTransform(PhysTransform);
     }
 }
 
-FAABB APhysBoxActor::GetBounds() const
+FAABB APhysSphereActor::GetBounds() const
 {
     if (MeshComponent)
     {
@@ -52,7 +51,7 @@ FAABB APhysBoxActor::GetBounds() const
     return FAABB();
 }
 
-void APhysBoxActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
+void APhysSphereActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
     Super::Serialize(bInIsLoading, InOutHandle);
 
@@ -65,18 +64,18 @@ void APhysBoxActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
             {
                 MeshComponent = Mesh;
             }
-            else if (UBoxComponent* Box = Cast<UBoxComponent>(Component))
+            else if (USphereComponent* Sphere = Cast<USphereComponent>(Component))
             {
-                BoxComponent = Box;
+                SphereComponent = Sphere;
             }
         }
     }
 }
 
-void APhysBoxActor::DuplicateSubObjects()
+void APhysSphereActor::DuplicateSubObjects()
 {
     Super::DuplicateSubObjects();
-    
+
     // 복제된 컴포넌트로 멤버 포인터 업데이트
     for (UActorComponent* Component : OwnedComponents)
     {
@@ -84,9 +83,9 @@ void APhysBoxActor::DuplicateSubObjects()
         {
             MeshComponent = Mesh;
         }
-        else if (UBoxComponent* Box = Cast<UBoxComponent>(Component))
+        else if (USphereComponent* Sphere = Cast<USphereComponent>(Component))
         {
-            BoxComponent = Box;
+            SphereComponent = Sphere;
         }
 	}
 }

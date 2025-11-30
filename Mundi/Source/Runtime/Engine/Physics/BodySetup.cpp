@@ -1,14 +1,16 @@
 ﻿#include "pch.h"
 #include "BodySetup.h"
+#include "PhysicsTypes.h"
 #include "PhysicsCore.h"
-#include "GlobalConsole.h"
 #include "AggregateGeom.h"
-
 #include <PxPhysicsAPI.h>
 
-#include "PhysicsTypes.h"
-
 using namespace physx;
+
+const FVector UBodySetup::DefaultBoxExtent = FVector(0.5f, 0.5f, 0.5f);
+const float UBodySetup::DefaultSphereRadius = 1.0f;
+const float UBodySetup::DefaultCapsuleRadius = 0.5f;
+const float UBodySetup::DefaultCapsuleHalfHeight = 1.0f;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 생성자
@@ -37,15 +39,6 @@ int32 UBodySetup::AddShapesToRigidActor(physx::PxRigidActor* RigidActor, physx::
 
     return static_cast<int32>(RigidActor->getNbShapes());
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 기본값 상수 정의 (단일 정의 지점)
-// ═══════════════════════════════════════════════════════════════════════════
-
-const FVector UBodySetup::DefaultBoxExtent = FVector(0.5f, 0.5f, 0.5f);
-const float UBodySetup::DefaultSphereRadius = 0.5f;
-const float UBodySetup::DefaultCapsuleRadius = 0.5f;
-const float UBodySetup::DefaultCapsuleHalfHeight = 1.0f;
 
 void UBodySetup::AddBoxElems(physx::PxRigidActor* RigidActor, physx::PxMaterial* DefaultMaterial, const FVector& Scale) const
 {

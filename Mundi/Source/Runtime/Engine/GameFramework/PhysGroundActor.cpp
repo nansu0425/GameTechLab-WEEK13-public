@@ -19,8 +19,8 @@ APhysGroundActor::APhysGroundActor()
     BoxComponent->SetBoxExtent(FVector(5.0f, 5.0f, 0.05f));  // 스케일에 맞춤
 
     // 정적 물리 (시뮬레이션 비활성화)
-    BoxComponent->BodyInstance.bSimulatePhysics = false;
-    BoxComponent->BodyInstance.bEnableGravity = false;
+    BoxComponent->bSimulatePhysics = false;
+    BoxComponent->bEnableGravity = false;
 }
 
 APhysGroundActor::~APhysGroundActor()

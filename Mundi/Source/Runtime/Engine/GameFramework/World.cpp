@@ -261,14 +261,27 @@ void UWorld::Tick(float DeltaSeconds)
         Partition->Update(DeltaSeconds, /*budget*/256);
     }
 
-	// 물리 시뮬레이션 (Actor Tick 전에 실행)
+	// ═══════════════════════════════════════════════════════════════════════
+	// 비동기 물리 시뮬레이션 흐름
+	// ═══════════════════════════════════════════════════════════════════════
+	// 1. StartFrame: 이전 프레임 결과 수집 (fetchResults)
+	// 2. Tick: 시뮬레이션 시작 (simulate - 비블로킹)
+	// 3. Actor::Tick: 물리 시뮬레이션과 병렬 실행
+	// 4. EndFrame: 렌더링 전 결과 수집 (fetchResults)
+
+	// 1. 이전 프레임 물리 결과 수집
 	if (PhysScene && PhysScene->IsInitialized())
 	{
 		PhysScene->StartFrame();
-		PhysScene->Tick(GetDeltaTime(EDeltaTime::Game));
-		PhysScene->EndFrame();
 	}
 
+	// 2. 새 물리 시뮬레이션 시작 (비블로킹)
+	if (PhysScene && PhysScene->IsInitialized())
+	{
+		PhysScene->Tick(GetDeltaTime(EDeltaTime::Game));
+	}
+
+	// 3. Actor Tick (물리 시뮬레이션과 병렬 실행)
 	if (Level)
 	{
 		// Tick 중에 새로운 actor가 추가될 수도 있어서 복사 후 호출
@@ -310,6 +323,12 @@ void UWorld::Tick(float DeltaSeconds)
 	if (CollisionManager)
 	{
 		CollisionManager->UpdateCollisions(GetDeltaTime(EDeltaTime::Game));
+	}
+
+	// 4. 렌더링 전 물리 결과 수집 (시뮬레이션 완료 대기)
+	if (PhysScene && PhysScene->IsInitialized())
+	{
+		PhysScene->EndFrame();
 	}
 }
 

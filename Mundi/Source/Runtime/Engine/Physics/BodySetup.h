@@ -86,7 +86,7 @@ public:
     /** Sphere/Capsule 형상용 - 반지름 */
     float SphereRadius;
 
-    /** Capsule 형상용 - Half Height (반구 제외) */
+    /** Capsule 형상용 - Half Height (언리얼 방식: 반구 끝까지 포함한 전체 높이의 절반) */
     float CapsuleHalfHeight;
 
 private:
