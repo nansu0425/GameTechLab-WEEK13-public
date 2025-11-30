@@ -17,6 +17,7 @@ protected:
 
     virtual void RenderHierarchySection() override;
     void RenderPhysicsBodyHierarchy();
+    void RenderToolsPanel();
 
 private:
     // Load a skeletal mesh into the active tab
@@ -24,4 +25,7 @@ private:
 
     // ImGui draw callback for viewport rendering
     static void ViewportRenderCallback(const ImDrawList* parent_list, const ImDrawCmd* cmd);
+
+    // Physics body visualization
+    EPrimitiveType SelectedPrimitiveType = EPrimitiveType::Sphere;
 };

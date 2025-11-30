@@ -219,15 +219,23 @@ void SPhysicsAssetEditorWindow::OnRender()
 
         ImGui::SameLine(0, 0); // No spacing between panels
 
-        // Right panel - Bone Properties
+        // Right panel - Bone Properties & Tools
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
         ImGui::BeginChild("RightPanel", ImVec2(rightWidth, totalHeight), true);
         ImGui::PopStyleVar();
-        RenderRightPanel();
-        ImGui::EndChild(); // RightPanel
+        {
+            float propertiesHeight = ImGui::GetContentRegionAvail().y * 0.5f;
 
-        // Pop the ItemSpacing style
-        ImGui::PopStyleVar();
+            ImGui::BeginChild("BonePropertiesArea", ImVec2(0, propertiesHeight), false);
+            RenderRightPanel();
+            ImGui::EndChild();
+            
+            ImGui::BeginChild("ToolsArea", ImVec2(0, 0), false);
+            RenderToolsPanel();
+            ImGui::EndChild();
+        }
+        ImGui::EndChild(); // RightPanel
+        ImGui::PopStyleVar();   // Pop the ItemSpacing style
     }
     ImGui::End();
 
@@ -339,6 +347,66 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
     //       - Show parent bones if any descendant has a Physics Body
     //       - Hide bones unrelated to Physics Assets
     //       - Highlight and select bodies for editing in the viewport
+}
+
+void SPhysicsAssetEditorWindow::RenderToolsPanel()
+{
+    // Panel Header
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6);
+    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.30f, 0.30f, 0.30f, 0.8f));
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
+    ImGui::Text("TOOLS");
+    ImGui::PopFont();
+    ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 6));
+    ImGui::Spacing();
+    ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.35f, 0.35f, 0.35f, 0.6f));
+    ImGui::Separator();
+    ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 8));
+    ImGui::Spacing();
+
+    // Body Creation Section
+    ImGui::Selectable("Body Creation", false, ImGuiSelectableFlags_Disabled, ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeightWithSpacing() + 4.0f));
+    ImGui::Dummy(ImVec2(0, 4));
+
+    // Select Primitive Type
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.2f, 2.2f));
+    ImGui::RadioButton("Sphere", (int*)&SelectedPrimitiveType, (int)EPrimitiveType::Sphere);
+    ImGui::SameLine(0, 8.0f);
+    ImGui::RadioButton("Box", (int*)&SelectedPrimitiveType, (int)EPrimitiveType::Box);
+    ImGui::SameLine(0, 8.0f);
+    ImGui::RadioButton("Capsule", (int*)&SelectedPrimitiveType, (int)EPrimitiveType::Capsule);
+    ImGui::PopStyleVar();
+
+    ImGui::Dummy(ImVec2(0, 5));
+
+    // [Generate All Bodies] button
+    // Activated only when a Skeletal Mesh is loaded
+    if (!ActiveState || !ActiveState->CurrentMesh)
+    {
+        ImGui::BeginDisabled();
+    }
+
+    if (ImGui::Button("Generate All Bodies", ImVec2(-1, 30)))
+    {
+        // TODO: Implement the logic to create UBodySetups for all bodies 
+        // in the UPhysicsAsset using the selected PrimitiveType.
+        // Currently, it only prints a debug message.
+        const char* TypeStr = "";
+        switch (SelectedPrimitiveType)
+        {
+        case EPrimitiveType::Sphere: TypeStr = "Sphere"; break;
+        case EPrimitiveType::Box:    TypeStr = "Box";    break;
+        case EPrimitiveType::Capsule:TypeStr = "Capsule"; break;
+        }
+        UE_LOG("GENERATE ALL BODIES: PrimitiveType = %s", TypeStr);
+    }
+
+    if (!ActiveState || !ActiveState->CurrentMesh)
+    {
+        ImGui::EndDisabled();
+    }
 }
 
 void SPhysicsAssetEditorWindow::LoadSkeletalMesh(ViewerState* State, const FString& Path)

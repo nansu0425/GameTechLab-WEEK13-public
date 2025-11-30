@@ -132,6 +132,8 @@ enum class EPrimitiveType : uint32
 
     Default,
     Sphere,
+    Box,
+    Capsule,
 
     End,
 };
