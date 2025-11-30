@@ -31,16 +31,24 @@ ULuaScriptComponent::~ULuaScriptComponent()
 
 void ULuaScriptComponent::BeginPlay()
 {
-	// 델리게이트 등록 - Owner의 첫 번째 PrimitiveComponent에 바인딩
+	// 델리게이트 등록 - 물리 시뮬레이션이 활성화된 PrimitiveComponent에 바인딩
 	if (AActor* Owner = GetOwner())
 	{
-		// Owner의 PrimitiveComponent를 찾아서 델리게이트 등록
-		if (UActorComponent* Comp = Owner->GetComponent(UPrimitiveComponent::StaticClass()))
+		// 물리 시뮬레이션이 활성화된 컴포넌트를 우선적으로 찾음
+		for (UActorComponent* Comp : Owner->GetOwnedComponents())
 		{
-			BoundPrimitiveComponent = static_cast<UPrimitiveComponent*>(Comp);
-			BeginHandleLua = BoundPrimitiveComponent->OnComponentBeginOverlap.AddDynamic(this, &ULuaScriptComponent::OnBeginOverlap);
-			EndHandleLua = BoundPrimitiveComponent->OnComponentEndOverlap.AddDynamic(this, &ULuaScriptComponent::OnEndOverlap);
-			HitHandleLua = BoundPrimitiveComponent->OnComponentHit.AddDynamic(this, &ULuaScriptComponent::OnHit);
+			if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Comp))
+			{
+				// 물리 시뮬레이션이 활성화되어 있거나 BodySetup이 있는 컴포넌트 선택
+				if (PrimComp->BodyInstance.bSimulatePhysics || PrimComp->GetBodySetup())
+				{
+					BoundPrimitiveComponent = PrimComp;
+					BeginHandleLua = BoundPrimitiveComponent->OnComponentBeginOverlap.AddDynamic(this, &ULuaScriptComponent::OnBeginOverlap);
+					EndHandleLua = BoundPrimitiveComponent->OnComponentEndOverlap.AddDynamic(this, &ULuaScriptComponent::OnEndOverlap);
+					HitHandleLua = BoundPrimitiveComponent->OnComponentHit.AddDynamic(this, &ULuaScriptComponent::OnHit);
+					break;
+				}
+			}
 		}
 	}
 
