@@ -71,7 +71,7 @@ void SPhysicsAssetEditorWindow::OnRender()
         /*if (!ImGui::BeginTabBar("SkeletalViewerTabs",
             ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_Reorderable))
             return;*/
-        RenderTabsAndToolbar(EViewerType::Skeletal);
+        RenderTabsAndToolbar(EViewerType::PhysicsAsset);
 
         // 마지막 탭을 닫은 경우 렌더링 중단
         if (!bIsOpen)

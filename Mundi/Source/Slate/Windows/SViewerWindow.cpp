@@ -7,6 +7,7 @@
 #include "SSkeletalMeshViewerWindow.h"
 #include "SAnimationViewerWindow.h"
 #include "SBlendSpaceEditorWindow.h"
+#include "SPhysicsAssetEditorWindow.h"
 #include "Source/Editor/FBXLoader.h"
 #include "Source/Editor/PlatformProcess.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
@@ -159,6 +160,11 @@ SViewerWindow::~SViewerWindow()
 		DeleteObject(IconBlendSpaceEditor);
 		IconBlendSpaceEditor = nullptr;
 	}
+    if (IconPhysicsAssetEditor)
+    {
+        DeleteObject(IconPhysicsAssetEditor);
+        IconPhysicsAssetEditor = nullptr;
+    }
 }
 
 static inline FString GetBaseFilenameFromPath(const FString& InPath)
@@ -471,7 +477,8 @@ void SViewerWindow::RenderViewerButton(EViewerType ViewerType, EViewerType Curre
         {
             if ((ViewerType == EViewerType::Skeletal && dynamic_cast<SSkeletalMeshViewerWindow*>(Window)) ||
                 (ViewerType == EViewerType::Animation && dynamic_cast<SAnimationViewerWindow*>(Window)) ||
-                (ViewerType == EViewerType::BlendSpace && dynamic_cast<SBlendSpaceEditorWindow*>(Window)))
+                (ViewerType == EViewerType::BlendSpace && dynamic_cast<SBlendSpaceEditorWindow*>(Window)) ||
+                (ViewerType == EViewerType::PhysicsAsset && dynamic_cast<SPhysicsAssetEditorWindow*>(Window)))
             {
                 TargetWindow = static_cast<SViewerWindow*>(Window);
                 break;
@@ -598,7 +605,7 @@ void SViewerWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
     const float framePaddingX = ImGui::GetStyle().FramePadding.x;
     const float spacingX = ImGui::GetStyle().ItemSpacing.x;
     const float singleButtonTotalWidth = IconSizeVec.x + framePaddingX * 2;
-    const float totalButtonsWidth = (singleButtonTotalWidth * 3) + (spacingX * 2);
+    const float totalButtonsWidth = (singleButtonTotalWidth * 4) + (spacingX * 3);
 
     // Right-align the button group
     float availableWidth = ImGui::GetContentRegionAvail().x;
@@ -635,6 +642,17 @@ void SViewerWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
         "##BlendSpaceBtn",
         "BlendSpace Editor",
         IconBlendSpaceEditor
+    );
+    ImGui::SameLine();
+
+    // ----------------------------------------------------
+    // Physics Asset Editor Button
+    // ----------------------------------------------------
+    RenderViewerButton(EViewerType::PhysicsAsset,
+        CurrentViewerType,
+        "##PhysicsAssetBtn",
+        "Physics Asset Editor",
+        IconPhysicsAssetEditor
     );
 
     ImGui::EndChild();
@@ -1418,6 +1436,9 @@ void SViewerWindow::LoadViewerToolbarIcons(ID3D11Device* Device)
 
     IconBlendSpaceEditor = NewObject<UTexture>();
     IconBlendSpaceEditor->Load(GDataDir + "/Icon/BlendSpace_Editor.png", Device);
+
+    IconPhysicsAssetEditor = NewObject<UTexture>();
+    IconPhysicsAssetEditor->Load(GDataDir + "/Icon/PhysicsAsset_Editor.png", Device);
 }
 
 AGizmoActor* SViewerWindow::GetGizmoActor()

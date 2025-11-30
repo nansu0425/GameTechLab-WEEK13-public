@@ -162,4 +162,5 @@ private:
 	class UTexture* IconSkeletalViewer = nullptr;
 	class UTexture* IconAnimationViewer = nullptr;
 	class UTexture* IconBlendSpaceEditor = nullptr;
+	class UTexture* IconPhysicsAssetEditor = nullptr;
 };
