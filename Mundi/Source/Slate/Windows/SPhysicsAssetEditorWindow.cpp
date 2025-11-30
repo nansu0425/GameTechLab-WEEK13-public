@@ -325,6 +325,22 @@ void SPhysicsAssetEditorWindow::DestroyViewerState(ViewerState*& State)
     PhysicsAssetEditorBootstrap::DestroyViewerState(State);
 }
 
+void SPhysicsAssetEditorWindow::RenderHierarchySection()
+{
+    RenderPhysicsBodyHierarchy();
+}
+
+void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
+{
+    // TODO: Render a filtered skeleton tree that displays only bones
+    //       associated with Physics Bodies (UBodySetup entries).
+    //       This should replicate PhAT-style grouping:
+    //       - Show bones that have Physics Bodies
+    //       - Show parent bones if any descendant has a Physics Body
+    //       - Hide bones unrelated to Physics Assets
+    //       - Highlight and select bodies for editing in the viewport
+}
+
 void SPhysicsAssetEditorWindow::LoadSkeletalMesh(ViewerState* State, const FString& Path)
 {
     if (!State || Path.empty())

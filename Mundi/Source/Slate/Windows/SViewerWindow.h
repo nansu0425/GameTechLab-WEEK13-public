@@ -92,6 +92,10 @@ protected:
 	virtual void RenderRightPanel();
 	virtual void RenderBottomPanel() {};
 
+	virtual void RenderHierarchySection();
+	void RenderAssetBrowser(float PanelWidth);
+	void RenderBoneHierarchy();
+
 	/**
 	 * Virtual hook called after a skeletal mesh is successfully loaded from the asset browser
 	 * Derived classes can override this to perform custom post-load processing
