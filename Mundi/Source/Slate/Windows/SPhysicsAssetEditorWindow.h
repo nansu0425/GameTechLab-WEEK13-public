@@ -15,6 +15,9 @@ protected:
     virtual void DestroyViewerState(ViewerState*& State) override;
     virtual FString GetWindowTitle() const override { return "Physics Asset Editor"; }
 
+    virtual void RenderHierarchySection() override;
+    void RenderPhysicsBodyHierarchy();
+
 private:
     // Load a skeletal mesh into the active tab
     void LoadSkeletalMesh(ViewerState* State, const FString& Path);
