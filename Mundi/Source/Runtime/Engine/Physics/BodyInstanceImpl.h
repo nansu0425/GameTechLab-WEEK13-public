@@ -54,4 +54,6 @@ public:
      * @return PxRigidDynamic 포인터 (Dynamic이 아니면 nullptr)
      */
     physx::PxRigidDynamic* GetPxRigidDynamic() const;
+
+    physx::PxRigidActor* GetPxRigidActor() const { return RigidActorSync; }
 };

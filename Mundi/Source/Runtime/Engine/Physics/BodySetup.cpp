@@ -7,7 +7,6 @@
 #include <PxPhysicsAPI.h>
 
 #include "PhysicsTypes.h"
-#include "Shape/ConvexElem.h"
 
 using namespace physx;
 
@@ -16,6 +15,9 @@ using namespace physx;
 // ═══════════════════════════════════════════════════════════════════════════
 
 UBodySetup::UBodySetup()
+    : BoxExtent(DefaultBoxExtent)
+    , SphereRadius(DefaultSphereRadius)
+    , CapsuleHalfHeight(DefaultCapsuleHalfHeight)
 {
 }
 
@@ -199,15 +201,4 @@ void UBodySetup::AddConvexElems(physx::PxRigidActor* RigidActor, physx::PxMateri
             }
         }        
     }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 생성자
-// ═══════════════════════════════════════════════════════════════════════════
-
-UBodySetup::UBodySetup()
-    : BoxExtent(DefaultBoxExtent)
-    , SphereRadius(DefaultSphereRadius)
-    , CapsuleHalfHeight(DefaultCapsuleHalfHeight)
-{
 }

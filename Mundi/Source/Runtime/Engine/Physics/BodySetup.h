@@ -16,6 +16,7 @@
 #include "Vector.h"
 #include "UBodySetup.generated.h"
 #include "AggregateGeom.h"
+#include "BodySetupCore.h"
 
 
 /**
@@ -40,7 +41,7 @@ enum class EBodySetupType : uint8
  * 실제 PhysX Shape 생성은 BodySetupImpl.h의 BodySetupHelper에서 담당합니다.
  */
 UCLASS(DisplayName = "충돌 기하 데이터", Description = "공유 가능한 충돌 기하 데이터 입니다")
-class UBodySetup : public UObject
+class UBodySetup : public UBodySetupCore
 {
 public:
     GENERATED_REFLECTION_BODY()
@@ -87,6 +88,7 @@ public:
 
     /** Capsule 형상용 - Half Height (반구 제외) */
     float CapsuleHalfHeight;
+
 private:
     void AddBoxElems(
         physx::PxRigidActor* RigidActor,
@@ -106,5 +108,5 @@ private:
     void AddConvexElems(
         physx::PxRigidActor* RigidActor,
         physx::PxMaterial* DefaultMaterial,
-        const FVector& Scale) const; 
+        const FVector& Scale) const;
 };
