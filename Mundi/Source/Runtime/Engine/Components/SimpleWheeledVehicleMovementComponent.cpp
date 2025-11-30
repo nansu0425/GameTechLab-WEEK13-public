@@ -6,6 +6,8 @@
 #include "PhysicsCore.h"
 #include "SceneComponent.h"
 #include "StaticMeshComponent.h"
+#include "SkeletalMeshComponent.h"
+#include "World.h"
 
 #include <PxPhysicsAPI.h>
 
@@ -21,6 +23,24 @@ USimpleWheeledVehicleMovementComponent::USimpleWheeledVehicleMovementComponent()
 }
 
 USimpleWheeledVehicleMovementComponent::~USimpleWheeledVehicleMovementComponent() = default;
+
+void USimpleWheeledVehicleMovementComponent::OnRegister(UWorld* InWorld)
+{
+    Super::OnRegister(InWorld);
+    CacheUpdatedComponent();
+}
+
+void USimpleWheeledVehicleMovementComponent::OnUnregister()
+{
+    CleanupVehiclePhysX();
+    Super::OnUnregister();
+}
+
+void USimpleWheeledVehicleMovementComponent::EndPlay()
+{
+    CleanupVehiclePhysX();
+    Super::EndPlay();
+}
 
 void USimpleWheeledVehicleMovementComponent::TickComponent(float DeltaTime)
 {
@@ -90,17 +110,17 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
         return true;
     }
 
-    if (!CachedBodyMesh)
+    if (!CachedBodyComponent)
     {
         CacheUpdatedComponent();
     }
 
-    if (!CachedBodyMesh)
+    if (!CachedBodyComponent)
     {
-        if (!bWarnedMissingBodyMesh)
+        if (!bWarnedMissingBodyComponent)
         {
-            UE_LOG("[VehicleMovement] Body mesh not found. Assign a StaticMeshComponent as the updated component.");
-            bWarnedMissingBodyMesh = true;
+            UE_LOG("[VehicleMovement] Body component not found. Assign a StaticMeshComponent or SkeletalMeshComponent as the updated component.");
+            bWarnedMissingBodyComponent = true;
         }
         return false;
     }
@@ -148,7 +168,7 @@ void USimpleWheeledVehicleMovementComponent::PerformSuspensionRaycasts()
         return;
     }
 
-    // TODO: PxVehicleSuspensionRaycasts 호출
+    // TODO: PhysX 3.4 이후 deprecated된 PxBatchQuery 대신 PxScene::raycast를 휠 개수만큼 호출하는 방식으로 구현
 }
 
 void USimpleWheeledVehicleMovementComponent::SimulateVehicle(float DeltaTime)
@@ -163,7 +183,7 @@ void USimpleWheeledVehicleMovementComponent::SimulateVehicle(float DeltaTime)
 
 void USimpleWheeledVehicleMovementComponent::UpdateVehiclePoseFromPhysX()
 {
-    if (!bVehicleInitialized || !PxVehicleDrive4WInstance || !CachedBodyMesh)
+    if (!bVehicleInitialized || !PxVehicleDrive4WInstance || !CachedBodyComponent)
     {
         return;
     }
@@ -173,13 +193,13 @@ void USimpleWheeledVehicleMovementComponent::UpdateVehiclePoseFromPhysX()
 
 void USimpleWheeledVehicleMovementComponent::CacheUpdatedComponent()
 {
-    if (CachedBodyMesh && CachedBodyMesh->GetOwner() == Owner)
+    if (CachedBodyComponent && CachedBodyComponent->GetOwner() == Owner)
     {
         return;
     }
 
-    CachedBodyMesh = Cast<UStaticMeshComponent>(UpdatedComponent);
-    if (CachedBodyMesh)
+    CachedBodyComponent = UpdatedComponent;
+    if (CachedBodyComponent)
     {
         return;
     }
@@ -193,15 +213,49 @@ void USimpleWheeledVehicleMovementComponent::CacheUpdatedComponent()
     {
         if (USceneComponent* RootComp = OwnerActor->GetRootComponent())
         {
-            CachedBodyMesh = Cast<UStaticMeshComponent>(RootComp);
+            CachedBodyComponent = RootComp;
         }
 
-        if (!CachedBodyMesh)
+        if (!CachedBodyComponent)
+        {
+            if (UActorComponent* FoundComp = OwnerActor->GetComponent(USkeletalMeshComponent::StaticClass()))
+            {
+                CachedBodyComponent = Cast<USceneComponent>(FoundComp);
+            }
+        }
+
+        if (!CachedBodyComponent)
         {
             if (UActorComponent* FoundComp = OwnerActor->GetComponent(UStaticMeshComponent::StaticClass()))
             {
-                CachedBodyMesh = Cast<UStaticMeshComponent>(FoundComp);
+                CachedBodyComponent = Cast<USceneComponent>(FoundComp);
             }
         }
     }
+}
+
+void USimpleWheeledVehicleMovementComponent::CleanupVehiclePhysX()
+{
+    if (PxVehicleDrive4WInstance)
+    {
+        PxVehicleDrive4WInstance->free();
+        PxVehicleDrive4WInstance = nullptr;
+    }
+
+    PxVehicleWheelsInstance = nullptr;
+
+    if (PxVehicleActor)
+    {
+        if (physx::PxScene* Scene = PxVehicleActor->getScene())
+        {
+            Scene->removeActor(*PxVehicleActor);
+        }
+        PxVehicleActor->release();
+        PxVehicleActor = nullptr;
+    }
+
+    bVehicleInitialized = false;
+    bWarnedMissingBodyComponent = false;
+    bWarnedPhysicsUninitialized = false;
+    bWarnedWheelSetup = false;
 }

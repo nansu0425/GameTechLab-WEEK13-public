@@ -9,9 +9,10 @@ namespace physx
     class PxVehicleWheelsSimData;
     class PxVehicleDrive4W;
     class PxVehicleWheels;
+    class PxRigidDynamic;
 }
 
-class UStaticMeshComponent;
+class USkeletalMeshComponent;
 
 /** 휠 설정에 필요한 최소 정보 */
 struct FWheelSetup
@@ -34,6 +35,10 @@ public:
 protected:
     ~USimpleWheeledVehicleMovementComponent() override;
 public:
+    // 등록/해제/EndPlay 훅
+    void OnRegister(UWorld* InWorld) override;
+    void OnUnregister() override;
+    void EndPlay() override;
 
     // UActorComponent 인터페이스 오버라이드
     void TickComponent(float DeltaTime) override;
@@ -95,6 +100,9 @@ protected:
     /** PxVehicleWheels 인스턴스 (바퀴 시뮬레이션 데이터 포함) */
     physx::PxVehicleWheels* PxVehicleWheelsInstance = nullptr;
 
+    /** 차량 차체로 사용할 Dynamic Actor */
+    physx::PxRigidDynamic* PxVehicleActor = nullptr;
+
     /** 사용자 입력 상태 저장 */
     float ThrottleInput;
     float SteeringInput;
@@ -118,17 +126,20 @@ protected:
     /** PhysX 결과로부터 차체 및 휠의 포즈를 업데이트 */
     void UpdateVehiclePoseFromPhysX();
 
+    /** Vehicle 관련 PhysX 리소스 정리 */
+    void CleanupVehiclePhysX();
+
     /** 루트 메시에 대한 핸들 캐싱 (PhysX 바디 생성 시 사용) */
     void CacheUpdatedComponent();
 
-    /** 차량 본체로 사용할 스태틱 메시 핸들 */
-    UStaticMeshComponent* CachedBodyMesh = nullptr;
+    /** 차량 본체로 사용할 메시 핸들 (스태틱/스켈레탈 공용) */
+    USceneComponent* CachedBodyComponent = nullptr;
 
     /** 초기화 진행 여부 */
     bool bVehicleInitialized = false;
 
     /** 반복 로그 방지를 위한 상태 플래그 */
-    bool bWarnedMissingBodyMesh = false;
+    bool bWarnedMissingBodyComponent = false;
     bool bWarnedPhysicsUninitialized = false;
     bool bWarnedWheelSetup = false;
 };
