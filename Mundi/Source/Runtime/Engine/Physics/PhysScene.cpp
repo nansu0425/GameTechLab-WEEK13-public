@@ -269,7 +269,23 @@ bool FPhysSceneImpl::CreateScene(UWorld* InOwningWorld)
 
 void FPhysSceneImpl::StartFrame()
 {
-    // Pre-simulation 작업 (추후 확장)
+    if (!PScene)
+        return;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 비동기 모드: 이전 프레임 결과 수집
+    // ═══════════════════════════════════════════════════════════════════════
+    if (bAsyncSimulation && bSimulationPending)
+    {
+        // 이전 프레임의 시뮬레이션 결과 수집
+        // (일반적으로 프레임 시작 시점에는 시뮬레이션이 완료되어 있음)
+        PScene->fetchResults(true);
+        bSimulationPending = false;
+        bIsSimulating = false;
+
+        // Transform 캡처 (이벤트 콜백은 fetchResults 내부에서 자동 호출됨)
+        CaptureActiveActorsTransform();
+    }
 }
 
 void FPhysSceneImpl::Simulate(float DeltaSeconds)
@@ -278,15 +294,48 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
         return;
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Fixed Timestep 물리 시뮬레이션 + 렌더 보간
+    // 비동기 물리 시뮬레이션 (언리얼 엔진 스타일)
     // ═══════════════════════════════════════════════════════════════════════
-    // 프레임레이트와 무관하게 일정한 물리 시뮬레이션 속도를 보장합니다.
-    // 고프레임 렌더링 시 보간을 통해 부드러운 움직임을 제공합니다.
+    // simulate() 호출 후 fetchResults()를 즉시 호출하지 않고,
+    // 다음 프레임 StartFrame() 또는 EndFrame()에서 결과를 수집합니다.
+    // 이를 통해 Actor::Tick()이 물리 시뮬레이션과 병렬로 실행될 수 있습니다.
+
+    if (bAsyncSimulation)
+    {
+        // 비정상적으로 큰 DeltaTime 제한 (예: 디버거 일시정지 후)
+        DeltaSeconds = FMath::Min(DeltaSeconds, MaxSubsteps * FixedTimestep);
+        AccumulatedTime += DeltaSeconds;
+
+        // Fixed Timestep 도달 시 시뮬레이션 시작
+        if (AccumulatedTime >= FixedTimestep)
+        {
+            // 처리할 스텝 수 계산 (언리얼 스타일)
+            int32 NumSteps = FMath::Min(
+                static_cast<int32>(AccumulatedTime / FixedTimestep),
+                MaxSubsteps);
+
+            float SimTime = NumSteps * FixedTimestep;
+            AccumulatedTime -= SimTime;
+
+            // 시뮬레이션 시작 (비블로킹 - fetchResults 호출하지 않음)
+            bIsSimulating = true;
+            PScene->simulate(SimTime);
+            bSimulationPending = true;
+        }
+
+        // 보간 Alpha 업데이트 (시뮬레이션 여부와 무관하게 매 프레임 수행)
+        float Alpha = GetInterpolationAlpha();
+        UpdateRenderInterpolation(Alpha);
+        return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 동기 물리 시뮬레이션 (Fallback)
+    // ═══════════════════════════════════════════════════════════════════════
+    // bAsyncSimulation = false 시 기존 동기 방식으로 동작
 
     // 비정상적으로 큰 DeltaTime 제한 (예: 디버거 일시정지 후)
     DeltaSeconds = FMath::Min(DeltaSeconds, MaxSubsteps * FixedTimestep);
-
-    // 시간 누적
     AccumulatedTime += DeltaSeconds;
 
     // 누적 시간이 FixedTimestep에 도달할 때마다 물리 스텝 실행
@@ -302,28 +351,40 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
         NumSteps++;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 렌더 보간 처리
-    // ═══════════════════════════════════════════════════════════════════════
-
     // 물리 스텝 실행됨 → Transform 캡처
     if (NumSteps > 0)
     {
         CaptureActiveActorsTransform();
     }
 
-    // 매 프레임 보간 업데이트 (물리 스텝 실행 여부와 무관)
-    // Alpha = AccumulatedTime / FixedTimestep
-    // - 물리 스텝 직후: Alpha ≈ 0.0 (이전 Transform에 가까움)
-    // - 다음 물리 스텝 직전: Alpha ≈ 1.0 (현재 Transform에 가까움)
+    // 보간 업데이트
     float Alpha = GetInterpolationAlpha();
     UpdateRenderInterpolation(Alpha);
 }
 
 void FPhysSceneImpl::FetchResults()
 {
-    // TODO: 비동기 물리 시뮬레이션 전환 시 이 함수에서 결과 수집 및 동기화 수행
-    // 현재는 Fixed Timestep 동기 방식으로 Simulate() 내부에서 모든 처리 완료
+    if (!PScene)
+        return;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 비동기 모드: 렌더링 전 결과 수집
+    // ═══════════════════════════════════════════════════════════════════════
+    // EndFrame()에서 호출되며, 시뮬레이션이 진행 중인 경우
+    // 렌더링 전에 결과를 수집하여 동기화합니다.
+
+    if (bAsyncSimulation && bSimulationPending)
+    {
+        // 블로킹 대기 (렌더링 전에 반드시 완료 필요)
+        PScene->fetchResults(true);
+        bSimulationPending = false;
+        bIsSimulating = false;
+
+        // Transform 캡처
+        CaptureActiveActorsTransform();
+    }
+
+    // 동기 모드에서는 Simulate()에서 이미 처리 완료
 }
 
 void FPhysSceneImpl::SyncActiveActorsToComponents()
