@@ -277,11 +277,11 @@ public:
 };
 
 /** TSet - 해시 기반 집합 */
-template<typename T>
-class TSet : public std::unordered_set<T>
+template<typename T, typename Hasher = std::hash<T>, typename KeyEq = std::equal_to<T>>
+class TSet : public std::unordered_set<T, Hasher, KeyEq>
 {
 public:
-    using std::unordered_set<T>::unordered_set;
+    using std::unordered_set<T, Hasher, KeyEq>::unordered_set;
 
     /** 요소 추가 */
     void Add(const T& Item)
@@ -318,9 +318,9 @@ public:
     }
 
     /** 집합 연산 */
-    TSet<T> Union(const TSet<T>& Other) const
+    TSet<T, Hasher, KeyEq> Union(const TSet<T, Hasher, KeyEq>& Other) const
     {
-        TSet<T> Result = *this;
+        TSet<T, Hasher, KeyEq> Result = *this;
         for (const auto& Item : Other)
         {
             Result.Add(Item);
@@ -328,9 +328,9 @@ public:
         return Result;
     }
 
-    TSet<T> Intersect(const TSet<T>& Other) const
+    TSet<T, Hasher, KeyEq> Intersect(const TSet<T, Hasher, KeyEq>& Other) const
     {
-        TSet<T> Result;
+        TSet<T, Hasher, KeyEq> Result;
         for (const auto& Item : *this)
         {
             if (Other.Contains(Item))
@@ -341,9 +341,9 @@ public:
         return Result;
     }
 
-    TSet<T> Difference(const TSet<T>& Other) const
+    TSet<T, Hasher, KeyEq>Difference(const TSet<T, Hasher, KeyEq>& Other) const
     {
-        TSet<T> Result;
+        TSet<T, Hasher, KeyEq> Result;
         for (const auto& Item : *this)
         {
             if (!Other.Contains(Item))
