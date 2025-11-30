@@ -56,18 +56,29 @@ void UPrimitiveComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
     // (런타임 포인터들은 BeginPlay에서 CreatePhysicsState로 생성됨)
     if (bInIsLoading)
     {
-        FJsonSerializer::ReadBool(InOutHandle, "bSimulatePhysics", BodyInstance.bSimulatePhysics, false, false);
-        FJsonSerializer::ReadBool(InOutHandle, "bEnableGravity", BodyInstance.bEnableGravity, true, false);
-        FJsonSerializer::ReadBool(InOutHandle, "bIsTrigger", BodyInstance.bIsTrigger, false, false);
+        // 래퍼 프로퍼티로 읽기
+        FJsonSerializer::ReadBool(InOutHandle, "bSimulatePhysics", bSimulatePhysics, false, false);
+        FJsonSerializer::ReadBool(InOutHandle, "bEnableGravity", bEnableGravity, true, false);
+        FJsonSerializer::ReadBool(InOutHandle, "bIsTrigger", bIsTrigger, false, false);
         FJsonSerializer::ReadFloat(InOutHandle, "MassInKg", BodyInstance.MassInKg, 0.0f, false);
         FJsonSerializer::ReadFloat(InOutHandle, "LinearDamping", BodyInstance.LinearDamping, 0.01f, false);
         FJsonSerializer::ReadFloat(InOutHandle, "AngularDamping", BodyInstance.AngularDamping, 0.05f, false);
+
+        // 래퍼 프로퍼티 → BodyInstance 동기화
+        BodyInstance.bSimulatePhysics = bSimulatePhysics;
+        BodyInstance.bEnableGravity = bEnableGravity;
+        BodyInstance.bIsTrigger = bIsTrigger;
     }
     else
     {
-        InOutHandle["bSimulatePhysics"] = BodyInstance.bSimulatePhysics;
-        InOutHandle["bEnableGravity"] = BodyInstance.bEnableGravity;
-        InOutHandle["bIsTrigger"] = BodyInstance.bIsTrigger;
+        // BodyInstance → 래퍼 프로퍼티 동기화 (저장 전)
+        bSimulatePhysics = BodyInstance.bSimulatePhysics;
+        bEnableGravity = BodyInstance.bEnableGravity;
+        bIsTrigger = BodyInstance.bIsTrigger;
+
+        InOutHandle["bSimulatePhysics"] = bSimulatePhysics;
+        InOutHandle["bEnableGravity"] = bEnableGravity;
+        InOutHandle["bIsTrigger"] = bIsTrigger;
         InOutHandle["MassInKg"] = BodyInstance.MassInKg;
         InOutHandle["LinearDamping"] = BodyInstance.LinearDamping;
         InOutHandle["AngularDamping"] = BodyInstance.AngularDamping;
@@ -105,6 +116,13 @@ bool UPrimitiveComponent::IsOverlappingActor(const AActor* Other) const
 void UPrimitiveComponent::BeginPlay()
 {
     Super::BeginPlay();
+
+    // 에디터에서 설정한 래퍼 프로퍼티 → BodyInstance 동기화
+    // (에디터에서 UPROPERTY 값을 변경하면 래퍼 프로퍼티만 변경되므로)
+    BodyInstance.bSimulatePhysics = bSimulatePhysics;
+    BodyInstance.bEnableGravity = bEnableGravity;
+    BodyInstance.bIsTrigger = bIsTrigger;
+
     CreatePhysicsState();
 }
 

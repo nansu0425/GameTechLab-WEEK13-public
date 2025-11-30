@@ -78,6 +78,22 @@ public:
     UPROPERTY(EditAnywhere, Category="Shape")
     bool bBlockComponent;
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // 물리 파라미터 (에디터 노출용 래퍼 - BodyInstance와 동기화됨)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** 물리 시뮬레이션 활성화 여부 */
+    UPROPERTY(EditAnywhere, Category="Physics")
+    bool bSimulatePhysics = false;
+
+    /** 트리거로 동작 (물리적 충돌 없이 겹침만 감지) */
+    UPROPERTY(EditAnywhere, Category="Physics")
+    bool bIsTrigger = false;
+
+    /** 중력 적용 여부 */
+    UPROPERTY(EditAnywhere, Category="Physics")
+    bool bEnableGravity = true;
+
     UPrimitiveComponent();
     virtual ~UPrimitiveComponent() = default;
 
