@@ -95,6 +95,9 @@ public:
 
     // 기즈모 드래그 첫 프레임 감지용 (부동소수점 오차로 인한 불필요한 업데이트 방지)
     bool bWasGizmoDragging = false;
+
+    // Collision shape visualization (Physics Asset Editor)
+    class ULineComponent* CollisionShapeLineComponent = nullptr;
 };
 
 // 파티클 에디터 상태

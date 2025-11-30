@@ -53,6 +53,13 @@ ViewerState* PhysicsAssetEditorBootstrap::CreateViewerState(const char* Name, UW
     {
         ASkeletalMeshActor* Preview = State->World->SpawnActor<ASkeletalMeshActor>();
         State->PreviewActor = Preview;
+
+        // Create a separate LineComponent for collision shape visualization
+        State->CollisionShapeLineComponent = NewObject<ULineComponent>();
+        State->CollisionShapeLineComponent->ObjectName = "CollisionShapes";
+        State->CollisionShapeLineComponent->SetAlwaysOnTop(true);
+        Preview->AddOwnedComponent(State->CollisionShapeLineComponent);  // IMPORTANT: Add to actor first!
+        State->CollisionShapeLineComponent->RegisterComponent(State->World);
     }
 
     return State;
@@ -61,6 +68,14 @@ ViewerState* PhysicsAssetEditorBootstrap::CreateViewerState(const char* Name, UW
 void PhysicsAssetEditorBootstrap::DestroyViewerState(ViewerState*& State)
 {
     if (!State) return;
+
+    // Clean up collision shape line component before destroying world
+    if (State->CollisionShapeLineComponent)
+    {
+        ObjectFactory::DeleteObject(State->CollisionShapeLineComponent);
+        State->CollisionShapeLineComponent = nullptr;
+    }
+
     if (State->Viewport) { delete State->Viewport; State->Viewport = nullptr; }
     if (State->Client) { delete State->Client; State->Client = nullptr; }
     if (State->World) { ObjectFactory::DeleteObject(State->World); State->World = nullptr; }

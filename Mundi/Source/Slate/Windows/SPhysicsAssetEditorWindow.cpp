@@ -314,6 +314,12 @@ void SPhysicsAssetEditorWindow::PreRenderViewportUpdate()
         ActiveState->PreviewActor->RebuildBoneLines(ActiveState->SelectedBoneIndex);
         ActiveState->bBoneLinesDirty = false;
     }
+
+    // Rebuild collision shapes if dirty
+    if (bCollisionShapesDirty && bShowCollision)
+    {
+        RebuildCollisionShapes();
+    }
 }
 
 ViewerState* SPhysicsAssetEditorWindow::CreateViewerState(const char* Name, UEditorAssetPreviewContext* Context)
@@ -392,7 +398,6 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
     {
         // TODO: Implement the logic to create UBodySetups for all bodies 
         // in the UPhysicsAsset using the selected PrimitiveType.
-        // Currently, it only prints a debug message.
         const char* TypeStr = "";
         switch (SelectedPrimitiveType)
         {
@@ -401,6 +406,9 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
         case EPrimitiveType::Capsule:TypeStr = "Capsule"; break;
         }
         UE_LOG("GENERATE ALL BODIES: PrimitiveType = %s", TypeStr);
+
+        // Trigger collision shape visualization
+        bCollisionShapesDirty = true;
     }
 
     if (!ActiveState || !ActiveState->CurrentMesh)
@@ -502,4 +510,206 @@ void SPhysicsAssetEditorWindow::ViewportRenderCallback(const ImDrawList* parent_
             context->Release();
         }
     }
+}
+
+void SPhysicsAssetEditorWindow::DrawWireframeBox(ULineComponent* LineComp, const FVector& Center, const FVector& HalfExtents, const FVector4& Color)
+{
+    if (!LineComp) return;
+
+    // 8 corners of the box
+    FVector corners[8] = {
+        Center + FVector( HalfExtents.X,  HalfExtents.Y,  HalfExtents.Z),  // 0: +X +Y +Z
+        Center + FVector( HalfExtents.X,  HalfExtents.Y, -HalfExtents.Z),  // 1: +X +Y -Z
+        Center + FVector( HalfExtents.X, -HalfExtents.Y,  HalfExtents.Z),  // 2: +X -Y +Z
+        Center + FVector( HalfExtents.X, -HalfExtents.Y, -HalfExtents.Z),  // 3: +X -Y -Z
+        Center + FVector(-HalfExtents.X,  HalfExtents.Y,  HalfExtents.Z),  // 4: -X +Y +Z
+        Center + FVector(-HalfExtents.X,  HalfExtents.Y, -HalfExtents.Z),  // 5: -X +Y -Z
+        Center + FVector(-HalfExtents.X, -HalfExtents.Y,  HalfExtents.Z),  // 6: -X -Y +Z
+        Center + FVector(-HalfExtents.X, -HalfExtents.Y, -HalfExtents.Z)   // 7: -X -Y -Z
+    };
+
+    // 12 edges of the box
+    // Bottom face (Z-)
+    LineComp->AddLine(corners[1], corners[3], Color);
+    LineComp->AddLine(corners[3], corners[7], Color);
+    LineComp->AddLine(corners[7], corners[5], Color);
+    LineComp->AddLine(corners[5], corners[1], Color);
+
+    // Top face (Z+)
+    LineComp->AddLine(corners[0], corners[2], Color);
+    LineComp->AddLine(corners[2], corners[6], Color);
+    LineComp->AddLine(corners[6], corners[4], Color);
+    LineComp->AddLine(corners[4], corners[0], Color);
+
+    // Vertical edges
+    LineComp->AddLine(corners[0], corners[1], Color);
+    LineComp->AddLine(corners[2], corners[3], Color);
+    LineComp->AddLine(corners[4], corners[5], Color);
+    LineComp->AddLine(corners[6], corners[7], Color);
+}
+
+void SPhysicsAssetEditorWindow::DrawWireframeSphere(ULineComponent* LineComp, const FVector& Center, float Radius, const FVector4& Color, int32 Segments)
+{
+    if (!LineComp || Segments < 3) return;
+
+    const float TWO_PI = 6.28318530718f;
+
+    // Draw 3 orthogonal circles (XY, XZ, YZ planes)
+    for (int32 i = 0; i < Segments; ++i)
+    {
+        float angle0 = (static_cast<float>(i) / static_cast<float>(Segments)) * TWO_PI;
+        float angle1 = (static_cast<float>((i + 1) % Segments) / static_cast<float>(Segments)) * TWO_PI;
+
+        float cos0 = cosf(angle0);
+        float sin0 = sinf(angle0);
+        float cos1 = cosf(angle1);
+        float sin1 = sinf(angle1);
+
+        // XY plane (Z = 0)
+        FVector p0_xy = Center + FVector(Radius * cos0, Radius * sin0, 0.0f);
+        FVector p1_xy = Center + FVector(Radius * cos1, Radius * sin1, 0.0f);
+        LineComp->AddLine(p0_xy, p1_xy, Color);
+
+        // XZ plane (Y = 0)
+        FVector p0_xz = Center + FVector(Radius * cos0, 0.0f, Radius * sin0);
+        FVector p1_xz = Center + FVector(Radius * cos1, 0.0f, Radius * sin1);
+        LineComp->AddLine(p0_xz, p1_xz, Color);
+
+        // YZ plane (X = 0)
+        FVector p0_yz = Center + FVector(0.0f, Radius * cos0, Radius * sin0);
+        FVector p1_yz = Center + FVector(0.0f, Radius * cos1, Radius * sin1);
+        LineComp->AddLine(p0_yz, p1_yz, Color);
+    }
+}
+
+void SPhysicsAssetEditorWindow::DrawWireframeCapsule(ULineComponent* LineComp, const FVector& Center, float Radius, float HalfHeight, const FVector4& Color, int32 Segments)
+{
+    if (!LineComp || Segments < 3) return;
+
+    const float TWO_PI = 6.28318530718f;
+
+    // Capsule is oriented along Z-axis
+    // Top hemisphere center
+    FVector TopCenter = Center + FVector(0.0f, 0.0f, HalfHeight);
+    // Bottom hemisphere center
+    FVector BottomCenter = Center - FVector(0.0f, 0.0f, HalfHeight);
+
+    // Draw cylinder body (4 vertical lines connecting top and bottom circles)
+    int32 numVerticalLines = 4;
+    for (int32 i = 0; i < numVerticalLines; ++i)
+    {
+        float angle = (static_cast<float>(i) / static_cast<float>(numVerticalLines)) * TWO_PI;
+        float cosA = cosf(angle);
+        float sinA = sinf(angle);
+
+        FVector topPoint = TopCenter + FVector(Radius * cosA, Radius * sinA, 0.0f);
+        FVector bottomPoint = BottomCenter + FVector(Radius * cosA, Radius * sinA, 0.0f);
+        LineComp->AddLine(topPoint, bottomPoint, Color);
+    }
+
+    // Draw top and bottom circles (XY plane)
+    for (int32 i = 0; i < Segments; ++i)
+    {
+        float angle0 = (static_cast<float>(i) / static_cast<float>(Segments)) * TWO_PI;
+        float angle1 = (static_cast<float>((i + 1) % Segments) / static_cast<float>(Segments)) * TWO_PI;
+
+        float cos0 = cosf(angle0);
+        float sin0 = sinf(angle0);
+        float cos1 = cosf(angle1);
+        float sin1 = sinf(angle1);
+
+        // Top circle
+        FVector p0_top = TopCenter + FVector(Radius * cos0, Radius * sin0, 0.0f);
+        FVector p1_top = TopCenter + FVector(Radius * cos1, Radius * sin1, 0.0f);
+        LineComp->AddLine(p0_top, p1_top, Color);
+
+        // Bottom circle
+        FVector p0_bottom = BottomCenter + FVector(Radius * cos0, Radius * sin0, 0.0f);
+        FVector p1_bottom = BottomCenter + FVector(Radius * cos1, Radius * sin1, 0.0f);
+        LineComp->AddLine(p0_bottom, p1_bottom, Color);
+    }
+
+    // Draw hemisphere arcs (XZ and YZ planes)
+    int32 arcSegments = Segments / 2;
+    for (int32 i = 0; i <= arcSegments; ++i)
+    {
+        float angle0 = (static_cast<float>(i) / static_cast<float>(arcSegments)) * PI;
+        float angle1 = (static_cast<float>(i + 1) / static_cast<float>(arcSegments)) * PI;
+
+        float cos0 = cosf(angle0);
+        float sin0 = sinf(angle0);
+        float cos1 = cosf(angle1);
+        float sin1 = sinf(angle1);
+
+        // Top hemisphere - XZ plane arc
+        if (i < arcSegments)
+        {
+            FVector p0_top_xz = TopCenter + FVector(Radius * cos0, 0.0f, Radius * sin0);
+            FVector p1_top_xz = TopCenter + FVector(Radius * cos1, 0.0f, Radius * sin1);
+            LineComp->AddLine(p0_top_xz, p1_top_xz, Color);
+
+            // Top hemisphere - YZ plane arc
+            FVector p0_top_yz = TopCenter + FVector(0.0f, Radius * cos0, Radius * sin0);
+            FVector p1_top_yz = TopCenter + FVector(0.0f, Radius * cos1, Radius * sin1);
+            LineComp->AddLine(p0_top_yz, p1_top_yz, Color);
+
+            // Bottom hemisphere - XZ plane arc
+            FVector p0_bottom_xz = BottomCenter + FVector(Radius * cos0, 0.0f, -Radius * sin0);
+            FVector p1_bottom_xz = BottomCenter + FVector(Radius * cos1, 0.0f, -Radius * sin1);
+            LineComp->AddLine(p0_bottom_xz, p1_bottom_xz, Color);
+
+            // Bottom hemisphere - YZ plane arc
+            FVector p0_bottom_yz = BottomCenter + FVector(0.0f, Radius * cos0, -Radius * sin0);
+            FVector p1_bottom_yz = BottomCenter + FVector(0.0f, Radius * cos1, -Radius * sin1);
+            LineComp->AddLine(p0_bottom_yz, p1_bottom_yz, Color);
+        }
+    }
+}
+
+void SPhysicsAssetEditorWindow::RebuildCollisionShapes()
+{
+    if (!ActiveState)   return;
+
+    // Use the dedicated collision shape LineComponent from ViewerState
+    ULineComponent* LineComp = ActiveState->CollisionShapeLineComponent;
+    if (!LineComp)  return;
+
+    // Clear previous collision shape lines
+    ClearCollisionShapes();
+
+    // Unreal Engine collision purple color (light purple but not too light)
+    FVector4 CollisionColor(0.6f, 0.3f, 0.8f, 1.0f);
+
+    // For now, draw a single shape at the center for debugging
+    // Later, this will iterate over bones and UPhysicsAsset's BodySetup entries
+    FVector Center(0.0f, 0.0f, 0.0f);
+
+    switch (SelectedPrimitiveType)
+    {
+    case EPrimitiveType::Sphere:
+        DrawWireframeSphere(LineComp, Center, 0.5f, CollisionColor, 16);
+        break;
+
+    case EPrimitiveType::Box:
+        DrawWireframeBox(LineComp, Center, FVector(0.5f, 0.5f, 0.5f), CollisionColor);
+        break;
+
+    case EPrimitiveType::Capsule:
+        DrawWireframeCapsule(LineComp, Center, 0.3f, 0.5f, CollisionColor, 16);
+        break;
+    }
+
+    bCollisionShapesDirty = false;
+}
+
+void SPhysicsAssetEditorWindow::ClearCollisionShapes()
+{
+    if (!ActiveState) return;
+
+    // Use the dedicated collision shape LineComponent from ViewerState
+    ULineComponent* LineComp = ActiveState->CollisionShapeLineComponent;
+    if (!LineComp) return;
+
+    // Clear only collision shape lines
+    LineComp->ClearLines();
 }
