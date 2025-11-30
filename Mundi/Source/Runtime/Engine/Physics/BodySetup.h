@@ -14,7 +14,10 @@
 
 #include "Object.h"
 #include "Vector.h"
+#include "AggregateGeom.h"
+#include "BodySetupCore.h"
 #include "UBodySetup.generated.h"
+
 
 /**
  * @brief 충돌 형상 타입
@@ -38,7 +41,7 @@ enum class EBodySetupType : uint8
  * 실제 PhysX Shape 생성은 BodySetupImpl.h의 BodySetupHelper에서 담당합니다.
  */
 UCLASS(DisplayName = "충돌 기하 데이터", Description = "공유 가능한 충돌 기하 데이터 입니다")
-class UBodySetup : public UObject
+class UBodySetup : public UBodySetupCore
 {
 public:
     GENERATED_REFLECTION_BODY()
@@ -59,6 +62,21 @@ public:
     // 형상 데이터
     // ═══════════════════════════════════════════════════════════════════════
 
+    // 모든 형상데이터를 가진 구조체(Sphyl, Sphere, Box, Convex)
+    FAggregateGeom AggGeom;
+
+    /**
+     * @brief AggGeom에 있는 모든 형상을 PhysX Actor에 추가합니다.
+     * @param RigidActor 대상 PxRigidActor (여기에 shape들이 attach됨)
+     * @param DefaultMaterial 기본 재질
+     * @param Scale 액터의 월드 스케일
+     * @return 생성된 Shape 개수
+     */
+    int32 AddShapesToRigidActor(
+        physx::PxRigidActor* RigidActor,
+        physx::PxMaterial* DefaultMaterial,
+        const FVector& Scale = FVector::One()) const;
+
     /** 형상 타입 */
     EBodySetupType BodyType = EBodySetupType::None;
 
@@ -68,6 +86,27 @@ public:
     /** Sphere/Capsule 형상용 - 반지름 */
     float SphereRadius;
 
-    /** Capsule 형상용 - Half Height (반구 제외) */
+    /** Capsule 형상용 - Half Height (언리얼 방식: 반구 끝까지 포함한 전체 높이의 절반) */
     float CapsuleHalfHeight;
+
+private:
+    void AddBoxElems(
+        physx::PxRigidActor* RigidActor,
+        physx::PxMaterial* DefaultMaterial,
+        const FVector& Scale) const;
+
+    void AddSphereElems(
+        physx::PxRigidActor* RigidActor,
+        physx::PxMaterial* DefaultMaterial,
+        const FVector& Scale) const;
+
+    void AddSphylElems(
+        physx::PxRigidActor* RigidActor,
+        physx::PxMaterial* DefaultMaterial,
+        const FVector& Scale) const;
+
+    void AddConvexElems(
+        physx::PxRigidActor* RigidActor,
+        physx::PxMaterial* DefaultMaterial,
+        const FVector& Scale) const;
 };

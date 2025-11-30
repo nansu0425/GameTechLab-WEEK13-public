@@ -18,8 +18,8 @@ APhysBoxActor::APhysBoxActor()
     BoxComponent->SetBoxExtent(FVector(0.5f, 0.5f, 0.5f));  // cube-tex.obj 크기에 맞춤
 
     // 물리 시뮬레이션 활성화
-    BoxComponent->BodyInstance.bSimulatePhysics = true;
-    BoxComponent->BodyInstance.bEnableGravity = true;
+    BoxComponent->bSimulatePhysics = true;
+    BoxComponent->bEnableGravity = true;
 }
 
 APhysBoxActor::~APhysBoxActor()
@@ -36,9 +36,9 @@ void APhysBoxActor::Tick(float DeltaTime)
     Super::Tick(DeltaTime);
 
     // 물리 결과를 MeshComponent에 반영
-    if (BoxComponent && BoxComponent->BodyInstance.IsInitialized())
+    if (BoxComponent && BoxComponent->HasValidPhysicsState())
     {
-        FTransform PhysTransform = BoxComponent->BodyInstance.GetWorldTransform();
+        FTransform PhysTransform = BoxComponent->GetBodyInstance().GetWorldTransform();
         MeshComponent->SetWorldTransform(PhysTransform);
     }
 }

@@ -104,7 +104,12 @@ namespace
         float ScaledRadius = Setup->SphereRadius * RadiusScale;
         float ScaledHalfHeight = Setup->CapsuleHalfHeight * Scale.Z;
 
-        PxCapsuleGeometry CapsuleGeom(ScaledRadius, ScaledHalfHeight);
+        // Mundi CapsuleHalfHeight는 언리얼 방식 (반구 끝까지 포함한 전체 높이의 절반)
+        // PhysX CapsuleHalfHeight는 실린더 부분만의 절반 높이
+        // 변환: PhysX HalfHeight = Mundi HalfHeight - Radius
+        float PhysXHalfHeight = FMath::Max(0.0f, ScaledHalfHeight - ScaledRadius);
+
+        PxCapsuleGeometry CapsuleGeom(ScaledRadius, PhysXHalfHeight);
 
         PxShape* Shape = Physics->createShape(CapsuleGeom, *Material, true);
         if (Shape)

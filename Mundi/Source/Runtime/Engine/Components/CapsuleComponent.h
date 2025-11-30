@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────
 // CapsuleComponent.h
 // Capsule 형태의 충돌 컴포넌트 (Week09 기반, Week12 적응)
 // ────────────────────────────────────────────────────────────────────────────
@@ -42,11 +42,11 @@ public:
 
 	/** Capsule의 반지름 (로컬 스페이스) */
 	UPROPERTY(EditAnywhere, Category="CapsuleRadius")
-	float CapsuleRadius = 50.0f;
+	float CapsuleRadius = 0.5f;  // UBodySetup::DefaultCapsuleRadius
 
-	/** Capsule의 반 높이 (로컬 스페이스, 중심에서 끝까지, 반지름 제외) */
+	/** Capsule의 반 높이 (로컬 스페이스, 언리얼 방식: 반구 끝까지 포함한 전체 높이의 절반) */
 	UPROPERTY(EditAnywhere, Category="CapsuleHalfHeight")
-	float CapsuleHalfHeight = 100.0f;
+	float CapsuleHalfHeight = 1.0f;  // UBodySetup::DefaultCapsuleHalfHeight
 
 	/**
 	 * Capsule 크기를 설정합니다.

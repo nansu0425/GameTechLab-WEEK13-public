@@ -16,12 +16,9 @@ APhysCapsuleActor::APhysCapsuleActor()
     CapsuleComponent = CreateDefaultSubobject<UCapsuleComponent>("CapsuleComponent");
     CapsuleComponent->SetupAttachment(MeshComponent);
 
-    // Capsule.fbx가 Y축으로 90도 회전된 상태이므로, CapsuleComponent도 맞춰서 회전
-    // CapsuleComponent->SetRelativeRotation(FQuat::MakeFromEulerZYX(FVector(0.0f, 90.0f, 0.0f)));
-
     // 물리 시뮬레이션 활성화
-    CapsuleComponent->BodyInstance.bSimulatePhysics = true;
-    CapsuleComponent->BodyInstance.bEnableGravity = true;
+    CapsuleComponent->bSimulatePhysics = true;
+    CapsuleComponent->bEnableGravity = true;
 }
 
 APhysCapsuleActor::~APhysCapsuleActor()
@@ -38,9 +35,9 @@ void APhysCapsuleActor::Tick(float DeltaTime)
     Super::Tick(DeltaTime);
 
     // 물리 결과를 MeshComponent에 반영
-    if (CapsuleComponent && CapsuleComponent->BodyInstance.IsInitialized())
+    if (CapsuleComponent && CapsuleComponent->HasValidPhysicsState())
     {
-        FTransform PhysTransform = CapsuleComponent->BodyInstance.GetWorldTransform();
+        FTransform PhysTransform = CapsuleComponent->GetBodyInstance().GetWorldTransform();
         MeshComponent->SetWorldTransform(PhysTransform);
     }
 }

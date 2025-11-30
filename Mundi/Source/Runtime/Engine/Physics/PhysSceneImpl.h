@@ -97,6 +97,16 @@ private:
     bool bInitialized = false;
     bool bIsSimulating = false;
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // 비동기 시뮬레이션 상태
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** 비동기 시뮬레이션 모드 활성화 */
+    bool bAsyncSimulation = true;
+
+    /** simulate() 호출 후 fetchResults() 대기 중 */
+    bool bSimulationPending = false;
+
     // 설정
     static constexpr int32 NumPhysxThreads = 4;
     static constexpr float DefaultStaticFriction = 0.5f;

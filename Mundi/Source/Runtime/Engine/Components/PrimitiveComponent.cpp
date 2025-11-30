@@ -52,22 +52,23 @@ void UPrimitiveComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
     Super::Serialize(bInIsLoading, InOutHandle);
 
-    // BodyInstance 물리 파라미터 직렬화
-    // (런타임 포인터들은 BeginPlay에서 CreatePhysicsState로 생성됨)
+    // 물리 파라미터 직렬화
+    // 프로퍼티(bSimulatePhysics 등)가 단일 진실 원천
+    // BeginPlay에서 프로퍼티 → BodyInstance로 동기화됨
     if (bInIsLoading)
     {
-        FJsonSerializer::ReadBool(InOutHandle, "bSimulatePhysics", BodyInstance.bSimulatePhysics, false, false);
-        FJsonSerializer::ReadBool(InOutHandle, "bEnableGravity", BodyInstance.bEnableGravity, true, false);
-        FJsonSerializer::ReadBool(InOutHandle, "bIsTrigger", BodyInstance.bIsTrigger, false, false);
+        FJsonSerializer::ReadBool(InOutHandle, "bSimulatePhysics", bSimulatePhysics, false, false);
+        FJsonSerializer::ReadBool(InOutHandle, "bEnableGravity", bEnableGravity, true, false);
+        FJsonSerializer::ReadBool(InOutHandle, "bIsTrigger", bIsTrigger, false, false);
         FJsonSerializer::ReadFloat(InOutHandle, "MassInKg", BodyInstance.MassInKg, 0.0f, false);
         FJsonSerializer::ReadFloat(InOutHandle, "LinearDamping", BodyInstance.LinearDamping, 0.01f, false);
         FJsonSerializer::ReadFloat(InOutHandle, "AngularDamping", BodyInstance.AngularDamping, 0.05f, false);
     }
     else
     {
-        InOutHandle["bSimulatePhysics"] = BodyInstance.bSimulatePhysics;
-        InOutHandle["bEnableGravity"] = BodyInstance.bEnableGravity;
-        InOutHandle["bIsTrigger"] = BodyInstance.bIsTrigger;
+        InOutHandle["bSimulatePhysics"] = bSimulatePhysics;
+        InOutHandle["bEnableGravity"] = bEnableGravity;
+        InOutHandle["bIsTrigger"] = bIsTrigger;
         InOutHandle["MassInKg"] = BodyInstance.MassInKg;
         InOutHandle["LinearDamping"] = BodyInstance.LinearDamping;
         InOutHandle["AngularDamping"] = BodyInstance.AngularDamping;
@@ -105,6 +106,13 @@ bool UPrimitiveComponent::IsOverlappingActor(const AActor* Other) const
 void UPrimitiveComponent::BeginPlay()
 {
     Super::BeginPlay();
+
+    // 프로퍼티 → BodyInstance 동기화
+    // 프로퍼티가 단일 진실 원천 (에디터/코드 모두 프로퍼티를 통해 설정)
+    BodyInstance.bSimulatePhysics = bSimulatePhysics;
+    BodyInstance.bEnableGravity = bEnableGravity;
+    BodyInstance.bIsTrigger = bIsTrigger;
+
     CreatePhysicsState();
 }
 
