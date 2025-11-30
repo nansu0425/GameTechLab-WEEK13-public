@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <FxCompile Include="Shaders\Materials\Fireball.hlsl">
@@ -1165,6 +1165,15 @@
     </ClCompile>
     <ClCompile Include="Generated\UPhysicsAsset.generated.cpp">
       <Filter>Generated</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Physics\AggregateGeom.cpp">
+      <Filter>Source\Runtime\Engine\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Physics\ConstraintInstance.cpp">
+      <Filter>Source\Runtime\Engine\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Physics\PhysicsAsset.cpp">
+      <Filter>Source\Runtime\Engine\Physics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -2462,6 +2471,39 @@
     <ClInclude Include="Generated\UPhysicsAsset.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Physics\BodySetupCore.h">
+      <Filter>Source\Runtime\Engine\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Physics\BodySetupEnums.h">
+      <Filter>Source\Runtime\Engine\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Physics\ConstraintInstance.h">
+      <Filter>Source\Runtime\Engine\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Physics\Shape\SphylElem.h">
+      <Filter>Source\Runtime\Engine\Physics\Shape</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Physics\Shape\SphereElem.h">
+      <Filter>Source\Runtime\Engine\Physics\Shape</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Physics\Shape\ShapeElem.h">
+      <Filter>Source\Runtime\Engine\Physics\Shape</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Physics\Shape\ConvexElem.h">
+      <Filter>Source\Runtime\Engine\Physics\Shape</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Physics\Shape\BoxElem.h">
+      <Filter>Source\Runtime\Engine\Physics\Shape</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Physics\PhysicsAsset.h">
+      <Filter>Source\Runtime\Engine\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Physics\PhysicsUserData.h">
+      <Filter>Source\Runtime\Engine\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\Macros.h">
+      <Filter>Source\Runtime\Core\Misc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="BuildTools\CodeGenerator\generate.py">
@@ -2633,6 +2675,9 @@
     </Filter>
     <Filter Include="Shaders\Particle">
       <UniqueIdentifier>{3909ef3b-bebf-4ae0-8ef6-005273aa628f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Runtime\Engine\Physics\Shape">
+      <UniqueIdentifier>{9059908e-585b-48ed-a27b-0c6697d1814a}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
