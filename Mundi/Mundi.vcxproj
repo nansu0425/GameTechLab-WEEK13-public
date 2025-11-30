@@ -274,6 +274,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Source\Runtime\Core\Misc\VertexData.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Physics\AggregateGeom.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Physics\ConstraintInstance.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Physics\PhysicsAsset.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Physics\PhysicsCore.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Physics\PhysicsEventCallback.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Physics\PhysScene.cpp" />
@@ -679,6 +680,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Generated\APhysBoxActor.generated.cpp" />
     <ClCompile Include="Generated\APhysGroundActor.generated.cpp" />
     <ClCompile Include="Generated\UBodySetup.generated.cpp" />
+    <ClCompile Include="Generated\UBodySetupCore.generated.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\Common\LightingBuffers.hlsl">
@@ -851,6 +853,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Source\Runtime\Engine\Physics\BodySetupCore.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\BodySetupEnums.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\ConstraintInstance.h" />
+    <ClInclude Include="Source\Runtime\Engine\Physics\PhysicsAsset.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\PhysicsTypes.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\PhysicsCore.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\PhysicsEventCallback.h" />
@@ -1224,6 +1227,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Generated\APhysBoxActor.generated.h" />
     <ClInclude Include="Generated\APhysGroundActor.generated.h" />
     <ClInclude Include="Generated\UBodySetup.generated.h" />
+    <ClInclude Include="Generated\UBodySetupCore.generated.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="BuildTools\CodeGenerator\generate.py" />

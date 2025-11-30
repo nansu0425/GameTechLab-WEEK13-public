@@ -14,9 +14,9 @@
 
 #include "Object.h"
 #include "Vector.h"
-#include "UBodySetup.generated.h"
 #include "AggregateGeom.h"
 #include "BodySetupCore.h"
+#include "UBodySetup.generated.h"
 
 
 /**
