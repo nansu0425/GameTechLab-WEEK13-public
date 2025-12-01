@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "BodyInstance.h"
 #include "BodyInstanceImpl.h"
 #include "BodySetup.h"
@@ -756,6 +756,16 @@ FVector FBodyInstance::GetBodyInertiaTensor() const
 
     PxVec3 Inertia = Dynamic->getMassSpaceInertiaTensor();
     return PhysicsConversion::ToFVector(Inertia);
+}
+
+physx::PxRigidActor* FBodyInstance::GetPxRigidActor() const
+{
+    return Impl ? Impl->GetPxRigidActor() : nullptr;
+}
+
+physx::PxRigidDynamic* FBodyInstance::GetPxRigidDynamic() const
+{
+    return Impl ? Impl->GetPxRigidDynamic() : nullptr;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

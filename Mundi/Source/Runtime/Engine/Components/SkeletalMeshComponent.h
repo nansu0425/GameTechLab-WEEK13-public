@@ -1,4 +1,5 @@
-﻿#pragma once
+#pragma once
+#include "BodyInstance.h"
 #include "SkinnedMeshComponent.h"
 #include "USkeletalMeshComponent.generated.h"
 

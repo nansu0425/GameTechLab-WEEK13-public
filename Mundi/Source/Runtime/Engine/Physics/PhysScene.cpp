@@ -154,6 +154,16 @@ UWorld* FPhysScene::GetOwningWorld() const
     return OwningWorld;
 }
 
+physx::PxScene* FPhysScene::GetPxScene() const
+{
+    return Impl ? Impl->GetPxScene() : nullptr;
+}
+
+physx::PxMaterial* FPhysScene::GetDefaultMaterial() const
+{
+    return Impl ? Impl->GetDefaultMaterial() : nullptr;
+}
+
 FPhysScene::FPhysSceneStats FPhysScene::GetStats() const
 {
     FPhysSceneStats Stats;
