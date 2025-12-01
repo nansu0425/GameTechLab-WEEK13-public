@@ -19,6 +19,12 @@ namespace physx
     class PxShape;
 }
 
+namespace physx
+{
+    class PxRigidActor;
+    class PxRigidDynamic;
+}
+
 // 전방 선언 (PhysX 의존성 없음)
 class UPrimitiveComponent;
 class UBodySetup;
@@ -217,6 +223,12 @@ struct FBodyInstance
 
     /** 관성 텐서 반환 */
     FVector GetBodyInertiaTensor() const;
+
+    /** PhysX RigidActor 포인터 (읽기 전용) */
+    physx::PxRigidActor* GetPxRigidActor() const;
+
+    /** PhysX RigidDynamic 포인터 (읽기 전용) */
+    physx::PxRigidDynamic* GetPxRigidDynamic() const;
 
     // ═══════════════════════════════════════════════════════════════════════
     // Physics 모듈 내부 접근용 (PIMPL)

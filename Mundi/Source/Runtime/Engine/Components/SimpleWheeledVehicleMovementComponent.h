@@ -1,5 +1,5 @@
 ﻿#pragma once
-
+#include "vehicle/PxVehicleUpdate.h"
 #include "MovementComponent.h"
 #include "USimpleWheeledVehicleMovementComponent.generated.h"
 
@@ -9,9 +9,13 @@ namespace physx
     class PxVehicleWheelsSimData;
     class PxVehicleDrive4W;
     class PxVehicleWheels;
+    class PxRigidDynamic;
+    class PxVehicleDrivableSurfaceToTireFrictionPairs;
+    struct PxWheelQueryResult;
+    struct PxVehicleWheelQueryResult;
 }
 
-class UStaticMeshComponent;
+class USkeletalMeshComponent;
 
 /** 휠 설정에 필요한 최소 정보 */
 struct FWheelSetup
@@ -34,6 +38,10 @@ public:
 protected:
     ~USimpleWheeledVehicleMovementComponent() override;
 public:
+    // 등록/해제/EndPlay 훅
+    void OnRegister(UWorld* InWorld) override;
+    void OnUnregister() override;
+    void EndPlay() override;
 
     // UActorComponent 인터페이스 오버라이드
     void TickComponent(float DeltaTime) override;
@@ -95,11 +103,26 @@ protected:
     /** PxVehicleWheels 인스턴스 (바퀴 시뮬레이션 데이터 포함) */
     physx::PxVehicleWheels* PxVehicleWheelsInstance = nullptr;
 
+    /** 차량 차체로 사용할 Dynamic Actor */
+    physx::PxRigidDynamic* PxVehicleActor = nullptr;
+
+    /** 노면-타이어 마찰 매핑 테이블 (기본 1x1) */
+    physx::PxVehicleDrivableSurfaceToTireFrictionPairs* TireFrictionPairs = nullptr;
+
+    /** 휠별 레이캐스트/쿼리 결과 버퍼 */
+    TArray<physx::PxWheelQueryResult> WheelQueryResults;
+
+    /** Vehicle API에 전달할 휠 쿼리 결과 래퍼 */
+    physx::PxVehicleWheelQueryResult VehicleQueryResults;
+
     /** 사용자 입력 상태 저장 */
     float ThrottleInput;
     float SteeringInput;
     float BrakeInput;
     float HandbrakeInput;
+
+    /** UpdatedComponent를 차량용 메시(Skeletal/Static)로만 제한 */
+    void SetUpdatedComponent(USceneComponent* NewUpdatedComponent) override;
 
     // --- 내부 초기화/업데이트 함수 ---
 
@@ -107,7 +130,7 @@ protected:
     bool InitVehiclePhysX();
 
     /** 사용자 입력(Throttle/Steering)을 PxVehicleDrive4WRawInputData에 매핑 */
-    void ApplyInputToPhysX();
+    void ApplyInputToPhysX(float DeltaTime);
 
     /** 서스펜션 레이캐스트 업데이트 */
     void PerformSuspensionRaycasts();
@@ -118,17 +141,18 @@ protected:
     /** PhysX 결과로부터 차체 및 휠의 포즈를 업데이트 */
     void UpdateVehiclePoseFromPhysX();
 
-    /** 루트 메시에 대한 핸들 캐싱 (PhysX 바디 생성 시 사용) */
-    void CacheUpdatedComponent();
+    /** Vehicle 관련 PhysX 리소스 정리 */
+    void CleanupVehiclePhysX();
 
-    /** 차량 본체로 사용할 스태틱 메시 핸들 */
-    UStaticMeshComponent* CachedBodyMesh = nullptr;
+    /** UpdatedComponent가 유효한 차량 메시인지 보장 (필요 시 자동 탐색) */
+    void EnsureUpdatedComponentIsValid();
 
     /** 초기화 진행 여부 */
     bool bVehicleInitialized = false;
 
     /** 반복 로그 방지를 위한 상태 플래그 */
-    bool bWarnedMissingBodyMesh = false;
+    bool bWarnedMissingBodyComponent = false;
     bool bWarnedPhysicsUninitialized = false;
     bool bWarnedWheelSetup = false;
+    bool bWarnedMissingWheelBone = false;
 };

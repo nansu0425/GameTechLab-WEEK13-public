@@ -36,7 +36,7 @@ public:
     virtual void StopMovement();
 
     // 업데이트 대상 컴포넌트
-    void SetUpdatedComponent(USceneComponent* NewUpdatedComponent);
+    virtual void SetUpdatedComponent(USceneComponent* NewUpdatedComponent);
     USceneComponent* GetUpdatedComponent() const { return UpdatedComponent; }
 
     // 이동 속성
