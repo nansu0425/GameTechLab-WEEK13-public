@@ -348,13 +348,7 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
         // 보간 Alpha 업데이트 (시뮬레이션 여부와 무관하게 매 프레임 수행)
         StatManager.SetAccumulatedTimeRatio(GetInterpolationAlpha());
 
-        // 렌더 보간 타이밍 측정
-        uint64 InterpStartCycles = FPlatformTime::Cycles64();
-        float Alpha = GetInterpolationAlpha();
-        UpdateRenderInterpolation(Alpha);
-        uint64 InterpEndCycles = FPlatformTime::Cycles64();
-        StatManager.RecordInterpolationUpdateTime(FPlatformTime::ToMilliseconds(InterpEndCycles - InterpStartCycles));
-
+        // 렌더 보간은 FetchResults() 이후에 수행 (getActiveActors는 시뮬레이션 중 호출 불가)
         return;
     }
 
@@ -450,8 +444,24 @@ void FPhysSceneImpl::FetchResults()
         CaptureActiveActorsTransform();
         CaptureActiveActorsVelocity();
 
-        // 지연된 명령 처리
+        // 렌더 보간 업데이트 (캡처된 Actor 기준으로 수행)
+        uint64 InterpStartCycles = FPlatformTime::Cycles64();
+        float Alpha = GetInterpolationAlpha();
+        UpdateRenderInterpolation(Alpha);
+        uint64 InterpEndCycles = FPlatformTime::Cycles64();
+        StatManager.RecordInterpolationUpdateTime(FPlatformTime::ToMilliseconds(InterpEndCycles - InterpStartCycles));
+
+        // 지연된 명령 처리 (다음 시뮬레이션에 반영)
         ProcessPendingCommands();
+    }
+    else if (bAsyncSimulation)
+    {
+        // bSimulationPending = false인 경우에도 렌더 보간 업데이트 (Fixed Timestep 미도달)
+        uint64 InterpStartCycles = FPlatformTime::Cycles64();
+        float Alpha = GetInterpolationAlpha();
+        UpdateRenderInterpolation(Alpha);
+        uint64 InterpEndCycles = FPlatformTime::Cycles64();
+        StatManager.RecordInterpolationUpdateTime(FPlatformTime::ToMilliseconds(InterpEndCycles - InterpStartCycles));
     }
 
     // Actor 통계 업데이트
