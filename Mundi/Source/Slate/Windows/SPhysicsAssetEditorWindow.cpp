@@ -1189,45 +1189,102 @@ void SPhysicsAssetEditorWindow::GenerateAllBodies(EPrimitiveType PrimitiveType)
     if (!Skeleton || Skeleton->Bones.IsEmpty())
         return;
 
-    // Create & Clear all existing bodies before regenerating
+    // Get skeletal mesh data for vertex information
+    const FSkeletalMeshData* MeshData = ActiveState->CurrentMesh->GetSkeletalMeshData();
+    if (!MeshData || MeshData->Vertices.Num() == 0)
+        return;
+
+    // Prepare PhysicsAsset 
     if (!ActiveState->CurrentPhysicsAsset)
         ActiveState->CurrentPhysicsAsset = NewObject<UPhysicsAsset>();
+
+    // Clear all existing bodies before regenerating
     UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
     PhysicsAsset->ClearAllBodies();
 
+    // Step 1: Build bone-to-vertex influence map
+    TArray<FBoneVertexInfluence> InfluenceMap;
+    BuildBoneVertexInfluenceMap(MeshData, InfluenceMap, 0.3f);  // 30% weight threshold
+
+    // Step 2: Create bodies for bones with sufficient vertex influence
+    const TArray<FBone>& Bones = Skeleton->Bones;
     int32 CreatedCount = 0;
 
-    // Create body for all bones
-    for (int32 BoneIndex = 0; BoneIndex < Skeleton->Bones.size(); ++BoneIndex)
+    for (int32 BoneIndex = 0; BoneIndex < Bones.size(); ++BoneIndex)
     {
-        const FBone& Bone = Skeleton->Bones[BoneIndex];
+        const FBone& Bone = Bones[BoneIndex];
         FName BoneName(Bone.Name);
 
         // Filter: Skip bones that shouldn't have physics bodies
         if (!ShouldCreateBodyForBone(BoneIndex, Skeleton))
             continue;
 
-        // Check if this bone has enough influenced vertices
-        if (PhysicsAsset->FindBodyIndex(BoneName) >= 0)
+        // Check influence map range
+        if (BoneIndex < 0 || BoneIndex >= InfluenceMap.Num())
             continue;
 
-        // Same as CreateBodyForBone
-        FVector LocalCenter;
-        FQuat LocalRotation;
-        CalculateBoneLocalShapeTransform(BoneIndex, Skeleton, MeshComp, LocalCenter, LocalRotation);
+        // Check if this bone has enough influenced vertices
+        const FBoneVertexInfluence& Influence = InfluenceMap[BoneIndex];
+        if (Influence.Vertices.Num() < 3)  // Need at least 3 vertices for meaningful shape
+        {
+            UE_LOG("GenerateAllBodies: Skipping bone %s - only %d influenced vertices",
+                Bone.Name.c_str(), Influence.Vertices.Num());
+            continue;
+        }
 
-        float Radius, HalfHeight;
-        FVector Extent;
-        CalculateBodyDimensions(BoneIndex, Skeleton, MeshComp, PrimitiveType,
-            Radius, HalfHeight, Extent);
+        UE_LOG("GenerateAllBodies: Processing bone %s with %d influenced vertices",
+            Bone.Name.c_str(), Influence.Vertices.Num());
 
+        // Create new BodySetup
         UBodySetup* NewBody = NewObject<UBodySetup>();
         if (!NewBody)
+        {
+            UE_LOG("GenerateAllBodies: Failed to create BodySetup for bone %s", Bone.Name.c_str());
             continue;
+        }
 
         NewBody->BoneName = BoneName;
         NewBody->BodyType = ToBodySetupType(PrimitiveType);
 
+        // Step 3: Calculate principal axis from vertex cloud
+        FVector PrincipalAxis = CalculatePrincipalAxis(Influence.Vertices);
+
+        // Step 4: Fit minimal bounding primitive based on type
+        FVector FittedCenter = FVector::Zero();
+        FQuat   FittedRotation = FQuat::Identity();
+        float   Radius = 0.0f;
+        float   HalfHeight = 0.0f;
+        FVector Extent = FVector::Zero();
+
+        switch (PrimitiveType)
+        {
+        case EPrimitiveType::Sphere:
+            FitMinimalSphere(Influence.Vertices, FittedCenter, Radius);
+            NewBody->SphereRadius = Radius;
+            break;
+
+        case EPrimitiveType::Box:
+            FitMinimalBox(Influence.Vertices, PrincipalAxis, FittedCenter, FittedRotation, Extent);
+            NewBody->BoxExtent = Extent;
+            break;
+
+        case EPrimitiveType::Capsule:
+            FitMinimalCapsule(Influence.Vertices, PrincipalAxis, FittedCenter, FittedRotation, Radius, HalfHeight);
+            NewBody->CapsuleHalfHeight = HalfHeight;
+            NewBody->SphereRadius = Radius;
+            break;
+
+        default:
+            UE_LOG("GenerateAllBodies: Unknown primitive type for bone %s", Bone.Name.c_str());
+            continue;
+        }
+
+        // Compute bone-local center and rotation (same rules as CreateBodyForBone)
+        FVector LocalCenter;
+        FQuat   LocalRotation;
+        CalculateBoneLocalShapeTransform(BoneIndex, Skeleton, MeshComp, LocalCenter, LocalRotation);
+
+        // Create final primitive: use bone-local center/rotation and vertex-fitted dimensions
         switch (PrimitiveType)
         {
         case EPrimitiveType::Sphere:
@@ -1237,19 +1294,20 @@ void SPhysicsAssetEditorWindow::GenerateAllBodies(EPrimitiveType PrimitiveType)
             NewBody->AggGeom.SphereElems.Add(SphereElem);
             break;
         }
-
         case EPrimitiveType::Box:
         {
-            FBoxElem BoxElem(Extent.X * 2.f, Extent.Y * 2.f, Extent.Z * 2.f);
+            // Extent는 half-extent (vertex fitting 결과),
+            // BodySetup 생성자는 full size를 받으므로 *2
+            FBoxElem BoxElem(Extent.X * 2.0f, Extent.Y * 2.0f, Extent.Z * 2.0f);
             BoxElem.Center = LocalCenter;
             BoxElem.Rotation = LocalRotation;
             NewBody->AggGeom.BoxElems.Add(BoxElem);
             break;
         }
-
         case EPrimitiveType::Capsule:
         {
-            FSphylElem CapsuleElem(Radius, HalfHeight * 2.f);
+            float CapsuleLength = HalfHeight * 2.0f; // FSphylElem은 HalfHeight가 아닌 full length를 받음
+            FSphylElem CapsuleElem(Radius, CapsuleLength);
             CapsuleElem.Center = LocalCenter;
             CapsuleElem.Rotation = LocalRotation;
             NewBody->AggGeom.SphylElems.Add(CapsuleElem);
@@ -1259,12 +1317,13 @@ void SPhysicsAssetEditorWindow::GenerateAllBodies(EPrimitiveType PrimitiveType)
 
         // Add the body to the physics asset
         PhysicsAsset->AddBodySetup(NewBody);
-        ++CreatedCount;
+        CreatedCount++;
     }
 
     // Update the body index map
     PhysicsAsset->UpdateBodySetupIndexMap();
-    UE_LOG("GenerateAllBodies: Created %d bodies", CreatedCount);
+
+    UE_LOG("GenerateAllBodies: Completed vertex-driven generation - created %d bodies", CreatedCount);
 
     // Mark collision shapes dirty to visualize the newly created bodies
     ActiveState->bBoneLinesDirty = true;
