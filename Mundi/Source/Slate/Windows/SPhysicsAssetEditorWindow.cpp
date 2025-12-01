@@ -8,6 +8,17 @@
 #include "PhysicsAsset.h"
 #include "BodySetup.h"
 
+static EBodySetupType ToBodySetupType(EPrimitiveType InPrimitiveType)
+{
+    switch (InPrimitiveType)
+    {
+    case EPrimitiveType::Sphere:    return EBodySetupType::Sphere;
+    case EPrimitiveType::Box:       return EBodySetupType::Box;
+    case EPrimitiveType::Capsule:   return EBodySetupType::Capsule;
+    default:                        return EBodySetupType::None;
+    }
+}
+
 SPhysicsAssetEditorWindow::SPhysicsAssetEditorWindow()
 {
     CenterRect = FRect(0, 0, 0, 0);
@@ -951,7 +962,7 @@ void SPhysicsAssetEditorWindow::GenerateAllBodies(EPrimitiveType PrimitiveType)
         CalculateBodyDimensions(BoneIndex, Skeleton, PrimitiveType, Radius, HalfHeight, Extent);
 
         // Set body type and dimensions
-        NewBody->BodyType = static_cast<EBodySetupType>(static_cast<uint8>(PrimitiveType) + 1);
+        NewBody->BodyType = ToBodySetupType(PrimitiveType);
 
         switch (PrimitiveType)
         {
