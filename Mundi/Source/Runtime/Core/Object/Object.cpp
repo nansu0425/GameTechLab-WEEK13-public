@@ -372,7 +372,7 @@ void UObject::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 				if (bInIsLoading)
 				{
 					ArrayPtr->Empty();
-					for (size_t i = 0; i < ArrayJson.size(); ++i)
+					for (unsigned int i = 0; i < static_cast<unsigned int>(ArrayJson.size()); ++i)
 					{
 						const JSON& Elem = ArrayJson.at(i);
 						if (Elem.JSONType() == JSON::Class::String)

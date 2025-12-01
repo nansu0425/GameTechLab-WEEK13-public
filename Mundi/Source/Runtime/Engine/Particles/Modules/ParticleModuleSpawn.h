@@ -6,7 +6,7 @@
 #include "UParticleModuleSpawn.generated.h"
 
 // Forward declaration
-class FParticleEmitterInstance;
+struct FParticleEmitterInstance;
 
 UCLASS(DisplayName="스폰 모듈", Description="파티클의 생성 빈도와 수량을 제어하는 모듈입니다")
 class UParticleModuleSpawn : public UParticleModule

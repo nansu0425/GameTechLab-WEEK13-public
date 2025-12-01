@@ -1,11 +1,9 @@
 // ────────────────────────────────────────────────────────────────────────────
 // CapsuleComponent.cpp
-// Capsule 형태의 충돌 컴포넌트 구현 (Week09 기반, Week12 적응)
+// Capsule 형태의 충돌 컴포넌트 구현
 // ────────────────────────────────────────────────────────────────────────────
 #include "pch.h"
 #include "CapsuleComponent.h"
-#include "SphereComponent.h"
-#include "BoxComponent.h"
 #include "Actor.h"
 #include "World.h"
 #include "CollisionManager.h"
@@ -201,10 +199,7 @@ void UCapsuleComponent::RenderDebugVolume(URenderer* Renderer) const
 	TArray<FVector> EndPoints;
 	TArray<FVector4> Colors;
 
-	// 충돌 중이면 빨간색, 아니면 원래 색상 (Week09 방식)
-	const FVector4 LineColor = bIsOverlapping ?
-		FVector4(1.0f, 0.0f, 0.0f, 1.0f) :
-		FVector4(ShapeColor.X, ShapeColor.Y, ShapeColor.Z, 1.0f);
+	const FVector4 LineColor = FVector4(ShapeColor.X, ShapeColor.Y, ShapeColor.Z, 1.0f);
 	const int32 NumSegments = 16;
 
 	// 상단 원 (회전이 적용된 원 - Z축에 수직)
@@ -392,65 +387,8 @@ float UCapsuleComponent::SegmentToSegmentDistanceSquared(
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Capsule 전용 충돌 감지 함수
+// 유틸리티 함수
 // ────────────────────────────────────────────────────────────────────────────
-
-bool UCapsuleComponent::IsOverlappingCapsule(const UCapsuleComponent* OtherCapsule) const
-{
-	if (!OtherCapsule)
-	{
-		return false;
-	}
-
-	// 두 Capsule의 선분 끝점 계산
-	FVector MyStart, MyEnd;
-	GetCapsuleSegment(MyStart, MyEnd);
-	float MyRadius = GetScaledCapsuleRadius();
-
-	FVector OtherStart, OtherEnd;
-	OtherCapsule->GetCapsuleSegment(OtherStart, OtherEnd);
-	float OtherRadius = OtherCapsule->GetScaledCapsuleRadius();
-
-	// 선분 vs 선분 최단 거리 계산
-	float DistanceSquared = SegmentToSegmentDistanceSquared(MyStart, MyEnd, OtherStart, OtherEnd);
-	float RadiusSum = MyRadius + OtherRadius;
-
-	// 거리가 반지름의 합보다 작거나 같으면 충돌
-	return DistanceSquared <= (RadiusSum * RadiusSum);
-}
-
-bool UCapsuleComponent::IsOverlappingSphere(const USphereComponent* OtherSphere) const
-{
-	if (!OtherSphere)
-	{
-		return false;
-	}
-
-	FVector SphereCenter = OtherSphere->GetSphereCenter();
-	float SphereRadius = OtherSphere->GetScaledSphereRadius();
-
-	FVector SegmentStart, SegmentEnd;
-	GetCapsuleSegment(SegmentStart, SegmentEnd);
-	float CapsuleRad = GetScaledCapsuleRadius();
-
-	// 점과 선분 사이의 거리 계산
-	float DistanceSquared = PointToSegmentDistanceSquared(SphereCenter, SegmentStart, SegmentEnd);
-	float RadiusSum = CapsuleRad + SphereRadius;
-
-	// 거리가 반지름의 합보다 작거나 같으면 충돌
-	return DistanceSquared <= (RadiusSum * RadiusSum);
-}
-
-bool UCapsuleComponent::IsOverlappingBox(const UBoxComponent* OtherBox) const
-{
-	if (!OtherBox)
-	{
-		return false;
-	}
-
-	// 간략 구현: Bounds 기반 체크
-	return CachedBounds.Intersects(OtherBox->GetScaledBounds());
-}
 
 bool UCapsuleComponent::ContainsPoint(const FVector& Point) const
 {

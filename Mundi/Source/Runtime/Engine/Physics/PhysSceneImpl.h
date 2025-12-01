@@ -10,7 +10,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 #include <PxPhysicsAPI.h>
+#include <thread>
 #include "UEContainer.h"
+#include "PhysicsSceneLock.h"
 
 class UWorld;
 class FPhysScene;
@@ -108,7 +110,10 @@ private:
     bool bSimulationPending = false;
 
     // 설정
-    static constexpr int32 NumPhysxThreads = 4;
+    int32 NumPhysxThreads = 0;
+
+    // 최적 워커 스레드 수 계산
+    static int32 CalculateOptimalThreadCount();
     static constexpr float DefaultStaticFriction = 0.5f;
     static constexpr float DefaultDynamicFriction = 0.5f;
     static constexpr float DefaultRestitution = 0.6f;
@@ -125,4 +130,77 @@ private:
 
     /** 누적된 시간 (Fixed Timestep에 도달할 때까지 누적) */
     float AccumulatedTime = 0.0f;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 지연 명령 큐 (시뮬레이션 중 Actor 추가/제거 요청 지연 처리)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** 지연 명령 타입 */
+    struct FPhysicsCommand
+    {
+        enum class EType : uint8
+        {
+            AddActor,
+            RemoveActor,
+            SetGlobalPose,      // Transform 설정
+            AddForce,           // Force 적용
+            AddTorque,          // Torque 적용
+            SetLinearVelocity,  // 선형 속도 설정
+            SetAngularVelocity  // 각속도 설정
+        };
+
+        EType Type;
+        physx::PxRigidActor* Actor = nullptr;
+
+        physx::PxTransform Transform = physx::PxTransform(physx::PxIdentity);
+
+        physx::PxVec3 Vector = physx::PxVec3(0);
+        physx::PxForceMode::Enum ForceMode = physx::PxForceMode::eFORCE;
+
+        // 추가 플래그
+        bool bAddToCurrent = false;  // SetLinearVelocity, SetAngularVelocity용
+    };
+
+    /** 시뮬레이션 중 대기 중인 명령 큐 */
+    TArray<FPhysicsCommand> PendingCommands;
+
+    /** 지연된 명령 처리 */
+    void ProcessPendingCommands();
+
+public:
+    // ═══════════════════════════════════════════════════════════════════════
+    // Actor 추가/제거 (스레드 안전)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** Actor를 씬에 추가 (시뮬레이션 중이면 지연 처리) */
+    void AddActor(physx::PxActor* Actor);
+
+    /** Actor를 씬에서 제거 (시뮬레이션 중이면 지연 처리) */
+    void RemoveActor(physx::PxActor* Actor);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 물리 상태 변경 (스레드 안전, 시뮬레이션 중 지연 처리)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** Actor의 Transform 설정 */
+    void SetActorGlobalPose(physx::PxRigidActor* Actor, const physx::PxTransform& Pose);
+
+    /** Actor에 Force 적용 */
+    void AddForceToActor(physx::PxRigidDynamic* Actor, const physx::PxVec3& Force, physx::PxForceMode::Enum Mode);
+
+    /** Actor에 Torque 적용 */
+    void AddTorqueToActor(physx::PxRigidDynamic* Actor, const physx::PxVec3& Torque, physx::PxForceMode::Enum Mode);
+
+    /** Actor의 선형 속도 설정 */
+    void SetActorLinearVelocity(physx::PxRigidDynamic* Actor, const physx::PxVec3& Velocity, bool bAddToCurrent);
+
+    /** Actor의 각속도 설정 */
+    void SetActorAngularVelocity(physx::PxRigidDynamic* Actor, const physx::PxVec3& AngVel, bool bAddToCurrent);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Velocity 캐싱 (읽기 작업 스레드 안전)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** Active Actors의 Velocity 캡처 (fetchResults 직후 호출) */
+    void CaptureActiveActorsVelocity();
 };

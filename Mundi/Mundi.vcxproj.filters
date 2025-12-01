@@ -2504,6 +2504,9 @@
     <ClInclude Include="Source\Runtime\Core\Misc\Macros.h">
       <Filter>Source\Runtime\Core\Misc</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Physics\PhysicsSceneLock.h">
+      <Filter>Source\Runtime\Engine\Physics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="BuildTools\CodeGenerator\generate.py">

@@ -3,6 +3,7 @@
 #include "PhysScene.h"
 #include "HitResult.h"
 #include "PhysicsTypes.h"
+#include "PhysicsStats.h"
 #include "BodyInstance.h"
 #include "PrimitiveComponent.h"
 #include "Actor.h"
@@ -40,29 +41,9 @@ void FPhysicsEventCallback::onContact(
     FBodyInstance* BodyInst0 = static_cast<FBodyInstance*>(PairHeader.actors[0]->userData);
     FBodyInstance* BodyInst1 = static_cast<FBodyInstance*>(PairHeader.actors[1]->userData);
 
-    // 테스트용 Actor는 userData가 없음
+    // BodyInstance가 없는 Actor는 무시 (외부 PhysX Actor 또는 삭제된 Actor)
     if (!BodyInst0 || !BodyInst1)
     {
-        // Phase 1 로그 출력 (기존 코드 유지)
-        for (PxU32 i = 0; i < NbPairs; ++i)
-        {
-            const PxContactPair& ContactPair = Pairs[i];
-            bool bNewContact = (ContactPair.events & PxPairFlag::eNOTIFY_TOUCH_FOUND);
-            if (bNewContact)
-            {
-                ++TotalContactEvents;
-
-                // 충돌 정보 추출
-                FHitResult HitResult;
-                ExtractHitResult(ContactPair, PairHeader, true, HitResult);
-
-                UE_LOG("===========================================================");
-                UE_LOG("[Contact] #%u - Collision (no BodyInstance)", TotalContactEvents);
-                UE_LOG("  Impact Point (Mundi): (%.2f, %.2f, %.2f)",
-                    HitResult.ImpactPoint.X, HitResult.ImpactPoint.Y, HitResult.ImpactPoint.Z);
-                UE_LOG("===========================================================");
-            }
-        }
         return;
     }
 
@@ -86,6 +67,7 @@ void FPhysicsEventCallback::onContact(
         if (bNewContact)
         {
             ++TotalContactEvents;
+            FPhysicsStatManager::GetInstance().IncrementContactEvents();
 
             // HitResult 추출
             FHitResult HitResult0, HitResult1;
@@ -150,10 +132,9 @@ void FPhysicsEventCallback::onTrigger(PxTriggerPair* Pairs, PxU32 Count)
         FBodyInstance* TriggerBody = static_cast<FBodyInstance*>(TriggerPair.triggerActor->userData);
         FBodyInstance* OtherBody = static_cast<FBodyInstance*>(TriggerPair.otherActor->userData);
 
+        // BodyInstance가 없는 Actor는 무시
         if (!TriggerBody || !OtherBody)
         {
-            ++TotalTriggerEvents;
-            UE_LOG("[Trigger] #%u - Trigger event (no BodyInstance)", TotalTriggerEvents);
             continue;
         }
 
@@ -169,6 +150,7 @@ void FPhysicsEventCallback::onTrigger(PxTriggerPair* Pairs, PxU32 Count)
         AActor* OtherOwner = OtherComp->GetOwner();
 
         ++TotalTriggerEvents;
+        FPhysicsStatManager::GetInstance().IncrementTriggerEvents();
 
         if (TriggerPair.status == PxPairFlag::eNOTIFY_TOUCH_FOUND)
         {
