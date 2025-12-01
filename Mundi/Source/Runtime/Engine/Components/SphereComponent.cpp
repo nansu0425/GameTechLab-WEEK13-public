@@ -1,12 +1,10 @@
 // ────────────────────────────────────────────────────────────────────────────
 // SphereComponent.cpp
-// Sphere 형태의 충돌 컴포넌트 구현 (Week09 기반, Week12 적응)
+// Sphere 형태의 충돌 컴포넌트 구현
 // ────────────────────────────────────────────────────────────────────────────
 #include "pch.h"
 #include "SphereComponent.h"
-#include "BoxComponent.h"
 #include "Actor.h"
-#include "AABB.h"
 #include "World.h"
 #include "CollisionManager.h"
 #include "WorldPartitionManager.h"
@@ -148,10 +146,7 @@ void USphereComponent::RenderDebugVolume(URenderer* Renderer) const
 	TArray<FVector> EndPoints;
 	TArray<FVector4> Colors;
 
-	// 충돌 중이면 빨간색, 아니면 원래 색상 (Week09 방식)
-	const FVector4 LineColor = bIsOverlapping ?
-		FVector4(1.0f, 0.0f, 0.0f, 1.0f) :
-		FVector4(ShapeColor.X, ShapeColor.Y, ShapeColor.Z, 1.0f);
+	const FVector4 LineColor = FVector4(ShapeColor.X, ShapeColor.Y, ShapeColor.Z, 1.0f);
 	const int32 NumSegments = 32;
 
 	// XY 평면 원 (Z축 중심)
@@ -200,41 +195,8 @@ void USphereComponent::RenderDebugVolume(URenderer* Renderer) const
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Sphere 전용 충돌 감지 함수
+// 유틸리티 함수
 // ────────────────────────────────────────────────────────────────────────────
-
-bool USphereComponent::IsOverlappingSphere(const USphereComponent* OtherSphere) const
-{
-	if (!OtherSphere)
-	{
-		return false;
-	}
-
-	// 두 Sphere의 중심과 반지름을 가져옵니다
-	FVector MyCenter = GetSphereCenter();
-	float MyRadius = GetScaledSphereRadius();
-
-	FVector OtherCenter = OtherSphere->GetSphereCenter();
-	float OtherRadius = OtherSphere->GetScaledSphereRadius();
-
-	// 중심 간 거리 제곱 계산 (제곱근 연산 회피)
-	float DistanceSquared = (MyCenter - OtherCenter).SizeSquared();
-	float RadiusSum = MyRadius + OtherRadius;
-
-	// 거리가 반지름의 합보다 작거나 같으면 충돌
-	return DistanceSquared <= (RadiusSum * RadiusSum);
-}
-
-bool USphereComponent::IsOverlappingBox(const UBoxComponent* OtherBox) const
-{
-	if (!OtherBox)
-	{
-		return false;
-	}
-
-	// Box 측에서 구현된 충돌 감지 사용 (중복 구현 방지)
-	return OtherBox->IsOverlappingSphere(this);
-}
 
 bool USphereComponent::ContainsPoint(const FVector& Point) const
 {

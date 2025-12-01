@@ -39,4 +39,32 @@ private:
     // Collision shape management
     void RebuildCollisionShapes();
     void ClearCollisionShapes();
+
+    // Helper function for physics body hierarchy filtering
+    bool HasBodyInSubtree(int32 BoneIndex, const TArray<struct FBone>& Bones, const TArray<TArray<int32>>& Children) const;
+
+    // Physics body generation
+    void GenerateAllBodies(EPrimitiveType PrimitiveType);
+    void CalculateBodyDimensions(int32 BoneIndex, const struct FSkeleton* Skeleton, EPrimitiveType PrimitiveType,
+                                 float& OutRadius, float& OutHalfHeight, FVector& OutExtent) const;
+    bool ShouldCreateBodyForBone(int32 BoneIndex, const struct FSkeleton* Skeleton) const;
+    void CreateBodyForBone(int32 BoneIndex, EPrimitiveType PrimitiveType);
+
+    // Vertex-driven body generation
+    struct FBoneVertexInfluence
+    {
+        TArray<FVector> Vertices;  // World-space vertex positions influenced by this bone
+        float TotalWeight;         // Sum of all weights for this bone
+    };
+
+    void BuildBoneVertexInfluenceMap(const struct FSkeletalMeshData* MeshData, TArray<FBoneVertexInfluence>& OutInfluenceMap, float MinWeightThreshold = 0.3f) const;
+    FVector CalculatePrincipalAxis(const TArray<FVector>& Vertices) const;
+    void FitMinimalSphere(const TArray<FVector>& Vertices, FVector& OutCenter, float& OutRadius) const;
+    void FitMinimalCapsule(const TArray<FVector>& Vertices, const FVector& PrincipalAxis, FVector& OutCenter, FQuat& OutRotation, float& OutRadius, float& OutHalfHeight) const;
+    void FitMinimalBox(const TArray<FVector>& Vertices, const FVector& PrincipalAxis, FVector& OutCenter, FQuat& OutRotation, FVector& OutExtent) const;
+
+    // Physics Body Icon
+    class UTexture* IconSingleBody = nullptr;
+    class UTexture* IconMultipleBody = nullptr;
+    bool bIconsLoaded = false;
 };

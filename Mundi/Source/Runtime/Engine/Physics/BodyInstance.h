@@ -163,6 +163,12 @@ struct FBodyInstance
      */
     void UpdateRenderInterpolation(float Alpha);
 
+    /**
+     * @brief 물리 스텝 후 Velocity 캡처
+     * @note PhysScene::FetchResults()에서 호출됨
+     */
+    void CapturePhysicsVelocity();
+
     // ═══════════════════════════════════════════════════════════════════════
     // 물리 제어
     // ═══════════════════════════════════════════════════════════════════════

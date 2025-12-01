@@ -106,6 +106,14 @@ public:
     void DisableCollision(int32 BodyIndexA, int32 BodyIndexB);
     void EnableCollision(int32 BodyIndexA, int32 BodyIndexB);
 
+    // Getters for editor access
+    const TArray<UBodySetup*>& GetBodySetups() const { return BodySetups; }
+    int32 GetBodySetupCount() const { return BodySetups.Num(); }
+
+    // Body management
+    void AddBodySetup(UBodySetup* NewBody);
+    void ClearAllBodies();
+
 private:
     /*
      * UBodySetup - Single Rigid Body

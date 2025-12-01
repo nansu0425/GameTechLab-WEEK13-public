@@ -1,12 +1,10 @@
 // ────────────────────────────────────────────────────────────────────────────
 // BoxComponent.cpp
-// Box 형태의 충돌 컴포넌트 구현 (Week09 기반, Week12 적응)
+// Box 형태의 충돌 컴포넌트 구현
 // ────────────────────────────────────────────────────────────────────────────
 #include "pch.h"
 #include "BoxComponent.h"
-#include "SphereComponent.h"
 #include "Actor.h"
-#include "Sphere.h"
 #include "World.h"
 #include "CollisionManager.h"
 #include "WorldPartitionManager.h"
@@ -197,10 +195,7 @@ void UBoxComponent::RenderDebugVolume(URenderer* Renderer) const
 	TArray<FVector> EndPoints;
 	TArray<FVector4> Colors;
 
-	// 충돌 중이면 빨간색, 아니면 원래 색상 (Week09 방식)
-	const FVector4 LineColor = bIsOverlapping ?
-		FVector4(1.0f, 0.0f, 0.0f, 1.0f) :
-		FVector4(ShapeColor.X, ShapeColor.Y, ShapeColor.Z, 1.0f);
+	const FVector4 LineColor = FVector4(ShapeColor.X, ShapeColor.Y, ShapeColor.Z, 1.0f);
 
 	// 뒤쪽 면 (4개 선분)
 	StartPoints.push_back(Corners[0]); EndPoints.push_back(Corners[1]); Colors.push_back(LineColor);
@@ -224,55 +219,8 @@ void UBoxComponent::RenderDebugVolume(URenderer* Renderer) const
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Box 전용 충돌 감지 함수
+// 유틸리티 함수
 // ────────────────────────────────────────────────────────────────────────────
-
-bool UBoxComponent::IsOverlappingBox(const UBoxComponent* OtherBox) const
-{
-	if (!OtherBox)
-	{
-		return false;
-	}
-
-	// 두 Box의 중심과 크기를 가져옵니다
-	FVector MyCenter = GetBoxCenter();
-	FVector MyExtent = GetScaledBoxExtent();
-
-	FVector OtherCenter = OtherBox->GetBoxCenter();
-	FVector OtherExtent = OtherBox->GetScaledBoxExtent();
-
-	// AABB 교차 테스트 (SAT - Separating Axis Theorem)
-	bool bOverlapX = FMath::Abs(MyCenter.X - OtherCenter.X) <= (MyExtent.X + OtherExtent.X);
-	bool bOverlapY = FMath::Abs(MyCenter.Y - OtherCenter.Y) <= (MyExtent.Y + OtherExtent.Y);
-	bool bOverlapZ = FMath::Abs(MyCenter.Z - OtherCenter.Z) <= (MyExtent.Z + OtherExtent.Z);
-
-	return bOverlapX && bOverlapY && bOverlapZ;
-}
-
-bool UBoxComponent::IsOverlappingSphere(const USphereComponent* OtherSphere) const
-{
-	if (!OtherSphere)
-	{
-		return false;
-	}
-
-	// Box의 중심과 크기
-	FVector BoxCenter = GetBoxCenter();
-	FVector BoxExt = GetScaledBoxExtent();
-
-	// Sphere의 중심과 반지름
-	FVector SphereCenter = OtherSphere->GetSphereCenter();
-	float SphereRadius = OtherSphere->GetScaledSphereRadius();
-
-	// AABB를 생성합니다
-	FAABB Box(BoxCenter - BoxExt, BoxCenter + BoxExt);
-
-	// FSphere를 생성합니다
-	FSphere Sphere(SphereCenter, SphereRadius);
-
-	// Box와 Sphere 교차 테스트
-	return Sphere.IntersectsAABB(Box);
-}
 
 bool UBoxComponent::ContainsPoint(const FVector& Point) const
 {

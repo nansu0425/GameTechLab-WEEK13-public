@@ -14,8 +14,6 @@
 
 #include <PxPhysicsAPI.h>
 
-#include "ShapeComponent.h"
-
 using namespace physx;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -307,32 +305,31 @@ FTransform FBodyInstance::GetWorldTransform() const
 
 void FBodyInstance::SetWorldTransform(const FTransform& NewTransform, bool bTeleport)
 {
-    if (!Impl || !Impl->RigidActorSync)
+    if (!Impl || !Impl->RigidActorSync || !OwnerScene)
     {
         return;
     }
 
-    // 쓰기 잠금으로 Transform 설정 보호
-    PxScene* PScene = Impl->RigidActorSync->getScene();
-    SCOPED_SCENE_WRITE_LOCK(PScene);
+    FPhysSceneImpl* SceneImpl = OwnerScene->GetImpl();
+    if (!SceneImpl)
+    {
+        return;
+    }
 
     PxTransform PxPose = PhysicsConversion::ToPxTransform(NewTransform);
 
+    // SetGlobalPose를 PhysScene을 통해 호출 (지연 처리 지원)
+    SceneImpl->SetActorGlobalPose(Impl->RigidActorSync, PxPose);
+
+    // 텔레포트 시 속도 초기화
     if (bSimulatePhysics && bTeleport)
     {
-        // Dynamic Actor의 경우 setKinematicTarget 또는 setGlobalPose 사용
         PxRigidDynamic* Dynamic = Impl->GetPxRigidDynamic();
         if (Dynamic)
         {
-            Dynamic->setGlobalPose(PxPose);
-            // 텔레포트 시 속도 초기화
-            Dynamic->setLinearVelocity(PxVec3(0));
-            Dynamic->setAngularVelocity(PxVec3(0));
+            SceneImpl->SetActorLinearVelocity(Dynamic, PxVec3(0), false);
+            SceneImpl->SetActorAngularVelocity(Dynamic, PxVec3(0), false);
         }
-    }
-    else
-    {
-        Impl->RigidActorSync->setGlobalPose(PxPose);
     }
 }
 
@@ -411,6 +408,24 @@ void FBodyInstance::UpdateRenderInterpolation(float Alpha)
 
     // Component에 적용
     OwnerComponent->SetWorldTransform(InterpolatedTransform);
+}
+
+void FBodyInstance::CapturePhysicsVelocity()
+{
+    if (!Impl)
+    {
+        return;
+    }
+
+    PxRigidDynamic* Dynamic = Impl->GetPxRigidDynamic();
+    if (!Dynamic)
+    {
+        return;
+    }
+
+    // Velocity 캐시 (fetchResults 직후 호출되므로 안전)
+    Impl->CachedLinearVelocity = Dynamic->getLinearVelocity();
+    Impl->CachedAngularVelocity = Dynamic->getAngularVelocity();
 }
 
 void FBodyInstance::UpdatePhysicsShapeCollision()
@@ -564,43 +579,55 @@ void FBodyInstance::SetSimulatePhysics(bool bSimulate)
 
 void FBodyInstance::AddForce(const FVector& Force, bool bAccelChange)
 {
-    if (!Impl)
+    if (!Impl || !OwnerScene)
     {
         return;
     }
 
     PxRigidDynamic* Dynamic = Impl->GetPxRigidDynamic();
     if (!Dynamic)
+    {
+        return;
+    }
+
+    FPhysSceneImpl* SceneImpl = OwnerScene->GetImpl();
+    if (!SceneImpl)
     {
         return;
     }
 
     PxVec3 PxForce = PhysicsConversion::ToPxVec3(Force);
     PxForceMode::Enum Mode = bAccelChange ? PxForceMode::eACCELERATION : PxForceMode::eFORCE;
-    Dynamic->addForce(PxForce, Mode);
+    SceneImpl->AddForceToActor(Dynamic, PxForce, Mode);
 }
 
 void FBodyInstance::AddImpulse(const FVector& Impulse, bool bVelChange)
 {
-    if (!Impl)
+    if (!Impl || !OwnerScene)
     {
         return;
     }
 
     PxRigidDynamic* Dynamic = Impl->GetPxRigidDynamic();
     if (!Dynamic)
+    {
+        return;
+    }
+
+    FPhysSceneImpl* SceneImpl = OwnerScene->GetImpl();
+    if (!SceneImpl)
     {
         return;
     }
 
     PxVec3 PxImpulse = PhysicsConversion::ToPxVec3(Impulse);
     PxForceMode::Enum Mode = bVelChange ? PxForceMode::eVELOCITY_CHANGE : PxForceMode::eIMPULSE;
-    Dynamic->addForce(PxImpulse, Mode);
+    SceneImpl->AddForceToActor(Dynamic, PxImpulse, Mode);
 }
 
 void FBodyInstance::AddTorqueInRadians(const FVector& Torque, bool bAccelChange)
 {
-    if (!Impl)
+    if (!Impl || !OwnerScene)
     {
         return;
     }
@@ -611,9 +638,15 @@ void FBodyInstance::AddTorqueInRadians(const FVector& Torque, bool bAccelChange)
         return;
     }
 
+    FPhysSceneImpl* SceneImpl = OwnerScene->GetImpl();
+    if (!SceneImpl)
+    {
+        return;
+    }
+
     PxVec3 PxTorque = PhysicsConversion::ToPxVec3(Torque);
     PxForceMode::Enum Mode = bAccelChange ? PxForceMode::eACCELERATION : PxForceMode::eFORCE;
-    Dynamic->addTorque(PxTorque, Mode);
+    SceneImpl->AddTorqueToActor(Dynamic, PxTorque, Mode);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -627,35 +660,31 @@ FVector FBodyInstance::GetLinearVelocity() const
         return FVector::Zero();
     }
 
-    PxRigidDynamic* Dynamic = Impl->GetPxRigidDynamic();
-    if (!Dynamic)
-    {
-        return FVector::Zero();
-    }
-
-    PxVec3 Vel = Dynamic->getLinearVelocity();
-    return PhysicsConversion::ToFVector(Vel);
+    // 캐시된 값 반환 (PhysX 직접 접근 안 함 - 스레드 안전)
+    return PhysicsConversion::ToFVector(Impl->CachedLinearVelocity);
 }
 
 void FBodyInstance::SetLinearVelocity(const FVector& Velocity, bool bAddToCurrent)
 {
-    if (!Impl)
+    if (!Impl || !OwnerScene)
     {
         return;
     }
 
     PxRigidDynamic* Dynamic = Impl->GetPxRigidDynamic();
     if (!Dynamic)
+    {
+        return;
+    }
+
+    FPhysSceneImpl* SceneImpl = OwnerScene->GetImpl();
+    if (!SceneImpl)
     {
         return;
     }
 
     PxVec3 NewVel = PhysicsConversion::ToPxVec3(Velocity);
-    if (bAddToCurrent)
-    {
-        NewVel += Dynamic->getLinearVelocity();
-    }
-    Dynamic->setLinearVelocity(NewVel);
+    SceneImpl->SetActorLinearVelocity(Dynamic, NewVel, bAddToCurrent);
 }
 
 FVector FBodyInstance::GetAngularVelocityInRadians() const
@@ -665,35 +694,31 @@ FVector FBodyInstance::GetAngularVelocityInRadians() const
         return FVector::Zero();
     }
 
-    PxRigidDynamic* Dynamic = Impl->GetPxRigidDynamic();
-    if (!Dynamic)
-    {
-        return FVector::Zero();
-    }
-
-    PxVec3 AngVel = Dynamic->getAngularVelocity();
-    return PhysicsConversion::ToFVector(AngVel);
+    // 캐시된 값 반환 (PhysX 직접 접근 안 함 - 스레드 안전)
+    return PhysicsConversion::ToFVector(Impl->CachedAngularVelocity);
 }
 
 void FBodyInstance::SetAngularVelocityInRadians(const FVector& AngVel, bool bAddToCurrent)
 {
-    if (!Impl)
+    if (!Impl || !OwnerScene)
     {
         return;
     }
 
     PxRigidDynamic* Dynamic = Impl->GetPxRigidDynamic();
     if (!Dynamic)
+    {
+        return;
+    }
+
+    FPhysSceneImpl* SceneImpl = OwnerScene->GetImpl();
+    if (!SceneImpl)
     {
         return;
     }
 
     PxVec3 NewAngVel = PhysicsConversion::ToPxVec3(AngVel);
-    if (bAddToCurrent)
-    {
-        NewAngVel += Dynamic->getAngularVelocity();
-    }
-    Dynamic->setAngularVelocity(NewAngVel);
+    SceneImpl->SetActorAngularVelocity(Dynamic, NewAngVel, bAddToCurrent);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
