@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <FxCompile Include="Shaders\Materials\Fireball.hlsl">
@@ -1166,6 +1166,9 @@
     <ClCompile Include="Generated\UPhysicsAsset.generated.cpp">
       <Filter>Generated</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\Physics\AggregateGeom.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Physics\ConstraintInstance.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Physics\PhysicsAsset.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Generated\UParticleModuleSizeScaleBySpeed.generated.h">
@@ -2462,6 +2465,18 @@
     <ClInclude Include="Generated\UPhysicsAsset.generated.h">
       <Filter>Generated</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Runtime\Core\Misc\Macros.h" />
+    <ClInclude Include="Source\Runtime\Engine\Physics\BodySetupCore.h" />
+    <ClInclude Include="Source\Runtime\Engine\Physics\BodySetupEnums.h" />
+    <ClInclude Include="Source\Runtime\Engine\Physics\ConstraintInstance.h" />
+    <ClInclude Include="Source\Runtime\Engine\Physics\PhysicsAsset.h" />
+    <ClInclude Include="Source\Runtime\Engine\Physics\PhysicsUserData.h" />
+    <ClInclude Include="Source\Runtime\Engine\Physics\Shape\BoxElem.h" />
+    <ClInclude Include="Source\Runtime\Engine\Physics\Shape\ConvexElem.h" />
+    <ClInclude Include="Source\Runtime\Engine\Physics\Shape\ShapeElem.h" />
+    <ClInclude Include="Source\Runtime\Engine\Physics\Shape\SphereElem.h" />
+    <ClInclude Include="Source\Runtime\Engine\Physics\Shape\SphylElem.h" />
+    <ClInclude Include="Source\Runtime\Engine\Physics\PhysicsSceneLock.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="BuildTools\CodeGenerator\generate.py">

@@ -1,14 +1,9 @@
 ﻿#include "pch.h"
 #include "ShapeComponent.h"
-#include "OBB.h"
-#include "Collision.h"
 #include "World.h"
 #include "WorldPartitionManager.h"
-#include "BVHierarchy.h"
-#include "GameObject.h"
 #include "CollisionManager.h"
 #include "BodySetup.h"
-#include "HitResult.h"
 // IMPLEMENT_CLASS is now auto-generated in .generated.cpp
 UShapeComponent::UShapeComponent() : bShapeIsVisible(true), bShapeHiddenInGame(true)
 {
@@ -110,22 +105,8 @@ void UShapeComponent::OnTransformUpdated()
 
 void UShapeComponent::TickComponent(float DeltaSeconds)
 {
-    // PhysX가 물리/트리거를 처리할 때는 자체 오버랩 검사 스킵
-    // (PhysicsEventCallback에서 onTrigger/onContact 이벤트를 처리함)
-    if (bSimulatePhysics || bIsTrigger)
-    {
-        return;
-    }
-
-    if (GetClass() == UShapeComponent::StaticClass())
-    {
-        bGenerateOverlapEvents = false;
-    }
-
-    if (!bGenerateOverlapEvents)
-    {
-        OverlapInfos.clear();
-    }
+    // PhysX가 모든 물리/Overlap 이벤트를 처리함
+    // (PhysicsEventCallback에서 onTrigger/onContact 이벤트를 처리)
 
     UWorld* World = GetWorld();
     if (!World) return;
@@ -139,116 +120,6 @@ void UShapeComponent::TickComponent(float DeltaSeconds)
     if (UWorldPartitionManager* Partition = World->GetPartitionManager())
     {
         Partition->MarkDirty(this);
-    }
-
-    //Test용 O(N^2) 
-    OverlapNow.clear();
-
-    for (AActor* Actor : World->GetActors())
-    {
-        if (!Actor || !Actor->IsActorActive())
-            continue;
-
-        for (USceneComponent* Comp : Actor->GetSceneComponents())
-        {
-            UShapeComponent* Other = Cast<UShapeComponent>(Comp);
-            if (!Other || Other == this) continue;
-            if (Other->GetOwner() == this->GetOwner()) continue;
-            if (!Other->bGenerateOverlapEvents) continue;
-
-            AActor* Owner = this->GetOwner();
-            AActor* OtherOwner = Other->GetOwner();
-
-            // Collision 모듈
-            if (!Collision::CheckOverlap(this, Other)) continue;
-
-            OverlapNow.Add(Other);
-            //UE_LOG("Collision!!");
-        }
-    }
-
-    // Publish current overlaps
-    OverlapInfos.clear();
-    for (UShapeComponent* Other : OverlapNow)
-    {
-        FOverlapInfo Info;
-        Info.OtherActor = Other->GetOwner();
-        Info.Other = Other;
-        OverlapInfos.Add(Info);
-    }
-
-    //Begin
-    for (UShapeComponent* Comp : OverlapNow)
-    {
-        if (!Comp || Comp->IsPendingDestroy())
-        {
-            continue;
-        }
-
-        if (!OverlapPrev.Contains(Comp))
-        {
-            AActor* Owner = this->GetOwner();
-            AActor* OtherOwner = Comp ? Comp->GetOwner() : nullptr;
-
-            // 이전에 호출된 적이 있는 이벤트 인지 확인
-            if (!(Owner && OtherOwner && World->TryMarkOverlapPair(Owner, OtherOwner)))
-            {
-                continue;
-            }
-
-            // 양방향 BeginOverlap 호출 (UPrimitiveComponent 델리게이트 사용)
-            FHitResult EmptyHit;
-            this->OnComponentBeginOverlap.Broadcast(this, OtherOwner, Comp, 0, false, EmptyHit);
-            if (Comp)
-            {
-                Comp->OnComponentBeginOverlap.Broadcast(Comp, Owner, this, 0, false, EmptyHit);
-            }
-
-            // Hit 호출 (UPrimitiveComponent 델리게이트 사용)
-            FVector ZeroImpulse = FVector::Zero();
-            this->OnComponentHit.Broadcast(this, OtherOwner, Comp, ZeroImpulse, EmptyHit);
-            if (bBlockComponent && Comp)
-            {
-                Comp->OnComponentHit.Broadcast(Comp, Owner, this, ZeroImpulse, EmptyHit);
-            }
-        }
-    }
-
-    //End
-    for (UShapeComponent* Comp : OverlapPrev)
-    {
-        if (!Comp || Comp->IsPendingDestroy())
-        {
-            continue;
-        }
-
-        if (!OverlapNow.Contains(Comp))
-        {
-            AActor* Owner = this->GetOwner();
-            AActor* OtherOwner = Comp ? Comp->GetOwner() : nullptr;
-
-            // 이전에 호출된 적이 있는 이벤트 인지 확인
-            if (!(Owner && OtherOwner && World->TryMarkOverlapPair(Owner, OtherOwner)))
-            {
-                continue;
-            }
-
-            // 양방향 EndOverlap 호출 (UPrimitiveComponent 델리게이트 사용)
-            this->OnComponentEndOverlap.Broadcast(this, OtherOwner, Comp, 0);
-            if (Comp)
-            {
-                Comp->OnComponentEndOverlap.Broadcast(Comp, Owner, this, 0);
-            }
-        }
-    }
-
-    OverlapPrev.clear();
-    for (UShapeComponent* Comp : OverlapNow)
-    {
-            if (Comp && !Comp->IsPendingDestroy())
-            {
-                OverlapPrev.Add(Comp);
-            }
     }
 }
 

@@ -1,15 +1,12 @@
 ﻿// ────────────────────────────────────────────────────────────────────────────
 // BoxComponent.h
-// Box 형태의 충돌 컴포넌트 (Week09 기반, Week12 적응)
+// Box 형태의 충돌 컴포넌트
 // ────────────────────────────────────────────────────────────────────────────
 #pragma once
 #include "ShapeComponent.h"
 #include "AABB.h"
 #include "BoxSphereBounds.h"
 #include "UBoxComponent.generated.h"
-
-class UShader;
-class USphereComponent;
 
 /**
  * UBoxComponent
@@ -91,18 +88,8 @@ public:
 	void RenderDebugVolume(class URenderer* Renderer) const override;
 
 	// ────────────────────────────────────────────────
-	// Box 전용 충돌 감지 함수
+	// 유틸리티 함수
 	// ────────────────────────────────────────────────
-
-	/**
-	 * 다른 Box 컴포넌트와 겹쳐있는지 확인합니다.
-	 */
-	bool IsOverlappingBox(const UBoxComponent* OtherBox) const;
-
-	/**
-	 * Sphere 컴포넌트와 겹쳐있는지 확인합니다.
-	 */
-	bool IsOverlappingSphere(const USphereComponent* OtherSphere) const;
 
 	/**
 	 * 특정 점이 Box 내부에 있는지 확인합니다.

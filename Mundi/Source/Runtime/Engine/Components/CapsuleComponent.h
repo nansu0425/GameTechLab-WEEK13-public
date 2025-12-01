@@ -1,15 +1,11 @@
 ﻿// ────────────────────────────────────────────────────────────────────────────
 // CapsuleComponent.h
-// Capsule 형태의 충돌 컴포넌트 (Week09 기반, Week12 적응)
+// Capsule 형태의 충돌 컴포넌트
 // ────────────────────────────────────────────────────────────────────────────
 #pragma once
 #include "ShapeComponent.h"
 #include "BoxSphereBounds.h"
 #include "UCapsuleComponent.generated.h"
-
-class UShader;
-class USphereComponent;
-class UBoxComponent;
 
 /**
  * UCapsuleComponent
@@ -106,23 +102,8 @@ public:
 	void RenderDebugVolume(class URenderer* Renderer) const override;
 
 	// ────────────────────────────────────────────────
-	// Capsule 전용 충돌 감지 함수
+	// 유틸리티 함수
 	// ────────────────────────────────────────────────
-
-	/**
-	 * 다른 Capsule 컴포넌트와 겹쳐있는지 확인합니다.
-	 */
-	bool IsOverlappingCapsule(const UCapsuleComponent* OtherCapsule) const;
-
-	/**
-	 * Sphere 컴포넌트와 겹쳐있는지 확인합니다.
-	 */
-	bool IsOverlappingSphere(const USphereComponent* OtherSphere) const;
-
-	/**
-	 * Box 컴포넌트와 겹쳐있는지 확인합니다.
-	 */
-	bool IsOverlappingBox(const UBoxComponent* OtherBox) const;
 
 	/**
 	 * 특정 점이 Capsule 내부에 있는지 확인합니다.
