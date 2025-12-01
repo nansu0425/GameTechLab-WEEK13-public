@@ -574,6 +574,35 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
         bCollisionShapesDirty = true;
     }
 
+    ImGui::Dummy(ImVec2(0, 5));
+
+    // [Clear All Bodies] button
+    bool hasAnyBodies = ActiveState && ActiveState->CurrentPhysicsAsset &&
+                        ActiveState->CurrentPhysicsAsset->GetBodySetupCount() > 0;
+    if (!hasAnyBodies)
+    {
+        ImGui::BeginDisabled();
+    }
+
+    if (ImGui::Button("Clear All Bodies", ImVec2(-1, 30)))
+    {
+        if (ActiveState && ActiveState->CurrentPhysicsAsset)
+        {
+            int32 BodyCount = ActiveState->CurrentPhysicsAsset->GetBodySetupCount();
+            UE_LOG("CLEAR ALL BODIES: Removing %d bodies", BodyCount);
+
+            ActiveState->CurrentPhysicsAsset->ClearAllBodies();
+
+            // Clear visualization
+            bCollisionShapesDirty = true;
+        }
+    }
+
+    if (!hasAnyBodies)
+    {
+        ImGui::EndDisabled();
+    }
+
     if (!ActiveState || !ActiveState->CurrentMesh)
     {
         ImGui::EndDisabled();
@@ -847,26 +876,107 @@ void SPhysicsAssetEditorWindow::RebuildCollisionShapes()
     // Clear previous collision shape lines
     ClearCollisionShapes();
 
-    // Unreal Engine collision purple color (light purple but not too light)
-    FVector4 CollisionColor(0.6f, 0.3f, 0.8f, 1.0f);
-
-    // For now, draw a single shape at the center for debugging
-    // Later, this will iterate over bones and UPhysicsAsset's BodySetup entries
-    FVector Center(0.0f, 0.0f, 0.0f);
-
-    switch (SelectedPrimitiveType)
+    // Check if we have a PhysicsAsset with bodies
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    if (!PhysicsAsset || PhysicsAsset->GetBodySetupCount() == 0)
     {
-    case EPrimitiveType::Sphere:
-        DrawWireframeSphere(LineComp, Center, 0.5f, CollisionColor, 16);
-        break;
+        return;
+    }
 
-    case EPrimitiveType::Box:
-        DrawWireframeBox(LineComp, Center, FVector(0.5f, 0.5f, 0.5f), CollisionColor);
-        break;
+    // Get skeletal mesh component for bone transforms
+    ASkeletalMeshActor* PreviewActor = ActiveState->PreviewActor;
+    if (!PreviewActor)
+    {
+        return;
+    }
 
-    case EPrimitiveType::Capsule:
-        DrawWireframeCapsule(LineComp, Center, 0.3f, 0.5f, CollisionColor, 16);
-        break;
+    USkeletalMeshComponent* MeshComp = PreviewActor->GetSkeletalMeshComponent();
+    if (!MeshComp)
+    {
+        return;
+    }
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton)
+    {
+        return;
+    }
+
+    // Unreal Engine collision purple color
+    FVector4 CollisionColor(0.6f, 0.3f, 0.8f, 1.0f);
+    FVector4 SelectedColor(1.0f, 0.5f, 0.0f, 1.0f);  // Orange for selected body
+
+    // Iterate through all bodies in PhysicsAsset
+    const TArray<UBodySetup*>& BodySetups = PhysicsAsset->GetBodySetups();
+    for (int32 BodyIndex = 0; BodyIndex < BodySetups.Num(); ++BodyIndex)
+    {
+        UBodySetup* BodySetup = BodySetups[BodyIndex];
+        if (!BodySetup)
+        {
+            continue;
+        }
+
+        // Find bone index for this body
+        int32 BoneIndex = -1;
+        for (int32 i = 0; i < Skeleton->Bones.Num(); ++i)
+        {
+            if (Skeleton->Bones[i].Name == BodySetup->BoneName.ToString())
+            {
+                BoneIndex = i;
+                break;
+            }
+        }
+
+        if (BoneIndex < 0)
+        {
+            continue;
+        }
+
+        // Get bone world transform
+        FTransform BoneTransform = MeshComp->GetBoneWorldTransform(BoneIndex);
+        FVector BoneWorldPos = BoneTransform.Translation;
+        FQuat BoneWorldRot = BoneTransform.Rotation;
+
+        // Choose color based on selection
+        FVector4 DrawColor = (BodyIndex == ActiveState->SelectedBodyIndex) ? SelectedColor : CollisionColor;
+
+        // Draw spheres
+        for (const FSphereElem& SphereElem : BodySetup->AggGeom.SphereElems)
+        {
+            // Transform center to world space
+            FVector WorldCenter = BoneTransform.TransformPosition(SphereElem.Center);
+            DrawWireframeSphere(LineComp, WorldCenter, SphereElem.Radius, DrawColor, 16);
+        }
+
+        // Draw boxes
+        for (const FBoxElem& BoxElem : BodySetup->AggGeom.BoxElems)
+        {
+            // Transform center and rotation to world space
+            FVector WorldCenter = BoneTransform.TransformPosition(BoxElem.Center);
+            FQuat WorldRotation = BoneWorldRot * BoxElem.Rotation;
+
+            // Box half extents (BoxElem stores full dimensions)
+            FVector HalfExtents(BoxElem.X * 0.5f, BoxElem.Y * 0.5f, BoxElem.Z * 0.5f);
+
+            // Draw box with rotation (need to implement rotated box drawing)
+            // For now, draw axis-aligned box at transformed center
+            DrawWireframeBox(LineComp, WorldCenter, HalfExtents, DrawColor);
+        }
+
+        // Draw capsules
+        for (const FSphylElem& CapsuleElem : BodySetup->AggGeom.SphylElems)
+        {
+            // Transform center and rotation to world space
+            FVector WorldCenter = BoneTransform.TransformPosition(CapsuleElem.Center);
+            FQuat WorldRotation = BoneWorldRot * CapsuleElem.Rotation;
+
+            // Capsule half height (Length is cylinder portion only)
+            float HalfHeight = CapsuleElem.Length * 0.5f;
+
+            // Draw capsule with rotation (need to implement rotated capsule drawing)
+            // For now, draw axis-aligned capsule at transformed center
+            DrawWireframeCapsule(LineComp, WorldCenter, CapsuleElem.Radius, HalfHeight, DrawColor, 16);
+        }
     }
 
     bCollisionShapesDirty = false;
@@ -919,30 +1029,52 @@ void SPhysicsAssetEditorWindow::GenerateAllBodies(EPrimitiveType PrimitiveType)
         return;
     }
 
-    // Clear existing bodies
+    // Get skeletal mesh data for vertex information
+    const FSkeletalMeshData* MeshData = ActiveState->CurrentMesh->GetSkeletalMeshData();
+    if (!MeshData || MeshData->Vertices.Num() == 0)
+    {
+        UE_LOG("GenerateAllBodies: No vertex data available - cannot use vertex-driven generation");
+        return;
+    }
+
     UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
-    // Note: In a production environment, you'd want to clean up existing bodies properly
-    // For now, we'll create new bodies for all bones
 
-    UE_LOG("GenerateAllBodies: Creating physics bodies for %d bones", Skeleton->Bones.Num());
+    // Clear all existing bodies before regenerating
+    UE_LOG("GenerateAllBodies: Clearing existing bodies");
+    PhysicsAsset->ClearAllBodies();
 
+    UE_LOG("GenerateAllBodies: Starting vertex-driven body generation (UE style) for %d bones", Skeleton->Bones.Num());
+
+    // Step 1: Build bone-to-vertex influence map
+    TArray<FBoneVertexInfluence> InfluenceMap;
+    BuildBoneVertexInfluenceMap(MeshData, InfluenceMap, 0.3f);  // 30% weight threshold
+
+    // Step 2: Create bodies for bones with sufficient vertex influence
     const TArray<FBone>& Bones = Skeleton->Bones;
+    int32 CreatedCount = 0;
+
     for (int32 BoneIndex = 0; BoneIndex < Bones.size(); ++BoneIndex)
     {
         const FBone& Bone = Bones[BoneIndex];
         FName BoneName(Bone.Name);
-
-        // Skip if body already exists for this bone
-        if (PhysicsAsset->FindBodyIndex(BoneName) >= 0)
-        {
-            continue;
-        }
 
         // Filter: Skip bones that shouldn't have physics bodies
         if (!ShouldCreateBodyForBone(BoneIndex, Skeleton))
         {
             continue;
         }
+
+        // Check if this bone has enough influenced vertices
+        const FBoneVertexInfluence& Influence = InfluenceMap[BoneIndex];
+        if (Influence.Vertices.Num() < 3)  // Need at least 3 vertices for meaningful shape
+        {
+            UE_LOG("GenerateAllBodies: Skipping bone %s - only %d influenced vertices",
+                Bone.Name.c_str(), Influence.Vertices.Num());
+            continue;
+        }
+
+        UE_LOG("GenerateAllBodies: Processing bone %s with %d influenced vertices",
+            Bone.Name.c_str(), Influence.Vertices.Num());
 
         // Create new BodySetup
         UBodySetup* NewBody = NewObject<UBodySetup>();
@@ -952,57 +1084,75 @@ void SPhysicsAssetEditorWindow::GenerateAllBodies(EPrimitiveType PrimitiveType)
             continue;
         }
 
-        // Set bone name
         NewBody->BoneName = BoneName;
-
-        // Calculate body dimensions based on bone hierarchy
-        float Radius = 0.0f;
-        float HalfHeight = 0.0f;
-        FVector Extent;
-        CalculateBodyDimensions(BoneIndex, Skeleton, PrimitiveType, Radius, HalfHeight, Extent);
-
-        // Set body type and dimensions
         NewBody->BodyType = ToBodySetupType(PrimitiveType);
+
+        // Step 3: Calculate principal axis from vertex cloud
+        FVector PrincipalAxis = CalculatePrincipalAxis(Influence.Vertices);
+
+        // Step 4: Fit minimal bounding primitive based on type
+        FVector Center;
+        FQuat Rotation;
+        float Radius, HalfHeight;
+        FVector Extent;
 
         switch (PrimitiveType)
         {
         case EPrimitiveType::Sphere:
+            FitMinimalSphere(Influence.Vertices, Center, Radius);
             NewBody->SphereRadius = Radius;
-            NewBody->AggGeom.SphereElems.Add(FSphereElem(Radius));
+            {
+                FSphereElem SphereElem(Radius);
+                SphereElem.Center = Center;
+                NewBody->AggGeom.SphereElems.Add(SphereElem);
+            }
+            UE_LOG("  -> Sphere: Center=(%.2f,%.2f,%.2f), Radius=%.2f",
+                Center.X, Center.Y, Center.Z, Radius);
             break;
 
         case EPrimitiveType::Box:
+            FitMinimalBox(Influence.Vertices, PrincipalAxis, Center, Rotation, Extent);
             NewBody->BoxExtent = Extent;
-            // FBoxElem stores full dimensions (not half extents)
-            NewBody->AggGeom.BoxElems.Add(FBoxElem(Extent.X * 2.0f, Extent.Y * 2.0f, Extent.Z * 2.0f));
+            {
+                FBoxElem BoxElem(Extent.X * 2.0f, Extent.Y * 2.0f, Extent.Z * 2.0f);
+                BoxElem.Center = Center;
+                BoxElem.Rotation = Rotation;
+                NewBody->AggGeom.BoxElems.Add(BoxElem);
+            }
+            UE_LOG("  -> Box: Center=(%.2f,%.2f,%.2f), Extent=(%.2f,%.2f,%.2f)",
+                Center.X, Center.Y, Center.Z, Extent.X, Extent.Y, Extent.Z);
             break;
 
         case EPrimitiveType::Capsule:
+            FitMinimalCapsule(Influence.Vertices, PrincipalAxis, Center, Rotation, Radius, HalfHeight);
             NewBody->CapsuleHalfHeight = HalfHeight;
             NewBody->SphereRadius = Radius;
-
-            // Capsule is oriented along Z-axis by default in Unreal
-            // Length is the cylinder portion (excluding hemispheres)
             {
                 float CapsuleLength = HalfHeight * 2.0f;
-                NewBody->AggGeom.SphylElems.Add(FSphylElem(Radius, CapsuleLength));
+                FSphylElem CapsuleElem(Radius, CapsuleLength);
+                CapsuleElem.Center = Center;
+                CapsuleElem.Rotation = Rotation;
+                NewBody->AggGeom.SphylElems.Add(CapsuleElem);
             }
+            UE_LOG("  -> Capsule: Center=(%.2f,%.2f,%.2f), Radius=%.2f, HalfHeight=%.2f",
+                Center.X, Center.Y, Center.Z, Radius, HalfHeight);
             break;
+
+        default:
+            UE_LOG("  -> Unknown primitive type");
+            delete NewBody;
+            continue;
         }
 
         // Add the body to the physics asset
         PhysicsAsset->AddBodySetup(NewBody);
-
-        UE_LOG("GenerateAllBodies: Created %s body for bone %s (Radius: %.2f, HalfHeight: %.2f, Extent: %.2f,%.2f,%.2f)",
-            PrimitiveType == EPrimitiveType::Sphere ? "Sphere" :
-            PrimitiveType == EPrimitiveType::Box ? "Box" : "Capsule",
-            Bone.Name.c_str(), Radius, HalfHeight, Extent.X, Extent.Y, Extent.Z);
+        CreatedCount++;
     }
 
     // Update the body index map
     PhysicsAsset->UpdateBodySetupIndexMap();
 
-    UE_LOG("GenerateAllBodies: Completed - created bodies for all bones");
+    UE_LOG("GenerateAllBodies: Completed vertex-driven generation - created %d bodies", CreatedCount);
 
     // Mark collision shapes dirty to visualize the newly created bodies
     bCollisionShapesDirty = true;
@@ -1162,5 +1312,303 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
         OutHalfHeight = BoneLength * 0.35f;
         OutExtent = FVector(OutRadius, OutRadius, OutHalfHeight);
         break;
+    }
+}
+
+// =========================================
+// Vertex-Driven Body Generation (UE Style)
+// =========================================
+void SPhysicsAssetEditorWindow::BuildBoneVertexInfluenceMap(const FSkeletalMeshData* MeshData, TArray<FBoneVertexInfluence>& OutInfluenceMap, float MinWeightThreshold) const
+{
+    if (!MeshData)
+    {
+        UE_LOG("BuildBoneVertexInfluenceMap: MeshData is null");
+        return;
+    }
+
+    const FSkeleton& Skeleton = MeshData->Skeleton;
+    const TArray<FSkinnedVertex>& Vertices = MeshData->Vertices;
+
+    // Initialize influence map for all bones
+    OutInfluenceMap.Empty();
+    OutInfluenceMap.SetNum(Skeleton.Bones.Num());
+
+    UE_LOG("BuildBoneVertexInfluenceMap: Processing %d vertices for %d bones", Vertices.Num(), Skeleton.Bones.Num());
+
+    // Iterate through all vertices and build reverse mapping
+    for (int32 VertexIndex = 0; VertexIndex < Vertices.Num(); ++VertexIndex)
+    {
+        const FSkinnedVertex& Vertex = Vertices[VertexIndex];
+
+        // Check all 4 possible bone influences
+        for (int32 i = 0; i < 4; ++i)
+        {
+            uint32 BoneIndex = Vertex.BoneIndices[i];
+            float Weight = Vertex.BoneWeights[i];
+
+            // Only consider vertices with significant weight
+            if (Weight >= MinWeightThreshold && BoneIndex < (uint32)Skeleton.Bones.Num())
+            {
+                OutInfluenceMap[BoneIndex].Vertices.Add(Vertex.Position);
+                OutInfluenceMap[BoneIndex].TotalWeight += Weight;
+            }
+        }
+    }
+
+    // Log statistics
+    for (int32 BoneIndex = 0; BoneIndex < OutInfluenceMap.Num(); ++BoneIndex)
+    {
+        const FBoneVertexInfluence& Influence = OutInfluenceMap[BoneIndex];
+        if (Influence.Vertices.Num() > 0)
+        {
+            UE_LOG("  Bone %d (%s): %d influenced vertices (total weight: %.2f)",
+                BoneIndex, Skeleton.Bones[BoneIndex].Name.c_str(), Influence.Vertices.Num(), Influence.TotalWeight);
+        }
+    }
+}
+
+FVector SPhysicsAssetEditorWindow::CalculatePrincipalAxis(const TArray<FVector>& Vertices) const
+{
+    if (Vertices.Num() < 2)
+    {
+        return FVector(0.0f, 0.0f, 1.0f);  // Default to Z-axis
+    }
+
+    // Calculate centroid
+    FVector Centroid = FVector::Zero();
+    for (const FVector& V : Vertices)
+    {
+        Centroid += V;
+    }
+    Centroid /= static_cast<float>(Vertices.Num());
+
+    // Build covariance matrix
+    float Cov[3][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+
+    for (const FVector& V : Vertices)
+    {
+        FVector Diff = V - Centroid;
+        Cov[0][0] += Diff.X * Diff.X;
+        Cov[0][1] += Diff.X * Diff.Y;
+        Cov[0][2] += Diff.X * Diff.Z;
+        Cov[1][1] += Diff.Y * Diff.Y;
+        Cov[1][2] += Diff.Y * Diff.Z;
+        Cov[2][2] += Diff.Z * Diff.Z;
+    }
+
+    // Covariance matrix is symmetric
+    Cov[1][0] = Cov[0][1];
+    Cov[2][0] = Cov[0][2];
+    Cov[2][1] = Cov[1][2];
+
+    // Simple power iteration to find principal eigenvector (largest eigenvalue)
+    FVector Eigenvector(1.0f, 0.0f, 0.0f);  // Initial guess
+
+    for (int32 Iter = 0; Iter < 20; ++Iter)  // 20 iterations usually enough for convergence
+    {
+        // Multiply covariance matrix by eigenvector
+        FVector NewVec(
+            Cov[0][0] * Eigenvector.X + Cov[0][1] * Eigenvector.Y + Cov[0][2] * Eigenvector.Z,
+            Cov[1][0] * Eigenvector.X + Cov[1][1] * Eigenvector.Y + Cov[1][2] * Eigenvector.Z,
+            Cov[2][0] * Eigenvector.X + Cov[2][1] * Eigenvector.Y + Cov[2][2] * Eigenvector.Z
+        );
+
+        // Normalize
+        float Length = NewVec.Size();
+        if (Length > 0.0001f)
+        {
+            Eigenvector = NewVec / Length;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    return Eigenvector;
+}
+
+void SPhysicsAssetEditorWindow::FitMinimalSphere(const TArray<FVector>& Vertices, FVector& OutCenter, float& OutRadius) const
+{
+    if (Vertices.Num() == 0)
+    {
+        OutCenter = FVector::Zero();
+        OutRadius = 5.0f;
+        return;
+    }
+
+    // Calculate centroid as sphere center
+    OutCenter = FVector::Zero();
+    for (const FVector& V : Vertices)
+    {
+        OutCenter += V;
+    }
+    OutCenter /= static_cast<float>(Vertices.Num());
+
+    // Find maximum distance from centroid
+    OutRadius = 0.0f;
+    for (const FVector& V : Vertices)
+    {
+        float Distance = (V - OutCenter).Size();
+        if (Distance > OutRadius)
+        {
+            OutRadius = Distance;
+        }
+    }
+
+    // Add small padding
+    OutRadius *= 1.05f;
+}
+
+void SPhysicsAssetEditorWindow::FitMinimalCapsule(const TArray<FVector>& Vertices, const FVector& PrincipalAxis,
+    FVector& OutCenter, FQuat& OutRotation, float& OutRadius, float& OutHalfHeight) const
+{
+    if (Vertices.Num() == 0)
+    {
+        OutCenter = FVector::Zero();
+        OutRotation = FQuat::Identity();
+        OutRadius = 5.0f;
+        OutHalfHeight = 10.0f;
+        return;
+    }
+
+    // Calculate centroid
+    OutCenter = FVector::Zero();
+    for (const FVector& V : Vertices)
+    {
+        OutCenter += V;
+    }
+    OutCenter /= static_cast<float>(Vertices.Num());
+
+    // Project vertices onto principal axis
+    float MinProjection = FLT_MAX;
+    float MaxProjection = -FLT_MAX;
+    float MaxRadialDistance = 0.0f;
+
+    for (const FVector& V : Vertices)
+    {
+        FVector Diff = V - OutCenter;
+        float AxialProjection = FVector::Dot(Diff, PrincipalAxis);
+
+        MinProjection = FMath::Min(MinProjection, AxialProjection);
+        MaxProjection = FMath::Max(MaxProjection, AxialProjection);
+
+        // Calculate radial distance (perpendicular to axis)
+        FVector AxialComponent = PrincipalAxis * AxialProjection;
+        FVector RadialComponent = Diff - AxialComponent;
+        float RadialDistance = RadialComponent.Size();
+        MaxRadialDistance = FMath::Max(MaxRadialDistance, RadialDistance);
+    }
+
+    // Capsule dimensions
+    OutRadius = MaxRadialDistance * 1.05f;  // Add 5% padding
+    float CylinderHeight = (MaxProjection - MinProjection) * 1.05f;
+    OutHalfHeight = CylinderHeight * 0.5f;
+
+    // Calculate rotation from Z-axis to principal axis
+    FVector DefaultDirection(0.0f, 0.0f, 1.0f);
+    FVector Axis = FVector::Cross(DefaultDirection, PrincipalAxis);
+    float AxisLength = Axis.Size();
+
+    if (AxisLength > 0.0001f)
+    {
+        Axis /= AxisLength;
+        float DotProduct = FVector::Dot(DefaultDirection, PrincipalAxis);
+        float Angle = acosf(FMath::Clamp(DotProduct, -1.0f, 1.0f));
+
+        float HalfAngle = Angle * 0.5f;
+        float SinHalfAngle = sinf(HalfAngle);
+        float CosHalfAngle = cosf(HalfAngle);
+        OutRotation = FQuat(Axis.X * SinHalfAngle, Axis.Y * SinHalfAngle, Axis.Z * SinHalfAngle, CosHalfAngle);
+    }
+    else
+    {
+        OutRotation = FQuat::Identity();
+    }
+}
+
+void SPhysicsAssetEditorWindow::FitMinimalBox(const TArray<FVector>& Vertices, const FVector& PrincipalAxis,
+    FVector& OutCenter, FQuat& OutRotation, FVector& OutExtent) const
+{
+    if (Vertices.Num() == 0)
+    {
+        OutCenter = FVector::Zero();
+        OutRotation = FQuat::Identity();
+        OutExtent = FVector(5.0f, 5.0f, 10.0f);
+        return;
+    }
+
+    // Calculate centroid
+    OutCenter = FVector::Zero();
+    for (const FVector& V : Vertices)
+    {
+        OutCenter += V;
+    }
+    OutCenter /= static_cast<float>(Vertices.Num());
+
+    // Build orthonormal basis with principal axis as Z
+    FVector ZAxis = PrincipalAxis;
+    ZAxis.Normalize();
+
+    // Choose arbitrary perpendicular vector
+    FVector XAxis = FVector(1.0f, 0.0f, 0.0f);
+    if (FMath::Abs(FVector::Dot(XAxis, ZAxis)) > 0.9f)
+    {
+        XAxis = FVector(0.0f, 1.0f, 0.0f);
+    }
+
+    // Gram-Schmidt orthogonalization
+    XAxis = XAxis - ZAxis * FVector::Dot(XAxis, ZAxis);
+    XAxis.Normalize();
+
+    FVector YAxis = FVector::Cross(ZAxis, XAxis);
+    YAxis.Normalize();
+
+    // Project vertices onto local axes and find extents
+    float MinX = FLT_MAX, MaxX = -FLT_MAX;
+    float MinY = FLT_MAX, MaxY = -FLT_MAX;
+    float MinZ = FLT_MAX, MaxZ = -FLT_MAX;
+
+    for (const FVector& V : Vertices)
+    {
+        FVector Diff = V - OutCenter;
+        float ProjX = FVector::Dot(Diff, XAxis);
+        float ProjY = FVector::Dot(Diff, YAxis);
+        float ProjZ = FVector::Dot(Diff, ZAxis);
+
+        MinX = FMath::Min(MinX, ProjX);
+        MaxX = FMath::Max(MaxX, ProjX);
+        MinY = FMath::Min(MinY, ProjY);
+        MaxY = FMath::Max(MaxY, ProjY);
+        MinZ = FMath::Min(MinZ, ProjZ);
+        MaxZ = FMath::Max(MaxZ, ProjZ);
+    }
+
+    // Calculate half extents with padding
+    OutExtent = FVector(
+        (MaxX - MinX) * 0.5f * 1.05f,
+        (MaxY - MinY) * 0.5f * 1.05f,
+        (MaxZ - MinZ) * 0.5f * 1.05f
+    );
+
+    // Calculate rotation from default axes to local axes
+    FVector DefaultZ(0.0f, 0.0f, 1.0f);
+    FVector RotAxis = FVector::Cross(DefaultZ, ZAxis);
+    float RotAxisLength = RotAxis.Size();
+
+    if (RotAxisLength > 0.0001f)
+    {
+        RotAxis /= RotAxisLength;
+        float DotProduct = FVector::Dot(DefaultZ, ZAxis);
+        float Angle = acosf(FMath::Clamp(DotProduct, -1.0f, 1.0f));
+
+        float HalfAngle = Angle * 0.5f;
+        float SinHalfAngle = sinf(HalfAngle);
+        float CosHalfAngle = cosf(HalfAngle);
+        OutRotation = FQuat(RotAxis.X * SinHalfAngle, RotAxis.Y * SinHalfAngle, RotAxis.Z * SinHalfAngle, CosHalfAngle);
+    }
+    else
+    {
+        OutRotation = FQuat::Identity();
     }
 }
