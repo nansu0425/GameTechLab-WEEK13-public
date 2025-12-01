@@ -810,7 +810,7 @@ void SPhysicsAssetEditorWindow::DrawWireframeBox(ULineComponent* LineComp, const
     LineComp->AddLine(corners[6], corners[7], Color);
 }
 
-void SPhysicsAssetEditorWindow::DrawWireframeSphere(ULineComponent* LineComp, const FVector& Center, float Radius, const FVector4& Color, int32 Segments)
+void SPhysicsAssetEditorWindow::DrawWireframeSphere(ULineComponent* LineComp, const FVector& Center, float Radius, const FQuat& Rotation, const FVector4& Color, int32 Segments)
 {
     if (!LineComp || Segments < 3) return;
 
@@ -828,103 +828,123 @@ void SPhysicsAssetEditorWindow::DrawWireframeSphere(ULineComponent* LineComp, co
         float sin1 = sinf(angle1);
 
         // XY plane (Z = 0)
-        FVector p0_xy = Center + FVector(Radius * cos0, Radius * sin0, 0.0f);
-        FVector p1_xy = Center + FVector(Radius * cos1, Radius * sin1, 0.0f);
+        FVector local_xy_0 = FVector(Radius * cos0, Radius * sin0, 0.0f);
+        FVector local_xy_1 = FVector(Radius * cos1, Radius * sin1, 0.0f);
+        FVector p0_xy = Center + Rotation.RotateVector(local_xy_0);
+        FVector p1_xy = Center + Rotation.RotateVector(local_xy_1);
         LineComp->AddLine(p0_xy, p1_xy, Color);
 
         // XZ plane (Y = 0)
-        FVector p0_xz = Center + FVector(Radius * cos0, 0.0f, Radius * sin0);
-        FVector p1_xz = Center + FVector(Radius * cos1, 0.0f, Radius * sin1);
+        FVector local_xz_0 = FVector(Radius * cos0, 0.0f, Radius * sin0);
+        FVector local_xz_1 = FVector(Radius * cos1, 0.0f, Radius * sin1);
+        FVector p0_xz = Center + Rotation.RotateVector(local_xz_0);
+        FVector p1_xz = Center + Rotation.RotateVector(local_xz_1);
         LineComp->AddLine(p0_xz, p1_xz, Color);
 
         // YZ plane (X = 0)
-        FVector p0_yz = Center + FVector(0.0f, Radius * cos0, Radius * sin0);
-        FVector p1_yz = Center + FVector(0.0f, Radius * cos1, Radius * sin1);
+        FVector local_yz_0 = FVector(0.0f, Radius * cos0, Radius * sin0);
+        FVector local_yz_1 = FVector(0.0f, Radius * cos1, Radius * sin1);
+        FVector p0_yz = Center + Rotation.RotateVector(local_yz_0);
+        FVector p1_yz = Center + Rotation.RotateVector(local_yz_1);
         LineComp->AddLine(p0_yz, p1_yz, Color);
     }
 }
 
-void SPhysicsAssetEditorWindow::DrawWireframeCapsule(ULineComponent* LineComp, const FVector& Center, float Radius, float HalfHeight, const FVector4& Color, int32 Segments)
+void SPhysicsAssetEditorWindow::DrawWireframeCapsule(ULineComponent* LineComp, const FVector& Center, float Radius, float HalfHeight, const FQuat& Rotation, const FVector4& Color, int32 Segments)
 {
     if (!LineComp || Segments < 3) return;
 
-    const float TWO_PI = 6.28318530718f;
-
     // Capsule is oriented along Z-axis
-    // Top hemisphere center
-    FVector TopCenter = Center + FVector(0.0f, 0.0f, HalfHeight);
-    // Bottom hemisphere center
-    FVector BottomCenter = Center - FVector(0.0f, 0.0f, HalfHeight);
+    // Top/Bottom hemisphere center (local, before rotation)
+    FVector LocalTop = FVector(0.0f, 0.0f, HalfHeight);
+    FVector LocalBottom = FVector(0.0f, 0.0f, -HalfHeight);
+    
+    // Rotate top/bottom centers
+    FVector RotTop = Rotation.RotateVector(LocalTop);
+    FVector RotBottom = Rotation.RotateVector(LocalBottom);
 
+    // --------------------------------------------------------
     // Draw cylinder body (4 vertical lines connecting top and bottom circles)
+    // --------------------------------------------------------
     int32 numVerticalLines = 4;
     for (int32 i = 0; i < numVerticalLines; ++i)
     {
-        float angle = (static_cast<float>(i) / static_cast<float>(numVerticalLines)) * TWO_PI;
+        float angle = (static_cast<float>(i) / (static_cast<float>(numVerticalLines))) * TWO_PI;
         float cosA = cosf(angle);
         float sinA = sinf(angle);
 
-        FVector topPoint = TopCenter + FVector(Radius * cosA, Radius * sinA, 0.0f);
-        FVector bottomPoint = BottomCenter + FVector(Radius * cosA, Radius * sinA, 0.0f);
-        LineComp->AddLine(topPoint, bottomPoint, Color);
+        FVector localCirclePoint = FVector(Radius * cosA, Radius * sinA, 0.0f);
+
+        // rotate center and circle separately
+        FVector p0 = Center + RotTop + Rotation.RotateVector(localCirclePoint);
+        FVector p1 = Center + RotBottom + Rotation.RotateVector(localCirclePoint);
+
+        LineComp->AddLine(p0, p1, Color);
     }
 
+    // --------------------------------------------------------
     // Draw top and bottom circles (XY plane)
+    // --------------------------------------------------------
     for (int32 i = 0; i < Segments; ++i)
     {
         float angle0 = (static_cast<float>(i) / static_cast<float>(Segments)) * TWO_PI;
         float angle1 = (static_cast<float>((i + 1) % Segments) / static_cast<float>(Segments)) * TWO_PI;
 
-        float cos0 = cosf(angle0);
-        float sin0 = sinf(angle0);
-        float cos1 = cosf(angle1);
-        float sin1 = sinf(angle1);
+        FVector local0 = FVector(Radius * cosf(angle0), Radius * sinf(angle0), 0);
+        FVector local1 = FVector(Radius * cosf(angle1), Radius * sinf(angle1), 0);
+
+        // Rotation for circle arcs
+        FVector r0 = Rotation.RotateVector(local0);
+        FVector r1 = Rotation.RotateVector(local1);
 
         // Top circle
-        FVector p0_top = TopCenter + FVector(Radius * cos0, Radius * sin0, 0.0f);
-        FVector p1_top = TopCenter + FVector(Radius * cos1, Radius * sin1, 0.0f);
-        LineComp->AddLine(p0_top, p1_top, Color);
+        LineComp->AddLine(Center + RotTop + r0, Center + RotTop + r1, Color);
 
         // Bottom circle
-        FVector p0_bottom = BottomCenter + FVector(Radius * cos0, Radius * sin0, 0.0f);
-        FVector p1_bottom = BottomCenter + FVector(Radius * cos1, Radius * sin1, 0.0f);
-        LineComp->AddLine(p0_bottom, p1_bottom, Color);
+        LineComp->AddLine(Center + RotBottom + r0, Center + RotBottom + r1, Color);
     }
 
+    // --------------------------------------------------------
     // Draw hemisphere arcs (XZ and YZ planes)
+    // --------------------------------------------------------
     int32 arcSegments = Segments / 2;
-    for (int32 i = 0; i <= arcSegments; ++i)
+
+    for (int32 i = 0; i < arcSegments; ++i)
     {
         float angle0 = (static_cast<float>(i) / static_cast<float>(arcSegments)) * PI;
         float angle1 = (static_cast<float>(i + 1) / static_cast<float>(arcSegments)) * PI;
 
-        float cos0 = cosf(angle0);
-        float sin0 = sinf(angle0);
-        float cos1 = cosf(angle1);
-        float sin1 = sinf(angle1);
+        // XZ plane arc
+        FVector a0 = FVector(Radius * cosf(angle0), 0, Radius * sinf(angle0));
+        FVector a1 = FVector(Radius * cosf(angle1), 0, Radius * sinf(angle1));
 
-        // Top hemisphere - XZ plane arc
-        if (i < arcSegments)
-        {
-            FVector p0_top_xz = TopCenter + FVector(Radius * cos0, 0.0f, Radius * sin0);
-            FVector p1_top_xz = TopCenter + FVector(Radius * cos1, 0.0f, Radius * sin1);
-            LineComp->AddLine(p0_top_xz, p1_top_xz, Color);
+        // Top hemisphere (XZ)
+        FVector p0_top_xz = Center + RotTop + Rotation.RotateVector(a0);
+        FVector p1_top_xz = Center + RotTop + Rotation.RotateVector(a1);
+        LineComp->AddLine(p0_top_xz, p1_top_xz, Color);
 
-            // Top hemisphere - YZ plane arc
-            FVector p0_top_yz = TopCenter + FVector(0.0f, Radius * cos0, Radius * sin0);
-            FVector p1_top_yz = TopCenter + FVector(0.0f, Radius * cos1, Radius * sin1);
-            LineComp->AddLine(p0_top_yz, p1_top_yz, Color);
+        // Bottom hemisphere (XZ)
+        FVector a0b = FVector(a0.X, a0.Y, -a0.Z);
+        FVector a1b = FVector(a1.X, a1.Y, -a1.Z);
+        FVector p0_bottom_xz = Center + RotBottom + Rotation.RotateVector(a0b);
+        FVector p1_bottom_xz = Center + RotBottom + Rotation.RotateVector(a1b);
+        LineComp->AddLine(p0_bottom_xz, p1_bottom_xz, Color);
 
-            // Bottom hemisphere - XZ plane arc
-            FVector p0_bottom_xz = BottomCenter + FVector(Radius * cos0, 0.0f, -Radius * sin0);
-            FVector p1_bottom_xz = BottomCenter + FVector(Radius * cos1, 0.0f, -Radius * sin1);
-            LineComp->AddLine(p0_bottom_xz, p1_bottom_xz, Color);
+        // YZ plane arc
+        FVector b0 = FVector(0, Radius * cosf(angle0), Radius * sinf(angle0));
+        FVector b1 = FVector(0, Radius * cosf(angle1), Radius * sinf(angle1));
 
-            // Bottom hemisphere - YZ plane arc
-            FVector p0_bottom_yz = BottomCenter + FVector(0.0f, Radius * cos0, -Radius * sin0);
-            FVector p1_bottom_yz = BottomCenter + FVector(0.0f, Radius * cos1, -Radius * sin1);
-            LineComp->AddLine(p0_bottom_yz, p1_bottom_yz, Color);
-        }
+        // Top hemisphere (YZ)
+        FVector p0_top_yz = Center + RotTop + Rotation.RotateVector(b0);
+        FVector p1_top_yz = Center + RotTop + Rotation.RotateVector(b1);
+        LineComp->AddLine(p0_top_yz, p1_top_yz, Color);
+
+        // Bottom hemisphere (YZ)
+        FVector b0b = FVector(b0.X, b0.Y, -b0.Z);
+        FVector b1b = FVector(b1.X, b1.Y, -b1.Z);
+        FVector p0_bottom_yz = Center + RotBottom + Rotation.RotateVector(b0b);
+        FVector p1_bottom_yz = Center + RotBottom + Rotation.RotateVector(b1b);
+        LineComp->AddLine(p0_bottom_yz, p1_bottom_yz, Color);
     }
 }
 
@@ -1010,7 +1030,8 @@ void SPhysicsAssetEditorWindow::RebuildCollisionShapes()
         {
             // Transform center to world space
             FVector WorldCenter = BoneTransform.TransformPosition(SphereElem.Center);
-            DrawWireframeSphere(LineComp, WorldCenter, SphereElem.Radius, DrawColor, 16);
+            FQuat WorldRotation = BoneWorldRot;
+            DrawWireframeSphere(LineComp, WorldCenter, SphereElem.Radius, WorldRotation, DrawColor, 16);
         }
 
         // Draw boxes
@@ -1039,7 +1060,7 @@ void SPhysicsAssetEditorWindow::RebuildCollisionShapes()
 
             // Draw capsule with rotation (need to implement rotated capsule drawing)
             // For now, draw axis-aligned capsule at transformed center
-            DrawWireframeCapsule(LineComp, WorldCenter, CapsuleElem.Radius, HalfHeight, DrawColor, 16);
+            DrawWireframeCapsule(LineComp, WorldCenter, CapsuleElem.Radius, HalfHeight, WorldRotation, DrawColor, 16);
         }
     }
 
