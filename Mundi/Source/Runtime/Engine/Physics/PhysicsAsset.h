@@ -95,7 +95,9 @@ class UPhysicsAsset : public UObject
 public:
     GENERATED_REFLECTION_BODY()
     UPhysicsAsset();
-    ~UPhysicsAsset();
+    ~UPhysicsAsset() override;
+
+    void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
 
     void UpdateBodySetupIndexMap();
 
@@ -117,6 +119,17 @@ public:
     // Body management
     void AddBodySetup(UBodySetup* NewBody);
     void ClearAllBodies();
+
+private:
+    static void SerializeBoxElem(bool bIsLoading, JSON& InOut, struct FBoxElem& Elem);
+    static void SerializeSphereElem(bool bIsLoading, JSON& InOut, struct FSphereElem& Elem);
+    static void SerializeSphylElem(bool bIsLoading, JSON& InOut, struct FSphylElem& Elem);
+    static void SerializeConvexElem(bool bIsLoading, JSON& InOut, struct FConvexElem& Elem);
+    static void SerializeAggGeom(bool bIsLoading, JSON& InOut, struct FAggregateGeom& Geom);
+    static void SerializeConstraintFrame(bool bIsLoading, JSON& InOut, FConstraintFrame& Frame);
+    static void SerializeConstraintProfile(bool bIsLoading, JSON& InOut, FConstraintProfileProperties& Profile);
+    static void SerializeConstraintSetup(bool bIsLoading, JSON& InOut, FConstraintSetup& Setup);
+    static void SerializeSolverSettings(bool bIsLoading, JSON& InOut, FPhysicsAssetSolverSettings& Settings);
 
 private:
     /*
