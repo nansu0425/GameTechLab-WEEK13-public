@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 #include <PxPhysicsAPI.h>
+#include <thread>
 #include "UEContainer.h"
 #include "PhysicsSceneLock.h"
 
@@ -109,7 +110,10 @@ private:
     bool bSimulationPending = false;
 
     // 설정
-    static constexpr int32 NumPhysxThreads = 4;
+    int32 NumPhysxThreads = 0;
+
+    // 최적 워커 스레드 수 계산
+    static int32 CalculateOptimalThreadCount();
     static constexpr float DefaultStaticFriction = 0.5f;
     static constexpr float DefaultDynamicFriction = 0.5f;
     static constexpr float DefaultRestitution = 0.6f;

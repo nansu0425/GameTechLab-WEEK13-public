@@ -240,9 +240,12 @@ bool FPhysSceneImpl::CreateScene(UWorld* InOwningWorld)
     // 중력 설정 (PhysX Y-Up 좌표계)
     SceneDesc.gravity = PxVec3(0.0f, -9.81f, 0.0f);
 
-    // CPU Dispatcher 생성
+    // 최적 워커 스레드 수 계산 및 CPU Dispatcher 생성
+    NumPhysxThreads = CalculateOptimalThreadCount();
     CpuDispatcher = PxDefaultCpuDispatcherCreate(NumPhysxThreads);
     SceneDesc.cpuDispatcher = CpuDispatcher;
+
+    UE_LOG("FPhysSceneImpl: Using %d physics worker threads", NumPhysxThreads);
 
     // 필터 셰이더 - 커스텀 셰이더로 충돌 이벤트 활성화
     SceneDesc.filterShader = MundiFilterShader;
@@ -625,4 +628,23 @@ void FPhysSceneImpl::ProcessPendingCommands()
     }
 
     PendingCommands.Empty();
+}
+
+int32 FPhysSceneImpl::CalculateOptimalThreadCount()
+{
+    // C++ 표준 라이브러리로 논리 프로세서 수 조회
+    uint32 NumCores = std::thread::hardware_concurrency();
+
+    if (NumCores == 0)
+    {
+        // 조회 실패 시 기본값
+        return 4;
+    }
+
+    // 언리얼 엔진 스타일: Max(코어수 - 1, 1)
+    // - 메인 스레드용 1개 확보 (-1)
+    // - 최소 1개 보장
+    int32 OptimalCount = FMath::Max(static_cast<int32>(NumCores) - 1, 1);
+
+    return OptimalCount;
 }
