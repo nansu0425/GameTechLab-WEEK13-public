@@ -109,6 +109,9 @@ protected:
     float BrakeInput;
     float HandbrakeInput;
 
+    /** UpdatedComponent를 차량용 메시(Skeletal/Static)로만 제한 */
+    void SetUpdatedComponent(USceneComponent* NewUpdatedComponent) override;
+
     // --- 내부 초기화/업데이트 함수 ---
 
     /** PxVehicleDrive4W 인스턴스 및 관련 PhysX 구조체 초기화 */
@@ -129,11 +132,8 @@ protected:
     /** Vehicle 관련 PhysX 리소스 정리 */
     void CleanupVehiclePhysX();
 
-    /** 루트 메시에 대한 핸들 캐싱 (PhysX 바디 생성 시 사용) */
-    void CacheUpdatedComponent();
-
-    /** 차량 본체로 사용할 메시 핸들 (스태틱/스켈레탈 공용) */
-    USceneComponent* CachedBodyComponent = nullptr;
+    /** UpdatedComponent가 유효한 차량 메시인지 보장 (필요 시 자동 탐색) */
+    void EnsureUpdatedComponentIsValid();
 
     /** 초기화 진행 여부 */
     bool bVehicleInitialized = false;
