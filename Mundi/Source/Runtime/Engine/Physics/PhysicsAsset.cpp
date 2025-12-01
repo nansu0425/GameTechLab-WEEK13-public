@@ -79,3 +79,19 @@ void UPhysicsAsset::EnableCollision(int32 BodyIndexA, int32 BodyIndexB)
         CollisionDisableTable.Remove(TPair{BodyIndexA, BodyIndexB});
     }
 }
+
+void UPhysicsAsset::AddBodySetup(UBodySetup* NewBody)
+{
+    if (NewBody)
+    {
+        BodySetups.Add(NewBody);
+        BoneNameToBodyIndex[NewBody->BoneName] = BodySetups.Num() - 1;
+    }
+}
+
+void UPhysicsAsset::ClearAllBodies()
+{
+    BodySetups.Empty();
+    BoneNameToBodyIndex.Empty();
+    CollisionDisableTable.Empty();
+}

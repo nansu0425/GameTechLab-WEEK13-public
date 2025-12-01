@@ -358,13 +358,7 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
         // 보간 Alpha 업데이트 (시뮬레이션 여부와 무관하게 매 프레임 수행)
         StatManager.SetAccumulatedTimeRatio(GetInterpolationAlpha());
 
-        // 렌더 보간 타이밍 측정
-        uint64 InterpStartCycles = FPlatformTime::Cycles64();
-        float Alpha = GetInterpolationAlpha();
-        UpdateRenderInterpolation(Alpha);
-        uint64 InterpEndCycles = FPlatformTime::Cycles64();
-        StatManager.RecordInterpolationUpdateTime(FPlatformTime::ToMilliseconds(InterpEndCycles - InterpStartCycles));
-
+        // 렌더 보간은 FetchResults() 이후에 수행 (getActiveActors는 시뮬레이션 중 호출 불가)
         return;
     }
 
@@ -412,10 +406,11 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
     StatManager.RecordFetchResultsTime(TotalFetchTime);
     StatManager.SetAccumulatedTimeRatio(GetInterpolationAlpha());
 
-    // 물리 스텝 실행됨 → Transform 캡처
+    // 물리 스텝 실행됨 → Transform + Velocity 캡처
     if (NumSteps > 0)
     {
         CaptureActiveActorsTransform();
+        CaptureActiveActorsVelocity();
     }
 
     // 렌더 보간 타이밍 측정
@@ -455,11 +450,28 @@ void FPhysSceneImpl::FetchResults()
             bIsSimulating = false;
         }
 
-        // Transform 캡처
+        // Transform + Velocity 캡처
         CaptureActiveActorsTransform();
+        CaptureActiveActorsVelocity();
 
-        // 지연된 명령 처리
+        // 렌더 보간 업데이트 (캡처된 Actor 기준으로 수행)
+        uint64 InterpStartCycles = FPlatformTime::Cycles64();
+        float Alpha = GetInterpolationAlpha();
+        UpdateRenderInterpolation(Alpha);
+        uint64 InterpEndCycles = FPlatformTime::Cycles64();
+        StatManager.RecordInterpolationUpdateTime(FPlatformTime::ToMilliseconds(InterpEndCycles - InterpStartCycles));
+
+        // 지연된 명령 처리 (다음 시뮬레이션에 반영)
         ProcessPendingCommands();
+    }
+    else if (bAsyncSimulation)
+    {
+        // bSimulationPending = false인 경우에도 렌더 보간 업데이트 (Fixed Timestep 미도달)
+        uint64 InterpStartCycles = FPlatformTime::Cycles64();
+        float Alpha = GetInterpolationAlpha();
+        UpdateRenderInterpolation(Alpha);
+        uint64 InterpEndCycles = FPlatformTime::Cycles64();
+        StatManager.RecordInterpolationUpdateTime(FPlatformTime::ToMilliseconds(InterpEndCycles - InterpStartCycles));
     }
 
     // Actor 통계 업데이트
@@ -579,7 +591,8 @@ void FPhysSceneImpl::AddActor(PxActor* Actor)
     {
         FPhysicsCommand Cmd;
         Cmd.Type = FPhysicsCommand::EType::AddActor;
-        Cmd.Actor = Actor;
+        // PxActor를 PxRigidActor로 캐스팅 (Scene에 추가되는 Actor는 항상 RigidActor)
+        Cmd.Actor = static_cast<PxRigidActor*>(Actor);
         PendingCommands.Add(Cmd);
         return;
     }
@@ -599,7 +612,8 @@ void FPhysSceneImpl::RemoveActor(PxActor* Actor)
     {
         FPhysicsCommand Cmd;
         Cmd.Type = FPhysicsCommand::EType::RemoveActor;
-        Cmd.Actor = Actor;
+        // PxActor를 PxRigidActor로 캐스팅 (Scene에 추가되는 Actor는 항상 RigidActor)
+        Cmd.Actor = static_cast<PxRigidActor*>(Actor);
         PendingCommands.Add(Cmd);
         return;
     }
@@ -634,6 +648,51 @@ void FPhysSceneImpl::ProcessPendingCommands()
                 PScene->removeActor(*Cmd.Actor);
             }
             break;
+
+        case FPhysicsCommand::EType::SetGlobalPose:
+            if (Cmd.Actor)
+            {
+                Cmd.Actor->setGlobalPose(Cmd.Transform);
+            }
+            break;
+
+        case FPhysicsCommand::EType::AddForce:
+            if (PxRigidDynamic* Dynamic = Cmd.Actor ? Cmd.Actor->is<PxRigidDynamic>() : nullptr)
+            {
+                Dynamic->addForce(Cmd.Vector, Cmd.ForceMode);
+            }
+            break;
+
+        case FPhysicsCommand::EType::AddTorque:
+            if (PxRigidDynamic* Dynamic = Cmd.Actor ? Cmd.Actor->is<PxRigidDynamic>() : nullptr)
+            {
+                Dynamic->addTorque(Cmd.Vector, Cmd.ForceMode);
+            }
+            break;
+
+        case FPhysicsCommand::EType::SetLinearVelocity:
+            if (PxRigidDynamic* Dynamic = Cmd.Actor ? Cmd.Actor->is<PxRigidDynamic>() : nullptr)
+            {
+                PxVec3 NewVel = Cmd.Vector;
+                if (Cmd.bAddToCurrent)
+                {
+                    NewVel += Dynamic->getLinearVelocity();
+                }
+                Dynamic->setLinearVelocity(NewVel);
+            }
+            break;
+
+        case FPhysicsCommand::EType::SetAngularVelocity:
+            if (PxRigidDynamic* Dynamic = Cmd.Actor ? Cmd.Actor->is<PxRigidDynamic>() : nullptr)
+            {
+                PxVec3 NewAngVel = Cmd.Vector;
+                if (Cmd.bAddToCurrent)
+                {
+                    NewAngVel += Dynamic->getAngularVelocity();
+                }
+                Dynamic->setAngularVelocity(NewAngVel);
+            }
+            break;
         }
     }
 
@@ -657,4 +716,153 @@ int32 FPhysSceneImpl::CalculateOptimalThreadCount()
     int32 OptimalCount = FMath::Max(static_cast<int32>(NumCores) - 1, 1);
 
     return OptimalCount;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 물리 상태 변경 (스레드 안전, 시뮬레이션 중 지연 처리)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+void FPhysSceneImpl::SetActorGlobalPose(PxRigidActor* Actor, const PxTransform& Pose)
+{
+    if (!PScene || !Actor)
+        return;
+
+    // 시뮬레이션 중이면 지연 처리
+    if (bIsSimulating)
+    {
+        FPhysicsCommand Cmd;
+        Cmd.Type = FPhysicsCommand::EType::SetGlobalPose;
+        Cmd.Actor = Actor;
+        Cmd.Transform = Pose;
+        PendingCommands.Add(Cmd);
+        return;
+    }
+
+    // 즉시 실행
+    SCOPED_SCENE_WRITE_LOCK(PScene);
+    Actor->setGlobalPose(Pose);
+}
+
+void FPhysSceneImpl::AddForceToActor(PxRigidDynamic* Actor, const PxVec3& Force, PxForceMode::Enum Mode)
+{
+    if (!PScene || !Actor)
+        return;
+
+    // 시뮬레이션 중이면 지연 처리
+    if (bIsSimulating)
+    {
+        FPhysicsCommand Cmd;
+        Cmd.Type = FPhysicsCommand::EType::AddForce;
+        Cmd.Actor = Actor;
+        Cmd.Vector = Force;
+        Cmd.ForceMode = Mode;
+        PendingCommands.Add(Cmd);
+        return;
+    }
+
+    // 즉시 실행
+    SCOPED_SCENE_WRITE_LOCK(PScene);
+    Actor->addForce(Force, Mode);
+}
+
+void FPhysSceneImpl::AddTorqueToActor(PxRigidDynamic* Actor, const PxVec3& Torque, PxForceMode::Enum Mode)
+{
+    if (!PScene || !Actor)
+        return;
+
+    // 시뮬레이션 중이면 지연 처리
+    if (bIsSimulating)
+    {
+        FPhysicsCommand Cmd;
+        Cmd.Type = FPhysicsCommand::EType::AddTorque;
+        Cmd.Actor = Actor;
+        Cmd.Vector = Torque;
+        Cmd.ForceMode = Mode;
+        PendingCommands.Add(Cmd);
+        return;
+    }
+
+    // 즉시 실행
+    SCOPED_SCENE_WRITE_LOCK(PScene);
+    Actor->addTorque(Torque, Mode);
+}
+
+void FPhysSceneImpl::SetActorLinearVelocity(PxRigidDynamic* Actor, const PxVec3& Velocity, bool bAddToCurrent)
+{
+    if (!PScene || !Actor)
+        return;
+
+    // 시뮬레이션 중이면 지연 처리
+    if (bIsSimulating)
+    {
+        FPhysicsCommand Cmd;
+        Cmd.Type = FPhysicsCommand::EType::SetLinearVelocity;
+        Cmd.Actor = Actor;
+        Cmd.Vector = Velocity;
+        Cmd.bAddToCurrent = bAddToCurrent;
+        PendingCommands.Add(Cmd);
+        return;
+    }
+
+    // 즉시 실행
+    SCOPED_SCENE_WRITE_LOCK(PScene);
+    PxVec3 NewVel = Velocity;
+    if (bAddToCurrent)
+    {
+        NewVel += Actor->getLinearVelocity();
+    }
+    Actor->setLinearVelocity(NewVel);
+}
+
+void FPhysSceneImpl::SetActorAngularVelocity(PxRigidDynamic* Actor, const PxVec3& AngVel, bool bAddToCurrent)
+{
+    if (!PScene || !Actor)
+        return;
+
+    // 시뮬레이션 중이면 지연 처리
+    if (bIsSimulating)
+    {
+        FPhysicsCommand Cmd;
+        Cmd.Type = FPhysicsCommand::EType::SetAngularVelocity;
+        Cmd.Actor = Actor;
+        Cmd.Vector = AngVel;
+        Cmd.bAddToCurrent = bAddToCurrent;
+        PendingCommands.Add(Cmd);
+        return;
+    }
+
+    // 즉시 실행
+    SCOPED_SCENE_WRITE_LOCK(PScene);
+    PxVec3 NewAngVel = AngVel;
+    if (bAddToCurrent)
+    {
+        NewAngVel += Actor->getAngularVelocity();
+    }
+    Actor->setAngularVelocity(NewAngVel);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Velocity 캐싱 (읽기 작업 스레드 안전)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+void FPhysSceneImpl::CaptureActiveActorsVelocity()
+{
+    if (!PScene)
+        return;
+
+    // Active Actors의 Velocity 캡처
+    PxU32 NumActiveActors = 0;
+    PxActor** ActiveActors = PScene->getActiveActors(NumActiveActors);
+
+    for (PxU32 i = 0; i < NumActiveActors; ++i)
+    {
+        if (PxRigidDynamic* Dynamic = ActiveActors[i]->is<PxRigidDynamic>())
+        {
+            FBodyInstance* BodyInst = static_cast<FBodyInstance*>(Dynamic->userData);
+            if (BodyInst && BodyInst->IsInScene() && BodyInst->bSimulatePhysics)
+            {
+                BodyInst->CapturePhysicsVelocity();
+            }
+        }
+    }
 }

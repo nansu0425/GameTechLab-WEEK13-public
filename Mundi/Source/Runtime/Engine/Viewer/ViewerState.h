@@ -98,6 +98,10 @@ public:
 
     // Collision shape visualization (Physics Asset Editor)
     class ULineComponent* CollisionShapeLineComponent = nullptr;
+
+    // Physics Asset (Physics Asset Editor)
+    class UPhysicsAsset* CurrentPhysicsAsset = nullptr;
+    int32 SelectedBodyIndex = -1;
 };
 
 // 파티클 에디터 상태
