@@ -5,6 +5,8 @@
 #include "Source/Runtime/Engine/Viewer/PhysicsAssetEditorBootstrap.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
 #include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
+#include "PhysicsAsset.h"
+#include "BodySetup.h"
 
 SPhysicsAssetEditorWindow::SPhysicsAssetEditorWindow()
 {
@@ -346,13 +348,162 @@ void SPhysicsAssetEditorWindow::RenderHierarchySection()
 
 void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
 {
-    // TODO: Render a filtered skeleton tree that displays only bones
-    //       associated with Physics Bodies (UBodySetup entries).
-    //       This should replicate PhAT-style grouping:
-    //       - Show bones that have Physics Bodies
-    //       - Show parent bones if any descendant has a Physics Body
-    //       - Hide bones unrelated to Physics Assets
-    //       - Highlight and select bodies for editing in the viewport
+    if (!ActiveState || !ActiveState->CurrentMesh)
+    {
+        ImGui::TextWrapped("No skeletal mesh loaded.");
+        ImGui::Spacing();
+        ImGui::TextDisabled("Load a skeletal mesh from the Asset Browser to begin.");
+        return;
+    }
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton || Skeleton->Bones.IsEmpty())
+    {
+        ImGui::TextWrapped("This mesh has no skeleton data.");
+        return;
+    }
+
+    if (!ActiveState->CurrentPhysicsAsset)
+    {
+        ImGui::TextWrapped("No physics asset loaded.");
+        return;
+    }
+
+    // Check if the physics asset has any bodies
+    if (ActiveState->CurrentPhysicsAsset->GetBodySetupCount() == 0)
+    {
+        ImGui::TextWrapped("No physics bodies created yet.");
+        ImGui::Spacing();
+        ImGui::TextDisabled("Use the 'Generate All Bodies' button in the Tools panel to create physics bodies automatically.");
+        return;
+    }
+
+    const TArray<FBone>& Bones = Skeleton->Bones;
+
+    // Build parent-child adjacency list
+    TArray<TArray<int32>> Children;
+    Children.resize(Bones.size());
+    for (int32 i = 0; i < Bones.size(); ++i)
+    {
+        int32 Parent = Bones[i].ParentIndex;
+        if (Parent >= 0 && Parent < Bones.size())
+        {
+            Children[Parent].Add(i);
+        }
+    }
+
+    ImGui::BeginChild("PhysicsBodyTreeView", ImVec2(0, 0), true);
+
+    // Recursive drawing function
+    std::function<void(int32)> DrawNode = [&](int32 BoneIndex)
+    {
+        const FBone& Bone = Bones[BoneIndex];
+        FName BoneName(Bone.Name);
+
+        // Check if this bone has a physics body
+        int32 BodyIndex = ActiveState->CurrentPhysicsAsset->FindBodyIndex(BoneName);
+        bool bHasBody = (BodyIndex >= 0);
+
+        // Check if any descendant has a body
+        bool bHasBodyInSubtree = bHasBody || HasBodyInSubtree(BoneIndex, Bones, Children);
+
+        // Skip this bone and its subtree if no bodies exist
+        if (!bHasBodyInSubtree)
+            return;
+
+        const bool bIsLeaf = Children[BoneIndex].IsEmpty();
+        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanFullWidth;
+
+        if (bIsLeaf)
+        {
+            flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+        }
+
+        // Expand state management
+        if (ActiveState->ExpandedBoneIndices.count(BoneIndex) > 0)
+        {
+            ImGui::SetNextItemOpen(true);
+        }
+
+        // Selection highlighting
+        if (ActiveState->SelectedBodyIndex == BodyIndex && bHasBody)
+        {
+            flags |= ImGuiTreeNodeFlags_Selected;
+            ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.35f, 0.55f, 0.85f, 0.8f));
+            ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.40f, 0.60f, 0.90f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.30f, 0.50f, 0.80f, 1.0f));
+        }
+
+        // Highlight bones with physics bodies
+        if (bHasBody)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.8f, 0.4f, 1.0f));  // Gold color for bodies
+        }
+
+        // Render tree node with label showing bone name and optional [Body] tag
+        bool open = ImGui::TreeNodeEx(
+            (void*)(intptr_t)BoneIndex,
+            flags,
+            "%s%s",
+            Bone.Name.c_str(),
+            bHasBody ? " [Body]" : ""
+        );
+
+        if (bHasBody)
+        {
+            ImGui::PopStyleColor();  // Pop text color
+        }
+
+        if (ActiveState->SelectedBodyIndex == BodyIndex && bHasBody)
+        {
+            ImGui::PopStyleColor(3);  // Pop header colors
+        }
+
+        // Handle selection on click
+        if (ImGui::IsItemClicked() && bHasBody)
+        {
+            ActiveState->SelectedBoneIndex = BoneIndex;
+            ActiveState->SelectedBodyIndex = BodyIndex;
+            ActiveState->bBoneLinesDirty = true;
+
+            // Mark collision shapes dirty to update visualization
+            bCollisionShapesDirty = true;
+        }
+
+        // Track expand/collapse state
+        if (ImGui::IsItemToggledOpen())
+        {
+            if (open)
+            {
+                ActiveState->ExpandedBoneIndices.insert(BoneIndex);
+            }
+            else
+            {
+                ActiveState->ExpandedBoneIndices.erase(BoneIndex);
+            }
+        }
+
+        // Recurse into children
+        if (!bIsLeaf && open)
+        {
+            for (int32 Child : Children[BoneIndex])
+            {
+                DrawNode(Child);
+            }
+            ImGui::TreePop();
+        }
+    };
+
+    // Draw root bones
+    for (int32 i = 0; i < Bones.size(); ++i)
+    {
+        if (Bones[i].ParentIndex < 0)
+        {
+            DrawNode(i);
+        }
+    }
+
+    ImGui::EndChild();
 }
 
 void SPhysicsAssetEditorWindow::RenderToolsPanel()
@@ -396,8 +547,6 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
 
     if (ImGui::Button("Generate All Bodies", ImVec2(-1, 30)))
     {
-        // TODO: Implement the logic to create UBodySetups for all bodies 
-        // in the UPhysicsAsset using the selected PrimitiveType.
         const char* TypeStr = "";
         switch (SelectedPrimitiveType)
         {
@@ -406,6 +555,9 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
         case EPrimitiveType::Capsule:TypeStr = "Capsule"; break;
         }
         UE_LOG("GENERATE ALL BODIES: PrimitiveType = %s", TypeStr);
+
+        // Generate physics bodies for all bones
+        GenerateAllBodies(SelectedPrimitiveType);
 
         // Trigger collision shape visualization
         bCollisionShapesDirty = true;
@@ -429,6 +581,13 @@ void SPhysicsAssetEditorWindow::LoadSkeletalMesh(ViewerState* State, const FStri
         // Set the mesh on the preview actor
         State->PreviewActor->SetSkeletalMesh(Path);
         State->CurrentMesh = Mesh;
+
+        // Create or load PhysicsAsset for this skeletal mesh
+        if (!State->CurrentPhysicsAsset)
+        {
+            State->CurrentPhysicsAsset = NewObject<UPhysicsAsset>();
+            UE_LOG("SPhysicsAssetEditorWindow: Created new PhysicsAsset for %s", Path.c_str());
+        }
 
         // Expand all bone nodes by default on mesh load
         State->ExpandedBoneIndices.clear();
@@ -461,11 +620,11 @@ void SPhysicsAssetEditorWindow::LoadSkeletalMesh(ViewerState* State, const FStri
             LineComp->SetLineVisible(State->bShowBones);
         }
 
-        UE_LOG("SSkeletalMeshViewerWindow: Loaded skeletal mesh from %s", Path.c_str());
+        UE_LOG("SPhysicsAssetEditorWindow: Loaded skeletal mesh from %s", Path.c_str());
     }
     else
     {
-        UE_LOG("SSkeletalMeshViewerWindow: Failed to load skeletal mesh from %s", Path.c_str());
+        UE_LOG("SPhysicsAssetEditorWindow: Failed to load skeletal mesh from %s", Path.c_str());
     }
 }
 
@@ -712,4 +871,285 @@ void SPhysicsAssetEditorWindow::ClearCollisionShapes()
 
     // Clear only collision shape lines
     LineComp->ClearLines();
+}
+
+bool SPhysicsAssetEditorWindow::HasBodyInSubtree(int32 BoneIndex, const TArray<FBone>& Bones, const TArray<TArray<int32>>& Children) const
+{
+    if (!ActiveState || !ActiveState->CurrentPhysicsAsset)
+        return false;
+
+    // Check if current bone has a physics body
+    FName BoneName(Bones[BoneIndex].Name);
+    if (ActiveState->CurrentPhysicsAsset->FindBodyIndex(BoneName) >= 0)
+        return true;
+
+    // Recursively check all children
+    for (int32 Child : Children[BoneIndex])
+    {
+        if (HasBodyInSubtree(Child, Bones, Children))
+            return true;
+    }
+
+    return false;
+}
+
+void SPhysicsAssetEditorWindow::GenerateAllBodies(EPrimitiveType PrimitiveType)
+{
+    if (!ActiveState || !ActiveState->CurrentMesh || !ActiveState->CurrentPhysicsAsset)
+    {
+        UE_LOG("GenerateAllBodies: Invalid state - missing mesh or physics asset");
+        return;
+    }
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton || Skeleton->Bones.IsEmpty())
+    {
+        UE_LOG("GenerateAllBodies: Skeleton is empty or invalid");
+        return;
+    }
+
+    // Clear existing bodies
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    // Note: In a production environment, you'd want to clean up existing bodies properly
+    // For now, we'll create new bodies for all bones
+
+    UE_LOG("GenerateAllBodies: Creating physics bodies for %d bones", Skeleton->Bones.Num());
+
+    const TArray<FBone>& Bones = Skeleton->Bones;
+    for (int32 BoneIndex = 0; BoneIndex < Bones.size(); ++BoneIndex)
+    {
+        const FBone& Bone = Bones[BoneIndex];
+        FName BoneName(Bone.Name);
+
+        // Skip if body already exists for this bone
+        if (PhysicsAsset->FindBodyIndex(BoneName) >= 0)
+        {
+            continue;
+        }
+
+        // Filter: Skip bones that shouldn't have physics bodies
+        if (!ShouldCreateBodyForBone(BoneIndex, Skeleton))
+        {
+            continue;
+        }
+
+        // Create new BodySetup
+        UBodySetup* NewBody = NewObject<UBodySetup>();
+        if (!NewBody)
+        {
+            UE_LOG("GenerateAllBodies: Failed to create BodySetup for bone %s", Bone.Name.c_str());
+            continue;
+        }
+
+        // Set bone name
+        NewBody->BoneName = BoneName;
+
+        // Calculate body dimensions based on bone hierarchy
+        float Radius = 0.0f;
+        float HalfHeight = 0.0f;
+        FVector Extent;
+        CalculateBodyDimensions(BoneIndex, Skeleton, PrimitiveType, Radius, HalfHeight, Extent);
+
+        // Set body type and dimensions
+        NewBody->BodyType = static_cast<EBodySetupType>(static_cast<uint8>(PrimitiveType) + 1);
+
+        switch (PrimitiveType)
+        {
+        case EPrimitiveType::Sphere:
+            NewBody->SphereRadius = Radius;
+            NewBody->AggGeom.SphereElems.Add(FSphereElem(Radius));
+            break;
+
+        case EPrimitiveType::Box:
+            NewBody->BoxExtent = Extent;
+            // FBoxElem stores full dimensions (not half extents)
+            NewBody->AggGeom.BoxElems.Add(FBoxElem(Extent.X * 2.0f, Extent.Y * 2.0f, Extent.Z * 2.0f));
+            break;
+
+        case EPrimitiveType::Capsule:
+            NewBody->CapsuleHalfHeight = HalfHeight;
+            NewBody->SphereRadius = Radius;
+
+            // Capsule is oriented along Z-axis by default in Unreal
+            // Length is the cylinder portion (excluding hemispheres)
+            {
+                float CapsuleLength = HalfHeight * 2.0f;
+                NewBody->AggGeom.SphylElems.Add(FSphylElem(Radius, CapsuleLength));
+            }
+            break;
+        }
+
+        // Add the body to the physics asset
+        PhysicsAsset->AddBodySetup(NewBody);
+
+        UE_LOG("GenerateAllBodies: Created %s body for bone %s (Radius: %.2f, HalfHeight: %.2f, Extent: %.2f,%.2f,%.2f)",
+            PrimitiveType == EPrimitiveType::Sphere ? "Sphere" :
+            PrimitiveType == EPrimitiveType::Box ? "Box" : "Capsule",
+            Bone.Name.c_str(), Radius, HalfHeight, Extent.X, Extent.Y, Extent.Z);
+    }
+
+    // Update the body index map
+    PhysicsAsset->UpdateBodySetupIndexMap();
+
+    UE_LOG("GenerateAllBodies: Completed - created bodies for all bones");
+
+    // Mark collision shapes dirty to visualize the newly created bodies
+    bCollisionShapesDirty = true;
+}
+
+bool SPhysicsAssetEditorWindow::ShouldCreateBodyForBone(int32 BoneIndex, const FSkeleton* Skeleton) const
+{
+    if (!Skeleton || BoneIndex < 0 || BoneIndex >= Skeleton->Bones.size())
+        return false;
+
+    const TArray<FBone>& Bones = Skeleton->Bones;
+    const FBone& Bone = Bones[BoneIndex];
+
+    // 1. Check for special bone name patterns to exclude
+    FString BoneName = Bone.Name;
+    std::transform(BoneName.begin(), BoneName.end(), BoneName.begin(), ::tolower);
+
+    // Exclude IK, twist, marker, and other utility bones
+    if (BoneName.find("ik") != FString::npos ||
+        BoneName.find("twist") != FString::npos ||
+        BoneName.find("_end") != FString::npos ||
+        BoneName.find("marker") != FString::npos ||
+        BoneName.find("socket") != FString::npos ||
+        BoneName.find("root") == 0)  // Skip root bone
+    {
+        return false;
+    }
+
+    // 2. Exclude leaf bones (finger tips, toe tips, etc.)
+    // A leaf bone has no children
+    bool bHasChildren = false;
+    for (int32 i = 0; i < Bones.size(); ++i)
+    {
+        if (Bones[i].ParentIndex == BoneIndex)
+        {
+            bHasChildren = true;
+            break;
+        }
+    }
+
+    if (!bHasChildren)
+    {
+        // This is a leaf bone - exclude it
+        UE_LOG("ShouldCreateBodyForBone: Excluding leaf bone '%s'", Bone.Name.c_str());
+        return false;
+    }
+
+    // 3. Exclude very short bones (detail/helper bones)
+    int32 FirstChildIndex = -1;
+    for (int32 i = 0; i < Bones.size(); ++i)
+    {
+        if (Bones[i].ParentIndex == BoneIndex)
+        {
+            FirstChildIndex = i;
+            break;
+        }
+    }
+
+    if (FirstChildIndex >= 0)
+    {
+        FVector BonePos = FVector(Bone.BindPose.M[3][0], Bone.BindPose.M[3][1], Bone.BindPose.M[3][2]);
+        FVector ChildPos = FVector(
+            Bones[FirstChildIndex].BindPose.M[3][0],
+            Bones[FirstChildIndex].BindPose.M[3][1],
+            Bones[FirstChildIndex].BindPose.M[3][2]
+        );
+
+        float BoneLength = (ChildPos - BonePos).Size();
+
+        // Exclude bones shorter than 0.01 units (1cm - excludes finger segments)
+        // Mixamo models are often scaled down, so use a small threshold
+        if (BoneLength < 0.05f)
+        {
+            UE_LOG("ShouldCreateBodyForBone: Excluding short bone '%s' (length: %.2f)", Bone.Name.c_str(), BoneLength);
+            return false;
+        }
+    }
+
+    // Passed all filters - create body for this bone
+    UE_LOG("ShouldCreateBodyForBone: Creating body for '%s'", Bone.Name.c_str());
+    return true;
+}
+
+void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const FSkeleton* Skeleton, EPrimitiveType PrimitiveType,
+                                                         float& OutRadius, float& OutHalfHeight, FVector& OutExtent) const
+{
+    if (!Skeleton || BoneIndex < 0 || BoneIndex >= Skeleton->Bones.size())
+    {
+        // Default fallback dimensions
+        OutRadius = 5.0f;
+        OutHalfHeight = 10.0f;
+        OutExtent = FVector(5.0f, 5.0f, 10.0f);
+        return;
+    }
+
+    const TArray<FBone>& Bones = Skeleton->Bones;
+    const FBone& Bone = Bones[BoneIndex];
+
+    // Find first child bone
+    int32 FirstChildIndex = -1;
+    for (int32 i = 0; i < Bones.size(); ++i)
+    {
+        if (Bones[i].ParentIndex == BoneIndex)
+        {
+            FirstChildIndex = i;
+            break;
+        }
+    }
+
+    float BoneLength = 10.0f;  // Default length for leaf bones
+
+    // Calculate bone length if there's a child
+    if (FirstChildIndex >= 0)
+    {
+        // Get bone positions from bind pose (translation is in M[3][0..2])
+        FVector BonePos = FVector(Bone.BindPose.M[3][0], Bone.BindPose.M[3][1], Bone.BindPose.M[3][2]);
+        FVector ChildPos = FVector(
+            Bones[FirstChildIndex].BindPose.M[3][0],
+            Bones[FirstChildIndex].BindPose.M[3][1],
+            Bones[FirstChildIndex].BindPose.M[3][2]
+        );
+
+        // Calculate distance between bone and child
+        BoneLength = (ChildPos - BonePos).Size();
+
+        // Clamp to reasonable values
+        BoneLength = FMath::Clamp(BoneLength, 1.0f, 100.0f);
+    }
+
+    // Calculate dimensions based on primitive type
+    switch (PrimitiveType)
+    {
+    case EPrimitiveType::Sphere:
+        // Sphere radius is a fraction of bone length
+        OutRadius = BoneLength * 0.3f;
+        OutHalfHeight = 0.0f;
+        OutExtent = FVector(OutRadius, OutRadius, OutRadius);
+        break;
+
+    case EPrimitiveType::Box:
+        // Box dimensions based on bone length
+        // Make it elongated along the bone direction (Z-axis)
+        OutRadius = 0.0f;
+        OutHalfHeight = 0.0f;
+        OutExtent = FVector(
+            BoneLength * 0.15f,  // X half extent
+            BoneLength * 0.15f,  // Y half extent
+            BoneLength * 0.5f    // Z half extent (along bone)
+        );
+        break;
+
+    case EPrimitiveType::Capsule:
+        // Capsule oriented along bone
+        // Radius is proportional to bone thickness
+        OutRadius = BoneLength * 0.15f;
+        // Half height is half the cylinder portion (excluding the hemisphere caps)
+        OutHalfHeight = BoneLength * 0.35f;
+        OutExtent = FVector(OutRadius, OutRadius, OutHalfHeight);
+        break;
+    }
 }

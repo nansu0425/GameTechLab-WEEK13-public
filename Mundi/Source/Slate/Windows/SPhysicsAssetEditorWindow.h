@@ -39,4 +39,13 @@ private:
     // Collision shape management
     void RebuildCollisionShapes();
     void ClearCollisionShapes();
+
+    // Helper function for physics body hierarchy filtering
+    bool HasBodyInSubtree(int32 BoneIndex, const TArray<struct FBone>& Bones, const TArray<TArray<int32>>& Children) const;
+
+    // Physics body generation
+    void GenerateAllBodies(EPrimitiveType PrimitiveType);
+    void CalculateBodyDimensions(int32 BoneIndex, const struct FSkeleton* Skeleton, EPrimitiveType PrimitiveType,
+                                 float& OutRadius, float& OutHalfHeight, FVector& OutExtent) const;
+    bool ShouldCreateBodyForBone(int32 BoneIndex, const struct FSkeleton* Skeleton) const;
 };
