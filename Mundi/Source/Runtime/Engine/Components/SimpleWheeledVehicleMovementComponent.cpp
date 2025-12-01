@@ -109,26 +109,6 @@ void USimpleWheeledVehicleMovementComponent::SetUpdatedComponent(USceneComponent
     }
 }
 
-void USimpleWheeledVehicleMovementComponent::GearUp()
-{
-    if (!bVehicleInitialized || !PxVehicleDrive4WInstance)
-    {
-        return;
-    }
-
-    UE_LOG("[VehicleMovement] GearUp not implemented yet");
-}
-
-void USimpleWheeledVehicleMovementComponent::GearDown()
-{
-    if (!bVehicleInitialized || !PxVehicleDrive4WInstance)
-    {
-        return;
-    }
-
-    UE_LOG("[VehicleMovement] GearDown not implemented yet");
-}
-
 bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
 {
     if (bVehicleInitialized)
@@ -137,7 +117,6 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
     }
 
     EnsureUpdatedComponentIsValid();
-
 
 	// 검사1: UpdatedComponent가 UPrimitiveComponent인지 확인
     UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(UpdatedComponent);
@@ -202,7 +181,16 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
     }
 
     // BodyInstance가 생성한 차체 Dynamic Actor 재사용
-    physx::PxRigidDynamic* ChassisActor = PrimComp->GetBodyInstanceRef().GetPxRigidDynamic();
+    physx::PxRigidDynamic* ChassisActor;
+    if(USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(PrimComp))
+    {
+		TArray<FBodyInstance*> Bodies = SkelComp->GetBodies();
+		ChassisActor = Bodies[0]->GetPxRigidDynamic();
+    }
+    else
+    {
+        ChassisActor = PrimComp->GetBodyInstanceRef().GetPxRigidDynamic();
+	}
     if (!ChassisActor)
     {
         UE_LOG("[VehicleMovement] BodyInstance does not have a valid PxRigidDynamic. Ensure CreatePhysicsState() was called.");
@@ -274,7 +262,7 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
         SurfaceTypes[0].mType = 0;
         const physx::PxMaterial* SurfaceMats[1] = { DefaultMat };
         TireFrictionPairs->setup(1, 1, SurfaceMats, SurfaceTypes);
-        TireFrictionPairs->setTypePairFriction(0, 0, 1.0f);
+		TireFrictionPairs->setTypePairFriction(0, 0, 1.0f); // Tire Type 0 & Surface Type 0 => Friction 1.0f
     }
 
     // 기본 설정

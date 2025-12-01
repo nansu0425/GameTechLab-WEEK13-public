@@ -90,23 +90,22 @@ public:
     /** 핸드브레이크 입력 설정 (0.0f ~ 1.0f) */
     void SetHandbrakeInput(float Handbrake);
 
-    /** 기어 업/다운 (수동 변속 시 사용) */
-    void GearUp();
-    void GearDown();
-
 protected:
     // --- PhysX Vehicle 관련 멤버 ---
 
-    /** PhysX PxVehicleDrive4W 인스턴스 (팀원 C의 핵심 작업) */
+    /** PhysX PxVehicleDrive4W 인스턴스 */
     physx::PxVehicleDrive4W* PxVehicleDrive4WInstance = nullptr;
 
     /** PxVehicleWheels 인스턴스 (바퀴 시뮬레이션 데이터 포함) */
     physx::PxVehicleWheels* PxVehicleWheelsInstance = nullptr;
 
-    /** 차량 차체로 사용할 Dynamic Actor */
+    /**
+     * @brief 차량 차체로 사용할 Dynamic Actor
+	 * @note 직접 생성하지 않고, 소유한 UpdatedComponent의 PhysX Body를 참조합니다.
+     */
     physx::PxRigidDynamic* PxVehicleActor = nullptr;
 
-    /** 노면-타이어 마찰 매핑 테이블 (기본 1x1) */
+    /** 노면-타이어 마찰 매핑 테이블 (타이어와 노면 타입은 단일 타입 & 마찰계수 1 고정) */
     physx::PxVehicleDrivableSurfaceToTireFrictionPairs* TireFrictionPairs = nullptr;
 
     /** 휠별 레이캐스트/쿼리 결과 버퍼 */
@@ -144,7 +143,11 @@ protected:
     /** Vehicle 관련 PhysX 리소스 정리 */
     void CleanupVehiclePhysX();
 
-    /** UpdatedComponent가 유효한 차량 메시인지 보장 (필요 시 자동 탐색) */
+    /**
+     * @brief UpdatedComponent가 유효한 차량 메시인지 보장 (필요 시 자동 탐색)
+	 * @note SkeletalMeshComponent 또는 StaticMeshComponent만을 유효한 컴포넌트로 취급합니다.
+	 * UpdatedComponent -> 루트 컴포넌트 -> Actor의 SkeletalMeshComponent -> StaticMeshComponent 순으로 탐색합니다.
+     */
     void EnsureUpdatedComponentIsValid();
 
     /** 초기화 진행 여부 */
