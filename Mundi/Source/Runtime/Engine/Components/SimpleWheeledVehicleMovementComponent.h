@@ -1,5 +1,5 @@
 ﻿#pragma once
-
+#include "vehicle/PxVehicleUpdate.h"
 #include "MovementComponent.h"
 #include "USimpleWheeledVehicleMovementComponent.generated.h"
 
@@ -10,6 +10,9 @@ namespace physx
     class PxVehicleDrive4W;
     class PxVehicleWheels;
     class PxRigidDynamic;
+    class PxVehicleDrivableSurfaceToTireFrictionPairs;
+    struct PxWheelQueryResult;
+    struct PxVehicleWheelQueryResult;
 }
 
 class USkeletalMeshComponent;

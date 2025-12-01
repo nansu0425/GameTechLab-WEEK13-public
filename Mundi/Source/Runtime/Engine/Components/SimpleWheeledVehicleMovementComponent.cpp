@@ -272,7 +272,7 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
         TireFrictionPairs = physx::PxVehicleDrivableSurfaceToTireFrictionPairs::allocate(1, 1);
         physx::PxVehicleDrivableSurfaceType SurfaceTypes[1];
         SurfaceTypes[0].mType = 0;
-        physx::PxMaterial* SurfaceMats[1] = { DefaultMat };
+        const physx::PxMaterial* SurfaceMats[1] = { DefaultMat };
         TireFrictionPairs->setup(1, 1, SurfaceMats, SurfaceTypes);
         TireFrictionPairs->setTypePairFriction(0, 0, 1.0f);
     }
