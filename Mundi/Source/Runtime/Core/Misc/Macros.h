@@ -2,6 +2,21 @@
 
 // 기타 유틸 매크로 정의하려고 따로 만듬
 
+struct FDebugMessageUtils
+{
+    // ANSI (const char*)
+    static void Log(const char* Msg)
+    {
+        OutputDebugStringA(Msg);
+    }
+
+    // Wide (const wchar_t*)
+    static void Log(const wchar_t* Msg)
+    {
+        OutputDebugStringW(Msg);
+    }
+};
+
 #if defined(_MSC_VER)
     #include <intrin.h>
     #define DEBUG_BREAK() __debugbreak()
@@ -24,7 +39,8 @@
         {\
             if(!(expr))\
             {\
-                UE_LOG(msg); \
+                FDebugMessageUtils::Log(msg);\
+                FDebugMessageUtils::Log(TEXT("\n"));\
                 DEBUG_BREAK();\
             }\
         } while(false)
