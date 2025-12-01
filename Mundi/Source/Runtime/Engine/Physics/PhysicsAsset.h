@@ -107,8 +107,15 @@ public:
     void EnableCollision(int32 BodyIndexA, int32 BodyIndexB);
 
 private:
+    /*
+     * UBodySetup - Single Rigid Body
+     * FAggregateGeom은 하나의 강체를 정교하게 표현하기 위해서 배열로 존재
+     */
     TArray<UBodySetup*> BodySetups;
-    
+
+    /*
+     * 관절의 움직임 정의
+     */
     TArray<FConstraintInstance> ConstraintSetups;
 
     // 충돌 무시 테이블

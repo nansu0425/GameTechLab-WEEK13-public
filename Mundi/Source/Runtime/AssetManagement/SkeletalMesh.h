@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include "ResourceBase.h"
 
+class UPhysicsAsset;
+
 class USkeletalMesh : public UResourceBase
 {
 public:
@@ -46,6 +48,8 @@ private:
     uint32 VertexCount = 0;     // 정점 개수
     uint32 IndexCount = 0;     // 버텍스 점의 개수 
     uint32 VertexStride = 0;
+
+    UPhysicsAsset* PhysicsAsset = nullptr;
     
     // CPU 리소스
     FSkeletalMeshData* Data = nullptr;

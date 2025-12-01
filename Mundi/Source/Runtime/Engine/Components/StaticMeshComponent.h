@@ -43,6 +43,8 @@ public:
 
 	void DuplicateSubObjects() override;
 
+	UBodySetup* GetBodySetup() const override;
+
 protected:
 	void OnTransformUpdated() override;
 

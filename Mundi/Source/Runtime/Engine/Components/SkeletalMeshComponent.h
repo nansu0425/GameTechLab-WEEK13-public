@@ -7,6 +7,7 @@ class UAnimationAsset;
 class UAnimSequence;
 class UAnimStateMachineInstance;
 class UAnimBlendSpaceInstance;
+struct FConstraintInstance;
 
 UCLASS(DisplayName="스켈레탈 메시 컴포넌트", Description="스켈레탈 메시를 렌더링하는 컴포넌트입니다")
 class USkeletalMeshComponent : public USkinnedMeshComponent
@@ -122,6 +123,9 @@ protected:
      * @brief 부모에게 보낼 최종 스키닝 행렬 (임시 계산용)
      */
     TArray<FMatrix> TempFinalSkinningMatrices;
+
+    TArray<FBodyInstance*> Bodies;
+    TArray<FConstraintInstance*> Constraints;
 
 // FOR TEST!!!
 private:
