@@ -206,6 +206,49 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
         return false;
     }
 
+    // 휠 위치를 차체 로컬 기준(Mundi)으로 계산 (스켈레탈 본 기반)
+    TArray<FVector> WheelCentreOffsets;
+    WheelCentreOffsets.SetNum(WheelSetups.Num());
+
+    if (USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(PrimComp))
+    {
+        USkeletalMesh* SkelMesh = SkelComp->GetSkeletalMesh();
+        const FSkeleton* Skeleton = SkelMesh ? SkelMesh->GetSkeletalMeshData() ? &SkelMesh->GetSkeletalMeshData()->Skeleton : nullptr : nullptr;
+        if (Skeleton)
+        {
+            const FTransform ChassisWorld = PrimComp->GetWorldTransform();
+            for (int32 WheelIdx = 0; WheelIdx < WheelSetups.Num(); ++WheelIdx)
+            {
+                const FWheelSetup& Setup = WheelSetups[WheelIdx];
+
+                int32 BoneIndex = -1;
+                for (int32 i = 0; i < Skeleton->Bones.Num(); ++i)
+                {
+                    if (Skeleton->Bones[i].Name == Setup.BoneName)
+                    {
+                        BoneIndex = i;
+                        break;
+                    }
+                }
+
+                if (BoneIndex == -1)
+                {
+                    if (!bWarnedMissingWheelBone)
+                    {
+                        UE_LOG("[VehicleMovement] Wheel bone not found: %s", Setup.BoneName.ToString().c_str());
+                        bWarnedMissingWheelBone = true;
+                    }
+                    WheelCentreOffsets[WheelIdx] = FVector::Zero();
+                    continue;
+                }
+
+                FTransform BoneWorld = SkelComp->GetBoneWorldTransform(BoneIndex);
+                FTransform BoneLocalToChassis = BoneWorld.GetRelativeTransform(ChassisWorld);
+                WheelCentreOffsets[WheelIdx] = BoneLocalToChassis.Translation;
+            }
+        }
+    }
+
     const physx::PxU32 NumWheels = WheelSetups.Num();
     physx::PxVehicleWheelsSimData* WheelsSimData = physx::PxVehicleWheelsSimData::allocate(NumWheels);
 
@@ -235,9 +278,12 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
         SusData.mSpringStrength = 35000.0f;
         SusData.mSpringDamperRate = 4500.0f;
 
-        physx::PxVec3 WheelCentreOffset = WheelCentre;
-        WheelCentreOffset.y += Setup.SuspensionOffsetZ;
-        WheelCentreOffset.z -= Setup.WheelRadius;
+        FVector WheelCentreLocal = (i < WheelCentreOffsets.Num()) ? WheelCentreOffsets[i] : FVector::Zero();
+        // Mundi: Z가 Up. 서스펜션 오프셋과 휠 반지름을 Z축에 적용 후 변환.
+        WheelCentreLocal.Z += Setup.SuspensionOffsetZ;
+        WheelCentreLocal.Z -= Setup.WheelRadius;
+
+        physx::PxVec3 WheelCentreOffset = PhysicsConversion::ToPxVec3(WheelCentreLocal);
 
         WheelsSimData->setWheelData(i, WheelData);
         WheelsSimData->setSuspensionData(i, SusData);

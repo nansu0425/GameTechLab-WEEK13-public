@@ -142,4 +142,5 @@ protected:
     bool bWarnedMissingBodyComponent = false;
     bool bWarnedPhysicsUninitialized = false;
     bool bWarnedWheelSetup = false;
+    bool bWarnedMissingWheelBone = false;
 };
