@@ -12,12 +12,19 @@
 
 #include "Vector.h"
 #include <memory>
+#include "PhysicsUserData.h"
+
+namespace physx
+{
+    class PxShape;
+}
 
 // 전방 선언 (PhysX 의존성 없음)
 class UPrimitiveComponent;
 class UBodySetup;
 class FPhysScene;
 class FBodyInstanceImpl;  // PIMPL
+enum class ECollisionEnabled : uint8;
 
 /**
  * @brief Scene 상태 (언리얼 스타일)
@@ -53,8 +60,8 @@ struct FBodyInstance
     FBodyInstance& operator=(const FBodyInstance& Other);
 
     // 이동 허용
-    FBodyInstance(FBodyInstance&&) = default;
-    FBodyInstance& operator=(FBodyInstance&&) = default;
+    FBodyInstance(FBodyInstance&&) noexcept;
+    FBodyInstance& operator=(FBodyInstance&&) noexcept;
 
     // ═══════════════════════════════════════════════════════════════════════
     // 소유자 참조
@@ -91,6 +98,11 @@ struct FBodyInstance
 
     /** 각속도 감쇠 */
     float AngularDamping = 0.05f;
+
+    // 마스터 콜리전 스위치
+    ECollisionEnabled Collision;
+
+    FUserData UserData;
 
     // ═══════════════════════════════════════════════════════════════════════
     // 생명주기 (언리얼 스타일 시그니처)
@@ -154,6 +166,13 @@ struct FBodyInstance
     // ═══════════════════════════════════════════════════════════════════════
     // 물리 제어
     // ═══════════════════════════════════════════════════════════════════════
+
+    /* Shape의 충돌 설정 */
+    void UpdatePhysicsShapeCollision();
+    // 각 Shape별 충돌 설정
+    void ApplyCollision(physx::PxShape* Shape);
+    // BodyInstance 전체의 충돌 설정
+    void ApplyCollision(ECollisionEnabled InCollision);
 
     /** 물리 시뮬레이션 활성화/비활성화 */
     void SetSimulatePhysics(bool bSimulate);

@@ -14,6 +14,8 @@
 
 #include <PxPhysicsAPI.h>
 
+#include "ShapeComponent.h"
+
 using namespace physx;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -21,7 +23,7 @@ using namespace physx;
 // ═══════════════════════════════════════════════════════════════════════════
 
 FBodyInstance::FBodyInstance()
-    : Impl(std::make_unique<FBodyInstanceImpl>())
+    : Impl(std::make_unique<FBodyInstanceImpl>()), UserData(this)
 {
 }
 
@@ -41,6 +43,7 @@ FBodyInstance::FBodyInstance(const FBodyInstance& Other)
     , LinearDamping(Other.LinearDamping)
     , AngularDamping(Other.AngularDamping)
     , OwnerScene(nullptr)
+    , UserData(this)
 {
     // PhysX Actor는 복사하지 않음 - 나중에 InitBody()로 새로 생성해야 함
 }
@@ -67,6 +70,62 @@ FBodyInstance& FBodyInstance::operator=(const FBodyInstance& Other)
 
         // Impl은 이미 존재하므로 재생성하지 않음
         // PhysX Actor는 InitBody()로 새로 생성해야 함
+    }
+    return *this;
+}
+
+FBodyInstance::FBodyInstance(FBodyInstance&& Other) noexcept
+    : Impl(std::move(Other.Impl)) // 이동 연산자는 자원을 뺏어옴
+    , OwnerComponent(Other.OwnerComponent)
+    , CurrentSceneState(Other.CurrentSceneState)
+    , bSimulatePhysics(Other.bSimulatePhysics)
+    , bEnableGravity(Other.bEnableGravity)
+    , bIsTrigger(Other.bIsTrigger)
+    , MassInKg(Other.MassInKg)
+    , LinearDamping(Other.LinearDamping)
+    , AngularDamping(Other.AngularDamping)
+    , OwnerScene(Other.OwnerScene)
+    , UserData(this)
+{
+    if (Impl && Impl->RigidActorSync)
+    {
+        Impl->RigidActorSync->userData = &this->UserData;
+    }
+
+    // Other는 자원을 뺏겨서 껍데기만 존재함
+    Other.OwnerComponent = nullptr;
+    Other.CurrentSceneState = EBodyInstanceSceneState::NotAdded;
+}
+
+FBodyInstance& FBodyInstance::operator=(FBodyInstance&& Other) noexcept
+{
+    if (this != &Other)
+    {
+        // 기존 PhysX Actor 정리
+        TermBody();
+
+        Impl = std::move(Other.Impl);
+        OwnerComponent = Other.OwnerComponent;
+        OwnerScene = Other.OwnerScene;
+        CurrentSceneState = Other.CurrentSceneState;
+
+        // 물리 파라미터 복사
+        bSimulatePhysics = Other.bSimulatePhysics;
+        bEnableGravity = Other.bEnableGravity;
+        bIsTrigger = Other.bIsTrigger;
+        MassInKg = Other.MassInKg;
+        LinearDamping = Other.LinearDamping;
+        AngularDamping = Other.AngularDamping;
+
+        if (Impl && Impl->RigidActorSync)
+        {
+            Impl->RigidActorSync->userData = &this->UserData;
+        }
+
+        // 소유자/Scene은 복사하지 않음
+        Other.OwnerComponent = nullptr;
+        Other.OwnerScene = nullptr;
+        Other.CurrentSceneState = EBodyInstanceSceneState::NotAdded;
     }
     return *this;
 }
@@ -123,30 +182,42 @@ void FBodyInstance::InitBody(
     // Transform 변환 (Mundi → PhysX)
     PxTransform PxPose = PhysicsConversion::ToPxTransform(Transform);
 
-    // Actor 생성 (Dynamic vs Static)
+    PxRigidActor* NewActor = nullptr;
     if (bSimulatePhysics)
     {
-        // Dynamic Actor 생성
-        PxRigidDynamic* DynamicActor = Physics->createRigidDynamic(PxPose);
-        if (!DynamicActor)
-        {
-            UE_LOG("FBodyInstance::InitBody - Failed to create PxRigidDynamic");
-            CurrentSceneState = EBodyInstanceSceneState::NotAdded;
-            return;
-        }
+        NewActor = Physics->createRigidDynamic(PxPose);
+    }
+    else
+    {
+        NewActor = Physics->createRigidStatic(PxPose);
+    }
 
-        // Shape 생성 및 부착
-        FVector Scale = Transform.Scale3D;
-        PxShape* Shape = BodySetupHelper::CreatePhysicsShape(Setup, DynamicActor, DefaultMaterial, Scale);
-        if (!Shape)
-        {
-            DynamicActor->release();
-            UE_LOG("FBodyInstance::InitBody - Failed to create shape");
-            CurrentSceneState = EBodyInstanceSceneState::NotAdded;
-            return;
-        }
+    if (!NewActor)
+    {
+        UE_LOG("FBodyInstance::InitBody - Failed to create PxRigidActor");
+        CurrentSceneState = EBodyInstanceSceneState::NotAdded;
+        return;
+    }
+    Impl->RigidActorSync = NewActor;
 
-        // 물리 파라미터 설정
+    // Shape 생성 및 부착
+    FVector Scale = Transform.Scale3D;
+    int32 ShapeCount = Setup->AddShapesToRigidActor(NewActor, DefaultMaterial, Scale);
+    // 만들어진 Shape이 없으면 액터가 의미없다.
+    if (ShapeCount == 0)
+    {
+        NewActor->release();
+        NewActor = nullptr;
+        Impl->RigidActorSync = nullptr;
+        UE_LOG("FBodyInstance::InitBody - Failed to create any shapes via BodySetup");
+        CurrentSceneState = EBodyInstanceSceneState::NotAdded;
+        return;
+    }
+    UpdatePhysicsShapeCollision();
+
+    if (bSimulatePhysics)
+    {
+        PxRigidDynamic* DynamicActor = static_cast<PxRigidDynamic*>(NewActor);
         DynamicActor->setActorFlag(PxActorFlag::eDISABLE_GRAVITY, !bEnableGravity);
         DynamicActor->setLinearDamping(LinearDamping);
         DynamicActor->setAngularDamping(AngularDamping);
@@ -161,47 +232,10 @@ void FBodyInstance::InitBody(
             // 자동 질량 계산 (밀도 1000 kg/m³)
             PxRigidBodyExt::updateMassAndInertia(*DynamicActor, 1000.0f);
         }
-
-        // 충돌 이벤트 플래그 설정
-        Shape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, !bIsTrigger);
-        Shape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, bIsTrigger);
-
-        Impl->RigidActorSync = DynamicActor;
-    }
-    else
-    {
-        // Static Actor 생성
-        PxRigidStatic* StaticActor = Physics->createRigidStatic(PxPose);
-        if (!StaticActor)
-        {
-            UE_LOG("FBodyInstance::InitBody - Failed to create PxRigidStatic");
-            CurrentSceneState = EBodyInstanceSceneState::NotAdded;
-            return;
-        }
-
-        // Shape 생성 및 부착
-        FVector Scale = Transform.Scale3D;
-        PxShape* Shape = BodySetupHelper::CreatePhysicsShape(Setup, StaticActor, DefaultMaterial, Scale);
-        if (!Shape)
-        {
-            StaticActor->release();
-            UE_LOG("FBodyInstance::InitBody - Failed to create shape");
-            CurrentSceneState = EBodyInstanceSceneState::NotAdded;
-            return;
-        }
-
-        // 트리거 플래그 설정
-        Shape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, !bIsTrigger);
-        Shape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, bIsTrigger);
-
-        Impl->RigidActorSync = StaticActor;
     }
 
-    // userData 설정 (콜백에서 FBodyInstance로 접근)
-    Impl->RigidActorSync->userData = this;
-
-    // Scene에 추가 (스레드 안전, 시뮬레이션 중이면 지연 처리)
-    SceneImpl->AddActor(Impl->RigidActorSync);
+    NewActor->userData = &this->UserData;
+    SceneImpl->AddActor(NewActor);
     CurrentSceneState = EBodyInstanceSceneState::Added;
 
     UE_LOG("FBodyInstance::InitBody - Body created successfully (Simulate=%s, Trigger=%s)",
@@ -377,6 +411,132 @@ void FBodyInstance::UpdateRenderInterpolation(float Alpha)
 
     // Component에 적용
     OwnerComponent->SetWorldTransform(InterpolatedTransform);
+}
+
+void FBodyInstance::UpdatePhysicsShapeCollision()
+{
+    if (!Impl || !Impl->RigidActorSync)
+    {
+        return;
+    }
+    PxRigidActor* RigidActor = Impl->GetPxRigidActor();
+    
+    const PxU32 PxShapeCount = RigidActor->getNbShapes();
+    TArray<PxShape*> Shapes;
+    Shapes.SetNum(PxShapeCount);
+    
+    RigidActor->getShapes(Shapes.GetData(), PxShapeCount);
+    for (PxShape* Shape : Shapes)
+    {
+        ApplyCollision(Shape);
+    }
+}
+
+void FBodyInstance::ApplyCollision(physx::PxShape* Shape)
+{
+    bool bSimulate = false;
+    bool bSceneQuery = false;
+    bool bTrigger = false;
+
+    ECollisionEnabled Type = ECollisionEnabled::NoCollision;
+    if (FShapeElem* ShapeElem = FUserData::Get<FShapeElem>(Shape->userData))
+    {
+        Type = ShapeElem->GetCollisionEnabled();
+    }
+    
+    switch (Type)
+    {
+    case ECollisionEnabled::NoCollision:        
+        break;
+    case ECollisionEnabled::QueryOnly:
+        {
+            bSceneQuery = true;
+        }
+        break;
+    case ECollisionEnabled::PhysicsOnly:
+        {
+            bSimulate = true;
+        }
+        break;
+    case ECollisionEnabled::QueryAndPhysics:
+        {
+            bSimulate = true;
+            bSceneQuery = true;
+        }
+        break;
+    default:
+        break;
+    }
+
+    if (bIsTrigger)
+    {
+        bSimulate = false;
+        bTrigger = true;
+        bSceneQuery = true;
+    }
+
+    Shape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, bSimulate);
+    Shape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, bSceneQuery);
+    Shape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, bTrigger);
+    Shape->setFlag(PxShapeFlag::eVISUALIZATION, true);
+}
+
+void FBodyInstance::ApplyCollision(ECollisionEnabled InCollision)
+{
+    if (!Impl || !Impl->RigidActorSync)
+    {
+        return;
+    }    
+ 
+    bool bSimulate = false;
+    bool bSceneQuery = false;
+    bool bTrigger = false;
+    
+    switch (InCollision)
+    {
+    case ECollisionEnabled::NoCollision:        
+        break;
+    case ECollisionEnabled::QueryOnly:
+        {
+            bSceneQuery = true;
+        }
+        break;
+    case ECollisionEnabled::PhysicsOnly:
+        {
+            bSimulate = true;
+        }
+        break;
+    case ECollisionEnabled::QueryAndPhysics:
+        {
+            bSimulate = true;
+            bSceneQuery = true;
+        }
+        break;
+    default:
+        break;
+    }
+
+    if (bIsTrigger)
+    {
+        bSimulate = false;
+        bTrigger = true;
+        bSceneQuery = true;
+    }
+
+    PxRigidActor* RigidActor = Impl->GetPxRigidActor();
+    
+    const PxU32 PxShapeCount = RigidActor->getNbShapes();
+    TArray<PxShape*> Shapes;
+    Shapes.SetNum(PxShapeCount);
+    
+    RigidActor->getShapes(Shapes.GetData(), PxShapeCount);
+    for (PxShape* Shape : Shapes)
+    {
+        Shape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, bSimulate);
+        Shape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, bSceneQuery);
+        Shape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, bTrigger);
+        Shape->setFlag(PxShapeFlag::eVISUALIZATION, true);
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
