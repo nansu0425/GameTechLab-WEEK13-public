@@ -36,6 +36,8 @@ public:
 
     // GPU 스키닝용 버텍스 버퍼 생성 (FSkinnedVertex 그대로 사용)
     void CreateGPUSkinnedVertexBuffer(ID3D11Buffer** InVertexBuffer);
+
+    UPhysicsAsset* GetPhysicsAsset() const { return PhysicsAsset; }
     
 private:
     void CreateIndexBuffer(FSkeletalMeshData* InSkeletalMesh, ID3D11Device* InDevice);

@@ -16,7 +16,7 @@ public:
     GENERATED_REFLECTION_BODY()
     
     USkeletalMeshComponent();
-    ~USkeletalMeshComponent() override = default;
+    ~USkeletalMeshComponent() override;
 
     void TickComponent(float DeltaTime) override;
     void SetSkeletalMesh(const FString& PathFileName) override;
@@ -107,6 +107,13 @@ protected:
      * @brief CurrentComponentSpacePose를 기반으로 TempFinalSkinningMatrices 채우기
      */
     void UpdateFinalSkinningMatrices();
+
+    FBodyInstance* FindBodyInstance(const FName& BoneName);
+
+    void InitializeConstraints();
+
+    void ClearBodies();
+    void ClearConstraints();
 
 protected:
     /**

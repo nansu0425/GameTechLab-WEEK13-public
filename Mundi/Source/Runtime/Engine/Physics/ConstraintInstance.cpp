@@ -241,7 +241,7 @@ void FConstraintInstance::UpdateProfile()
 
     if (Profile.TwistMotion == EJointMotion::Limited)
     {
-        float TwistRad = DegreesToRadians(Profile.TwistLimits);
+        float TwistRad = DegreesToRadians(Profile.TwistLimit);
 
         PxJointAngularLimitPair TwistLimit(-TwistRad, TwistRad);
         Joint->setTwistLimit(TwistLimit);
@@ -290,11 +290,33 @@ void FConstraintInstance::SetRefFrame1(const FVector& Pos, const FVector& PriAxi
     }
 }
 
+void FConstraintInstance::SetRefFrame1(const FConstraintFrame& Frame)
+{
+    Pos1 = Frame.Pos;
+    PriAxis1 = Frame.PriAxis;
+    SecAxis1 = Frame.SecAxis;
+    if (IsValid())
+    {
+        UpdateFrames();
+    }
+}
+
 void FConstraintInstance::SetRefFrame2(const FVector& Pos, const FVector& PriAxis, const FVector& SecAxis)
 {
     Pos2 = Pos;
     PriAxis2 = PriAxis;
     SecAxis2 = SecAxis;
+    if (IsValid())
+    {
+        UpdateFrames();
+    }
+}
+
+void FConstraintInstance::SetRefFrame2(const FConstraintFrame& Frame)
+{
+    Pos2 = Frame.Pos;
+    PriAxis2 = Frame.PriAxis;
+    SecAxis2 = Frame.SecAxis;
     if (IsValid())
     {
         UpdateFrames();

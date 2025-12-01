@@ -109,6 +109,10 @@ public:
     // Getters for editor access
     const TArray<UBodySetup*>& GetBodySetups() const { return BodySetups; }
     int32 GetBodySetupCount() const { return BodySetups.Num(); }
+    
+    const TArray<FConstraintSetup>& GetContraintSetups() const { return ConstraintSetups; }
+    int32 GetConstraintSetupCount() const { return ConstraintSetups.Num(); }
+    
 
     // Body management
     void AddBodySetup(UBodySetup* NewBody);
@@ -124,7 +128,7 @@ private:
     /*
      * 관절의 움직임 정의
      */
-    TArray<FConstraintInstance> ConstraintSetups;
+    TArray<FConstraintSetup> ConstraintSetups;
 
     // 충돌 무시 테이블
     // 같은 테이블에 저장된 인덱스 끼리는 충돌하지 않음

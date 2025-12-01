@@ -31,7 +31,7 @@ struct FConstraintProfileProperties
     float Swing2LimitsAngle = 45.0f;
     EJointMotion Swing2Motion = EJointMotion::Limited;
     
-    float TwistLimits = 45.0f;
+    float TwistLimit = 45.0f;
     EJointMotion TwistMotion = EJointMotion::Limited;
 
     float LinearLimit = 0.0f;
@@ -47,7 +47,26 @@ struct FConstraintProfileProperties
     float Damping = 0.0f;
     float DriveForceLimit = FLT_MAX;
 
-    bool bDisableCollision = true;   
+    bool bDisableCollision = true;
+
+    FConstraintProfileProperties() = default;
+    FConstraintProfileProperties(const FConstraintProfileProperties& Other)
+        : Swing1LimitsAngle(Other.Swing1LimitsAngle),
+          Swing1Motion(Other.Swing1Motion),
+          Swing2LimitsAngle(Other.Swing2LimitsAngle),
+          Swing2Motion(Other.Swing2Motion),
+          TwistLimit(Other.TwistLimit),
+          TwistMotion(Other.TwistMotion),
+          LinearLimit(Other.LinearLimit),
+          LinearMotionX(Other.LinearMotionX),
+          LinearMotionY(Other.LinearMotionY),
+          LinearMotionZ(Other.LinearMotionZ),
+          bEnableDrive(Other.bEnableDrive),
+          Stiffness(Other.Stiffness),
+          Damping(Other.Damping),
+          DriveForceLimit(Other.DriveForceLimit),
+          bDisableCollision(Other.bDisableCollision)
+    {}
 };
 
 struct FConstraintInstanceBase
@@ -114,7 +133,9 @@ struct FConstraintInstance : public FConstraintInstanceBase
     void UpdateFrames();
 
     void SetRefFrame1(const FVector& Pos, const FVector& PriAxis, const FVector& SecAxis);
+    void SetRefFrame1(const FConstraintFrame& Frame);
     void SetRefFrame2(const FVector& Pos, const FVector& PriAxis, const FVector& SecAxis);
+    void SetRefFrame2(const FConstraintFrame& Frame);
     void SetAngularRotationOffset(const FQuat& InAngularRotationOffset);
 
     void SetDisableCollision(bool bDisable);
@@ -148,11 +169,11 @@ struct FConstraintInstance : public FConstraintInstanceBase
         UpdateProfile();
     }
 
-    float GetAngularTwistLimit() const { return Profile.TwistLimits; }
+    float GetAngularTwistLimit() const { return Profile.TwistLimit; }
     void SetAngularTwistLimit(float Limit, EJointMotion TwistMotion)
     {
         Profile.TwistMotion = TwistMotion;
-        Profile.TwistLimits = Limit;
+        Profile.TwistLimit = Limit;
         UpdateProfile();
     }
 
@@ -161,4 +182,82 @@ struct FConstraintInstance : public FConstraintInstanceBase
 private:
     physx::PxTransform CalcPxTransform(const FVector& Pos, const FVector& PriAxis, const FVector& SecAxis);
     static physx::PxD6Motion::Enum ConvertMotion(EJointMotion Motion);
+};
+
+struct FConstraintSetup
+{
+    // ═══════════════════════════════════════════════════════════════════════
+    // 1. 식별 및 위상 (Topology)
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    /** 이 관절의 고유 이름 (예: "Leg_L_Joint") */
+    FName JointName;
+
+    /** 연결될 Child 뼈 이름 (예: "Calf_L") */
+    FName ConstraintBone1; 
+
+    /** 연결될 Parent 뼈 이름 (예: "Thigh_L") */
+    FName ConstraintBone2;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 2. 기하학적 배치 (Geometry)
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    /** Child Body 기준 관절 위치 및 축 */
+    FConstraintFrame Frame1;
+
+    /** Parent Body 기준 관절 위치 및 축 */
+    FConstraintFrame Frame2;
+
+    /** 초기 회전 오프셋 (0도 기준 보정) */
+    FQuat AngularRotationOffset = FQuat::Identity();
+
+    /** 스케일에 따른 선형 제한 크기 조절 여부 */
+    bool bScaleLinearLimits = true;
+
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 3. 물리적 물성 (Physics Properties)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** 제한(Limit), 모터(Drive), 충돌 등 물리 설정값 */
+    FConstraintProfileProperties Profile;
+
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 생성자
+    // ═══════════════════════════════════════════════════════════════════════
+    FConstraintSetup() = default;
+
+    /**
+     * @brief 편의 생성자
+     */
+    FConstraintSetup(FName InName, FName Bone1, FName Bone2)
+        : JointName(InName), ConstraintBone1(Bone1), ConstraintBone2(Bone2)
+    {
+    }
+
+    /**
+     * @brief 이 Setup 데이터를 런타임 Instance에 복사하는 헬퍼 함수
+     * @param OutInstance 데이터를 받을 런타임 객체
+     */
+    void CopyToInstance(FConstraintInstance& OutInstance) const
+    {
+        OutInstance.JointName = JointName;
+        
+        // Frame 데이터를 풀어서 넣음
+        OutInstance.Pos1 = Frame1.Pos;
+        OutInstance.PriAxis1 = Frame1.PriAxis;
+        OutInstance.SecAxis1 = Frame1.SecAxis;
+
+        OutInstance.Pos2 = Frame2.Pos;
+        OutInstance.PriAxis2 = Frame2.PriAxis;
+        OutInstance.SecAxis2 = Frame2.SecAxis;
+
+        OutInstance.AngularRotationOffset = AngularRotationOffset;
+        OutInstance.bScaleLinearLimits = bScaleLinearLimits;
+        
+        // 프로필(Limit, Drive) 복사
+        OutInstance.Profile = Profile;
+    }
 };
