@@ -303,9 +303,13 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
             AccumulatedTime -= SimTime;
 
             // 시뮬레이션 시작 (비블로킹 - fetchResults 호출하지 않음)
-            bIsSimulating = true;
-            PScene->simulate(SimTime);
-            bSimulationPending = true;
+            // 쓰기 잠금으로 시뮬레이션 보호
+            {
+                SCOPED_SCENE_WRITE_LOCK(PScene);
+                bIsSimulating = true;
+                PScene->simulate(SimTime);
+                bSimulationPending = true;
+            }
         }
 
         // 보간 Alpha 업데이트 (시뮬레이션 여부와 무관하게 매 프레임 수행)
@@ -327,6 +331,8 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
     int32 NumSteps = 0;
     while (AccumulatedTime >= FixedTimestep && NumSteps < MaxSubsteps)
     {
+        // 쓰기 잠금으로 시뮬레이션 보호
+        SCOPED_SCENE_WRITE_LOCK(PScene);
         bIsSimulating = true;
         PScene->simulate(FixedTimestep);
         PScene->fetchResults(true);
@@ -360,13 +366,20 @@ void FPhysSceneImpl::FetchResults()
 
     if (bAsyncSimulation && bSimulationPending)
     {
-        // 블로킹 대기 (렌더링 전에 반드시 완료 필요)
-        PScene->fetchResults(true);
-        bSimulationPending = false;
-        bIsSimulating = false;
+        // 쓰기 잠금으로 결과 수집 보호
+        {
+            SCOPED_SCENE_WRITE_LOCK(PScene);
+            // 블로킹 대기 (렌더링 전에 반드시 완료 필요)
+            PScene->fetchResults(true);
+            bSimulationPending = false;
+            bIsSimulating = false;
+        }
 
         // Transform 캡처
         CaptureActiveActorsTransform();
+
+        // 지연된 명령 처리
+        ProcessPendingCommands();
     }
 
     // 동기 모드에서는 Simulate()에서 이미 처리 완료
@@ -462,4 +475,79 @@ uint32 FPhysSceneImpl::GetNumActors(PxActorTypeFlags Types) const
         return PScene->getNbActors(Types);
     }
     return 0;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Actor 추가/제거 (스레드 안전, 지연 처리 지원)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+void FPhysSceneImpl::AddActor(PxActor* Actor)
+{
+    if (!PScene || !Actor)
+        return;
+
+    // 시뮬레이션 중이면 지연 처리
+    if (bIsSimulating)
+    {
+        FPhysicsCommand Cmd;
+        Cmd.Type = FPhysicsCommand::EType::AddActor;
+        Cmd.Actor = Actor;
+        PendingCommands.Add(Cmd);
+        return;
+    }
+
+    // 쓰기 잠금으로 Actor 추가 보호
+    SCOPED_SCENE_WRITE_LOCK(PScene);
+    PScene->addActor(*Actor);
+}
+
+void FPhysSceneImpl::RemoveActor(PxActor* Actor)
+{
+    if (!PScene || !Actor)
+        return;
+
+    // 시뮬레이션 중이면 지연 처리
+    if (bIsSimulating)
+    {
+        FPhysicsCommand Cmd;
+        Cmd.Type = FPhysicsCommand::EType::RemoveActor;
+        Cmd.Actor = Actor;
+        PendingCommands.Add(Cmd);
+        return;
+    }
+
+    // 쓰기 잠금으로 Actor 제거 보호
+    SCOPED_SCENE_WRITE_LOCK(PScene);
+    PScene->removeActor(*Actor);
+}
+
+void FPhysSceneImpl::ProcessPendingCommands()
+{
+    if (PendingCommands.Num() == 0)
+        return;
+
+    // 쓰기 잠금으로 지연 명령 처리 보호
+    SCOPED_SCENE_WRITE_LOCK(PScene);
+
+    for (const FPhysicsCommand& Cmd : PendingCommands)
+    {
+        switch (Cmd.Type)
+        {
+        case FPhysicsCommand::EType::AddActor:
+            if (Cmd.Actor)
+            {
+                PScene->addActor(*Cmd.Actor);
+            }
+            break;
+
+        case FPhysicsCommand::EType::RemoveActor:
+            if (Cmd.Actor)
+            {
+                PScene->removeActor(*Cmd.Actor);
+            }
+            break;
+        }
+    }
+
+    PendingCommands.Empty();
 }

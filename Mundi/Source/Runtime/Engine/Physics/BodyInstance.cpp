@@ -7,6 +7,7 @@
 #include "PhysSceneImpl.h"
 #include "PhysicsCore.h"
 #include "PhysicsTypes.h"
+#include "PhysicsSceneLock.h"
 #include "PrimitiveComponent.h"
 #include "SceneComponent.h"
 #include "GlobalConsole.h"
@@ -199,8 +200,8 @@ void FBodyInstance::InitBody(
     // userData 설정 (콜백에서 FBodyInstance로 접근)
     Impl->RigidActorSync->userData = this;
 
-    // Scene에 추가
-    PScene->addActor(*Impl->RigidActorSync);
+    // Scene에 추가 (스레드 안전, 시뮬레이션 중이면 지연 처리)
+    SceneImpl->AddActor(Impl->RigidActorSync);
     CurrentSceneState = EBodyInstanceSceneState::Added;
 
     UE_LOG("FBodyInstance::InitBody - Body created successfully (Simulate=%s, Trigger=%s)",
@@ -217,17 +218,13 @@ void FBodyInstance::TermBody()
 
     CurrentSceneState = EBodyInstanceSceneState::AwaitingRemove;
 
-    // Scene에서 제거
+    // Scene에서 제거 (스레드 안전, 시뮬레이션 중이면 지연 처리)
     if (OwnerScene)
     {
         FPhysSceneImpl* SceneImpl = OwnerScene->GetImpl();
         if (SceneImpl && SceneImpl->IsInitialized())
         {
-            PxScene* PScene = SceneImpl->GetPxScene();
-            if (PScene)
-            {
-                PScene->removeActor(*Impl->RigidActorSync);
-            }
+            SceneImpl->RemoveActor(Impl->RigidActorSync);
         }
     }
 
@@ -258,6 +255,10 @@ FTransform FBodyInstance::GetWorldTransform() const
         return FTransform();
     }
 
+    // 읽기 잠금으로 Transform 접근 보호
+    PxScene* PScene = Impl->RigidActorSync->getScene();
+    SCOPED_SCENE_READ_LOCK(PScene);
+
     PxTransform PxPose = Impl->RigidActorSync->getGlobalPose();
     FTransform Result = PhysicsConversion::ToFTransform(PxPose);
 
@@ -276,6 +277,10 @@ void FBodyInstance::SetWorldTransform(const FTransform& NewTransform, bool bTele
     {
         return;
     }
+
+    // 쓰기 잠금으로 Transform 설정 보호
+    PxScene* PScene = Impl->RigidActorSync->getScene();
+    SCOPED_SCENE_WRITE_LOCK(PScene);
 
     PxTransform PxPose = PhysicsConversion::ToPxTransform(NewTransform);
 

@@ -11,6 +11,7 @@
 
 #include <PxPhysicsAPI.h>
 #include "UEContainer.h"
+#include "PhysicsSceneLock.h"
 
 class UWorld;
 class FPhysScene;
@@ -125,4 +126,38 @@ private:
 
     /** 누적된 시간 (Fixed Timestep에 도달할 때까지 누적) */
     float AccumulatedTime = 0.0f;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 지연 명령 큐 (시뮬레이션 중 Actor 추가/제거 요청 지연 처리)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** 지연 명령 타입 */
+    struct FPhysicsCommand
+    {
+        enum class EType : uint8
+        {
+            AddActor,
+            RemoveActor
+        };
+
+        EType Type;
+        physx::PxActor* Actor;
+    };
+
+    /** 시뮬레이션 중 대기 중인 명령 큐 */
+    TArray<FPhysicsCommand> PendingCommands;
+
+    /** 지연된 명령 처리 */
+    void ProcessPendingCommands();
+
+public:
+    // ═══════════════════════════════════════════════════════════════════════
+    // Actor 추가/제거 (스레드 안전)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** Actor를 씬에 추가 (시뮬레이션 중이면 지연 처리) */
+    void AddActor(physx::PxActor* Actor);
+
+    /** Actor를 씬에서 제거 (시뮬레이션 중이면 지연 처리) */
+    void RemoveActor(physx::PxActor* Actor);
 };
