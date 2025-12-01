@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "BodyInstance.h"
 #include "SkinnedMeshComponent.h"
 #include "USkeletalMeshComponent.generated.h"
 
@@ -122,6 +123,8 @@ protected:
      * @brief 부모에게 보낼 최종 스키닝 행렬 (임시 계산용)
      */
     TArray<FMatrix> TempFinalSkinningMatrices;
+
+	FBodyInstance BodyInstance;
 
 // FOR TEST!!!
 private:

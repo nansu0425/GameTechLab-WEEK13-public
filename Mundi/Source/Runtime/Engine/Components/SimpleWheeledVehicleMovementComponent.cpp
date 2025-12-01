@@ -198,35 +198,13 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
         return false;
     }
 
-    physx::PxMaterial* Material = PhysScene->GetDefaultMaterial();
-    if (!Material)
-    {
-        Material = FPhysicsCore::Get().CreateMaterial(0.5f, 0.5f, 0.6f);
-    }
-
-    const FTransform BodyTransform = PrimComp->GetWorldTransform();
-    physx::PxTransform PxChassisTransform = PhysicsConversion::ToPxTransform(BodyTransform);
-
-    physx::PxRigidDynamic* ChassisActor = Physics->createRigidDynamic(PxChassisTransform);
+    // BodyInstance가 생성한 차체 Dynamic Actor 재사용
+    physx::PxRigidDynamic* ChassisActor = PrimComp->GetBodyInstanceRef().GetPxRigidDynamic();
     if (!ChassisActor)
     {
-        UE_LOG("[VehicleMovement] Failed to create PxRigidDynamic.");
+        UE_LOG("[VehicleMovement] BodyInstance does not have a valid PxRigidDynamic. Ensure CreatePhysicsState() was called.");
         return false;
     }
-
-    // 임시 Box 지오메트리로 차체 생성 (TODO: 메시 Bounds 기반으로 교체)
-    physx::PxShape* ChassisShape = physx::PxRigidActorExt::createExclusiveShape(
-        *ChassisActor,
-        physx::PxBoxGeometry(50.0f, 25.0f, 15.0f),
-        *Material);
-    if (!ChassisShape)
-    {
-        ChassisActor->release();
-        UE_LOG("[VehicleMovement] Failed to create chassis shape.");
-        return false;
-    }
-
-    physx::PxRigidBodyExt::updateMassAndInertia(*ChassisActor, VehicleMass);
 
     const physx::PxU32 NumWheels = WheelSetups.Num();
     physx::PxVehicleWheelsSimData* WheelsSimData = physx::PxVehicleWheelsSimData::allocate(NumWheels);
@@ -303,12 +281,9 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
     if (!Drive4W->getRigidDynamicActor())
     {
         Drive4W->free();
-        ChassisActor->release();
         UE_LOG("[VehicleMovement] PxVehicleDrive4W setup failed (no actor bound).");
         return false;
     }
-
-    PxScene->addActor(*ChassisActor);
 
     PxVehicleDrive4WInstance = Drive4W;
     PxVehicleWheelsInstance = Drive4W;
@@ -427,15 +402,8 @@ void USimpleWheeledVehicleMovementComponent::CleanupVehiclePhysX()
 
     PxVehicleWheelsInstance = nullptr;
 
-    if (PxVehicleActor)
-    {
-        if (physx::PxScene* Scene = PxVehicleActor->getScene())
-        {
-            Scene->removeActor(*PxVehicleActor);
-        }
-        PxVehicleActor->release();
-        PxVehicleActor = nullptr;
-    }
+    // 차체 Actor는 BodyInstance가 소유하므로 여기서 해제/씬 제거하지 않음
+    PxVehicleActor = nullptr;
 
     bVehicleInitialized = false;
     bWarnedMissingBodyComponent = false;
