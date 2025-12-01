@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "BodyInstance.h"
 #include "SkinnedMeshComponent.h"
 #include "USkeletalMeshComponent.generated.h"
@@ -8,6 +8,7 @@ class UAnimationAsset;
 class UAnimSequence;
 class UAnimStateMachineInstance;
 class UAnimBlendSpaceInstance;
+struct FConstraintInstance;
 
 UCLASS(DisplayName="스켈레탈 메시 컴포넌트", Description="스켈레탈 메시를 렌더링하는 컴포넌트입니다")
 class USkeletalMeshComponent : public USkinnedMeshComponent
@@ -124,7 +125,8 @@ protected:
      */
     TArray<FMatrix> TempFinalSkinningMatrices;
 
-	FBodyInstance BodyInstance;
+    TArray<FBodyInstance*> Bodies;
+    TArray<FConstraintInstance*> Constraints;
 
 // FOR TEST!!!
 private:

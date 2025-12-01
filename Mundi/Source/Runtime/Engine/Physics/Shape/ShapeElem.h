@@ -56,6 +56,16 @@ public:
           CollisionEnable(Copy.CollisionEnable),
           UserData(this)
     {}
+
+    FShapeElem(FShapeElem&& Other) noexcept
+        : RestOffset(Other.RestOffset),
+          bIsGenerated(Other.bIsGenerated),
+          Name(std::move(Other.Name)),
+          ShapeType(Other.ShapeType),
+          bContributeToMass(Other.bContributeToMass),
+          CollisionEnable(Other.CollisionEnable),
+          UserData(this)
+    {}
     
     virtual ~FShapeElem();
 
@@ -68,10 +78,24 @@ public:
         return *this;
     }
 
+    FShapeElem& operator=(FShapeElem&& Other) noexcept
+    {
+        if (this != &Other)
+        {
+            RestOffset = Other.RestOffset;
+            ShapeType = Other.ShapeType;
+            Name = std::move(Other.Name);
+            bContributeToMass = Other.bContributeToMass;
+            CollisionEnable = Other.CollisionEnable;
+            bIsGenerated = Other.bIsGenerated;
+        }
+        return *this;
+    }
+
     template<typename T>
     T* GetShapeCheck()
     {        
-        CHECK_MSG(T::StaticShapeType == ShapeType, "FKShapeElem type check fail");
+        CHECK_MSG(T::StaticShapeType == ShapeType, "FShapeElem type check fail");
         return static_cast<T*>(this);
     }
 
@@ -80,7 +104,7 @@ public:
     EAggCollisionShape GetShapeType() const { return ShapeType; }
     bool GetContributeToMass() const { return bContributeToMass; }
     void SetContributeToMass(bool bInContributesToMass) { bContributeToMass = bInContributesToMass; }
-    void SetCollisionEnabled(ECollisionEnabled InCOllisionEnabled) { CollisionEnable = InCOllisionEnabled; }
+    void SetCollisionEnabled(ECollisionEnabled InCollisionEnabled) { CollisionEnable = InCollisionEnabled; }
     ECollisionEnabled GetCollisionEnabled() const { return CollisionEnable; }
 
     virtual FTransform GetTransform() const
@@ -102,6 +126,7 @@ public:
 
     bool bIsGenerated;
 
+    FUserData UserData;
 protected:
     // 대입연산자 헬퍼함수
     void CloneElem(const FShapeElem& Other)
@@ -111,9 +136,9 @@ protected:
         Name = Other.Name;
         bContributeToMass = Other.bContributeToMass;
         CollisionEnable = Other.CollisionEnable;
-        bIsGenerated = Other.bIsGenerated;        
-    }    
-
+        bIsGenerated = Other.bIsGenerated;
+    }
+    
 private:
 
     EAggCollisionShape ShapeType;
@@ -126,5 +151,5 @@ private:
 
     ECollisionEnabled CollisionEnable;
 
-    FUserData UserData;
+    
 };

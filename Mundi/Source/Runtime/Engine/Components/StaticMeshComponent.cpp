@@ -212,6 +212,12 @@ void UStaticMeshComponent::DuplicateSubObjects()
 	Super::DuplicateSubObjects();
 }
 
+UBodySetup* UStaticMeshComponent::GetBodySetup() const
+{
+	UBodySetup* BodySetup = StaticMesh ? StaticMesh->GetBodySetup() : nullptr;
+	return BodySetup;
+}
+
 void UStaticMeshComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
 	Super::Serialize(bInIsLoading, InOutHandle);

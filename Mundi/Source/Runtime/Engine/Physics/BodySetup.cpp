@@ -57,7 +57,10 @@ void UBodySetup::AddBoxElems(physx::PxRigidActor* RigidActor, physx::PxMaterial*
             FTransform BoxTransform(BoxElem.Center, BoxElem.Rotation, FVector::One());
             Shape->setLocalPose(PhysicsConversion::ToPxTransform(BoxTransform));
 
-            RigidActor->attachShape(*Shape);
+            FBoxElem& MutableElem = const_cast<FBoxElem&>(BoxElem);
+            Shape->userData = &MutableElem.UserData;
+
+            RigidActor->attachShape(*Shape);            
             // 액터가 Shape의 소유권을 가짐
             Shape->release();
         }
@@ -84,6 +87,9 @@ void UBodySetup::AddSphereElems(physx::PxRigidActor* RigidActor, physx::PxMateri
         {
             PxTransform LocalPose(PhysicsConversion::ToPxVec3(SphereElem.Center));
             Shape->setLocalPose(LocalPose);
+
+            FSphereElem& MutableElem = const_cast<FSphereElem&>(SphereElem);
+            Shape->userData = &MutableElem.UserData;
 
             RigidActor->attachShape(*Shape);
             Shape->release();
@@ -112,6 +118,9 @@ void UBodySetup::AddSphylElems(physx::PxRigidActor* RigidActor, physx::PxMateria
         {
             FTransform SphylTransform(SphylElem.Center, SphylElem.Rotation, FVector::One());
             Shape->setLocalPose(PhysicsConversion::ToPxTransform(SphylTransform));
+
+            FSphylElem& MutableElem = const_cast<FSphylElem&>(SphylElem);
+            Shape->userData = &MutableElem.UserData;
 
             RigidActor->attachShape(*Shape);
             Shape->release();
@@ -188,6 +197,9 @@ void UBodySetup::AddConvexElems(physx::PxRigidActor* RigidActor, physx::PxMateri
             if (Shape)
             {
                 Shape->setLocalPose(PhysicsConversion::ToPxTransform(ConvexElem.Transform));
+
+                FConvexElem& MutableElem = const_cast<FConvexElem&>(ConvexElem);
+                Shape->userData = &MutableElem.UserData;
 
                 RigidActor->attachShape(*Shape);
                 Shape->release();
