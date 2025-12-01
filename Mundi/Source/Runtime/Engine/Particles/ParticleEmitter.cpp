@@ -146,7 +146,7 @@ void UParticleEmitter::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 		if (FJsonSerializer::ReadArray(InOutHandle, "LODLevels", LODLevelsJson))
 		{
 			LODLevels.Empty();
-			for (size_t i = 0; i < LODLevelsJson.size(); ++i)
+			for (unsigned int i = 0; i < static_cast<unsigned int>(LODLevelsJson.size()); ++i)
 			{
 				JSON& LODData = LODLevelsJson.at(i);
 				UParticleLODLevel* LOD = NewObject<UParticleLODLevel>();

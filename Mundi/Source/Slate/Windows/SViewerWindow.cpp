@@ -2520,7 +2520,7 @@ void SViewerWindow::RenderAnimationBrowser(
 
         // Table rows
         ImGuiListClipper clipper;
-        clipper.Begin(AnimsToShow.size());
+        clipper.Begin(static_cast<int>(AnimsToShow.size()));
 
         while (clipper.Step())
         {

@@ -8,7 +8,7 @@
 #include "UParticleSystemComponent.generated.h"
 
 struct FMeshBatchElement;
-struct FSceneView;
+class FSceneView;
 
 // 디버그 파티클 타입 (Template이 없을 때 사용)
 UENUM()

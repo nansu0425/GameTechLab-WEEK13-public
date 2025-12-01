@@ -1194,7 +1194,7 @@ void SAnimationViewerWindow::RenderLeftTrackList(float width, float RowHeight, f
     ImGui::Dummy(ImVec2(0, HeaderHeight));
     ImGui::PopStyleVar();
 
-    int RowCount = LeftRows.size();
+    int RowCount = static_cast<int>(LeftRows.size());
     ImDrawList* DL = ImGui::GetWindowDrawList();
     ImVec2 childMin = ImGui::GetWindowPos();
     ImVec2 childMax = ImVec2(childMin.x + width, childMin.y + ImGui::GetWindowSize().y);
@@ -1267,7 +1267,7 @@ void SAnimationViewerWindow::RenderLeftTrackList(float width, float RowHeight, f
         ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.35f));
         if (ImGui::MenuItem("Add Notify Track"))
         {
-            int idx = ActiveState->NotifyTracks.size();
+            int idx = static_cast<int>(ActiveState->NotifyTracks.size());
             ActiveState->NotifyTracks.push_back(FNotifyTrack("Track " + std::to_string(idx)));
             ActiveState->bIsDirty = true;
         }
@@ -1361,7 +1361,7 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
     ImVec2 gridOrigin = ImGui::GetCursorScreenPos();
     ImVec2 gridAvail = ImGui::GetContentRegionAvail();
 
-    const int RowCount = LeftRows.size();
+    const int RowCount = static_cast<int>(LeftRows.size());
     float TotalHeight = RowCount * RowHeight;
     float FullHeight = gridAvail.y;
 
@@ -1568,7 +1568,7 @@ void SAnimationViewerWindow::RenderTimelineGridBody(float RowHeight, const TArra
 
                     int notifyCount = 0;
                     for (const auto& track : ActiveState->NotifyTracks)
-                        notifyCount += track.Notifies.size();
+                        notifyCount += static_cast<int>(track.Notifies.size());
 
                     newNotify.NotifyName = FName("NewNotify_" + std::to_string(notifyCount + 1));
 

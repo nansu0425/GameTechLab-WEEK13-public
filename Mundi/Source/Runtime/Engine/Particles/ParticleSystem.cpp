@@ -56,7 +56,7 @@ void UParticleSystem::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 		if (FJsonSerializer::ReadArray(InOutHandle, "Emitters", EmittersJson))
 		{
 			Emitters.Empty();
-			for (size_t i = 0; i < EmittersJson.size(); ++i)
+			for (unsigned int i = 0; i < static_cast<unsigned int>(EmittersJson.size()); ++i)
 			{
 				JSON& EmitterData = EmittersJson.at(i);
 				UParticleEmitter* Emitter = NewObject<UParticleEmitter>();

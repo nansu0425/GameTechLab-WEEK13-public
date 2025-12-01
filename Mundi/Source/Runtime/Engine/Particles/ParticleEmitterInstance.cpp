@@ -665,7 +665,7 @@ void FParticleEmitterInstance::UpdateParticles(float DeltaTime)
 		if (Module && Module->bEnabled && Module->bUpdateModule)
 		{
 			// PayloadOffset 추가: 페이로드는 FBaseParticle 뒤에 위치
-			FModuleUpdateContext Context = { *this, PayloadOffset + Module->ModuleOffsetInParticle, DeltaTime };
+			FModuleUpdateContext Context = { *this, PayloadOffset + static_cast<int32>(Module->ModuleOffsetInParticle), DeltaTime };
 			Module->Update(Context);
 		}
 	}

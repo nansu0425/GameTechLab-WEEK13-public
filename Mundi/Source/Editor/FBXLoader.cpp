@@ -688,7 +688,7 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 				// GetLink -> 아까 저장한 노드 To Index맵의 노드 (Cluster에 대응되는 뼈 인덱스를 ControlPointIndex에 대응시키는 과정)
 				// ControlPointIndex = 클러스터가 저장하는 ControlPointIndex 배열에 대한 Index
 				TArray<IndexWeight>& IndexWeightArray = ControlPointToBoneWeight[Indices[ControlPointIndex]];
-				IndexWeightArray.Add(IndexWeight(BoneToIndex[Cluster->GetLink()], Weights[ControlPointIndex]));
+				IndexWeightArray.Add(IndexWeight(BoneToIndex[Cluster->GetLink()], static_cast<float>(Weights[ControlPointIndex])));
 			}
 		}
 	}
@@ -743,7 +743,7 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 
 			const FbxVector4& Position = FbxSceneWorld.MultT(ControlPoints[ControlPointIndex]);
 			//const FbxVector4& Position = ControlPoints[ControlPointIndex];
-			SkinnedVertex.Position = FVector(Position.mData[0], Position.mData[1], Position.mData[2]);
+			SkinnedVertex.Position = FVector(static_cast<float>(Position.mData[0]), static_cast<float>(Position.mData[1]), static_cast<float>(Position.mData[2]));
 
 
 			if (ControlPointToBoneWeight.Contains(ControlPointIndex))
@@ -762,7 +762,7 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 				{
 					// ControlPoint에 대응하는 뼈 인덱스, 가중치를 모두 저장
 					SkinnedVertex.BoneIndices[BoneIndex] = ControlPointToBoneWeight[ControlPointIndex][BoneIndex].BoneIndex;
-					SkinnedVertex.BoneWeights[BoneIndex] = ControlPointToBoneWeight[ControlPointIndex][BoneIndex].BoneWeight/TotalWeights;
+					SkinnedVertex.BoneWeights[BoneIndex] = static_cast<float>(ControlPointToBoneWeight[ControlPointIndex][BoneIndex].BoneWeight/TotalWeights);
 				}
 			}
 
@@ -802,7 +802,7 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 				{
 					// 바로 참조 가능.
 					const FbxColor& Color = VertexColors->GetDirectArray().GetAt(MappingIndex);
-					SkinnedVertex.Color = FVector4(Color.mRed, Color.mGreen, Color.mBlue, Color.mAlpha);
+					SkinnedVertex.Color = FVector4(static_cast<float>(Color.mRed), static_cast<float>(Color.mGreen), static_cast<float>(Color.mBlue), static_cast<float>(Color.mAlpha));
 				}
 				break;
 				//인덱스 배열로 간접참조해야함
@@ -810,7 +810,7 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 				{
 					int Id = VertexColors->GetIndexArray().GetAt(MappingIndex);
 					const FbxColor& Color = VertexColors->GetDirectArray().GetAt(Id);
-					SkinnedVertex.Color = FVector4(Color.mRed, Color.mGreen, Color.mBlue, Color.mAlpha);
+					SkinnedVertex.Color = FVector4(static_cast<float>(Color.mRed), static_cast<float>(Color.mGreen), static_cast<float>(Color.mBlue), static_cast<float>(Color.mAlpha));
 				}
 				break;
 				//외의 경우는 일단 배제
@@ -845,7 +845,7 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 				{
 					const FbxVector4& Normal = Normals->GetDirectArray().GetAt(MappingIndex);
 					FbxVector4 NormalWorld = FbxSceneWorldInverseTranspose.MultT(FbxVector4(Normal.mData[0], Normal.mData[1], Normal.mData[2], 0.0f));
-					SkinnedVertex.Normal = FVector(NormalWorld.mData[0], NormalWorld.mData[1], NormalWorld.mData[2]);
+					SkinnedVertex.Normal = FVector(static_cast<float>(NormalWorld.mData[0]), static_cast<float>(NormalWorld.mData[1]), static_cast<float>(NormalWorld.mData[2]));
 				}
 				break;
 				case FbxGeometryElement::eIndexToDirect:
@@ -853,7 +853,7 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 					int Id = Normals->GetIndexArray().GetAt(MappingIndex);
 					const FbxVector4& Normal = Normals->GetDirectArray().GetAt(Id);
 					FbxVector4 NormalWorld = FbxSceneWorldInverseTranspose.MultT(FbxVector4(Normal.mData[0], Normal.mData[1], Normal.mData[2], 0.0f));
-					SkinnedVertex.Normal = FVector(NormalWorld.mData[0], NormalWorld.mData[1], NormalWorld.mData[2]);
+					SkinnedVertex.Normal = FVector(static_cast<float>(NormalWorld.mData[0]), static_cast<float>(NormalWorld.mData[1]), static_cast<float>(NormalWorld.mData[2]));
 				}
 				break;
 				default:
@@ -886,7 +886,7 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 				{
 					const FbxVector4& Tangent = Tangents->GetDirectArray().GetAt(MappingIndex);
 					FbxVector4 TangentWorld = FbxSceneWorld.MultT(FbxVector4(Tangent.mData[0], Tangent.mData[1], Tangent.mData[2], 0.0f));
-					SkinnedVertex.Tangent = FVector4(TangentWorld.mData[0], TangentWorld.mData[1], TangentWorld.mData[2], Tangent.mData[3]);
+					SkinnedVertex.Tangent = FVector4(static_cast<float>(TangentWorld.mData[0]), static_cast<float>(TangentWorld.mData[1]), static_cast<float>(TangentWorld.mData[2]), static_cast<float>(Tangent.mData[3]));
 				}
 				break;
 				case FbxGeometryElement::eIndexToDirect:
@@ -894,7 +894,7 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 					int Id = Tangents->GetIndexArray().GetAt(MappingIndex);
 					const FbxVector4& Tangent = Tangents->GetDirectArray().GetAt(Id);
 					FbxVector4 TangentWorld = FbxSceneWorld.MultT(FbxVector4(Tangent.mData[0], Tangent.mData[1], Tangent.mData[2], 0.0f));
-					SkinnedVertex.Tangent = FVector4(TangentWorld.mData[0], TangentWorld.mData[1], TangentWorld.mData[2], Tangent.mData[3]);
+					SkinnedVertex.Tangent = FVector4(static_cast<float>(TangentWorld.mData[0]), static_cast<float>(TangentWorld.mData[1]), static_cast<float>(TangentWorld.mData[2]), static_cast<float>(Tangent.mData[3]));
 				}
 				break;
 				default:
@@ -934,14 +934,14 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 					case FbxGeometryElement::eDirect:
 					{
 						const FbxVector2& UV = UVs->GetDirectArray().GetAt(ControlPointIndex);
-						SkinnedVertex.UV = FVector2D(UV.mData[0], 1 - UV.mData[1]);
+						SkinnedVertex.UV = FVector2D(static_cast<float>(UV.mData[0]), 1.0f - static_cast<float>(UV.mData[1]));
 					}
 					break;
 					case FbxGeometryElement::eIndexToDirect:
 					{
 						int Id = UVs->GetIndexArray().GetAt(ControlPointIndex);
 						const FbxVector2& UV = UVs->GetDirectArray().GetAt(Id);
-						SkinnedVertex.UV = FVector2D(UV.mData[0], 1 - UV.mData[1]);
+						SkinnedVertex.UV = FVector2D(static_cast<float>(UV.mData[0]), 1.0f - static_cast<float>(UV.mData[1]));
 					}
 					break;
 					default:
@@ -957,7 +957,7 @@ void UFbxLoader::LoadMesh(FbxMesh* InMesh, FSkeletalMeshData& MeshData, TMap<int
 					case FbxGeometryElement::eIndexToDirect:
 					{
 						const FbxVector2& UV = UVs->GetDirectArray().GetAt(TextureUvIndex);
-						SkinnedVertex.UV = FVector2D(UV.mData[0], 1 - UV.mData[1]);
+						SkinnedVertex.UV = FVector2D(static_cast<float>(UV.mData[0]), 1.0f - static_cast<float>(UV.mData[1]));
 					}
 					break;
 					default:
@@ -1115,38 +1115,38 @@ void UFbxLoader::ParseMaterial(FbxSurfaceMaterial* Material, FMaterialInfo& Mate
 		FbxSurfacePhong* SurfacePhong = (FbxSurfacePhong*)Material;
 
 		Double3Prop = SurfacePhong->Diffuse;
-		MaterialInfo.DiffuseColor = FVector(Double3Prop.Get()[0], Double3Prop.Get()[1], Double3Prop.Get()[2]);
+		MaterialInfo.DiffuseColor = FVector(static_cast<float>(Double3Prop.Get()[0]), static_cast<float>(Double3Prop.Get()[1]), static_cast<float>(Double3Prop.Get()[2]));
 
 		Double3Prop = SurfacePhong->Ambient;
-		MaterialInfo.AmbientColor = FVector(Double3Prop.Get()[0], Double3Prop.Get()[1], Double3Prop.Get()[2]);
+		MaterialInfo.AmbientColor = FVector(static_cast<float>(Double3Prop.Get()[0]), static_cast<float>(Double3Prop.Get()[1]), static_cast<float>(Double3Prop.Get()[2]));
 
 		// SurfacePhong->Reflection : 환경 반사, 퐁 모델에선 필요없음
 		Double3Prop = SurfacePhong->Specular;
 		DoubleProp = SurfacePhong->SpecularFactor;
-		MaterialInfo.SpecularColor = FVector(Double3Prop.Get()[0], Double3Prop.Get()[1], Double3Prop.Get()[2]) * DoubleProp.Get();
+		MaterialInfo.SpecularColor = FVector(static_cast<float>(Double3Prop.Get()[0]), static_cast<float>(Double3Prop.Get()[1]), static_cast<float>(Double3Prop.Get()[2])) * static_cast<float>(DoubleProp.Get());
 
 		// HDR 안 써서 의미 없음
 	/*	Double3Prop = SurfacePhong->Emissive;
 		MaterialInfo.EmissiveColor = FVector(Double3Prop.Get()[0], Double3Prop.Get()[1], Double3Prop.Get()[2]);*/
 
 		DoubleProp = SurfacePhong->Shininess;
-		MaterialInfo.SpecularExponent = DoubleProp.Get();
+		MaterialInfo.SpecularExponent = static_cast<float>(DoubleProp.Get());
 
 		DoubleProp = SurfacePhong->TransparencyFactor;
-		MaterialInfo.Transparency = DoubleProp.Get();
+		MaterialInfo.Transparency = static_cast<float>(DoubleProp.Get());
 	}
 	else if (Material->GetClassId().Is(FbxSurfaceLambert::ClassId))
 	{
 		FbxSurfaceLambert* SurfacePhong = (FbxSurfaceLambert*)Material;
 
 		Double3Prop = SurfacePhong->Diffuse;
-		MaterialInfo.DiffuseColor = FVector(Double3Prop.Get()[0], Double3Prop.Get()[1], Double3Prop.Get()[2]);
+		MaterialInfo.DiffuseColor = FVector(static_cast<float>(Double3Prop.Get()[0]), static_cast<float>(Double3Prop.Get()[1]), static_cast<float>(Double3Prop.Get()[2]));
 
 		Double3Prop = SurfacePhong->Ambient;
-		MaterialInfo.AmbientColor = FVector(Double3Prop.Get()[0], Double3Prop.Get()[1], Double3Prop.Get()[2]);
+		MaterialInfo.AmbientColor = FVector(static_cast<float>(Double3Prop.Get()[0]), static_cast<float>(Double3Prop.Get()[1]), static_cast<float>(Double3Prop.Get()[2]));
 
 		DoubleProp = SurfacePhong->TransparencyFactor;
-		MaterialInfo.Transparency = DoubleProp.Get();
+		MaterialInfo.Transparency = static_cast<float>(DoubleProp.Get());
 	}
 
 

@@ -111,7 +111,7 @@ void UParticleLODLevel::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 		if (FJsonSerializer::ReadArray(InOutHandle, "Modules", ModulesJson))
 		{
 			Modules.Empty();
-			for (size_t i = 0; i < ModulesJson.size(); ++i)
+			for (unsigned int i = 0; i < static_cast<unsigned int>(ModulesJson.size()); ++i)
 			{
 				JSON& ModuleData = ModulesJson.at(i);
 				FString TypeString;

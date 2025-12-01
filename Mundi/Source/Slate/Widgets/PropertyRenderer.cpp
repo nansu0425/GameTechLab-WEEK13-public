@@ -19,7 +19,10 @@
 #include "PlatformProcess.h"
 #include "SkeletalMeshComponent.h"
 #include "SlateManager.h"
+#pragma warning(push)
+#pragma warning(disable: 4244 4805 5055)
 #include "ImGui/imgui_curve.hpp"
+#pragma warning(pop)
 #include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 #include "EnumRegistry.generated.h"
 #include "ParticleModule.h"
