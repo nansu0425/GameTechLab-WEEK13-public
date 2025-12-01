@@ -34,6 +34,17 @@ SPhysicsAssetEditorWindow::~SPhysicsAssetEditorWindow()
     }
     Tabs.Empty();
     ActiveState = nullptr;
+
+    if (IconSingleBody)
+    {
+        DeleteObject(IconSingleBody);
+        IconSingleBody = nullptr;
+    }
+    if (IconMultipleBody)
+    {
+        DeleteObject(IconMultipleBody);
+        IconMultipleBody = nullptr;
+    }
 }
 
 void SPhysicsAssetEditorWindow::OnRender()
@@ -43,6 +54,17 @@ void SPhysicsAssetEditorWindow::OnRender()
     {
         USlateManager::GetInstance().RequestCloseDetachedWindow(this);
         return;
+    }
+    
+    if (!bIconsLoaded && Device)
+    {
+        IconSingleBody = NewObject<UTexture>();
+        IconSingleBody->Load(GDataDir + "/Icon/SingleBody.png", Device);
+
+        IconMultipleBody = NewObject<UTexture>();
+        IconMultipleBody->Load(GDataDir + "/Icon/MultipleBody.png", Device);
+
+        bIconsLoaded = true;
     }
 
     // Parent detachable window (movable, top-level) with solid background
@@ -374,21 +396,6 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
         return;
     }
 
-    if (!ActiveState->CurrentPhysicsAsset)
-    {
-        ImGui::TextWrapped("No physics asset loaded.");
-        return;
-    }
-
-    // Check if the physics asset has any bodies
-    if (ActiveState->CurrentPhysicsAsset->GetBodySetupCount() == 0)
-    {
-        ImGui::TextWrapped("No physics bodies created yet.");
-        ImGui::Spacing();
-        ImGui::TextDisabled("Use the 'Generate All Bodies' button in the Tools panel to create physics bodies automatically.");
-        return;
-    }
-
     const TArray<FBone>& Bones = Skeleton->Bones;
 
     // Build parent-child adjacency list
@@ -412,32 +419,29 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
         FName BoneName(Bone.Name);
 
         // Check if this bone has a physics body
-        int32 BodyIndex = ActiveState->CurrentPhysicsAsset->FindBodyIndex(BoneName);
-        bool bHasBody = (BodyIndex >= 0);
+        int32 BodyIndex = -1;
+        bool bHasBody = false;
+        if (ActiveState->CurrentPhysicsAsset)
+        {
+            BodyIndex = ActiveState->CurrentPhysicsAsset->FindBodyIndex(BoneName);
+            bHasBody = (BodyIndex >= 0);
+        }
 
-        // Check if any descendant has a body
-        bool bHasBodyInSubtree = bHasBody || HasBodyInSubtree(BoneIndex, Bones, Children);
-
-        // Skip this bone and its subtree if no bodies exist
-        if (!bHasBodyInSubtree)
-            return;
-
-        const bool bIsLeaf = Children[BoneIndex].IsEmpty();
+        // A bone is a leaf if it has no child bones AND no body to display.
+        const bool bIsTreeLeaf = Children[BoneIndex].IsEmpty() && !bHasBody;
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanFullWidth;
-
-        if (bIsLeaf)
+        if (bIsTreeLeaf)
         {
             flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
         }
 
-        // Expand state management
         if (ActiveState->ExpandedBoneIndices.count(BoneIndex) > 0)
         {
             ImGui::SetNextItemOpen(true);
         }
-
-        // Selection highlighting
-        if (ActiveState->SelectedBodyIndex == BodyIndex && bHasBody)
+        
+        bool bIsBoneSelected = (ActiveState->SelectedBoneIndex == BoneIndex && ActiveState->SelectedBodyIndex < 0);
+        if (bIsBoneSelected)
         {
             flags |= ImGuiTreeNodeFlags_Selected;
             ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.35f, 0.55f, 0.85f, 0.8f));
@@ -445,63 +449,118 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
             ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.30f, 0.50f, 0.80f, 1.0f));
         }
 
-        // Highlight bones with physics bodies
-        if (bHasBody)
+        // Render the BONE tree node
+        bool open = ImGui::TreeNodeEx((void*)(intptr_t)BoneIndex, flags, "%s", Bone.Name.c_str());
+
+        if (bIsBoneSelected)
         {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.8f, 0.4f, 1.0f));  // Gold color for bodies
+            ImGui::PopStyleColor(3);
         }
 
-        // Render tree node with label showing bone name and optional [Body] tag
-        bool open = ImGui::TreeNodeEx(
-            (void*)(intptr_t)BoneIndex,
-            flags,
-            "%s%s",
-            Bone.Name.c_str(),
-            bHasBody ? " [Body]" : ""
-        );
-
-        if (bHasBody)
+        // Context menu for the BONE
+        if (ImGui::BeginPopupContextItem())
         {
-            ImGui::PopStyleColor();  // Pop text color
-        }
-
-        if (ActiveState->SelectedBodyIndex == BodyIndex && bHasBody)
-        {
-            ImGui::PopStyleColor(3);  // Pop header colors
-        }
-
-        // Handle selection on click
-        if (ImGui::IsItemClicked() && bHasBody)
-        {
-            ActiveState->SelectedBoneIndex = BoneIndex;
-            ActiveState->SelectedBodyIndex = BodyIndex;
-            ActiveState->bBoneLinesDirty = true;
-
-            // Mark collision shapes dirty to update visualization
-            bCollisionShapesDirty = true;
-        }
-
-        // Track expand/collapse state
-        if (ImGui::IsItemToggledOpen())
-        {
-            if (open)
+            if (ImGui::IsItemClicked())
             {
-                ActiveState->ExpandedBoneIndices.insert(BoneIndex);
+                ActiveState->SelectedBoneIndex = BoneIndex;
+                ActiveState->SelectedBodyIndex = -1; // Deselect any body
+                bCollisionShapesDirty = true;
             }
+            if (bHasBody) { /* Options for bone when it has a body */ }
             else
             {
-                ActiveState->ExpandedBoneIndices.erase(BoneIndex);
+                if (ImGui::MenuItem("Create Body")) { CreateBodyForBone(BoneIndex, SelectedPrimitiveType); }
+                if (ImGui::MenuItem("Create Constraint")) { /* TODO */ }
             }
+            ImGui::EndPopup();
         }
 
-        // Recurse into children
-        if (!bIsLeaf && open)
+        if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
         {
+            ActiveState->SelectedBoneIndex = BoneIndex;
+            ActiveState->SelectedBodyIndex = -1;
+            bCollisionShapesDirty = true;
+        }
+        
+        if (ImGui::IsItemToggledOpen())
+        {
+            if (open) ActiveState->ExpandedBoneIndices.insert(BoneIndex);
+            else ActiveState->ExpandedBoneIndices.erase(BoneIndex);
+        }
+
+        if (open)
+        {
+            // 1. Render Body node if it exists
+            if (bHasBody)
+            {
+                UBodySetup* BodySetup = ActiveState->CurrentPhysicsAsset->GetBodySetups()[BodyIndex];
+                if (BodySetup)
+                {
+                    // Determine body label
+                    FString BodyLabel = "Aggregate Body";
+                    int primitiveCount = BodySetup->AggGeom.SphereElems.Num() + BodySetup->AggGeom.BoxElems.Num() + BodySetup->AggGeom.SphylElems.Num();
+                    if (primitiveCount == 1)
+                    {
+                        if (BodySetup->AggGeom.SphereElems.Num() == 1) BodyLabel = "Sphere";
+                        else if (BodySetup->AggGeom.BoxElems.Num() == 1) BodyLabel = "Box";
+                        else if (BodySetup->AggGeom.SphylElems.Num() == 1) BodyLabel = "Capsule";
+                    }
+
+                    ImGuiTreeNodeFlags bodyFlags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen |
+                        ImGuiTreeNodeFlags_SpanFullWidth;
+                    
+                    bool bIsBodySelected = (ActiveState->SelectedBodyIndex == BodyIndex);
+                    if (bIsBodySelected) {
+                        bodyFlags |= ImGuiTreeNodeFlags_Selected;
+                        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.5f, 0.5f, 0.5f, 0.5f));
+                        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.6f, 0.6f, 0.6f, 0.6f));
+                        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.55f, 0.55f, 0.55f, 0.7f));
+                    } else {
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.8f, 0.4f, 1.0f)); // Gold text
+                    }
+
+                    if (IconSingleBody)
+                    {
+                        float iconSize = ImGui::GetTextLineHeight();
+                        ImGui::Image((void*)IconSingleBody->GetShaderResourceView(), ImVec2(iconSize, iconSize));
+                        ImGui::SameLine(0.0f, 0.0f);
+                    }
+
+                    bool isBodyNodeOpen = ImGui::TreeNodeEx((void*)BodySetup, bodyFlags, "%s [Body]", BodyLabel.c_str());
+
+                    if(bIsBodySelected) ImGui::PopStyleColor(3);
+                    else ImGui::PopStyleColor();
+
+                    if (ImGui::IsItemClicked()) {
+                        ActiveState->SelectedBodyIndex = BodyIndex;
+                        ActiveState->SelectedBoneIndex = BoneIndex;
+                        // TODO: Select primitive as well?
+                        bCollisionShapesDirty = true;
+                    }
+
+                    if (ImGui::BeginPopupContextItem())
+                    {
+                         if (ImGui::IsItemClicked()) {
+                            ActiveState->SelectedBodyIndex = BodyIndex;
+                            ActiveState->SelectedBoneIndex = BoneIndex;
+                            bCollisionShapesDirty = true;
+                        }
+                        if (ImGui::MenuItem("Add Primitive...")) { /* TODO */ }
+                        ImGui::EndPopup();
+                    }
+                }
+            }
+
+            // 2. Render child bones recursively
             for (int32 Child : Children[BoneIndex])
             {
                 DrawNode(Child);
             }
-            ImGui::TreePop();
+
+            if (!(flags & ImGuiTreeNodeFlags_NoTreePushOnOpen))
+            {
+                ImGui::TreePop(); // Pop for Bone
+            }
         }
     };
 
@@ -516,7 +575,6 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
 
     ImGui::EndChild();
 }
-
 void SPhysicsAssetEditorWindow::RenderToolsPanel()
 {
     // Panel Header
@@ -1234,6 +1292,113 @@ bool SPhysicsAssetEditorWindow::ShouldCreateBodyForBone(int32 BoneIndex, const F
     // Passed all filters - create body for this bone
     UE_LOG("ShouldCreateBodyForBone: Creating body for '%s'", Bone.Name.c_str());
     return true;
+}
+
+void SPhysicsAssetEditorWindow::CreateBodyForBone(int32 BoneIndex, EPrimitiveType PrimitiveType)
+{
+    if (!ActiveState || !ActiveState->CurrentMesh)
+    {
+        UE_LOG("CreateBodyForBone: Invalid state - missing mesh.");
+        return;
+    }
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton || BoneIndex < 0 || BoneIndex >= Skeleton->Bones.Num())
+    {
+        UE_LOG("CreateBodyForBone: Invalid bone index or skeleton.");
+        return;
+    }
+
+    // If no PhysicsAsset exists yet, create one.
+    if (!ActiveState->CurrentPhysicsAsset)
+    {
+        ActiveState->CurrentPhysicsAsset = NewObject<UPhysicsAsset>();
+        UE_LOG("CreateBodyForBone: Created new PhysicsAsset for skeletal mesh.");
+    }
+
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    const FBone& Bone = Skeleton->Bones[BoneIndex];
+    FName BoneName(Bone.Name);
+
+    // Check if a body already exists for this bone
+    if (PhysicsAsset->FindBodyIndex(BoneName) >= 0)
+    {
+        UE_LOG("CreateBodyForBone: Bone '%s' already has a physics body. Cannot create another one.", Bone.Name.c_str());
+        return;
+    }
+    
+    UE_LOG("CreateBodyForBone: Creating body for bone '%s' (BoneIndex: %d) with primitive type %d.", Bone.Name.c_str(), BoneIndex, (int)PrimitiveType);
+
+    // Create new BodySetup
+    UBodySetup* NewBody = NewObject<UBodySetup>();
+    if (!NewBody)
+    {
+        UE_LOG("CreateBodyForBone: Failed to create BodySetup for bone '%s'.", Bone.Name.c_str());
+        return;
+    }
+
+    NewBody->BoneName = BoneName;
+    NewBody->BodyType = ToBodySetupType(PrimitiveType); // Assuming ToBodySetupType is accessible
+
+    float OutRadius = 0.0f;
+    float OutHalfHeight = 0.0f;
+    FVector OutExtent = FVector::Zero();
+
+    // Calculate dimensions based on bone length using the existing helper function
+    CalculateBodyDimensions(BoneIndex, Skeleton, PrimitiveType, OutRadius, OutHalfHeight, OutExtent);
+
+    // Add primitive element based on type
+    switch (PrimitiveType)
+    {
+    case EPrimitiveType::Sphere:
+        {
+            FSphereElem SphereElem(OutRadius);
+            SphereElem.Center = FVector::Zero(); // Center at bone origin for now
+            NewBody->AggGeom.SphereElems.Add(SphereElem);
+            UE_LOG("  -> Sphere: Center=(%.2f,%.2f,%.2f), Radius=%.2f",
+                SphereElem.Center.X, SphereElem.Center.Y, SphereElem.Center.Z, SphereElem.Radius);
+        }
+        break;
+
+    case EPrimitiveType::Box:
+    {
+    FBoxElem BoxElem(OutExtent.X * 2.0f, OutExtent.Y * 2.0f, OutExtent.Z * 2.0f); // BoxElem expects full dimensions
+    BoxElem.Center = FVector::Zero(); // Center at bone origin for now
+    BoxElem.Rotation = FQuat::Identity(); // No rotation for now
+    NewBody->AggGeom.BoxElems.Add(BoxElem);
+    UE_LOG("  -> Box: Center=(%.2f,%.2f,%.2f), Extent=(%.2f,%.2f,%.2f)",
+        BoxElem.Center.X, BoxElem.Center.Y, BoxElem.Center.Z, OutExtent.X, OutExtent.Y, OutExtent.Z);
+    }
+    break;
+    
+    case EPrimitiveType::Capsule:
+    {
+        float CapsuleLength = OutHalfHeight * 2.0f; // FSphylElem expects full length
+        FSphylElem CapsuleElem(OutRadius, CapsuleLength);
+        CapsuleElem.Center = FVector::Zero(); // Center at bone origin for now
+        CapsuleElem.Rotation = FQuat::Identity(); // No rotation for now
+        NewBody->AggGeom.SphylElems.Add(CapsuleElem);
+        UE_LOG("  -> Capsule: Center=(%.2f,%.2f,%.2f), Radius=%.2f, HalfHeight=%.2f",
+            CapsuleElem.Center.X, CapsuleElem.Center.Y, CapsuleElem.Center.Z, CapsuleElem.Radius, OutHalfHeight);
+    }
+    break;
+    
+    default:
+        UE_LOG("  -> Unknown primitive type for body creation.");
+        return;
+    }
+    
+    // Add the body to the physics asset
+    PhysicsAsset->AddBodySetup(NewBody);
+    PhysicsAsset->UpdateBodySetupIndexMap(); // Rebuild internal map
+    
+    // Select the newly created body
+    ActiveState->SelectedBoneIndex = BoneIndex;
+    ActiveState->SelectedBodyIndex = PhysicsAsset->FindBodyIndex(BoneName); // Re-find the index after adding
+    ActiveState->bBoneLinesDirty = true;
+    bCollisionShapesDirty = true; // Mark collision shapes dirty to visualize
+    
+    UE_LOG("CreateBodyForBone: Successfully created body for '%s'.", Bone.Name.c_str());
 }
 
 void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const FSkeleton* Skeleton, EPrimitiveType PrimitiveType,

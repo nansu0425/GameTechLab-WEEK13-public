@@ -48,6 +48,7 @@ private:
     void CalculateBodyDimensions(int32 BoneIndex, const struct FSkeleton* Skeleton, EPrimitiveType PrimitiveType,
                                  float& OutRadius, float& OutHalfHeight, FVector& OutExtent) const;
     bool ShouldCreateBodyForBone(int32 BoneIndex, const struct FSkeleton* Skeleton) const;
+    void CreateBodyForBone(int32 BoneIndex, EPrimitiveType PrimitiveType);
 
     // Vertex-driven body generation
     struct FBoneVertexInfluence
@@ -61,4 +62,9 @@ private:
     void FitMinimalSphere(const TArray<FVector>& Vertices, FVector& OutCenter, float& OutRadius) const;
     void FitMinimalCapsule(const TArray<FVector>& Vertices, const FVector& PrincipalAxis, FVector& OutCenter, FQuat& OutRotation, float& OutRadius, float& OutHalfHeight) const;
     void FitMinimalBox(const TArray<FVector>& Vertices, const FVector& PrincipalAxis, FVector& OutCenter, FQuat& OutRotation, FVector& OutExtent) const;
+
+    // Physics Body Icon
+    class UTexture* IconSingleBody = nullptr;
+    class UTexture* IconMultipleBody = nullptr;
+    bool bIconsLoaded = false;
 };
