@@ -23,6 +23,9 @@ USimpleWheeledVehicleMovementComponent::USimpleWheeledVehicleMovementComponent()
     SteeringInput = 0.0f;
     BrakeInput = 0.0f;
     HandbrakeInput = 0.0f;
+
+    VehicleQueryResults.wheelQueryResults = nullptr;
+    VehicleQueryResults.nbWheelQueryResults = 0;
 }
 
 USimpleWheeledVehicleMovementComponent::~USimpleWheeledVehicleMovementComponent() = default;
@@ -60,7 +63,7 @@ void USimpleWheeledVehicleMovementComponent::TickComponent(float DeltaTime)
         }
     }
 
-    ApplyInputToPhysX();
+    ApplyInputToPhysX(DeltaTime);
     PerformSuspensionRaycasts();
     SimulateVehicle(DeltaTime);
     UpdateVehiclePoseFromPhysX();
@@ -252,6 +255,28 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
     const physx::PxU32 NumWheels = WheelSetups.Num();
     physx::PxVehicleWheelsSimData* WheelsSimData = physx::PxVehicleWheelsSimData::allocate(NumWheels);
 
+    // 휠 쿼리 버퍼 준비
+    WheelQueryResults.SetNum(NumWheels);
+    VehicleQueryResults.wheelQueryResults = WheelQueryResults.GetData();
+    VehicleQueryResults.nbWheelQueryResults = NumWheels;
+
+    // 기본 마찰 테이블 준비 (노면 1, 타이어 1)
+    if (!TireFrictionPairs)
+    {
+        physx::PxMaterial* DefaultMat = PhysScene->GetDefaultMaterial();
+        if (!DefaultMat)
+        {
+            DefaultMat = FPhysicsCore::Get().CreateMaterial(0.5f, 0.5f, 0.6f);
+        }
+
+        TireFrictionPairs = physx::PxVehicleDrivableSurfaceToTireFrictionPairs::allocate(1, 1);
+        physx::PxVehicleDrivableSurfaceType SurfaceTypes[1];
+        SurfaceTypes[0].mType = 0;
+        physx::PxMaterial* SurfaceMats[1] = { DefaultMat };
+        TireFrictionPairs->setup(1, 1, SurfaceMats, SurfaceTypes);
+        TireFrictionPairs->setTypePairFriction(0, 0, 1.0f);
+    }
+
     // 기본 설정
     const float WheelWidth = 0.4f;
     const float WheelMass = 20.0f;
@@ -340,14 +365,62 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
     return true;
 }
 
-void USimpleWheeledVehicleMovementComponent::ApplyInputToPhysX()
+void USimpleWheeledVehicleMovementComponent::ApplyInputToPhysX(float DeltaTime)
 {
     if (!bVehicleInitialized || !PxVehicleDrive4WInstance)
     {
         return;
     }
 
-    // TODO: PxVehicleDrive4WRawInputData에 입력 적용
+    physx::PxVehicleDrive4WRawInputData RawInput;
+    const bool bAccel = ThrottleInput > 0.1f;
+    const bool bBrake = BrakeInput > 0.1f;
+    const bool bHandbrake = HandbrakeInput > 0.1f;
+    const bool bSteerLeft = SteeringInput < -0.1f;
+    const bool bSteerRight = SteeringInput > 0.1f;
+
+    RawInput.setDigitalAccel(bAccel);
+    RawInput.setDigitalBrake(bBrake);
+    RawInput.setDigitalHandbrake(bHandbrake);
+    RawInput.setDigitalSteerLeft(bSteerLeft);
+    RawInput.setDigitalSteerRight(bSteerRight);
+    RawInput.setGearUp(false);
+    RawInput.setGearDown(false);
+
+    // 기본 스무딩 데이터 (키보드 입력용 - PhysX 샘플 기본값과 유사)
+    static const physx::PxVehicleKeySmoothingData KeySmoothing = {
+        {6.0f, 6.0f, 6.0f, 6.0f},
+        {10.0f, 10.0f, 10.0f, 10.0f}
+    };
+
+    // 스티어링 감쇠 테이블 (속도가 빨라질수록 최대 스티어 각을 줄임)
+    static const physx::PxReal SteerVsSpeedData[] = {
+        0.0f,   1.0f,
+        15.0f,  0.7f,
+        30.0f,  0.5f,
+        120.0f, 0.3f
+    };
+    static const physx::PxFixedSizeLookupTable<8> SteerVsForwardSpeedTable(SteerVsSpeedData, 4);
+
+    const float SmoothedDeltaTime = FMath::Max(DeltaTime, 1e-3f);
+
+    bool bVehicleInAir = true;
+    for (const physx::PxWheelQueryResult& Result : WheelQueryResults)
+    {
+        if (!Result.isInAir)
+        {
+            bVehicleInAir = false;
+            break;
+        }
+    }
+
+    physx::PxVehicleDrive4WSmoothDigitalRawInputsAndSetAnalogInputs(
+        KeySmoothing,
+        SteerVsForwardSpeedTable,
+        RawInput,
+        SmoothedDeltaTime,
+        bVehicleInAir,
+        *PxVehicleDrive4WInstance);
 }
 
 void USimpleWheeledVehicleMovementComponent::PerformSuspensionRaycasts()
@@ -357,7 +430,109 @@ void USimpleWheeledVehicleMovementComponent::PerformSuspensionRaycasts()
         return;
     }
 
-    // TODO: PhysX 3.4 이후 deprecated된 PxBatchQuery 대신 PxScene::raycast를 휠 개수만큼 호출하는 방식으로 구현
+    if (!UpdatedComponent)
+    {
+        return;
+    }
+
+    UWorld* World = UpdatedComponent->GetWorld();
+    if (!World)
+    {
+        return;
+    }
+
+    FPhysScene* PhysScene = World->GetPhysScene();
+    if (!PhysScene || !PhysScene->IsInitialized())
+    {
+        return;
+    }
+
+    physx::PxScene* PxScene = PhysScene->GetPxScene();
+    if (!PxScene)
+    {
+        return;
+    }
+
+    // WheelQueryResults 크기 보정
+    if (WheelQueryResults.Num() != WheelSetups.Num())
+    {
+        WheelQueryResults.SetNum(WheelSetups.Num());
+        VehicleQueryResults.wheelQueryResults = WheelQueryResults.GetData();
+        VehicleQueryResults.nbWheelQueryResults = WheelQueryResults.Num();
+    }
+
+    // 차체 월드 트랜스폼
+    const FTransform ChassisWorld = UpdatedComponent->GetWorldTransform();
+
+    // 레이캐스트 설정
+    const physx::PxHitFlags HitFlags = physx::PxHitFlag::ePOSITION | physx::PxHitFlag::eNORMAL;
+
+    for (int32 WheelIdx = 0; WheelIdx < WheelSetups.Num(); ++WheelIdx)
+    {
+        physx::PxWheelQueryResult& Result = WheelQueryResults[WheelIdx];
+        const FWheelSetup& Setup = WheelSetups[WheelIdx];
+
+        // 기본값: 공중 상태로 초기화
+        Result = physx::PxWheelQueryResult();
+        Result.isInAir = true;
+
+        // 휠 시작점(차체 로컬 오프셋을 다시 계산)
+        FVector WheelCentreLocal = FVector::Zero();
+        if (USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(UpdatedComponent))
+        {
+            USkeletalMesh* SkelMesh = SkelComp->GetSkeletalMesh();
+            const FSkeleton* Skeleton = SkelMesh ? SkelMesh->GetSkeletalMeshData() ? &SkelMesh->GetSkeletalMeshData()->Skeleton : nullptr : nullptr;
+            if (Skeleton)
+            {
+                int32 BoneIndex = -1;
+                for (int32 i = 0; i < Skeleton->Bones.Num(); ++i)
+                {
+                    if (Skeleton->Bones[i].Name == Setup.BoneName)
+                    {
+                        BoneIndex = i;
+                        break;
+                    }
+                }
+
+                if (BoneIndex != -1)
+                {
+                    FTransform BoneWorld = SkelComp->GetBoneWorldTransform(BoneIndex);
+                    FTransform BoneLocalToChassis = BoneWorld.GetRelativeTransform(ChassisWorld);
+                    WheelCentreLocal = BoneLocalToChassis.Translation;
+                }
+            }
+        }
+
+        WheelCentreLocal.Z += Setup.SuspensionOffsetZ;
+        WheelCentreLocal.Z -= Setup.WheelRadius;
+
+        const FVector StartMundi = ChassisWorld.TransformPosition(WheelCentreLocal);
+        const FVector DirMundi = FVector(0.0f, 0.0f, -1.0f); // 다운 방향
+
+        const float TraceLength = FMath::Max(Setup.SuspensionOffsetZ + Setup.WheelRadius + 50.0f, 50.0f);
+
+        const physx::PxVec3 Origin = PhysicsConversion::ToPxVec3(StartMundi);
+        const physx::PxVec3 Direction = PhysicsConversion::ToPxVec3(DirMundi).getNormalized();
+
+        physx::PxRaycastBuffer RaycastHit;
+        bool bHit = PxScene->raycast(Origin, Direction, TraceLength, RaycastHit, HitFlags);
+
+        if (bHit && RaycastHit.hasBlock)
+        {
+            Result.isInAir = false;
+            Result.tireContactPoint = RaycastHit.block.position;
+            Result.tireContactNormal = RaycastHit.block.normal;
+            Result.tireContactShape = RaycastHit.block.shape;
+            Result.tireContactActor = RaycastHit.block.actor;
+            Result.tireSurfaceMaterial = RaycastHit.block.shape ? RaycastHit.block.shape->getMaterialFromInternalFaceIndex(RaycastHit.block.faceIndex) : nullptr;
+            Result.tireSurfaceType = 0;
+            Result.suspJounce = TraceLength - RaycastHit.block.distance;
+        }
+        else
+        {
+            Result.isInAir = true;
+        }
+    }
 }
 
 void USimpleWheeledVehicleMovementComponent::SimulateVehicle(float DeltaTime)
@@ -367,7 +542,28 @@ void USimpleWheeledVehicleMovementComponent::SimulateVehicle(float DeltaTime)
         return;
     }
 
-    // TODO: PxVehicleUpdates 호출
+    // 현재 중력 가져오기
+    FVector GravityMundi = FVector(0, 0, -981.0f);
+    if (UpdatedComponent)
+    {
+        if (UWorld* World = UpdatedComponent->GetWorld())
+        {
+            if (FPhysScene* PhysScene = World->GetPhysScene())
+            {
+                GravityMundi = PhysScene->GetGravity();
+            }
+        }
+    }
+
+    const physx::PxVec3 GravityPx = PhysicsConversion::ToPxVec3(GravityMundi);
+
+    // 고정 스텝 기반 시뮬레이션 (PhysSceneImpl의 설정에 맞춰 1/60 사용)
+    const float FixedTimestep = 1.0f / 60.0f;
+
+    physx::PxVehicleWheelQueryResult* QueryResults = &VehicleQueryResults;
+    physx::PxVehicleWheels* Vehicles[1] = { PxVehicleDrive4WInstance };
+
+    physx::PxVehicleUpdates(FixedTimestep, GravityPx, *TireFrictionPairs, 1, Vehicles, QueryResults);
 }
 
 void USimpleWheeledVehicleMovementComponent::UpdateVehiclePoseFromPhysX()
@@ -447,6 +643,16 @@ void USimpleWheeledVehicleMovementComponent::CleanupVehiclePhysX()
     }
 
     PxVehicleWheelsInstance = nullptr;
+
+    if (TireFrictionPairs)
+    {
+        TireFrictionPairs->release();
+        TireFrictionPairs = nullptr;
+    }
+
+    WheelQueryResults.clear();
+    VehicleQueryResults.wheelQueryResults = nullptr;
+    VehicleQueryResults.nbWheelQueryResults = 0;
 
     // 차체 Actor는 BodyInstance가 소유하므로 여기서 해제/씬 제거하지 않음
     PxVehicleActor = nullptr;

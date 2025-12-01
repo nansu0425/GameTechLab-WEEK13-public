@@ -103,6 +103,15 @@ protected:
     /** 차량 차체로 사용할 Dynamic Actor */
     physx::PxRigidDynamic* PxVehicleActor = nullptr;
 
+    /** 노면-타이어 마찰 매핑 테이블 (기본 1x1) */
+    physx::PxVehicleDrivableSurfaceToTireFrictionPairs* TireFrictionPairs = nullptr;
+
+    /** 휠별 레이캐스트/쿼리 결과 버퍼 */
+    TArray<physx::PxWheelQueryResult> WheelQueryResults;
+
+    /** Vehicle API에 전달할 휠 쿼리 결과 래퍼 */
+    physx::PxVehicleWheelQueryResult VehicleQueryResults;
+
     /** 사용자 입력 상태 저장 */
     float ThrottleInput;
     float SteeringInput;
@@ -118,7 +127,7 @@ protected:
     bool InitVehiclePhysX();
 
     /** 사용자 입력(Throttle/Steering)을 PxVehicleDrive4WRawInputData에 매핑 */
-    void ApplyInputToPhysX();
+    void ApplyInputToPhysX(float DeltaTime);
 
     /** 서스펜션 레이캐스트 업데이트 */
     void PerformSuspensionRaycasts();
