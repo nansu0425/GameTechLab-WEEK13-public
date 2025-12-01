@@ -3,6 +3,7 @@
 #include "PhysScene.h"
 #include "HitResult.h"
 #include "PhysicsTypes.h"
+#include "PhysicsStats.h"
 #include "BodyInstance.h"
 #include "PrimitiveComponent.h"
 #include "Actor.h"
@@ -66,6 +67,7 @@ void FPhysicsEventCallback::onContact(
         if (bNewContact)
         {
             ++TotalContactEvents;
+            FPhysicsStatManager::GetInstance().IncrementContactEvents();
 
             // HitResult 추출
             FHitResult HitResult0, HitResult1;
@@ -148,6 +150,7 @@ void FPhysicsEventCallback::onTrigger(PxTriggerPair* Pairs, PxU32 Count)
         AActor* OtherOwner = OtherComp->GetOwner();
 
         ++TotalTriggerEvents;
+        FPhysicsStatManager::GetInstance().IncrementTriggerEvents();
 
         if (TriggerPair.status == PxPairFlag::eNOTIFY_TOUCH_FOUND)
         {

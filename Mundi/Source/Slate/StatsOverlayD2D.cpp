@@ -16,6 +16,7 @@
 #include "SkinningStats.h"
 #include "SkinnedMeshComponent.h"
 #include "ParticleStats.h"
+#include "PhysicsStats.h"
 
 #pragma comment(lib, "d2d1")
 #pragma comment(lib, "dwrite")
@@ -166,7 +167,7 @@ static void DrawTextBlock(
 
 void UStatsOverlayD2D::Draw()
 {
-	if (!bInitialized || (!bShowFPS && !bShowMemory && !bShowPicking && !bShowDecal && !bShowTileCulling && !bShowLights && !bShowShadow && !bShowSkinning && !bShowParticles) || !SwapChain)
+	if (!bInitialized || (!bShowFPS && !bShowMemory && !bShowPicking && !bShowDecal && !bShowTileCulling && !bShowLights && !bShowShadow && !bShowSkinning && !bShowParticles && !bShowPhysics) || !SwapChain)
 		return;
 
 	// D2D 리소스 초기화 (최초 1회만 실행)
@@ -540,6 +541,50 @@ void UStatsOverlayD2D::Draw()
 		NextY += particlePanelHeight + Space;
 	}
 
+	if (bShowPhysics)
+	{
+		// FPhysicsStatManager로부터 통계 데이터를 가져옵니다.
+		const FPhysicsStats& Stats = FPhysicsStatManager::GetInstance().GetStats();
+
+		// 출력할 문자열 버퍼를 만듭니다.
+		wchar_t PhysicsBuf[512];
+		swprintf_s(PhysicsBuf,
+			L"[Physics] (Threads: %u)\n"
+			L"Total: %.3f ms\n"
+			L"Simulate: %.3f ms | Fetch: %.3f ms\n"
+			L"Interp: %.3f ms\n"
+			L"Active: %u | Dyn: %u | Static: %u\n"
+			L"Contacts: %u | Triggers: %u\n"
+			L"Substeps: %u | Pending: %u\n"
+			L"Alpha: %.2f",
+			Stats.PhysicsThreadCount,
+			Stats.TotalPhysicsTimeMs,
+			Stats.SimulateTimeMs,
+			Stats.FetchResultsTimeMs,
+			Stats.InterpolationUpdateTimeMs,
+			Stats.ActiveActorCount,
+			Stats.DynamicActorCount,
+			Stats.StaticActorCount,
+			Stats.ContactEventCount,
+			Stats.TriggerEventCount,
+			Stats.SubstepCount,
+			Stats.PendingCommandCount,
+			Stats.AccumulatedTimeRatio);
+
+		// 패널 크기 설정 (텍스트가 길어서 넓은 패널 사용)
+		const float physicsPanelWidth = 280.0f;
+		const float physicsPanelHeight = 180.0f;
+		D2D1_RECT_F physicsRc = D2D1::RectF(Margin, NextY, Margin + physicsPanelWidth, NextY + physicsPanelHeight);
+
+		// LimeGreen 색상으로 표시
+		DrawTextBlock(
+			D2dCtx, CachedBrush, TextFormat, PhysicsBuf, physicsRc,
+			D2D1::ColorF(0, 0, 0, 0.6f),
+			D2D1::ColorF(D2D1::ColorF::LimeGreen));
+
+		NextY += physicsPanelHeight + Space;
+	}
+
 	D2dCtx->EndDraw();
 	D2dCtx->SetTarget(nullptr);
 
@@ -638,4 +683,14 @@ void UStatsOverlayD2D::SetShowParticles(bool b)
 void UStatsOverlayD2D::ToggleParticles()
 {
 	bShowParticles = !bShowParticles;
+}
+
+void UStatsOverlayD2D::SetShowPhysics(bool b)
+{
+	bShowPhysics = b;
+}
+
+void UStatsOverlayD2D::TogglePhysics()
+{
+	bShowPhysics = !bShowPhysics;
 }

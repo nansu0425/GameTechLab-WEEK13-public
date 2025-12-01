@@ -4,9 +4,11 @@
 #include "PhysicsCore.h"
 #include "PhysicsTypes.h"
 #include "PhysicsEventCallback.h"
+#include "PhysicsStats.h"
 #include "BodyInstance.h"
 #include "World.h"
 #include "GlobalConsole.h"
+#include "PlatformTime.h"
 
 using namespace physx;
 
@@ -91,6 +93,11 @@ bool FPhysScene::IsInitialized() const
 
 void FPhysScene::StartFrame()
 {
+    // 프레임 시작 시 통계 리셋 및 타이밍 시작
+    FPhysicsStatManager& StatManager = FPhysicsStatManager::GetInstance();
+    StatManager.ResetFrameStats();
+    StatManager.BeginFrameTiming(FPlatformTime::Cycles64());
+
     if (Impl)
     {
         Impl->StartFrame();
@@ -111,6 +118,11 @@ void FPhysScene::EndFrame()
     {
         Impl->FetchResults();
     }
+
+    // 프레임 종료 시 총 물리 시간 기록
+    FPhysicsStatManager::GetInstance().EndFrameTiming(
+        FPlatformTime::Cycles64(),
+        FPlatformTime::ToMilliseconds);
 }
 
 bool FPhysScene::IsSimulating() const
@@ -183,6 +195,9 @@ bool FPhysSceneImpl::Initialize(FPhysScene* InOwnerScene, UWorld* InOwningWorld)
 
     // 테스트용 Actor 생성 (PVD 확인용)
     // CreateTestActors();
+
+    // 물리 스레드 수 통계 설정
+    FPhysicsStatManager::GetInstance().SetPhysicsThreadCount(NumPhysxThreads);
 
     bInitialized = true;
     return true;
@@ -278,6 +293,8 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
     if (!PScene)
         return;
 
+    FPhysicsStatManager& StatManager = FPhysicsStatManager::GetInstance();
+
     // ═══════════════════════════════════════════════════════════════════════
     // 비동기 물리 시뮬레이션 (언리얼 엔진 스타일)
     // ═══════════════════════════════════════════════════════════════════════
@@ -302,19 +319,39 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
             float SimTime = NumSteps * FixedTimestep;
             AccumulatedTime -= SimTime;
 
+            // Substep 수 기록
+            StatManager.SetSubstepCount(NumSteps);
+
             // 시뮬레이션 시작 (비블로킹 - fetchResults 호출하지 않음)
             // 쓰기 잠금으로 시뮬레이션 보호
             {
                 SCOPED_SCENE_WRITE_LOCK(PScene);
                 bIsSimulating = true;
+
+                // simulate() 타이밍 측정
+                uint64 SimStartCycles = FPlatformTime::Cycles64();
                 PScene->simulate(SimTime);
+                uint64 SimEndCycles = FPlatformTime::Cycles64();
+                StatManager.RecordSimulateTime(FPlatformTime::ToMilliseconds(SimEndCycles - SimStartCycles));
+
                 bSimulationPending = true;
             }
         }
+        else
+        {
+            StatManager.SetSubstepCount(0);
+        }
 
         // 보간 Alpha 업데이트 (시뮬레이션 여부와 무관하게 매 프레임 수행)
+        StatManager.SetAccumulatedTimeRatio(GetInterpolationAlpha());
+
+        // 렌더 보간 타이밍 측정
+        uint64 InterpStartCycles = FPlatformTime::Cycles64();
         float Alpha = GetInterpolationAlpha();
         UpdateRenderInterpolation(Alpha);
+        uint64 InterpEndCycles = FPlatformTime::Cycles64();
+        StatManager.RecordInterpolationUpdateTime(FPlatformTime::ToMilliseconds(InterpEndCycles - InterpStartCycles));
+
         return;
     }
 
@@ -329,18 +366,38 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
 
     // 누적 시간이 FixedTimestep에 도달할 때마다 물리 스텝 실행
     int32 NumSteps = 0;
+    double TotalSimTime = 0.0;
+    double TotalFetchTime = 0.0;
+
     while (AccumulatedTime >= FixedTimestep && NumSteps < MaxSubsteps)
     {
         // 쓰기 잠금으로 시뮬레이션 보호
         SCOPED_SCENE_WRITE_LOCK(PScene);
         bIsSimulating = true;
+
+        // simulate() 타이밍 측정
+        uint64 SimStartCycles = FPlatformTime::Cycles64();
         PScene->simulate(FixedTimestep);
+        uint64 SimEndCycles = FPlatformTime::Cycles64();
+        TotalSimTime += FPlatformTime::ToMilliseconds(SimEndCycles - SimStartCycles);
+
+        // fetchResults() 타이밍 측정
+        uint64 FetchStartCycles = FPlatformTime::Cycles64();
         PScene->fetchResults(true);
+        uint64 FetchEndCycles = FPlatformTime::Cycles64();
+        TotalFetchTime += FPlatformTime::ToMilliseconds(FetchEndCycles - FetchStartCycles);
+
         bIsSimulating = false;
 
         AccumulatedTime -= FixedTimestep;
         NumSteps++;
     }
+
+    // 동기 모드 통계 기록
+    StatManager.SetSubstepCount(NumSteps);
+    StatManager.RecordSimulateTime(TotalSimTime);
+    StatManager.RecordFetchResultsTime(TotalFetchTime);
+    StatManager.SetAccumulatedTimeRatio(GetInterpolationAlpha());
 
     // 물리 스텝 실행됨 → Transform 캡처
     if (NumSteps > 0)
@@ -348,15 +405,20 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
         CaptureActiveActorsTransform();
     }
 
-    // 보간 업데이트
+    // 렌더 보간 타이밍 측정
+    uint64 InterpStartCycles = FPlatformTime::Cycles64();
     float Alpha = GetInterpolationAlpha();
     UpdateRenderInterpolation(Alpha);
+    uint64 InterpEndCycles = FPlatformTime::Cycles64();
+    StatManager.RecordInterpolationUpdateTime(FPlatformTime::ToMilliseconds(InterpEndCycles - InterpStartCycles));
 }
 
 void FPhysSceneImpl::FetchResults()
 {
     if (!PScene)
         return;
+
+    FPhysicsStatManager& StatManager = FPhysicsStatManager::GetInstance();
 
     // ═══════════════════════════════════════════════════════════════════════
     // 비동기 모드: 렌더링 전 결과 수집
@@ -369,8 +431,13 @@ void FPhysSceneImpl::FetchResults()
         // 쓰기 잠금으로 결과 수집 보호
         {
             SCOPED_SCENE_WRITE_LOCK(PScene);
-            // 블로킹 대기 (렌더링 전에 반드시 완료 필요)
+
+            // fetchResults() 타이밍 측정
+            uint64 FetchStartCycles = FPlatformTime::Cycles64();
             PScene->fetchResults(true);
+            uint64 FetchEndCycles = FPlatformTime::Cycles64();
+            StatManager.RecordFetchResultsTime(FPlatformTime::ToMilliseconds(FetchEndCycles - FetchStartCycles));
+
             bSimulationPending = false;
             bIsSimulating = false;
         }
@@ -381,6 +448,14 @@ void FPhysSceneImpl::FetchResults()
         // 지연된 명령 처리
         ProcessPendingCommands();
     }
+
+    // Actor 통계 업데이트
+    PxU32 NumActiveActors = 0;
+    PScene->getActiveActors(NumActiveActors);
+    StatManager.SetActiveActorCount(NumActiveActors);
+    StatManager.SetDynamicActorCount(GetNumActors(PxActorTypeFlag::eRIGID_DYNAMIC));
+    StatManager.SetStaticActorCount(GetNumActors(PxActorTypeFlag::eRIGID_STATIC));
+    StatManager.SetPendingCommandCount(PendingCommands.Num());
 
     // 동기 모드에서는 Simulate()에서 이미 처리 완료
 }
