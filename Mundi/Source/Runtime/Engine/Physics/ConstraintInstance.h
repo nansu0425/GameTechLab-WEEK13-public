@@ -58,7 +58,7 @@ struct FConstraintInstanceBase
     
     int32 ContraintIndex = 0;
     physx::PxD6Joint* Joint = nullptr;
-    FPhysScene* PhysScene = nullptr;
+    FPhysScene* PhysScene = nullptr;    
 
     FPhysScene* GetPhysicsScene() { return PhysScene; }
     const FPhysScene* GetPhysicsScene() const { return PhysScene; }
@@ -97,11 +97,16 @@ struct FConstraintInstance : public FConstraintInstanceBase
     float AverageMass;
 
     FConstraintProfileProperties Profile;
-    
+
     FUserData UserData;
 
     FConstraintInstance();
+    FConstraintInstance(const FConstraintInstance& Other);
+    FConstraintInstance(FConstraintInstance&& Other) noexcept;
     ~FConstraintInstance() override;
+
+    FConstraintInstance& operator=(const FConstraintInstance& Other);
+    FConstraintInstance& operator=( FConstraintInstance&& Other) noexcept;
 
     void Initialize(const FConstraintFrame& ChildFrame, const FConstraintFrame& ParentFrame);
     void Initialize();
