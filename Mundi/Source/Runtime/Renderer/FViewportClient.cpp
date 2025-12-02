@@ -207,9 +207,9 @@ void FViewportClient::Draw(FViewport* Viewport)
 			DoFMod.Weight = 1.0f;
 			DoFMod.SourceObject = nullptr;
 			DoFMod.Payload.Params0 = FVector4(
-				PilotCameraComponent->GetDepthOfFieldFocalDistance(),
-				PilotCameraComponent->GetDepthOfFieldCocScale(),
-				PilotCameraComponent->GetDepthOfFieldMaxBlurRadius(),
+				PilotCameraComponent->GetFocalDistance(),
+				PilotCameraComponent->GetCocScale(),
+				PilotCameraComponent->GetMaxBlurRadius(),
 				0.0f
 			);
 			RenderView.Modifiers.Add(DoFMod);

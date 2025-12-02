@@ -25,10 +25,10 @@ UCameraComponent::UCameraComponent()
     , ProjectionMode(ECameraProjectionMode::Perspective)
     , ZoomFactor(1.0f)
     , bEnableDepthOfField(false)
-    , DepthOfFieldFocalDistance(5.0f)
-    , DepthOfFieldFstop(4.0f)
-    , DepthOfFieldFocalLength(50.0f)
-    , DepthOfFieldMaxBlurRadius(10.0f)
+    , FocalDistance(5.0f)
+    , Fstop(4.0f)
+    , FocalLength(50.0f)
+    , MaxBlurRadius(10.0f)
 {
 }
 

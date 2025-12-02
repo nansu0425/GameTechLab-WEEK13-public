@@ -83,10 +83,10 @@ void APlayerCameraManager::BeginPlay()
 		if (CurrentViewCamera->IsDepthOfFieldEnabled())
 		{
 			StartDepthOfField(
-				CurrentViewCamera->DepthOfFieldFocalDistance,
-				CurrentViewCamera->DepthOfFieldFstop,
-				CurrentViewCamera->DepthOfFieldFocalLength,
-				CurrentViewCamera->DepthOfFieldMaxBlurRadius
+				CurrentViewCamera->FocalDistance,
+				CurrentViewCamera->Fstop,
+				CurrentViewCamera->FocalLength,
+				CurrentViewCamera->MaxBlurRadius
 			);
 		}
 	}
@@ -350,10 +350,10 @@ void APlayerCameraManager::StartDepthOfField(float FocalDistance, float Fstop, f
 	{
 		// CameraComponent 파라미터 설정 (CoC 계산에 필요)
 		CurrentViewCamera->bEnableDepthOfField = true;
-		CurrentViewCamera->DepthOfFieldFocalDistance = FocalDistance;
-		CurrentViewCamera->DepthOfFieldFstop = Fstop;
-		CurrentViewCamera->DepthOfFieldFocalLength = FocalLength;
-		CurrentViewCamera->DepthOfFieldMaxBlurRadius = MaxBlurRadius;
+		CurrentViewCamera->FocalDistance = FocalDistance;
+		CurrentViewCamera->Fstop = Fstop;
+		CurrentViewCamera->FocalLength = FocalLength;
+		CurrentViewCamera->MaxBlurRadius = MaxBlurRadius;
 
 		// 다른 Modifier들처럼 직접 생성
 		UCamMod_DoF* DoFMod = new UCamMod_DoF();
@@ -361,7 +361,7 @@ void APlayerCameraManager::StartDepthOfField(float FocalDistance, float Fstop, f
 		DoFMod->bEnabled = true;
 		DoFMod->Duration = -1.0f;  // 무한 지속 (StopDepthOfField()로 명시적 종료)
 		DoFMod->FocalDistance = FocalDistance;
-		DoFMod->CocScale = CurrentViewCamera->GetDepthOfFieldCocScale();
+		DoFMod->CocScale = CurrentViewCamera->GetCocScale();
 		DoFMod->MaxBlurRadius = MaxBlurRadius;
 		ActiveModifiers.Add(DoFMod);
 	}
@@ -391,10 +391,10 @@ void APlayerCameraManager::UpdateDepthOfField(float FocalDistance, float Fstop, 
 	if (CurrentViewCamera)
 	{
 		// CameraComponent 파라미터 업데이트
-		CurrentViewCamera->DepthOfFieldFocalDistance = FocalDistance;
-		CurrentViewCamera->DepthOfFieldFstop = Fstop;
-		CurrentViewCamera->DepthOfFieldFocalLength = FocalLength;
-		CurrentViewCamera->DepthOfFieldMaxBlurRadius = MaxBlurRadius;
+		CurrentViewCamera->FocalDistance = FocalDistance;
+		CurrentViewCamera->Fstop = Fstop;
+		CurrentViewCamera->FocalLength = FocalLength;
+		CurrentViewCamera->MaxBlurRadius = MaxBlurRadius;
 
 		// ActiveModifiers에서 DoF Modifier 찾아서 파라미터 동기화
 		for (UCameraModifierBase* M : ActiveModifiers)
@@ -402,7 +402,7 @@ void APlayerCameraManager::UpdateDepthOfField(float FocalDistance, float Fstop, 
 			if (UCamMod_DoF* DoFMod = Cast<UCamMod_DoF>(M))
 			{
 				DoFMod->FocalDistance = FocalDistance;
-				DoFMod->CocScale = CurrentViewCamera->GetDepthOfFieldCocScale();
+				DoFMod->CocScale = CurrentViewCamera->GetCocScale();
 				DoFMod->MaxBlurRadius = MaxBlurRadius;
 				break;
 			}
@@ -456,9 +456,9 @@ void APlayerCameraManager::UpdateViewInfo(float DeltaTime)
 
 		// DoF 파라미터 복사 (최종 타겟의 것을 즉시 따름)
 		CurrentViewInfo.bEnableDepthOfField = CurrentViewCamera->IsDepthOfFieldEnabled();
-		CurrentViewInfo.DepthOfFieldFocalDistance = CurrentViewCamera->GetDepthOfFieldFocalDistance();
-		CurrentViewInfo.DepthOfFieldCocScale = CurrentViewCamera->GetDepthOfFieldCocScale();
-		CurrentViewInfo.DepthOfFieldMaxBlurRadius = CurrentViewCamera->GetDepthOfFieldMaxBlurRadius();
+		CurrentViewInfo.FocalDistance = CurrentViewCamera->GetFocalDistance();
+		CurrentViewInfo.CocScale = CurrentViewCamera->GetCocScale();
+		CurrentViewInfo.MaxBlurRadius = CurrentViewCamera->GetMaxBlurRadius();
 
 		// 남은 시간 계산
 		BlendTimeRemaining -= DeltaTime;
@@ -483,9 +483,9 @@ void APlayerCameraManager::UpdateViewInfo(float DeltaTime)
 
 		// DoF 파라미터 복사
 		CurrentViewInfo.bEnableDepthOfField = CurrentViewCamera->IsDepthOfFieldEnabled();
-		CurrentViewInfo.DepthOfFieldFocalDistance = CurrentViewCamera->GetDepthOfFieldFocalDistance();
-		CurrentViewInfo.DepthOfFieldCocScale = CurrentViewCamera->GetDepthOfFieldCocScale();
-		CurrentViewInfo.DepthOfFieldMaxBlurRadius = CurrentViewCamera->GetDepthOfFieldMaxBlurRadius();
+		CurrentViewInfo.FocalDistance = CurrentViewCamera->GetFocalDistance();
+		CurrentViewInfo.CocScale = CurrentViewCamera->GetCocScale();
+		CurrentViewInfo.MaxBlurRadius = CurrentViewCamera->GetMaxBlurRadius();
 	}
 }
 
