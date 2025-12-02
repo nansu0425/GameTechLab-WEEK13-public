@@ -634,24 +634,6 @@ void UPropertyRenderer::ClearResourcesCache()
 bool UPropertyRenderer::RenderBoolProperty(const FProperty& Prop, void* Instance)
 {
 	bool* Value = Prop.GetValuePtr<bool>(Instance);
-
-	// DoF 활성화 토글 시 SetEnableDepthOfField 함수 호출 (FocalLength 초기화 로직 수행)
-	if (strcmp(Prop.Name, "bEnableDepthOfField") == 0 && CurrentRenderingObject)
-	{
-		if (UCameraComponent* CamComp = Cast<UCameraComponent>(CurrentRenderingObject))
-		{
-			bool bOldValue = *Value;
-			if (ImGui::Checkbox(Prop.Name, Value))
-			{
-				// 값이 변경되었으면 SetEnableDepthOfField 호출
-				// (활성화 시 FocalLength 역산 초기화 수행)
-				CamComp->SetEnableDepthOfField(*Value);
-				return true;
-			}
-			return false;
-		}
-	}
-
 	return ImGui::Checkbox(Prop.Name, Value);
 }
 

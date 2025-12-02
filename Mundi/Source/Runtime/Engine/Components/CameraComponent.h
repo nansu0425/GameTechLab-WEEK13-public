@@ -84,16 +84,9 @@ public:
     // ===== Depth of Field Getters/Setters =====
     bool IsDepthOfFieldEnabled() const { return bEnableDepthOfField; }
 
-    // DoF 활성화/비활성화 (활성화 시 현재 FoV에 맞게 FocalLength 역산 초기화)
+    // DoF 활성화/비활성화
     void SetEnableDepthOfField(bool bEnable)
     {
-        if (bEnable && !bEnableDepthOfField)
-        {
-            // DoF 활성화 순간: 현재 FoV에 맞춰 FocalLength 역산
-            // FocalLength = SensorWidth / (2 × tan(FoV/2))
-            float HalfFovRad = DegreesToRadians(FieldOfView * 0.5f);
-            FocalLength = SensorWidth / (2.0f * tan(HalfFovRad));
-        }
         bEnableDepthOfField = bEnable;
     }
     float GetFocalDistance() const { return FocalDistance; }
