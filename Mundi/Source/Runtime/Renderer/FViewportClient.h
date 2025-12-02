@@ -106,6 +106,13 @@ protected:
     bool bPilotCameraMode = false;
     AActor* PilotActor = nullptr;                    // Pilot 대상 액터
     UCameraComponent* PilotCameraComponent = nullptr; // Pilot 대상 카메라 컴포넌트
-    ACameraActor* OriginalCamera = nullptr;           // 복귀용 에디터 카메라
     float PilotMoveSpeed = 10.0f;                    // Pilot 모드 이동 속도 (non-ACameraActor용)
+
+    // 에디터 카메라 원본 Transform (Pilot 모드 해제 시 복원용)
+    // 초기값: 원점에서 떨어져 위에서 원점을 내려다보는 위치
+    FVector OriginalCameraLocation = FVector(-5.0f, 5.0f, 5.0f);
+    FQuat OriginalCameraRotation = FQuat::MakeFromEulerZYX(FVector(0.0f, 22.5f, -45.0f));
+    float OriginalCameraFOV = 60.0f;
+    float OriginalCameraNearClip = 0.1f;
+    float OriginalCameraFarClip = 2000.0f;
 };

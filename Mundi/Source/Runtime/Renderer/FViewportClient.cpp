@@ -27,6 +27,16 @@ FViewportClient::FViewportClient()
 	ViewportType = EViewportType::Perspective;
 	// 직교 뷰별 기본 카메라 설정
 	Camera = NewObject<ACameraActor>();
+
+	// 에디터 카메라 초기 Transform 설정 (원점에서 떨어져 위에서 내려다보는 위치)
+	Camera->SetActorLocation(OriginalCameraLocation);
+	Camera->SetActorRotation(OriginalCameraRotation);
+	if (UCameraComponent* CamComp = Camera->GetCameraComponent())
+	{
+		CamComp->SetFOV(OriginalCameraFOV);
+		CamComp->SetClipPlanes(OriginalCameraNearClip, OriginalCameraFarClip);
+	}
+
 	SetupCameraMode();
 }
 
@@ -237,14 +247,24 @@ void FViewportClient::Draw(FViewport* Viewport)
 
 void FViewportClient::SetupCameraMode()
 {
+	// Pilot 모드에서 원근 카메라로 전환 시 저장된 Transform 복원
+	if (bPilotCameraMode && ViewportType == EViewportType::Perspective)
+	{
+		DisablePilotMode();
+		return;
+	}
+
+	// Pilot 모드에서 직교 카메라로 전환 시 Pilot 모드 해제
+	if (bPilotCameraMode)
+	{
+		DisablePilotMode();
+	}
+
 	switch (ViewportType)
 	{
 	case EViewportType::Perspective:
-
-		Camera->SetActorLocation(PerspectiveCameraPosition);
-		Camera->SetRotationFromEulerAngles(PerspectiveCameraRotation);
-		Camera->GetCameraComponent()->SetFOV(PerspectiveCameraFov);
-		Camera->GetCameraComponent()->SetClipPlanes(0.1f, 2000.0f);
+		// Pilot 모드가 아닌 상태에서는 기존 카메라 위치 유지 (초기 설정 시에만 기본값 사용)
+		// 이미 DisablePilotMode()에서 복원되었으므로 여기서는 아무것도 하지 않음
 		break;
 	case EViewportType::Orthographic_Top:
 	{
@@ -441,8 +461,15 @@ void FViewportClient::EnablePilotMode(AActor* TargetActor, UCameraComponent* Tar
 	}
 	else
 	{
-		// 최초 Pilot 모드 진입 시에만 에디터 카메라 저장
-		OriginalCamera = Camera;
+		// 최초 Pilot 모드 진입 시에만 에디터 카메라 Transform 저장
+		OriginalCameraLocation = Camera->GetActorLocation();
+		OriginalCameraRotation = Camera->GetActorRotation();
+		if (UCameraComponent* CamComp = Camera->GetCameraComponent())
+		{
+			OriginalCameraFOV = CamComp->GetFOV();
+			OriginalCameraNearClip = CamComp->GetNearClip();
+			OriginalCameraFarClip = CamComp->GetFarClip();
+		}
 	}
 
 	// Pilot 대상 설정
@@ -483,12 +510,18 @@ void FViewportClient::DisablePilotMode()
 		PilotCameraComponent->SetCameraGizmoVisible(true);
 	}
 
-	// 에디터 카메라로 복귀
-	Camera = OriginalCamera;
+	// 에디터 카메라 Transform 복원
+	Camera->SetActorLocation(OriginalCameraLocation);
+	Camera->SetActorRotation(OriginalCameraRotation);
+	if (UCameraComponent* CamComp = Camera->GetCameraComponent())
+	{
+		CamComp->SetFOV(OriginalCameraFOV);
+		CamComp->SetClipPlanes(OriginalCameraNearClip, OriginalCameraFarClip);
+	}
+
 	bPilotCameraMode = false;
 	PilotActor = nullptr;
 	PilotCameraComponent = nullptr;
-	OriginalCamera = nullptr;
 }
 
 void FViewportClient::SyncCameraWithPilot()
