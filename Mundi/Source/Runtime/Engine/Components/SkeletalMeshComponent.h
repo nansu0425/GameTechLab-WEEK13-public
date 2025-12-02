@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "BodyInstance.h"
 #include "SkinnedMeshComponent.h"
 #include "USkeletalMeshComponent.generated.h"
@@ -92,6 +92,10 @@ public:
 
     // Notify
     void TriggerAnimNotify(const FAnimNotifyEvent& NotifyEvent);
+
+	// --- - Physics Integration ---
+	TArray<FBodyInstance*> GetBodies() { return Bodies; }
+	TArray<FConstraintInstance*> GetConstraints() { return Constraints; }
 
 protected:
     /**
