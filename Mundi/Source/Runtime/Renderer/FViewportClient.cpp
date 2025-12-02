@@ -594,8 +594,15 @@ void FViewportClient::DisablePilotMode()
 
 void FViewportClient::SyncCameraWithPilot()
 {
-	if (!bPilotCameraMode || !PilotCameraComponent) 
+	if (!bPilotCameraMode || !PilotCameraComponent)
 	{
+		return;
+	}
+
+	// 삭제 대기 중인 컴포넌트 체크 (씬 전환 시 dangling pointer 방지)
+	if (PilotCameraComponent->IsPendingDestroy())
+	{
+		DisablePilotMode();
 		return;
 	}
 
