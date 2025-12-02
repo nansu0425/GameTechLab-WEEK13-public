@@ -64,6 +64,10 @@ public:
     AActor* GetPilotActor() const { return PilotActor; }
     UCameraComponent* GetPilotCameraComponent() const { return PilotCameraComponent; }
 
+    // Pilot 모드 이동 속도 (non-ACameraActor용)
+    float GetPilotMoveSpeed() const { return PilotMoveSpeed; }
+    void SetPilotMoveSpeed(float InSpeed) { PilotMoveSpeed = InSpeed; }
+
 protected:
     void ProcessPilotActorInput(float DeltaTime);
     EViewportType ViewportType = EViewportType::Perspective;
@@ -102,4 +106,5 @@ protected:
     AActor* PilotActor = nullptr;                    // Pilot 대상 액터
     UCameraComponent* PilotCameraComponent = nullptr; // Pilot 대상 카메라 컴포넌트
     ACameraActor* OriginalCamera = nullptr;           // 복귀용 에디터 카메라
+    float PilotMoveSpeed = 10.0f;                    // Pilot 모드 이동 속도 (non-ACameraActor용)
 };

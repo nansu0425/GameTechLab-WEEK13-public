@@ -478,7 +478,7 @@ void FViewportClient::ProcessPilotActorInput(float DeltaTime)
 
 	// WASD/QE 이동
 	FVector MoveDirection = FVector::Zero();
-	const float MoveSpeed = 5.0f; // 기본 이동 속도
+	const float MoveSpeed = PilotMoveSpeed; // UI에서 조절 가능한 이동 속도
 
 	FVector Forward = Rotation.GetForwardVector();
 	FVector Right = Rotation.GetRightVector();

@@ -984,8 +984,40 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 		ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "이동");
 		ImGui::Separator();
 
-		ACameraActor* Camera = ViewportClient ? ViewportClient->GetCamera() : nullptr;
-		if (Camera)
+		// 이동 속도 UI 표시
+		bool bShowSpeedUI = false;
+		ACameraActor* SpeedCamera = nullptr;
+		bool bUsePilotMoveSpeed = false;  // non-ACameraActor Pilot 모드용
+
+		if (ViewportClient)
+		{
+			if (ViewportClient->IsPilotModeEnabled())
+			{
+				// Pilot 모드: ACameraActor인 경우와 아닌 경우 구분
+				SpeedCamera = Cast<ACameraActor>(ViewportClient->GetPilotActor());
+				if (SpeedCamera)
+				{
+					bShowSpeedUI = true;
+				}
+				else
+				{
+					// non-ACameraActor: FViewportClient의 PilotMoveSpeed 사용
+					bUsePilotMoveSpeed = true;
+					bShowSpeedUI = true;
+				}
+			}
+			else
+			{
+				// 일반 모드: 에디터 카메라
+				SpeedCamera = ViewportClient->GetCamera();
+				if (SpeedCamera)
+				{
+					bShowSpeedUI = true;
+				}
+			}
+		}
+
+		if (bShowSpeedUI)
 		{
 			if (IconSpeed && IconSpeed->GetShaderResourceView())
 			{
@@ -994,12 +1026,27 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 			}
 			ImGui::Text("카메라 이동 속도");
 
-			float speed = Camera->GetCameraSpeed();
-			ImGui::SetNextItemWidth(180);
-			if (ImGui::SliderFloat("##CameraSpeed", &speed, 1.0f, 100.0f, "%.1f"))
+			if (bUsePilotMoveSpeed)
 			{
-				Camera->SetCameraSpeed(speed);
+				// non-ACameraActor Pilot 모드: FViewportClient의 PilotMoveSpeed 사용
+				float speed = ViewportClient->GetPilotMoveSpeed();
+				ImGui::SetNextItemWidth(180);
+				if (ImGui::SliderFloat("##CameraSpeed", &speed, 1.0f, 100.0f, "%.1f"))
+				{
+					ViewportClient->SetPilotMoveSpeed(speed);
+				}
 			}
+			else if (SpeedCamera)
+			{
+				// ACameraActor: 기존 방식
+				float speed = SpeedCamera->GetCameraSpeed();
+				ImGui::SetNextItemWidth(180);
+				if (ImGui::SliderFloat("##CameraSpeed", &speed, 1.0f, 100.0f, "%.1f"))
+				{
+					SpeedCamera->SetCameraSpeed(speed);
+				}
+			}
+
 			if (ImGui::IsItemHovered())
 			{
 				ImGui::SetTooltip("WASD 키로 카메라를 이동할 때의 속도 (1-100)");
@@ -1010,9 +1057,22 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 		ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "뷰");
 		ImGui::Separator();
 
-		if (Camera && Camera->GetCameraComponent())
+		// Pilot 모드일 때는 PilotCameraComponent 사용
+		UCameraComponent* camComp = nullptr;
+		if (ViewportClient)
 		{
-			UCameraComponent* camComp = Camera->GetCameraComponent();
+			if (ViewportClient->IsPilotModeEnabled() && ViewportClient->GetPilotCameraComponent())
+			{
+				camComp = ViewportClient->GetPilotCameraComponent();
+			}
+			else if (ViewportClient->GetCamera() && ViewportClient->GetCamera()->GetCameraComponent())
+			{
+				camComp = ViewportClient->GetCamera()->GetCameraComponent();
+			}
+		}
+
+		if (camComp)
+		{
 
 			// FOV
 			if (IconFOV && IconFOV->GetShaderResourceView())
