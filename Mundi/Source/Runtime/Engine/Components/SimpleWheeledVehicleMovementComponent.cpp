@@ -357,6 +357,45 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
 
     bVehicleInitialized = true;
     UE_LOG("[VehicleMovement] Vehicle PhysX initialization complete.");
+
+    // 초기 휠 본 로컬 위치 캐싱 (스켈레탈 메시에만 적용)
+    if (USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(UpdatedComponent))
+    {
+        InitialWheelLocalPositions.Empty();
+        InitialWheelLocalPositions.SetNum(WheelSetups.Num());
+
+        USkeletalMesh* SkelMesh = SkelComp->GetSkeletalMesh();
+        const FSkeleton* Skeleton = SkelMesh ? SkelMesh->GetSkeletalMeshData() ? &SkelMesh->GetSkeletalMeshData()->Skeleton : nullptr : nullptr;
+        if (Skeleton)
+        {
+            for (int32 WheelIdx = 0; WheelIdx < WheelSetups.Num(); ++WheelIdx)
+            {
+                const FWheelSetup& Setup = WheelSetups[WheelIdx];
+                int32 BoneIndex = -1;
+                for (int32 i = 0; i < Skeleton->Bones.Num(); ++i)
+                {
+                    if (Skeleton->Bones[i].Name == Setup.BoneName)
+                    {
+                        BoneIndex = i;
+                        break;
+                    }
+                }
+
+                if (BoneIndex != -1)
+                {
+                    // 컴포넌트 공간에서 본 트랜스폼을 얻어 차체(UpdatedComponent) 로컬로 변환
+                    FTransform BoneWorld = SkelComp->GetBoneWorldTransform(BoneIndex);
+                    FTransform ChassisWorld = UpdatedComponent->GetWorldTransform();
+                    FTransform BoneLocalToChassis = BoneWorld.GetRelativeTransform(ChassisWorld);
+                    InitialWheelLocalPositions[WheelIdx] = BoneLocalToChassis.Translation;
+                }
+                else
+                {
+                    InitialWheelLocalPositions[WheelIdx] = FVector::Zero();
+                }
+            }
+        }
+    }
     return true;
 }
 
@@ -602,6 +641,59 @@ void USimpleWheeledVehicleMovementComponent::UpdateVehiclePoseFromPhysX()
 
     // UpdatedComponent는 차체 메시(스켈레탈/스태틱)여야 하므로 World Transform 설정
     UpdatedComponent->SetWorldTransform(WorldTransform);
+
+    // 휠 본 승강 반영 (스켈레탈 메시에만 적용, 회전/스티어는 추후)
+    if (USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(UpdatedComponent))
+    {
+        USkeletalMesh* SkelMesh = SkelComp->GetSkeletalMesh();
+        const FSkeleton* Skeleton = SkelMesh ? SkelMesh->GetSkeletalMeshData() ? &SkelMesh->GetSkeletalMeshData()->Skeleton : nullptr : nullptr;
+        if (Skeleton)
+        {
+            // WheelQueryResults와 캐싱된 로컬 위치를 안전하게 접근
+            const int32 NumWheels = WheelSetups.Num();
+            for (int32 WheelIdx = 0; WheelIdx < NumWheels; ++WheelIdx)
+            {
+                const FWheelSetup& Setup = WheelSetups[WheelIdx];
+
+                // 본 인덱스 찾기
+                int32 BoneIndex = -1;
+                for (int32 i = 0; i < Skeleton->Bones.Num(); ++i)
+                {
+                    if (Skeleton->Bones[i].Name == Setup.BoneName)
+                    {
+                        BoneIndex = i;
+                        break;
+                    }
+                }
+
+                if (BoneIndex == -1)
+                {
+                    continue;
+                }
+
+                // 현재 로컬 트랜스폼에서 회전/스케일 유지, 위치만 수정
+                FTransform Local = SkelComp->GetBoneLocalTransform(BoneIndex);
+
+                FVector BaseLocalPos = (WheelIdx < InitialWheelLocalPositions.Num())
+                    ? InitialWheelLocalPositions[WheelIdx]
+                    : Local.Translation;
+
+                float SuspJounce = (WheelIdx < WheelQueryResults.Num()) ? WheelQueryResults[WheelIdx].suspJounce : 0.0f;
+                bool bInAir = (WheelIdx < WheelQueryResults.Num()) ? WheelQueryResults[WheelIdx].isInAir : true;
+
+                // 접지 시: 압축만큼 위로 이동, 공중 시: 기본 위치 유지
+                FVector NewLocalPos = BaseLocalPos;
+                if (!bInAir)
+                {
+                    NewLocalPos.Z -= SuspJounce;
+                }
+
+                Local.Translation = NewLocalPos;
+
+                SkelComp->SetBoneLocalTransform(BoneIndex, Local);
+            }
+        }
+    }
 }
 
 void USimpleWheeledVehicleMovementComponent::EnsureUpdatedComponentIsValid()

@@ -175,6 +175,9 @@ protected:
     /** UpdatedComponent가 루트가 아닐 때 경고를 주기 위한 카운터 (60프레임마다) */
     int32 NonRootComponentWarningCounter = 0;
 
+    /** 초기 휠 본의 로컬 위치를 캐싱 (서스펜션 승강 계산용) */
+    TArray<FVector> InitialWheelLocalPositions;
+
     /** PhysScene 레지스트리에 등록/해제 */
     void RegisterWithPhysScene();
     void UnregisterFromPhysScene();

@@ -439,9 +439,13 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
                 SCOPED_SCENE_WRITE_LOCK(PScene);
                 bIsSimulating = true;
 
-                // 입력을 시뮬레이션 직전에 적용
-                ApplyVehicleInputs(FixedTimestep);
-                SimulateVehicles(FixedTimestep);
+                // TODO: VehicleUpdates와 PxScene 시뮬레이션이 동일 서브스텝으로 맞춰지지 않음(필요 시 재조정)
+                // 서브스텝마다 입력/차량 업데이트 적용
+                for (int32 Step = 0; Step < NumSteps; ++Step)
+                {
+                    ApplyVehicleInputs(FixedTimestep);
+                    SimulateVehicles(FixedTimestep);
+                }
 
                 // simulate() 타이밍 측정
                 uint64 SimStartCycles = FPlatformTime::Cycles64();
@@ -484,7 +488,7 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
         SCOPED_SCENE_WRITE_LOCK(PScene);
         bIsSimulating = true;
 
-        // 입력을 시뮬레이션 직전에 적용
+        // 입력을 시뮬레이션 직전에 적용 (서브스텝마다)
         ApplyVehicleInputs(FixedTimestep);
         SimulateVehicles(FixedTimestep);
 
