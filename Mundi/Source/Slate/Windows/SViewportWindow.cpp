@@ -783,7 +783,9 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 		ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "원근");
 		ImGui::Separator();
 
-		bool bIsPerspective = (ViewportType == EViewportType::Perspective);
+		// Pilot 모드일 때는 원근이 선택되지 않은 것으로 표시
+		bool bIsPilotMode = ViewportClient && ViewportClient->IsPilotModeEnabled();
+		bool bIsPerspective = (ViewportType == EViewportType::Perspective) && !bIsPilotMode;
 		const char* RadioIcon = bIsPerspective ? "●" : "○";
 
 		// 원근 모드 선택 항목 (라디오 버튼 + 아이콘 + 텍스트 통합)
@@ -792,6 +794,11 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 
 		if (ImGui::Selectable("##Perspective", bIsPerspective, 0, SelectableSize))
 		{
+			// Pilot 모드 해제
+			if (ViewportClient && ViewportClient->IsPilotModeEnabled())
+			{
+				ViewportClient->DisablePilotMode();
+			}
 			ViewportType = EViewportType::Perspective;
 			ViewportName = "원근";
 			if (ViewportClient)
@@ -846,7 +853,8 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 		for (int i = 0; i < 6; i++)
 		{
 			const auto& mode = orthographicModes[i];
-			bool bIsSelected = (ViewportType == mode.type);
+			// Pilot 모드일 때는 직교도 선택되지 않은 것으로 표시
+			bool bIsSelected = (ViewportType == mode.type) && !bIsPilotMode;
 			const char* RadioIcon = bIsSelected ? "●" : "○";
 
 			// 직교 모드 선택 항목 (라디오 버튼 + 아이콘 + 텍스트 통합)
@@ -857,6 +865,11 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 
 			if (ImGui::Selectable(SelectableID, bIsSelected, 0, SelectableSize))
 			{
+				// Pilot 모드 해제
+				if (ViewportClient && ViewportClient->IsPilotModeEnabled())
+				{
+					ViewportClient->DisablePilotMode();
+				}
 				ViewportType = mode.type;
 				ViewportName = mode.koreanName;
 				if (ViewportClient)
