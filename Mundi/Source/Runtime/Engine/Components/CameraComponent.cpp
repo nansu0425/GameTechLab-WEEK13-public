@@ -100,15 +100,18 @@ FMatrix UCameraComponent::GetProjectionMatrix() const
 
 FMatrix UCameraComponent::GetProjectionMatrix(float ViewportAspectRatio) const
 {
+    // DoF 활성화 시 물리 기반 FoV 사용을 위해 GetFOV() 호출
+    float CurrentFOV = GetFOV();
+
     if (ProjectionMode == ECameraProjectionMode::Perspective)
     {
-        return FMatrix::PerspectiveFovLH(FieldOfView * (PI / 180.0f),
+        return FMatrix::PerspectiveFovLH(DegreesToRadians(CurrentFOV),
             ViewportAspectRatio,
             NearClip, FarClip);
     }
     else
     {
-        float orthoHeight = 2.0f * tanf((FieldOfView * PI / 180.0f) * 0.5f) * 10.0f;
+        float orthoHeight = 2.0f * tanf(DegreesToRadians(CurrentFOV) * 0.5f) * 10.0f;
         float orthoWidth = orthoHeight * ViewportAspectRatio;
 
         // 줌 계산
@@ -124,10 +127,13 @@ FMatrix UCameraComponent::GetProjectionMatrix(float ViewportAspectRatio) const
 }
 FMatrix UCameraComponent::GetProjectionMatrix(float ViewportAspectRatio, FViewport* Viewport) const
 {
+    // DoF 활성화 시 물리 기반 FoV 사용을 위해 GetFOV() 호출
+    float CurrentFOV = GetFOV();
+
     if (ProjectionMode == ECameraProjectionMode::Perspective)
     {
         return FMatrix::PerspectiveFovLH(
-            DegreesToRadians(FieldOfView),
+            DegreesToRadians(CurrentFOV),
             ViewportAspectRatio,
             NearClip, FarClip);
     }

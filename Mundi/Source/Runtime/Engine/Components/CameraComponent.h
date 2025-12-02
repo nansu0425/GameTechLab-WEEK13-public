@@ -65,15 +65,37 @@ public:
     void SetProjectionMode(ECameraProjectionMode Mode) { ProjectionMode = Mode; }
     void SetZoomFactor(float InZoomFactor) { ZoomFactor = InZoomFactor; };
     
-    float GetFOV() const { return FieldOfView; }
+    float GetFOV() const
+    {
+        if (bEnableDepthOfField)
+        {
+            // DoF 활성화 시 물리 기반 FoV: 2 × atan(SensorWidth / (2 × FocalLength))
+            float FovRad = 2.0f * atan(DepthOfFieldSensorWidth / (2.0f * DepthOfFieldFocalLength));
+            return RadiansToDegrees(FovRad);
+        }
+        return FieldOfView;  // DoF 비활성화 시 기존 방식
+    }
     float GetAspectRatio() const { return AspectRatio; }
     float GetNearClip() const { return NearClip; }
     float GetFarClip() const { return FarClip; }
     float GetZoomFactor()const { return ZoomFactor; };
     ECameraProjectionMode GetProjectionMode() const { return ProjectionMode; }
 
-    // ===== Depth of Field Getters =====
+    // ===== Depth of Field Getters/Setters =====
     bool IsDepthOfFieldEnabled() const { return bEnableDepthOfField; }
+
+    // DoF 활성화/비활성화 (활성화 시 현재 FoV에 맞게 FocalLength 역산 초기화)
+    void SetEnableDepthOfField(bool bEnable)
+    {
+        if (bEnable && !bEnableDepthOfField)
+        {
+            // DoF 활성화 순간: 현재 FoV에 맞춰 FocalLength 역산
+            // FocalLength = SensorWidth / (2 × tan(FoV/2))
+            float HalfFovRad = DegreesToRadians(FieldOfView * 0.5f);
+            DepthOfFieldFocalLength = DepthOfFieldSensorWidth / (2.0f * tan(HalfFovRad));
+        }
+        bEnableDepthOfField = bEnable;
+    }
     float GetDepthOfFieldFocalDistance() const { return DepthOfFieldFocalDistance; }
     float GetDepthOfFieldMaxBlurRadius() const { return DepthOfFieldMaxBlurRadius; }
 
