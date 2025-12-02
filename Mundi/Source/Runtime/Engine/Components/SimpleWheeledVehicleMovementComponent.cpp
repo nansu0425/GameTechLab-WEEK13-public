@@ -96,6 +96,19 @@ void USimpleWheeledVehicleMovementComponent::SetHandbrakeInput(float Handbrake)
     HandbrakeInput = FMath::Clamp(Handbrake, 0.0f, 1.0f);
 }
 
+void USimpleWheeledVehicleMovementComponent::ResetVehicle()
+{
+    // 기존 PhysX 리소스 정리
+    CleanupVehiclePhysX();
+
+    // UpdatedComponent 검증 및 PhysScene 등록
+    EnsureUpdatedComponentIsValid();
+    RegisterWithPhysScene();
+
+    // 재초기화 시도
+    bVehicleInitialized = InitVehiclePhysX();
+}
+
 void USimpleWheeledVehicleMovementComponent::SetUpdatedComponent(USceneComponent* NewUpdatedComponent)
 {
     if (!NewUpdatedComponent)
