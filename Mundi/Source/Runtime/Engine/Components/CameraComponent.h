@@ -38,8 +38,8 @@ public:
     UPROPERTY(EditAnywhere, Category="DepthOfField")
     bool bEnableDepthOfField = false;
 
-    UPROPERTY(EditAnywhere, Category="DepthOfField", Range="0.0, 1000.0")
-    float FocalDistance = 5.0f;  // 초점 거리 (m)
+    UPROPERTY(EditAnywhere, Category="DepthOfField", Range="0.1, 100.0")
+    float FocalDistance = 5.0f;  // 초점 거리 (월드 유닛)
 
     UPROPERTY(EditAnywhere, Category="DepthOfField", Range="1.2, 32.0")
     float Fstop = 4.0f;  // f-stop (조리개) - 낮을수록 블러 강함
