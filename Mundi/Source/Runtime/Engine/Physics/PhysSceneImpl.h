@@ -11,12 +11,14 @@
 
 #include <PxPhysicsAPI.h>
 #include <thread>
+#include <mutex>
 #include "UEContainer.h"
 #include "PhysicsSceneLock.h"
 
 class UWorld;
 class FPhysScene;
 class FPhysicsEventCallback;
+class USimpleWheeledVehicleMovementComponent;
 
 /**
  * @brief FPhysScene의 PhysX 구현부
@@ -91,6 +93,7 @@ private:
     physx::PxDefaultCpuDispatcher* CpuDispatcher = nullptr;
     physx::PxMaterial* DefaultMaterial = nullptr;
     FPhysicsEventCallback* EventCallback = nullptr;
+    TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>> VehicleComponents;
 
     // 소유자
     FPhysScene* OwnerScene = nullptr;
@@ -203,4 +206,18 @@ public:
 
     /** Active Actors의 Velocity 캡처 (fetchResults 직후 호출) */
     void CaptureActiveActorsVelocity();
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Vehicle 컴포넌트 레지스트리
+    // ═══════════════════════════════════════════════════════════════════════
+
+public:
+    void RegisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent);
+    void UnregisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent);
+    const TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>>& GetVehicleComponents();
+
+private:
+    void CompactVehicleComponents();
+    bool bVehicleListDirty = false;
+    mutable std::mutex VehicleComponentMutex;
 };

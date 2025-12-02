@@ -9,6 +9,8 @@
 #include "World.h"
 #include "GlobalConsole.h"
 #include "PlatformTime.h"
+#include "SimpleWheeledVehicleMovementComponent.h"
+#include "PhysicsSceneLock.h"
 
 using namespace physx;
 
@@ -98,6 +100,35 @@ void FPhysScene::StartFrame()
     StatManager.ResetFrameStats();
     StatManager.BeginFrameTiming(FPlatformTime::Cycles64());
 
+    // 레이캐스트 수행 시점: 시뮬레이션 중이면 스킵하지만, 연속 스킵이 MaxSkipCount를 넘으면 강제 수행
+    bool bShouldForceRaycast = VehicleRaycastSkipCount >= MaxSkipCount;
+    if (!IsSimulating() || bShouldForceRaycast)
+    {
+        physx::PxScene* PxScene = Impl ? Impl->GetPxScene() : nullptr;
+        if (PxScene)
+        {
+            SCOPED_SCENE_READ_LOCK(PxScene);
+            TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>> Vehicles = GetRegisteredVehicleComponents();
+            for (TWeakObjectPtr<USimpleWheeledVehicleMovementComponent> VehiclePtr : Vehicles)
+            {
+                if (VehiclePtr.IsValid())
+                {
+                    VehiclePtr->PerformSuspensionRaycasts();
+                }
+            }
+        }
+        if (bShouldForceRaycast)
+        {
+			UE_LOG("FPhysScene: Forced vehicle raycasts after %d skipped frames", static_cast<int32>(VehicleRaycastSkipCount));
+        }
+
+        VehicleRaycastSkipCount = 0;
+    }
+    else
+    {
+        VehicleRaycastSkipCount++;
+    }
+
     if (Impl)
     {
         Impl->StartFrame();
@@ -117,6 +148,16 @@ void FPhysScene::EndFrame()
     if (Impl)
     {
         Impl->FetchResults();
+    }
+
+    // PhysX 결과가 확정된 후 차량 포즈를 갱신
+    TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>> Vehicles = GetRegisteredVehicleComponents();
+    for (TWeakObjectPtr<USimpleWheeledVehicleMovementComponent> VehiclePtr : Vehicles)
+    {
+        if (VehiclePtr.IsValid())
+        {
+            VehiclePtr->UpdateVehiclePoseFromPhysX();
+        }
     }
 
     // 프레임 종료 시 총 물리 시간 기록
@@ -174,6 +215,31 @@ FPhysScene::FPhysSceneStats FPhysScene::GetStats() const
         Stats.NumActiveActors = Stats.NumDynamicActors;  // TODO: 실제 active 수 계산
     }
     return Stats;
+}
+
+void FPhysScene::RegisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent)
+{
+    if (Impl)
+    {
+        Impl->RegisterVehicleComponent(InComponent);
+    }
+}
+
+void FPhysScene::UnregisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent)
+{
+    if (Impl)
+    {
+        Impl->UnregisterVehicleComponent(InComponent);
+    }
+}
+
+TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>> FPhysScene::GetRegisteredVehicleComponents() const
+{
+    if (Impl)
+    {
+        return Impl->GetVehicleComponents();
+    }
+    return {};
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -308,6 +374,38 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
 
     FPhysicsStatManager& StatManager = FPhysicsStatManager::GetInstance();
 
+    auto ApplyVehicleInputs = [this](float Step)
+    {
+        if (Step <= 0.0f)
+        {
+            return;
+        }
+        CompactVehicleComponents();
+        for (TWeakObjectPtr<USimpleWheeledVehicleMovementComponent> VehiclePtr : VehicleComponents)
+        {
+            if (VehiclePtr.IsValid())
+            {
+                VehiclePtr->ApplyInputToPhysX(Step);
+            }
+        }
+    };
+
+    auto SimulateVehicles = [this](float Step)
+    {
+        if (Step <= 0.0f)
+        {
+            return;
+        }
+        CompactVehicleComponents();
+        for (TWeakObjectPtr<USimpleWheeledVehicleMovementComponent> VehiclePtr : VehicleComponents)
+        {
+            if (VehiclePtr.IsValid())
+            {
+                VehiclePtr->SimulateVehicle(Step);
+            }
+        }
+    };
+
     // ═══════════════════════════════════════════════════════════════════════
     // 비동기 물리 시뮬레이션 (언리얼 엔진 스타일)
     // ═══════════════════════════════════════════════════════════════════════
@@ -340,6 +438,10 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
             {
                 SCOPED_SCENE_WRITE_LOCK(PScene);
                 bIsSimulating = true;
+
+                // 입력을 시뮬레이션 직전에 적용
+                ApplyVehicleInputs(FixedTimestep);
+                SimulateVehicles(FixedTimestep);
 
                 // simulate() 타이밍 측정
                 uint64 SimStartCycles = FPlatformTime::Cycles64();
@@ -381,6 +483,10 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
         // 쓰기 잠금으로 시뮬레이션 보호
         SCOPED_SCENE_WRITE_LOCK(PScene);
         bIsSimulating = true;
+
+        // 입력을 시뮬레이션 직전에 적용
+        ApplyVehicleInputs(FixedTimestep);
+        SimulateVehicles(FixedTimestep);
 
         // simulate() 타이밍 측정
         uint64 SimStartCycles = FPlatformTime::Cycles64();
@@ -865,4 +971,62 @@ void FPhysSceneImpl::CaptureActiveActorsVelocity()
             }
         }
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Vehicle 컴포넌트 레지스트리
+// ═══════════════════════════════════════════════════════════════════════════════
+
+void FPhysSceneImpl::RegisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent)
+{
+    if (!InComponent)
+    {
+        return;
+    }
+
+    std::lock_guard<std::mutex> Lock(VehicleComponentMutex);
+    VehicleComponents.AddUnique(TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>(InComponent));
+    bVehicleListDirty = true;
+}
+
+void FPhysSceneImpl::UnregisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent)
+{
+    if (!InComponent)
+    {
+        return;
+    }
+
+    std::lock_guard<std::mutex> Lock(VehicleComponentMutex);
+    bool bRemoved = VehicleComponents.Remove(TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>(InComponent));
+    if (bRemoved)
+    {
+        bVehicleListDirty = true;
+    }
+}
+
+const TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>>& FPhysSceneImpl::GetVehicleComponents()
+{
+    CompactVehicleComponents();
+    return VehicleComponents;
+}
+
+void FPhysSceneImpl::CompactVehicleComponents()
+{
+    std::lock_guard<std::mutex> Lock(VehicleComponentMutex);
+
+    if (!bVehicleListDirty)
+    {
+        return;
+    }
+
+    for (int32 Index = VehicleComponents.Num() - 1; Index >= 0; --Index)
+    {
+        if (!VehicleComponents[Index].IsValid())
+        {
+            VehicleComponents.RemoveAt(Index);
+        }
+    }
+
+    VehicleComponents.Shrink();
+    bVehicleListDirty = false;
 }

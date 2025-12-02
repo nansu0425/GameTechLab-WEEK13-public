@@ -32,9 +32,9 @@ private:
     bool bCollisionShapesDirty = false;
 
     // Wireframe helper functions
-    void DrawWireframeBox(ULineComponent* LineComp, const FVector& Center, const FVector& HalfExtents, const FVector4& Color);
-    void DrawWireframeSphere(ULineComponent* LineComp, const FVector& Center, float Radius, const FVector4& Color, int32 Segments = 16);
-    void DrawWireframeCapsule(ULineComponent* LineComp, const FVector& Center, float Radius, float HalfHeight, const FVector4& Color, int32 Segments = 16);
+    void DrawWireframeBox(ULineComponent* LineComp, const FVector& Center, const FVector& HalfExtents, const FQuat& Rotation, const FVector4& Color);
+    void DrawWireframeSphere(ULineComponent* LineComp, const FVector& Center, float Radius, const FQuat& Rotation, const FVector4& Color, int32 Segments = 16);
+    void DrawWireframeCapsule(ULineComponent* LineComp, const FVector& Center, float Radius, float HalfHeight, const FQuat& Rotation, const FVector4& Color, int32 Segments = 16);
 
     // Collision shape management
     void RebuildCollisionShapes();
@@ -44,11 +44,15 @@ private:
     bool HasBodyInSubtree(int32 BoneIndex, const TArray<struct FBone>& Bones, const TArray<TArray<int32>>& Children) const;
 
     // Physics body generation
-    void GenerateAllBodies(EPrimitiveType PrimitiveType);
-    void CalculateBodyDimensions(int32 BoneIndex, const struct FSkeleton* Skeleton, EPrimitiveType PrimitiveType,
-                                 float& OutRadius, float& OutHalfHeight, FVector& OutExtent) const;
-    bool ShouldCreateBodyForBone(int32 BoneIndex, const struct FSkeleton* Skeleton) const;
     void CreateBodyForBone(int32 BoneIndex, EPrimitiveType PrimitiveType);
+    void GenerateAllBodies(EPrimitiveType PrimitiveType);
+
+    // Helper functions for above
+    int32 FindFirstChildBone(int32 BoneIndex, const FSkeleton* Skeleton) const;
+    void CalculateBoneLocalShapeTransform(int32 BoneIndex, const FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp, FVector& OutLocalCenter, FQuat& OutLocalRotation);
+    void CalculateBodyDimensions(int32 BoneIndex, const struct FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp, 
+                                 EPrimitiveType PrimitiveType, float& OutRadius, float& OutHalfHeight, FVector& OutExtent) const;
+    bool ShouldCreateBodyForBone(int32 BoneIndex, const struct FSkeleton* Skeleton) const;
 
     // Vertex-driven body generation
     struct FBoneVertexInfluence

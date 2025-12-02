@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 #include "Vector.h"
+#include "UEContainer.h"
 #include <memory>
 #include <cstdint>
 
@@ -22,6 +23,7 @@ namespace physx
 
 // 전방 선언 (PhysX 의존성 없음)
 class UWorld;
+class USimpleWheeledVehicleMovementComponent;
 class FPhysSceneImpl;  // PIMPL - 구현 숨김
 
 /**
@@ -155,7 +157,24 @@ public:
      */
     FPhysSceneStats GetStats() const;
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Vehicle 컴포넌트 레지스트리
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** VehicleMovementComponent 등록 */
+    void RegisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent);
+
+    /** VehicleMovementComponent 등록 해제 */
+    void UnregisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent);
+
+    /** 등록된 VehicleMovementComponent 목록 반환 (무효 포인터 정리 후) */
+    TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>> GetRegisteredVehicleComponents() const;
+
 private:
     std::unique_ptr<FPhysSceneImpl> Impl;  // PIMPL - PhysX 구현 숨김
     UWorld* OwningWorld = nullptr;
+
+    /** Vehicle 레이캐스트 연속 스킵 카운터 (씬별 추적) */
+    const uint8 MaxSkipCount = 3; // 레이캐스트 최대 연속 스킵 제한
+    uint8 VehicleRaycastSkipCount = 0;
 };

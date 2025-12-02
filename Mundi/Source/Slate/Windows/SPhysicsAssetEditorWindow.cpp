@@ -769,20 +769,25 @@ void SPhysicsAssetEditorWindow::ViewportRenderCallback(const ImDrawList* parent_
     }
 }
 
-void SPhysicsAssetEditorWindow::DrawWireframeBox(ULineComponent* LineComp, const FVector& Center, const FVector& HalfExtents, const FVector4& Color)
+void SPhysicsAssetEditorWindow::DrawWireframeBox(ULineComponent* LineComp, const FVector& Center, const FVector& HalfExtents, const FQuat& Rotation, const FVector4& Color)
 {
     if (!LineComp) return;
 
+    // rotated local axes
+    FVector AxisX = Rotation.RotateVector(FVector(1, 0, 0));
+    FVector AxisY = Rotation.RotateVector(FVector(0, 1, 0));
+    FVector AxisZ = Rotation.RotateVector(FVector(0, 0, 1));
+
     // 8 corners of the box
     FVector corners[8] = {
-        Center + FVector( HalfExtents.X,  HalfExtents.Y,  HalfExtents.Z),  // 0: +X +Y +Z
-        Center + FVector( HalfExtents.X,  HalfExtents.Y, -HalfExtents.Z),  // 1: +X +Y -Z
-        Center + FVector( HalfExtents.X, -HalfExtents.Y,  HalfExtents.Z),  // 2: +X -Y +Z
-        Center + FVector( HalfExtents.X, -HalfExtents.Y, -HalfExtents.Z),  // 3: +X -Y -Z
-        Center + FVector(-HalfExtents.X,  HalfExtents.Y,  HalfExtents.Z),  // 4: -X +Y +Z
-        Center + FVector(-HalfExtents.X,  HalfExtents.Y, -HalfExtents.Z),  // 5: -X +Y -Z
-        Center + FVector(-HalfExtents.X, -HalfExtents.Y,  HalfExtents.Z),  // 6: -X -Y +Z
-        Center + FVector(-HalfExtents.X, -HalfExtents.Y, -HalfExtents.Z)   // 7: -X -Y -Z
+        Center + AxisX * HalfExtents.X + AxisY * HalfExtents.Y + AxisZ * HalfExtents.Z,  // 0: +X +Y +Z
+        Center + AxisX * HalfExtents.X + AxisY * HalfExtents.Y - AxisZ * HalfExtents.Z,  // 1: +X +Y -Z
+        Center + AxisX * HalfExtents.X - AxisY * HalfExtents.Y + AxisZ * HalfExtents.Z,  // 2: +X -Y +Z
+        Center + AxisX * HalfExtents.X - AxisY * HalfExtents.Y - AxisZ * HalfExtents.Z,  // 3: +X -Y -Z
+        Center - AxisX * HalfExtents.X + AxisY * HalfExtents.Y + AxisZ * HalfExtents.Z,  // 4: -X +Y +Z
+        Center - AxisX * HalfExtents.X + AxisY * HalfExtents.Y - AxisZ * HalfExtents.Z,  // 5: -X +Y -Z
+        Center - AxisX * HalfExtents.X - AxisY * HalfExtents.Y + AxisZ * HalfExtents.Z,  // 6: -X -Y +Z
+        Center - AxisX * HalfExtents.X - AxisY * HalfExtents.Y - AxisZ * HalfExtents.Z   // 7: -X -Y -Z
     };
 
     // 12 edges of the box
@@ -805,7 +810,7 @@ void SPhysicsAssetEditorWindow::DrawWireframeBox(ULineComponent* LineComp, const
     LineComp->AddLine(corners[6], corners[7], Color);
 }
 
-void SPhysicsAssetEditorWindow::DrawWireframeSphere(ULineComponent* LineComp, const FVector& Center, float Radius, const FVector4& Color, int32 Segments)
+void SPhysicsAssetEditorWindow::DrawWireframeSphere(ULineComponent* LineComp, const FVector& Center, float Radius, const FQuat& Rotation, const FVector4& Color, int32 Segments)
 {
     if (!LineComp || Segments < 3) return;
 
@@ -823,103 +828,123 @@ void SPhysicsAssetEditorWindow::DrawWireframeSphere(ULineComponent* LineComp, co
         float sin1 = sinf(angle1);
 
         // XY plane (Z = 0)
-        FVector p0_xy = Center + FVector(Radius * cos0, Radius * sin0, 0.0f);
-        FVector p1_xy = Center + FVector(Radius * cos1, Radius * sin1, 0.0f);
+        FVector local_xy_0 = FVector(Radius * cos0, Radius * sin0, 0.0f);
+        FVector local_xy_1 = FVector(Radius * cos1, Radius * sin1, 0.0f);
+        FVector p0_xy = Center + Rotation.RotateVector(local_xy_0);
+        FVector p1_xy = Center + Rotation.RotateVector(local_xy_1);
         LineComp->AddLine(p0_xy, p1_xy, Color);
 
         // XZ plane (Y = 0)
-        FVector p0_xz = Center + FVector(Radius * cos0, 0.0f, Radius * sin0);
-        FVector p1_xz = Center + FVector(Radius * cos1, 0.0f, Radius * sin1);
+        FVector local_xz_0 = FVector(Radius * cos0, 0.0f, Radius * sin0);
+        FVector local_xz_1 = FVector(Radius * cos1, 0.0f, Radius * sin1);
+        FVector p0_xz = Center + Rotation.RotateVector(local_xz_0);
+        FVector p1_xz = Center + Rotation.RotateVector(local_xz_1);
         LineComp->AddLine(p0_xz, p1_xz, Color);
 
         // YZ plane (X = 0)
-        FVector p0_yz = Center + FVector(0.0f, Radius * cos0, Radius * sin0);
-        FVector p1_yz = Center + FVector(0.0f, Radius * cos1, Radius * sin1);
+        FVector local_yz_0 = FVector(0.0f, Radius * cos0, Radius * sin0);
+        FVector local_yz_1 = FVector(0.0f, Radius * cos1, Radius * sin1);
+        FVector p0_yz = Center + Rotation.RotateVector(local_yz_0);
+        FVector p1_yz = Center + Rotation.RotateVector(local_yz_1);
         LineComp->AddLine(p0_yz, p1_yz, Color);
     }
 }
 
-void SPhysicsAssetEditorWindow::DrawWireframeCapsule(ULineComponent* LineComp, const FVector& Center, float Radius, float HalfHeight, const FVector4& Color, int32 Segments)
+void SPhysicsAssetEditorWindow::DrawWireframeCapsule(ULineComponent* LineComp, const FVector& Center, float Radius, float HalfHeight, const FQuat& Rotation, const FVector4& Color, int32 Segments)
 {
     if (!LineComp || Segments < 3) return;
 
-    const float TWO_PI = 6.28318530718f;
-
     // Capsule is oriented along Z-axis
-    // Top hemisphere center
-    FVector TopCenter = Center + FVector(0.0f, 0.0f, HalfHeight);
-    // Bottom hemisphere center
-    FVector BottomCenter = Center - FVector(0.0f, 0.0f, HalfHeight);
+    // Top/Bottom hemisphere center (local, before rotation)
+    FVector LocalTop = FVector(0.0f, 0.0f, HalfHeight);
+    FVector LocalBottom = FVector(0.0f, 0.0f, -HalfHeight);
+    
+    // Rotate top/bottom centers
+    FVector RotTop = Rotation.RotateVector(LocalTop);
+    FVector RotBottom = Rotation.RotateVector(LocalBottom);
 
+    // --------------------------------------------------------
     // Draw cylinder body (4 vertical lines connecting top and bottom circles)
+    // --------------------------------------------------------
     int32 numVerticalLines = 4;
     for (int32 i = 0; i < numVerticalLines; ++i)
     {
-        float angle = (static_cast<float>(i) / static_cast<float>(numVerticalLines)) * TWO_PI;
+        float angle = (static_cast<float>(i) / (static_cast<float>(numVerticalLines))) * TWO_PI;
         float cosA = cosf(angle);
         float sinA = sinf(angle);
 
-        FVector topPoint = TopCenter + FVector(Radius * cosA, Radius * sinA, 0.0f);
-        FVector bottomPoint = BottomCenter + FVector(Radius * cosA, Radius * sinA, 0.0f);
-        LineComp->AddLine(topPoint, bottomPoint, Color);
+        FVector localCirclePoint = FVector(Radius * cosA, Radius * sinA, 0.0f);
+
+        // rotate center and circle separately
+        FVector p0 = Center + RotTop + Rotation.RotateVector(localCirclePoint);
+        FVector p1 = Center + RotBottom + Rotation.RotateVector(localCirclePoint);
+
+        LineComp->AddLine(p0, p1, Color);
     }
 
+    // --------------------------------------------------------
     // Draw top and bottom circles (XY plane)
+    // --------------------------------------------------------
     for (int32 i = 0; i < Segments; ++i)
     {
         float angle0 = (static_cast<float>(i) / static_cast<float>(Segments)) * TWO_PI;
         float angle1 = (static_cast<float>((i + 1) % Segments) / static_cast<float>(Segments)) * TWO_PI;
 
-        float cos0 = cosf(angle0);
-        float sin0 = sinf(angle0);
-        float cos1 = cosf(angle1);
-        float sin1 = sinf(angle1);
+        FVector local0 = FVector(Radius * cosf(angle0), Radius * sinf(angle0), 0);
+        FVector local1 = FVector(Radius * cosf(angle1), Radius * sinf(angle1), 0);
+
+        // Rotation for circle arcs
+        FVector r0 = Rotation.RotateVector(local0);
+        FVector r1 = Rotation.RotateVector(local1);
 
         // Top circle
-        FVector p0_top = TopCenter + FVector(Radius * cos0, Radius * sin0, 0.0f);
-        FVector p1_top = TopCenter + FVector(Radius * cos1, Radius * sin1, 0.0f);
-        LineComp->AddLine(p0_top, p1_top, Color);
+        LineComp->AddLine(Center + RotTop + r0, Center + RotTop + r1, Color);
 
         // Bottom circle
-        FVector p0_bottom = BottomCenter + FVector(Radius * cos0, Radius * sin0, 0.0f);
-        FVector p1_bottom = BottomCenter + FVector(Radius * cos1, Radius * sin1, 0.0f);
-        LineComp->AddLine(p0_bottom, p1_bottom, Color);
+        LineComp->AddLine(Center + RotBottom + r0, Center + RotBottom + r1, Color);
     }
 
+    // --------------------------------------------------------
     // Draw hemisphere arcs (XZ and YZ planes)
+    // --------------------------------------------------------
     int32 arcSegments = Segments / 2;
-    for (int32 i = 0; i <= arcSegments; ++i)
+
+    for (int32 i = 0; i < arcSegments; ++i)
     {
         float angle0 = (static_cast<float>(i) / static_cast<float>(arcSegments)) * PI;
         float angle1 = (static_cast<float>(i + 1) / static_cast<float>(arcSegments)) * PI;
 
-        float cos0 = cosf(angle0);
-        float sin0 = sinf(angle0);
-        float cos1 = cosf(angle1);
-        float sin1 = sinf(angle1);
+        // XZ plane arc
+        FVector a0 = FVector(Radius * cosf(angle0), 0, Radius * sinf(angle0));
+        FVector a1 = FVector(Radius * cosf(angle1), 0, Radius * sinf(angle1));
 
-        // Top hemisphere - XZ plane arc
-        if (i < arcSegments)
-        {
-            FVector p0_top_xz = TopCenter + FVector(Radius * cos0, 0.0f, Radius * sin0);
-            FVector p1_top_xz = TopCenter + FVector(Radius * cos1, 0.0f, Radius * sin1);
-            LineComp->AddLine(p0_top_xz, p1_top_xz, Color);
+        // Top hemisphere (XZ)
+        FVector p0_top_xz = Center + RotTop + Rotation.RotateVector(a0);
+        FVector p1_top_xz = Center + RotTop + Rotation.RotateVector(a1);
+        LineComp->AddLine(p0_top_xz, p1_top_xz, Color);
 
-            // Top hemisphere - YZ plane arc
-            FVector p0_top_yz = TopCenter + FVector(0.0f, Radius * cos0, Radius * sin0);
-            FVector p1_top_yz = TopCenter + FVector(0.0f, Radius * cos1, Radius * sin1);
-            LineComp->AddLine(p0_top_yz, p1_top_yz, Color);
+        // Bottom hemisphere (XZ)
+        FVector a0b = FVector(a0.X, a0.Y, -a0.Z);
+        FVector a1b = FVector(a1.X, a1.Y, -a1.Z);
+        FVector p0_bottom_xz = Center + RotBottom + Rotation.RotateVector(a0b);
+        FVector p1_bottom_xz = Center + RotBottom + Rotation.RotateVector(a1b);
+        LineComp->AddLine(p0_bottom_xz, p1_bottom_xz, Color);
 
-            // Bottom hemisphere - XZ plane arc
-            FVector p0_bottom_xz = BottomCenter + FVector(Radius * cos0, 0.0f, -Radius * sin0);
-            FVector p1_bottom_xz = BottomCenter + FVector(Radius * cos1, 0.0f, -Radius * sin1);
-            LineComp->AddLine(p0_bottom_xz, p1_bottom_xz, Color);
+        // YZ plane arc
+        FVector b0 = FVector(0, Radius * cosf(angle0), Radius * sinf(angle0));
+        FVector b1 = FVector(0, Radius * cosf(angle1), Radius * sinf(angle1));
 
-            // Bottom hemisphere - YZ plane arc
-            FVector p0_bottom_yz = BottomCenter + FVector(0.0f, Radius * cos0, -Radius * sin0);
-            FVector p1_bottom_yz = BottomCenter + FVector(0.0f, Radius * cos1, -Radius * sin1);
-            LineComp->AddLine(p0_bottom_yz, p1_bottom_yz, Color);
-        }
+        // Top hemisphere (YZ)
+        FVector p0_top_yz = Center + RotTop + Rotation.RotateVector(b0);
+        FVector p1_top_yz = Center + RotTop + Rotation.RotateVector(b1);
+        LineComp->AddLine(p0_top_yz, p1_top_yz, Color);
+
+        // Bottom hemisphere (YZ)
+        FVector b0b = FVector(b0.X, b0.Y, -b0.Z);
+        FVector b1b = FVector(b1.X, b1.Y, -b1.Z);
+        FVector p0_bottom_yz = Center + RotBottom + Rotation.RotateVector(b0b);
+        FVector p1_bottom_yz = Center + RotBottom + Rotation.RotateVector(b1b);
+        LineComp->AddLine(p0_bottom_yz, p1_bottom_yz, Color);
     }
 }
 
@@ -992,6 +1017,8 @@ void SPhysicsAssetEditorWindow::RebuildCollisionShapes()
 
         // Get bone world transform
         FTransform BoneTransform = MeshComp->GetBoneWorldTransform(BoneIndex);
+        BoneTransform.Scale3D = FVector(1, 1, 1);   // Remove Scaling!!!
+
         FVector BoneWorldPos = BoneTransform.Translation;
         FQuat BoneWorldRot = BoneTransform.Rotation;
 
@@ -1003,7 +1030,8 @@ void SPhysicsAssetEditorWindow::RebuildCollisionShapes()
         {
             // Transform center to world space
             FVector WorldCenter = BoneTransform.TransformPosition(SphereElem.Center);
-            DrawWireframeSphere(LineComp, WorldCenter, SphereElem.Radius, DrawColor, 16);
+            FQuat WorldRotation = BoneWorldRot;
+            DrawWireframeSphere(LineComp, WorldCenter, SphereElem.Radius, WorldRotation, DrawColor, 16);
         }
 
         // Draw boxes
@@ -1016,9 +1044,8 @@ void SPhysicsAssetEditorWindow::RebuildCollisionShapes()
             // Box half extents (BoxElem stores full dimensions)
             FVector HalfExtents(BoxElem.X * 0.5f, BoxElem.Y * 0.5f, BoxElem.Z * 0.5f);
 
-            // Draw box with rotation (need to implement rotated box drawing)
-            // For now, draw axis-aligned box at transformed center
-            DrawWireframeBox(LineComp, WorldCenter, HalfExtents, DrawColor);
+            // Draw box with rotation and transformed center
+            DrawWireframeBox(LineComp, WorldCenter, HalfExtents, WorldRotation, DrawColor);
         }
 
         // Draw capsules
@@ -1033,7 +1060,7 @@ void SPhysicsAssetEditorWindow::RebuildCollisionShapes()
 
             // Draw capsule with rotation (need to implement rotated capsule drawing)
             // For now, draw axis-aligned capsule at transformed center
-            DrawWireframeCapsule(LineComp, WorldCenter, CapsuleElem.Radius, HalfHeight, DrawColor, 16);
+            DrawWireframeCapsule(LineComp, WorldCenter, CapsuleElem.Radius, HalfHeight, WorldRotation, DrawColor, 16);
         }
     }
 
@@ -1072,36 +1099,129 @@ bool SPhysicsAssetEditorWindow::HasBodyInSubtree(int32 BoneIndex, const TArray<F
     return false;
 }
 
-void SPhysicsAssetEditorWindow::GenerateAllBodies(EPrimitiveType PrimitiveType)
+void SPhysicsAssetEditorWindow::CreateBodyForBone(int32 BoneIndex, EPrimitiveType PrimitiveType)
 {
-    if (!ActiveState || !ActiveState->CurrentMesh || !ActiveState->CurrentPhysicsAsset)
+    if (!ActiveState || !ActiveState->CurrentMesh)
+        return;
+
+    USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+    if (!MeshComp)
+        return;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton || BoneIndex < 0 || BoneIndex >= Skeleton->Bones.Num())
+        return;
+
+    // If no PhysicsAsset exists yet, create one.
+    if (!ActiveState->CurrentPhysicsAsset)
     {
-        UE_LOG("GenerateAllBodies: Invalid state - missing mesh or physics asset");
+        ActiveState->CurrentPhysicsAsset = NewObject<UPhysicsAsset>();
+    }
+
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    const FBone& Bone = Skeleton->Bones[BoneIndex];
+    FName BoneName(Bone.Name);
+
+    // Check if a body already exists for this bone
+    if (PhysicsAsset->FindBodyIndex(BoneName) >= 0)
+    {
+        UE_LOG("CreateBodyForBone: Bone '%s' already has a physics body.", Bone.Name.c_str());
         return;
     }
 
+    UE_LOG("CreateBodyForBone: Creating body for bone '%s' (Index: %d)", Bone.Name.c_str(), BoneIndex);
+
+    // ------------------------------------------------------
+    // Calculate center & rotation (bone-local, scale-free)
+    // ------------------------------------------------------
+    FVector LocalCenter;
+    FQuat LocalRotation;
+    CalculateBoneLocalShapeTransform(BoneIndex, Skeleton, MeshComp, LocalCenter, LocalRotation);
+
+    // ------------------------------------------------------
+    // Calculate bone length
+    // ------------------------------------------------------
+    float Radius, HalfHeight;
+    FVector Extent;
+    CalculateBodyDimensions(BoneIndex, Skeleton, MeshComp, PrimitiveType,
+                            Radius, HalfHeight, Extent);
+
+    // Create BodySetup and primitives
+    UBodySetup* NewBody = NewObject<UBodySetup>();
+    if (!NewBody) return;
+
+    NewBody->BoneName = BoneName;
+    NewBody->BodyType = ToBodySetupType(PrimitiveType);
+
+    // Add primitive element based on type
+    switch (PrimitiveType)
+    {
+    case EPrimitiveType::Sphere:
+    {
+        FSphereElem SphereElem(Radius);
+        SphereElem.Center = LocalCenter;
+        NewBody->AggGeom.SphereElems.Add(SphereElem);
+        break;
+    }
+    case EPrimitiveType::Box:
+    {
+        FBoxElem BoxElem(Extent.X * 2, Extent.Y * 2, Extent.Z * 2);
+        BoxElem.Center = LocalCenter;
+        BoxElem.Rotation = LocalRotation;
+        NewBody->AggGeom.BoxElems.Add(BoxElem);
+        break;
+    }
+    case EPrimitiveType::Capsule:
+    {
+        FSphylElem CapsuleElem(Radius, HalfHeight * 2.f);
+        CapsuleElem.Center = LocalCenter;
+        CapsuleElem.Rotation = LocalRotation;
+        NewBody->AggGeom.SphylElems.Add(CapsuleElem);
+        break;
+    }
+    default:
+        UE_LOG("CreateBodyForBone: Unknown primitive type.");
+        break;
+    }
+
+    // Add the body to the physics asset
+    PhysicsAsset->AddBodySetup(NewBody);
+    PhysicsAsset->UpdateBodySetupIndexMap();
+
+    // Select the newly created body
+    ActiveState->SelectedBoneIndex = BoneIndex;
+    ActiveState->SelectedBodyIndex = PhysicsAsset->FindBodyIndex(BoneName);
+    ActiveState->bBoneLinesDirty = true;
+    bCollisionShapesDirty = true;
+
+    UE_LOG("CreateBodyForBone: Successfully created body for '%s'.", Bone.Name.c_str());
+}
+
+void SPhysicsAssetEditorWindow::GenerateAllBodies(EPrimitiveType PrimitiveType)
+{
+    if (!ActiveState || !ActiveState->CurrentMesh)
+        return;
+
+    USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+    if (!MeshComp)
+        return;
+
     const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
     if (!Skeleton || Skeleton->Bones.IsEmpty())
-    {
-        UE_LOG("GenerateAllBodies: Skeleton is empty or invalid");
         return;
-    }
 
     // Get skeletal mesh data for vertex information
     const FSkeletalMeshData* MeshData = ActiveState->CurrentMesh->GetSkeletalMeshData();
     if (!MeshData || MeshData->Vertices.Num() == 0)
-    {
-        UE_LOG("GenerateAllBodies: No vertex data available - cannot use vertex-driven generation");
         return;
-    }
 
-    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    // Prepare PhysicsAsset 
+    if (!ActiveState->CurrentPhysicsAsset)
+        ActiveState->CurrentPhysicsAsset = NewObject<UPhysicsAsset>();
 
     // Clear all existing bodies before regenerating
-    UE_LOG("GenerateAllBodies: Clearing existing bodies");
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
     PhysicsAsset->ClearAllBodies();
-
-    UE_LOG("GenerateAllBodies: Starting vertex-driven body generation (UE style) for %d bones", Skeleton->Bones.Num());
 
     // Step 1: Build bone-to-vertex influence map
     TArray<FBoneVertexInfluence> InfluenceMap;
@@ -1118,9 +1238,11 @@ void SPhysicsAssetEditorWindow::GenerateAllBodies(EPrimitiveType PrimitiveType)
 
         // Filter: Skip bones that shouldn't have physics bodies
         if (!ShouldCreateBodyForBone(BoneIndex, Skeleton))
-        {
             continue;
-        }
+
+        // Check influence map range
+        if (BoneIndex < 0 || BoneIndex >= InfluenceMap.Num())
+            continue;
 
         // Check if this bone has enough influenced vertices
         const FBoneVertexInfluence& Influence = InfluenceMap[BoneIndex];
@@ -1149,57 +1271,69 @@ void SPhysicsAssetEditorWindow::GenerateAllBodies(EPrimitiveType PrimitiveType)
         FVector PrincipalAxis = CalculatePrincipalAxis(Influence.Vertices);
 
         // Step 4: Fit minimal bounding primitive based on type
-        FVector Center;
-        FQuat Rotation;
-        float Radius, HalfHeight;
-        FVector Extent;
+        FVector FittedCenter = FVector::Zero();
+        FQuat   FittedRotation = FQuat::Identity();
+        float   Radius = 0.0f;
+        float   HalfHeight = 0.0f;
+        FVector Extent = FVector::Zero();
 
         switch (PrimitiveType)
         {
         case EPrimitiveType::Sphere:
-            FitMinimalSphere(Influence.Vertices, Center, Radius);
+            FitMinimalSphere(Influence.Vertices, FittedCenter, Radius);
             NewBody->SphereRadius = Radius;
-            {
-                FSphereElem SphereElem(Radius);
-                SphereElem.Center = Center;
-                NewBody->AggGeom.SphereElems.Add(SphereElem);
-            }
-            UE_LOG("  -> Sphere: Center=(%.2f,%.2f,%.2f), Radius=%.2f",
-                Center.X, Center.Y, Center.Z, Radius);
             break;
 
         case EPrimitiveType::Box:
-            FitMinimalBox(Influence.Vertices, PrincipalAxis, Center, Rotation, Extent);
+            FitMinimalBox(Influence.Vertices, PrincipalAxis, FittedCenter, FittedRotation, Extent);
             NewBody->BoxExtent = Extent;
-            {
-                FBoxElem BoxElem(Extent.X * 2.0f, Extent.Y * 2.0f, Extent.Z * 2.0f);
-                BoxElem.Center = Center;
-                BoxElem.Rotation = Rotation;
-                NewBody->AggGeom.BoxElems.Add(BoxElem);
-            }
-            UE_LOG("  -> Box: Center=(%.2f,%.2f,%.2f), Extent=(%.2f,%.2f,%.2f)",
-                Center.X, Center.Y, Center.Z, Extent.X, Extent.Y, Extent.Z);
             break;
 
         case EPrimitiveType::Capsule:
-            FitMinimalCapsule(Influence.Vertices, PrincipalAxis, Center, Rotation, Radius, HalfHeight);
+            FitMinimalCapsule(Influence.Vertices, PrincipalAxis, FittedCenter, FittedRotation, Radius, HalfHeight);
             NewBody->CapsuleHalfHeight = HalfHeight;
             NewBody->SphereRadius = Radius;
-            {
-                float CapsuleLength = HalfHeight * 2.0f;
-                FSphylElem CapsuleElem(Radius, CapsuleLength);
-                CapsuleElem.Center = Center;
-                CapsuleElem.Rotation = Rotation;
-                NewBody->AggGeom.SphylElems.Add(CapsuleElem);
-            }
-            UE_LOG("  -> Capsule: Center=(%.2f,%.2f,%.2f), Radius=%.2f, HalfHeight=%.2f",
-                Center.X, Center.Y, Center.Z, Radius, HalfHeight);
             break;
 
         default:
-            UE_LOG("  -> Unknown primitive type");
-            delete NewBody;
+            UE_LOG("GenerateAllBodies: Unknown primitive type for bone %s", Bone.Name.c_str());
             continue;
+        }
+
+        // Compute bone-local center and rotation (same rules as CreateBodyForBone)
+        FVector LocalCenter;
+        FQuat   LocalRotation;
+        CalculateBoneLocalShapeTransform(BoneIndex, Skeleton, MeshComp, LocalCenter, LocalRotation);
+
+        // Create final primitive: use bone-local center/rotation and vertex-fitted dimensions
+        switch (PrimitiveType)
+        {
+        case EPrimitiveType::Sphere:
+        {
+            FSphereElem SphereElem(Radius);
+            SphereElem.Center = LocalCenter;
+            NewBody->AggGeom.SphereElems.Add(SphereElem);
+            break;
+        }
+        case EPrimitiveType::Box:
+        {
+            // Extent는 half-extent (vertex fitting 결과),
+            // BodySetup 생성자는 full size를 받으므로 *2
+            FBoxElem BoxElem(Extent.X * 2.0f, Extent.Y * 2.0f, Extent.Z * 2.0f);
+            BoxElem.Center = LocalCenter;
+            BoxElem.Rotation = LocalRotation;
+            NewBody->AggGeom.BoxElems.Add(BoxElem);
+            break;
+        }
+        case EPrimitiveType::Capsule:
+        {
+            float CapsuleLength = HalfHeight * 2.0f; // FSphylElem은 HalfHeight가 아닌 full length를 받음
+            FSphylElem CapsuleElem(Radius, CapsuleLength);
+            CapsuleElem.Center = LocalCenter;
+            CapsuleElem.Rotation = LocalRotation;
+            NewBody->AggGeom.SphylElems.Add(CapsuleElem);
+            break;
+        }
         }
 
         // Add the body to the physics asset
@@ -1213,7 +1347,70 @@ void SPhysicsAssetEditorWindow::GenerateAllBodies(EPrimitiveType PrimitiveType)
     UE_LOG("GenerateAllBodies: Completed vertex-driven generation - created %d bodies", CreatedCount);
 
     // Mark collision shapes dirty to visualize the newly created bodies
+    ActiveState->bBoneLinesDirty = true;
     bCollisionShapesDirty = true;
+}
+
+int32 SPhysicsAssetEditorWindow::FindFirstChildBone(int32 BoneIndex, const FSkeleton* Skeleton) const
+{
+    if (!Skeleton || BoneIndex < 0 || BoneIndex >= Skeleton->Bones.Num())
+        return -1;
+
+    const TArray<FBone>& Bones = Skeleton->Bones;
+    for (int32 i = 0; i < Bones.Num(); ++i)
+    {
+        if (Bones[i].ParentIndex == BoneIndex)
+        {
+            return i;   // first child
+        }
+    }
+
+    return -1;  // no child
+}
+
+void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex, const FSkeleton* Skeleton, USkeletalMeshComponent* MeshComp, FVector& OutLocalCenter, FQuat& OutLocalRotation)
+{
+    OutLocalCenter = FVector::Zero();
+    OutLocalRotation = FQuat::Identity();
+
+    if (!Skeleton || !MeshComp)
+        return;
+
+    // Find first child bone
+    int32 FirstChildIndex = FindFirstChildBone(BoneIndex, Skeleton);
+
+    // Get bone world transform (remove scale)
+    FTransform BoneWorldTM = MeshComp->GetBoneWorldTransform(BoneIndex);
+    BoneWorldTM.Scale3D = FVector(1, 1, 1);
+
+    FVector BoneWorldPos = BoneWorldTM.Translation;
+
+    // Child world pos (fallback for leaf bones)
+    FVector ChildWorldPos = BoneWorldPos;
+    if (FirstChildIndex >= 0)
+    {
+        FTransform ChildWorldTM = MeshComp->GetBoneWorldTransform(FirstChildIndex);
+        ChildWorldTM.Scale3D = FVector(1, 1, 1);
+        ChildWorldPos = ChildWorldTM.Translation;
+    }
+
+    // 1) LocalCenter ---------------------------------
+    // Compute bone midpoint in world space
+    // Convert world offset → bone local (rotation only)
+    FVector WorldCenter = (BoneWorldPos + ChildWorldPos) * 0.5f;
+    FVector WorldOffset = WorldCenter - BoneWorldPos;
+
+    FQuat InvRot = BoneWorldTM.Rotation.Inverse();
+    OutLocalCenter = InvRot.RotateVector(WorldOffset);
+
+    // 2) LocalRotation --------------------------------
+    // Align collider Z-axis with bone direction
+    FVector WorldDir = (ChildWorldPos - BoneWorldPos).GetSafeNormal();
+    if (WorldDir.IsZero())
+    {
+        FVector LocalDir = InvRot.RotateVector(WorldDir);
+        OutLocalRotation = FQuat::FindBetween(FVector(0, 0, 1), LocalDir);
+    }
 }
 
 bool SPhysicsAssetEditorWindow::ShouldCreateBodyForBone(int32 BoneIndex, const FSkeleton* Skeleton) const
@@ -1294,189 +1491,78 @@ bool SPhysicsAssetEditorWindow::ShouldCreateBodyForBone(int32 BoneIndex, const F
     return true;
 }
 
-void SPhysicsAssetEditorWindow::CreateBodyForBone(int32 BoneIndex, EPrimitiveType PrimitiveType)
+void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const FSkeleton* Skeleton, USkeletalMeshComponent* MeshComp, 
+        EPrimitiveType PrimitiveType, float& OutRadius, float& OutHalfHeight, FVector& OutExtent) const
 {
-    if (!ActiveState || !ActiveState->CurrentMesh)
-    {
-        UE_LOG("CreateBodyForBone: Invalid state - missing mesh.");
-        return;
-    }
-
-    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
-    if (!Skeleton || BoneIndex < 0 || BoneIndex >= Skeleton->Bones.Num())
-    {
-        UE_LOG("CreateBodyForBone: Invalid bone index or skeleton.");
-        return;
-    }
-
-    // If no PhysicsAsset exists yet, create one.
-    if (!ActiveState->CurrentPhysicsAsset)
-    {
-        ActiveState->CurrentPhysicsAsset = NewObject<UPhysicsAsset>();
-        UE_LOG("CreateBodyForBone: Created new PhysicsAsset for skeletal mesh.");
-    }
-
-    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
-    const FBone& Bone = Skeleton->Bones[BoneIndex];
-    FName BoneName(Bone.Name);
-
-    // Check if a body already exists for this bone
-    if (PhysicsAsset->FindBodyIndex(BoneName) >= 0)
-    {
-        UE_LOG("CreateBodyForBone: Bone '%s' already has a physics body. Cannot create another one.", Bone.Name.c_str());
-        return;
-    }
-    
-    UE_LOG("CreateBodyForBone: Creating body for bone '%s' (BoneIndex: %d) with primitive type %d.", Bone.Name.c_str(), BoneIndex, (int)PrimitiveType);
-
-    // Create new BodySetup
-    UBodySetup* NewBody = NewObject<UBodySetup>();
-    if (!NewBody)
-    {
-        UE_LOG("CreateBodyForBone: Failed to create BodySetup for bone '%s'.", Bone.Name.c_str());
-        return;
-    }
-
-    NewBody->BoneName = BoneName;
-    NewBody->BodyType = ToBodySetupType(PrimitiveType); // Assuming ToBodySetupType is accessible
-
-    float OutRadius = 0.0f;
-    float OutHalfHeight = 0.0f;
-    FVector OutExtent = FVector::Zero();
-
-    // Calculate dimensions based on bone length using the existing helper function
-    CalculateBodyDimensions(BoneIndex, Skeleton, PrimitiveType, OutRadius, OutHalfHeight, OutExtent);
-
-    // Add primitive element based on type
-    switch (PrimitiveType)
-    {
-    case EPrimitiveType::Sphere:
-        {
-            FSphereElem SphereElem(OutRadius);
-            SphereElem.Center = FVector::Zero(); // Center at bone origin for now
-            NewBody->AggGeom.SphereElems.Add(SphereElem);
-            UE_LOG("  -> Sphere: Center=(%.2f,%.2f,%.2f), Radius=%.2f",
-                SphereElem.Center.X, SphereElem.Center.Y, SphereElem.Center.Z, SphereElem.Radius);
-        }
-        break;
-
-    case EPrimitiveType::Box:
-    {
-    FBoxElem BoxElem(OutExtent.X * 2.0f, OutExtent.Y * 2.0f, OutExtent.Z * 2.0f); // BoxElem expects full dimensions
-    BoxElem.Center = FVector::Zero(); // Center at bone origin for now
-    BoxElem.Rotation = FQuat::Identity(); // No rotation for now
-    NewBody->AggGeom.BoxElems.Add(BoxElem);
-    UE_LOG("  -> Box: Center=(%.2f,%.2f,%.2f), Extent=(%.2f,%.2f,%.2f)",
-        BoxElem.Center.X, BoxElem.Center.Y, BoxElem.Center.Z, OutExtent.X, OutExtent.Y, OutExtent.Z);
-    }
-    break;
-    
-    case EPrimitiveType::Capsule:
-    {
-        float CapsuleLength = OutHalfHeight * 2.0f; // FSphylElem expects full length
-        FSphylElem CapsuleElem(OutRadius, CapsuleLength);
-        CapsuleElem.Center = FVector::Zero(); // Center at bone origin for now
-        CapsuleElem.Rotation = FQuat::Identity(); // No rotation for now
-        NewBody->AggGeom.SphylElems.Add(CapsuleElem);
-        UE_LOG("  -> Capsule: Center=(%.2f,%.2f,%.2f), Radius=%.2f, HalfHeight=%.2f",
-            CapsuleElem.Center.X, CapsuleElem.Center.Y, CapsuleElem.Center.Z, CapsuleElem.Radius, OutHalfHeight);
-    }
-    break;
-    
-    default:
-        UE_LOG("  -> Unknown primitive type for body creation.");
-        return;
-    }
-    
-    // Add the body to the physics asset
-    PhysicsAsset->AddBodySetup(NewBody);
-    PhysicsAsset->UpdateBodySetupIndexMap(); // Rebuild internal map
-    
-    // Select the newly created body
-    ActiveState->SelectedBoneIndex = BoneIndex;
-    ActiveState->SelectedBodyIndex = PhysicsAsset->FindBodyIndex(BoneName); // Re-find the index after adding
-    ActiveState->bBoneLinesDirty = true;
-    bCollisionShapesDirty = true; // Mark collision shapes dirty to visualize
-    
-    UE_LOG("CreateBodyForBone: Successfully created body for '%s'.", Bone.Name.c_str());
-}
-
-void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const FSkeleton* Skeleton, EPrimitiveType PrimitiveType,
-                                                         float& OutRadius, float& OutHalfHeight, FVector& OutExtent) const
-{
-    if (!Skeleton || BoneIndex < 0 || BoneIndex >= Skeleton->Bones.size())
+    if (!Skeleton || !MeshComp)
     {
         // Default fallback dimensions
-        OutRadius = 5.0f;
-        OutHalfHeight = 10.0f;
-        OutExtent = FVector(5.0f, 5.0f, 10.0f);
+        OutRadius = 0.f;
+        OutHalfHeight = 0.f;
+        OutExtent = FVector::Zero();
         return;
     }
 
-    const TArray<FBone>& Bones = Skeleton->Bones;
-    const FBone& Bone = Bones[BoneIndex];
+    // Find the first child bone
+    int32 FirstChildIndex = FindFirstChildBone(BoneIndex, Skeleton);
 
-    // Find first child bone
-    int32 FirstChildIndex = -1;
-    for (int32 i = 0; i < Bones.size(); ++i)
-    {
-        if (Bones[i].ParentIndex == BoneIndex)
-        {
-            FirstChildIndex = i;
-            break;
-        }
-    }
+    // Get world space bone transforms
+    FTransform BoneWorldTM = MeshComp->GetBoneWorldTransform(BoneIndex);
+    BoneWorldTM.Scale3D = FVector(1, 1, 1);
+    FVector BoneWorldPos = BoneWorldTM.Translation;
 
-    float BoneLength = 10.0f;  // Default length for leaf bones
-
-    // Calculate bone length if there's a child
+    FVector ChildWorldPos = BoneWorldPos;
     if (FirstChildIndex >= 0)
     {
-        // Get bone positions from bind pose (translation is in M[3][0..2])
-        FVector BonePos = FVector(Bone.BindPose.M[3][0], Bone.BindPose.M[3][1], Bone.BindPose.M[3][2]);
-        FVector ChildPos = FVector(
-            Bones[FirstChildIndex].BindPose.M[3][0],
-            Bones[FirstChildIndex].BindPose.M[3][1],
-            Bones[FirstChildIndex].BindPose.M[3][2]
-        );
+        FTransform ChildWorldTM = MeshComp->GetBoneWorldTransform(FirstChildIndex);
+        ChildWorldTM.Scale3D = FVector(1, 1, 1);
+        ChildWorldPos = ChildWorldTM.Translation;
+    }
 
-        // Calculate distance between bone and child
-        BoneLength = (ChildPos - BonePos).Size();
-
-        // Clamp to reasonable values
-        BoneLength = FMath::Clamp(BoneLength, 1.0f, 100.0f);
+    // Calculate bone length
+    float BoneLength = (ChildWorldPos - BoneWorldPos).Size();
+    const float DefaultLeafLength = 5.0f;
+    if (FirstChildIndex < 0)
+    {
+        BoneLength = DefaultLeafLength;
     }
 
     // Calculate dimensions based on primitive type
     switch (PrimitiveType)
     {
     case EPrimitiveType::Sphere:
-        // Sphere radius is a fraction of bone length
-        OutRadius = BoneLength * 0.3f;
-        OutHalfHeight = 0.0f;
-        OutExtent = FVector(OutRadius, OutRadius, OutRadius);
-        break;
+    {
+        float Radius = BoneLength * 0.5f;
+        if (FirstChildIndex < 0)
+            Radius = DefaultLeafLength * 0.5f;
 
+        OutRadius = Radius;
+        OutHalfHeight = 0.0f;
+        OutExtent = FVector(Radius, Radius, Radius);
+        break;
+    }
     case EPrimitiveType::Box:
-        // Box dimensions based on bone length
-        // Make it elongated along the bone direction (Z-axis)
+    {
+        float HalfX = BoneLength * 0.2f;
+        float HalfY = BoneLength * 0.2f;
+        float HalfZ = BoneLength * 0.5f;
+
         OutRadius = 0.0f;
         OutHalfHeight = 0.0f;
-        OutExtent = FVector(
-            BoneLength * 0.15f,  // X half extent
-            BoneLength * 0.15f,  // Y half extent
-            BoneLength * 0.5f    // Z half extent (along bone)
-        );
+        OutExtent = FVector(HalfX, HalfY, HalfZ);
         break;
-
+    }
     case EPrimitiveType::Capsule:
-        // Capsule oriented along bone
-        // Radius is proportional to bone thickness
-        OutRadius = BoneLength * 0.15f;
-        // Half height is half the cylinder portion (excluding the hemisphere caps)
-        OutHalfHeight = BoneLength * 0.35f;
-        OutExtent = FVector(OutRadius, OutRadius, OutHalfHeight);
+    {
+        float Radius = FMath::Max(BoneLength * 0.25f, 1.0f);
+        float CylinderLength = BoneLength - (Radius * 2.0f);
+        CylinderLength = FMath::Max(CylinderLength, 1.0f);
+
+        OutRadius = Radius;
+        OutHalfHeight = CylinderLength * 0.5f;
+        OutExtent = FVector(Radius, Radius, OutHalfHeight);
         break;
+    }
     }
 }
 
