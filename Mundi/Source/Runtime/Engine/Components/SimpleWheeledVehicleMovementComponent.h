@@ -41,12 +41,22 @@ public:
     // 등록/해제/EndPlay 훅
     void OnRegister(UWorld* InWorld) override;
     void OnUnregister() override;
+	void BeginPlay() override;
     void EndPlay() override;
+
+    // =======================================================================
+    // 업데이트 API
+    // =======================================================================
 
     // UActorComponent 인터페이스 오버라이드
     void TickComponent(float DeltaTime) override;
 
-    // --- 핵심 멤버 변수 (Properties) ---
+    /** 서스펜션 레이캐스트 업데이트(시뮬레이션 전 수행) */
+    void PerformSuspensionRaycasts();
+
+    // =======================================================================
+    // 핵심 멤버 변수 (Properties)
+    // =======================================================================
 
     /** 차량 전체 질량 (PhysX Body와 연동) */
     UPROPERTY(EditAnywhere, Category = "Vehicle")
@@ -89,6 +99,9 @@ public:
 
     /** 핸드브레이크 입력 설정 (0.0f ~ 1.0f) */
     void SetHandbrakeInput(float Handbrake);
+
+    /** 사용자 입력(Throttle/Steering)을 PxVehicleDrive4WRawInputData에 매핑 */
+    void ApplyInputToPhysX(float DeltaTime);
 
 protected:
     // --- PhysX Vehicle 관련 멤버 ---
@@ -145,12 +158,6 @@ protected:
 	// =======================================================================
 	// 내부 업데이트 메소드 (TickComponent에서 호출)
 	// =======================================================================
-
-    /** 사용자 입력(Throttle/Steering)을 PxVehicleDrive4WRawInputData에 매핑 */
-    void ApplyInputToPhysX(float DeltaTime);
-
-    /** 서스펜션 레이캐스트 업데이트 */
-    void PerformSuspensionRaycasts();
 
     /** Vehicle simulate/update 호출 */
     void SimulateVehicle(float DeltaTime);

@@ -44,6 +44,15 @@ void USimpleWheeledVehicleMovementComponent::OnUnregister()
     Super::OnUnregister();
 }
 
+void USimpleWheeledVehicleMovementComponent::BeginPlay()
+{
+    Super::BeginPlay();
+    if (!bRegisteredWithPhysScene)
+    {
+        RegisterWithPhysScene();
+	}
+}
+
 void USimpleWheeledVehicleMovementComponent::EndPlay()
 {
     UnregisterFromPhysScene();
@@ -66,8 +75,6 @@ void USimpleWheeledVehicleMovementComponent::TickComponent(float DeltaTime)
         }
     }
 
-    ApplyInputToPhysX(DeltaTime);
-    PerformSuspensionRaycasts();
     SimulateVehicle(DeltaTime);
     UpdateVehiclePoseFromPhysX();
 }
@@ -677,6 +684,7 @@ void USimpleWheeledVehicleMovementComponent::RegisterWithPhysScene()
 
     if (!World)
     {
+		UE_LOG("[VehicleMovement] Failed to register vehicle component: World is null.");
         return;
     }
 
@@ -684,6 +692,10 @@ void USimpleWheeledVehicleMovementComponent::RegisterWithPhysScene()
     {
         PhysScene->RegisterVehicleComponent(this);
         bRegisteredWithPhysScene = true;
+    }
+    else
+    {
+		UE_LOG("[VehicleMovement] Failed to register vehicle component: PhysScene is null.");
     }
 }
 

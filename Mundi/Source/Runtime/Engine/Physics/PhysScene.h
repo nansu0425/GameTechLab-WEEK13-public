@@ -173,4 +173,8 @@ public:
 private:
     std::unique_ptr<FPhysSceneImpl> Impl;  // PIMPL - PhysX 구현 숨김
     UWorld* OwningWorld = nullptr;
+
+    /** Vehicle 레이캐스트 연속 스킵 카운터 (씬별 추적) */
+    const uint8 MaxSkipCount = 3; // 레이캐스트 최대 연속 스킵 제한
+    uint8 VehicleRaycastSkipCount = 0;
 };
