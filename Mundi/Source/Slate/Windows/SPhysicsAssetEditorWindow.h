@@ -15,6 +15,7 @@ protected:
     virtual void DestroyViewerState(ViewerState*& State) override;
     virtual FString GetWindowTitle() const override { return "Physics Asset Editor"; }
 
+    virtual void RenderContextualControls() override;
     virtual void RenderHierarchySection() override;
     void RenderPhysicsBodyHierarchy();
     void RenderToolsPanel();
@@ -85,4 +86,11 @@ private:
     // Constraint Icon
     class UTexture* IconBoneConstraint = nullptr;
     class UTexture* IconBoneCrossConstraint = nullptr;
+
+    // Physics Simulation
+    bool bIsSimulating = false;
+    void StartSimulation();
+    void StopSimulation();
+    class UTexture* IconPlay = nullptr;
+    class UTexture* IconPause = nullptr;
 };

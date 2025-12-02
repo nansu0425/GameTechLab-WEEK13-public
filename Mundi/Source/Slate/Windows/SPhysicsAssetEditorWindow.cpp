@@ -55,6 +55,16 @@ SPhysicsAssetEditorWindow::~SPhysicsAssetEditorWindow()
         DeleteObject(IconBoneCrossConstraint);
         IconBoneConstraint = nullptr;
     }
+    if (IconPlay)
+    {
+        DeleteObject(IconPlay);
+        IconPlay = nullptr;
+    }
+    if (IconPause)
+    {
+        DeleteObject(IconPause);
+        IconPause = nullptr;
+    }
 }
 
 void SPhysicsAssetEditorWindow::OnRender()
@@ -79,6 +89,12 @@ void SPhysicsAssetEditorWindow::OnRender()
 
         IconBoneCrossConstraint = NewObject<UTexture>();
         IconBoneCrossConstraint->Load(GDataDir + "/Icon/BoneCrossConstraint.png", Device);
+
+        IconPlay = NewObject<UTexture>();
+        IconPlay->Load(GDataDir + "/Icon/Anim_Play.png", Device);
+
+        IconPause = NewObject<UTexture>();
+        IconPause->Load(GDataDir + "/Icon/Anim_Pause.png", Device);
 
         bIconsLoaded = true;
     }
@@ -318,52 +334,56 @@ void SPhysicsAssetEditorWindow::PreRenderViewportUpdate()
     // 여기서는 애니메이션이 없으므로 수동으로 RefPose로 리셋해야 누적을 방지할 수 있음
     if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
     {
-        // 누적 방지를 위해 먼저 참조 포즈로 리셋
-        MeshComp->ResetToRefPose();
-
-        if (!ActiveState->BoneAdditiveTransforms.IsEmpty())
+        // 시뮬레이션 모드가 아닐 때만 수동 조작 및 포즈 리셋을 처리
+        if (!bIsSimulating)
         {
-            MeshComp->ApplyAdditiveTransforms(ActiveState->BoneAdditiveTransforms);
+            // 누적 방지를 위해 먼저 참조 포즈로 리셋
+            MeshComp->ResetToRefPose();
+
+            if (!ActiveState->BoneAdditiveTransforms.IsEmpty())
+            {
+                MeshComp->ApplyAdditiveTransforms(ActiveState->BoneAdditiveTransforms);
+            }
+
+            // 본이 선택된 경우, 기즈모 위치를 본의 최종 트랜스폼에 맞춰 업데이트
+            if (ActiveState->SelectedBoneIndex >= 0 && ActiveState->World)
+            {
+                AGizmoActor* Gizmo = ActiveState->World->GetGizmoActor();
+                bool bCurrentlyDragging = Gizmo && Gizmo->GetbIsDragging();
+
+                // 드래그 첫 프레임인지 확인 (World→Relative→World 변환 오차 방지)
+                bool bIsFirstDragFrame = bCurrentlyDragging && !ActiveState->bWasGizmoDragging;
+
+                if (bCurrentlyDragging && !bIsFirstDragFrame)
+                {
+                    // 첫 프레임이 아닐 때만 기즈모로부터 트랜스폼 업데이트
+                    UpdateBoneTransformFromGizmo(ActiveState);
+                }
+                else if (!bCurrentlyDragging)
+                {
+                    ActiveState->PreviewActor->RepositionAnchorToBone(ActiveState->SelectedBoneIndex);
+                }
+                // 첫 프레임에서는 아무것도 하지 않음 (앵커가 아직 움직이지 않았으므로)
+
+                // 드래그 상태 업데이트 (다음 프레임에서 첫 프레임 감지용)
+                ActiveState->bWasGizmoDragging = bCurrentlyDragging;
+            }
+
+            // Reconstruct bone overlay
+            if (ActiveState->bShowBones)
+            {
+                ActiveState->bBoneLinesDirty = true;
+            }
+            if (ActiveState->bShowBones && ActiveState->PreviewActor && ActiveState->CurrentMesh && ActiveState->bBoneLinesDirty)
+            {
+                if (ULineComponent* LineComp = ActiveState->PreviewActor->GetBoneLineComponent())
+                {
+                    LineComp->SetLineVisible(true);
+                }
+                ActiveState->PreviewActor->RebuildBoneLines(ActiveState->SelectedBoneIndex);
+                ActiveState->bBoneLinesDirty = false;
+            }
         }
-    }
-
-    // 본이 선택된 경우, 기즈모 위치를 본의 최종 트랜스폼에 맞춰 업데이트
-    if (ActiveState->SelectedBoneIndex >= 0 && ActiveState->World)
-    {
-        AGizmoActor* Gizmo = ActiveState->World->GetGizmoActor();
-        bool bCurrentlyDragging = Gizmo && Gizmo->GetbIsDragging();
-
-        // 드래그 첫 프레임인지 확인 (World→Relative→World 변환 오차 방지)
-        bool bIsFirstDragFrame = bCurrentlyDragging && !ActiveState->bWasGizmoDragging;
-
-        if (bCurrentlyDragging && !bIsFirstDragFrame)
-        {
-            // 첫 프레임이 아닐 때만 기즈모로부터 트랜스폼 업데이트
-            UpdateBoneTransformFromGizmo(ActiveState);
-        }
-        else if (!bCurrentlyDragging)
-        {
-            ActiveState->PreviewActor->RepositionAnchorToBone(ActiveState->SelectedBoneIndex);
-        }
-        // 첫 프레임에서는 아무것도 하지 않음 (앵커가 아직 움직이지 않았으므로)
-
-        // 드래그 상태 업데이트 (다음 프레임에서 첫 프레임 감지용)
-        ActiveState->bWasGizmoDragging = bCurrentlyDragging;
-    }
-
-    // Reconstruct bone overlay
-    if (ActiveState->bShowBones)
-    {
-        ActiveState->bBoneLinesDirty = true;
-    }
-    if (ActiveState->bShowBones && ActiveState->PreviewActor && ActiveState->CurrentMesh && ActiveState->bBoneLinesDirty)
-    {
-        if (ULineComponent* LineComp = ActiveState->PreviewActor->GetBoneLineComponent())
-        {
-            LineComp->SetLineVisible(true);
-        }
-        ActiveState->PreviewActor->RebuildBoneLines(ActiveState->SelectedBoneIndex);
-        ActiveState->bBoneLinesDirty = false;
     }
 
     // Rebuild collision shapes if dirty
@@ -388,6 +408,40 @@ ViewerState* SPhysicsAssetEditorWindow::CreateViewerState(const char* Name, UEdi
 void SPhysicsAssetEditorWindow::DestroyViewerState(ViewerState*& State)
 {
     PhysicsAssetEditorBootstrap::DestroyViewerState(State);
+}
+
+void SPhysicsAssetEditorWindow::RenderContextualControls()
+{
+    ImGui::SameLine(0, ImGui::GetStyle().ItemSpacing.x * 2);
+    ImGuiStyle& style = ImGui::GetStyle();
+    
+    // Center buttons vertically
+    const float ToolbarHeight = 30.0f;  // Hard Coded !!!!
+    float textHeight = ImGui::CalcTextSize("Simulate").y;
+    float BtnHeight = textHeight + style.FramePadding.y * 2.0f;
+    float YOffset = (ToolbarHeight - BtnHeight) * 0.5f;
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + YOffset);
+
+    // Calculate a fixed width based on the "Simulate" text.
+    float textWidth = ImGui::CalcTextSize("Simulate").x;
+    ImVec2 textButtonSize(textWidth + style.FramePadding.x * 2, 0);
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.4f));
+
+    // Simulate Button
+    if (ImGui::Button(bIsSimulating ? "Stop" : "Simulate", textButtonSize))
+    {
+        bIsSimulating = !bIsSimulating;
+        if (bIsSimulating)
+        {
+            StartSimulation();
+        }
+        else
+        {
+            StopSimulation();
+        }
+    }
+    ImGui::PopStyleColor();
+    ImGui::SameLine(0, 0);
 }
 
 void SPhysicsAssetEditorWindow::RenderHierarchySection()
@@ -2354,5 +2408,28 @@ void SPhysicsAssetEditorWindow::FitMinimalBox(const TArray<FVector>& Vertices, c
     else
     {
         OutRotation = FQuat::Identity();
+    }
+}
+
+void SPhysicsAssetEditorWindow::StartSimulation()
+{
+    if (!ActiveState || !ActiveState->PreviewActor)
+        return;
+
+    if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+    {
+        MeshComp->SetSimulatePhysics(true);
+    }
+}
+
+void SPhysicsAssetEditorWindow::StopSimulation()
+{
+    if (!ActiveState || !ActiveState->PreviewActor)
+        return;
+
+    if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+    {
+        MeshComp->SetSimulatePhysics(false);
+        MeshComp->ResetToRefPose();
     }
 }
