@@ -984,6 +984,7 @@ void FPhysSceneImpl::RegisterVehicleComponent(USimpleWheeledVehicleMovementCompo
         return;
     }
 
+    std::lock_guard<std::mutex> Lock(VehicleComponentMutex);
     VehicleComponents.AddUnique(TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>(InComponent));
     bVehicleListDirty = true;
 }
@@ -995,6 +996,7 @@ void FPhysSceneImpl::UnregisterVehicleComponent(USimpleWheeledVehicleMovementCom
         return;
     }
 
+    std::lock_guard<std::mutex> Lock(VehicleComponentMutex);
     bool bRemoved = VehicleComponents.Remove(TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>(InComponent));
     if (bRemoved)
     {
@@ -1010,6 +1012,8 @@ const TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>>& FPhysScene
 
 void FPhysSceneImpl::CompactVehicleComponents()
 {
+    std::lock_guard<std::mutex> Lock(VehicleComponentMutex);
+
     if (!bVehicleListDirty)
     {
         return;

@@ -11,6 +11,7 @@
 
 #include <PxPhysicsAPI.h>
 #include <thread>
+#include <mutex>
 #include "UEContainer.h"
 #include "PhysicsSceneLock.h"
 
@@ -218,4 +219,5 @@ public:
 private:
     void CompactVehicleComponents();
     bool bVehicleListDirty = false;
+    mutable std::mutex VehicleComponentMutex;
 };
