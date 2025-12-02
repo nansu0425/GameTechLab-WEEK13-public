@@ -1025,9 +1025,135 @@ void SPhysicsAssetEditorWindow::RenderBodyProperties()
     ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.35f, 0.35f, 0.35f, 0.6f));
     ImGui::Separator();
     ImGui::PopStyleColor();
-    ImGui::Dummy(ImVec2(0, 4));
+    ImGui::Dummy(ImVec2(0, 8));
 
-    ImGui::Text("Bone Name: %s", SelectedBody->BoneName.ToString().c_str());
+    bool bChanged = false;
+
+    // Store previous values to detect changes
+    EBodySetupType PrevBodyType = SelectedBody->BodyType;
+
+    // === Body Type Selection ===
+    ImGui::Text("Body Type");
+    ImGui::Spacing();
+
+    const char* BodyTypeNames[] = { "None", "Box", "Sphere", "Capsule" };
+    int CurrentBodyType = (int)SelectedBody->BodyType;
+
+    if (ImGui::Combo("##BodyType", &CurrentBodyType, BodyTypeNames, IM_ARRAYSIZE(BodyTypeNames)))
+    {
+        SelectedBody->BodyType = (EBodySetupType)CurrentBodyType;
+        bChanged = true;
+
+        // BodyType changed - reconstruct primitive
+        if (PrevBodyType != SelectedBody->BodyType)
+        {
+            EPrimitiveType NewPrimitiveType = EPrimitiveType::Sphere;
+            switch (SelectedBody->BodyType)
+            {
+            case EBodySetupType::Sphere:   NewPrimitiveType = EPrimitiveType::Sphere; break;
+            case EBodySetupType::Box:      NewPrimitiveType = EPrimitiveType::Box; break;
+            case EBodySetupType::Capsule:  NewPrimitiveType = EPrimitiveType::Capsule; break;
+            default: break;
+            }
+
+            RecreateBodyPrimitive(SelectedBody, NewPrimitiveType);
+        }
+    }
+
+    ImGui::Dummy(ImVec2(0, 8));
+    ImGui::Separator();
+    ImGui::Dummy(ImVec2(0, 8));
+
+    // === Type-Specific Properties ===
+    switch (SelectedBody->BodyType)
+    {
+    case EBodySetupType::Sphere:
+    {
+        ImGui::Text("Sphere Properties");
+        ImGui::Spacing();
+
+        float PrevRadius = SelectedBody->SphereRadius;
+        if (ImGui::DragFloat("Radius", &SelectedBody->SphereRadius, 0.01f, 0.01f, 5.0f, "%.3f"))
+        {
+            // Update AggGeom
+            if (!SelectedBody->AggGeom.SphereElems.IsEmpty())
+            {
+                for (FSphereElem& SphereElem : SelectedBody->AggGeom.SphereElems)
+                {
+                    SphereElem.Radius = SelectedBody->SphereRadius;
+                }
+            }
+            bChanged = true;
+        }
+        break;
+    }
+
+    case EBodySetupType::Box:
+    {
+        ImGui::Text("Box Properties");
+        ImGui::Spacing();
+
+        FVector PrevExtent = SelectedBody->BoxExtent;
+        if (ImGui::DragFloat3("Half Extent", &SelectedBody->BoxExtent.X, 0.01f, 0.01f, 10.0f, "%.3f"))
+        {
+            // Update AggGeom
+            if (!SelectedBody->AggGeom.BoxElems.IsEmpty())
+            {
+                for (FBoxElem& BoxElem : SelectedBody->AggGeom.BoxElems)
+                {
+                    BoxElem.X = SelectedBody->BoxExtent.X * 2.f;
+                    BoxElem.Y = SelectedBody->BoxExtent.Y * 2.f;
+                    BoxElem.Z = SelectedBody->BoxExtent.Z * 2.f;
+                }
+            }
+            bChanged = true;
+        }
+        break;
+    }
+
+    case EBodySetupType::Capsule:
+    {
+        ImGui::Text("Capsule Properties");
+        ImGui::Spacing();
+
+        float PrevRadius = SelectedBody->SphereRadius;
+        float PrevHalfHeight = SelectedBody->CapsuleHalfHeight;
+
+        bool bRadiusChanged = ImGui::DragFloat("Radius", &SelectedBody->SphereRadius, 0.01f, 0.01f, 5.0f, "%.3f");
+        bool bHeightChanged = ImGui::DragFloat("Half Height", &SelectedBody->CapsuleHalfHeight, 0.01f, 0.01f, 10.0f, "%.3f");
+
+        if (bRadiusChanged || bHeightChanged)
+        {
+            // Update AggGeom
+            if (!SelectedBody->AggGeom.SphylElems.IsEmpty())
+            {
+                for (FSphylElem& CapsuleElem : SelectedBody->AggGeom.SphylElems)
+                {
+                    if (bRadiusChanged)
+                    {
+                        CapsuleElem.Radius = SelectedBody->SphereRadius;
+                    }
+                    if (bHeightChanged)
+                    {
+                        CapsuleElem.Length = SelectedBody->CapsuleHalfHeight * 2.f;
+                    }
+                }
+            }
+            bChanged = true;
+        }
+        break;
+    }
+
+    default:
+        ImGui::TextDisabled("No shape selected");
+        break;
+    }
+
+    // Mark collision shapes dirty to update the visualization
+    if (bChanged)
+    {
+        bCollisionShapesDirty = true;
+    }
 }
 
 void SPhysicsAssetEditorWindow::RenderConstraintProperties()
@@ -1476,6 +1602,12 @@ void SPhysicsAssetEditorWindow::CreateBodyForBone(int32 BoneIndex, EPrimitiveTyp
 
     // Add the body to the physics asset
     PhysicsAsset->AddBodySetup(NewBody);
+
+    //// Also populate the editor-facing properties for UI consistency
+    //NewBody->SphereRadius = Radius;
+    //NewBody->BoxExtent = Extent; // Extent is already half-extent from CalculateBodyDimensions
+    //NewBody->CapsuleHalfHeight = HalfHeight;
+
     PhysicsAsset->UpdateBodySetupIndexMap();
 
     // Select the newly created body
@@ -2015,6 +2147,79 @@ void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex
         FVector LocalDir = InvRot.RotateVector(WorldDir);
         OutLocalRotation = FQuat::FindBetween(FVector(0, 0, 1), LocalDir);
     }
+}
+
+void SPhysicsAssetEditorWindow::RecreateBodyPrimitive(UBodySetup* BodySetup, EPrimitiveType NewPrimitiveType)
+{
+    if (!BodySetup || !ActiveState || !ActiveState->CurrentMesh)
+        return;
+
+    USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+    if (!MeshComp)
+        return;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton)
+        return;
+
+    // Find bone index for this body
+    int32 BoneIndex = BoneNameToIndex(BodySetup->BoneName);
+    if (BoneIndex < 0)
+        return;
+
+    // Calculate center & rotation using the same logic as CreateBodyForBone
+    FVector LocalCenter;
+    FQuat LocalRotation;
+    CalculateBoneLocalShapeTransform(BoneIndex, Skeleton, MeshComp, LocalCenter, LocalRotation);
+
+    // Calculate dimensions using the same logic as CreateBodyForBone
+    float Radius, HalfHeight;
+    FVector Extent;
+    CalculateBodyDimensions(BoneIndex, Skeleton, MeshComp, NewPrimitiveType,
+                            Radius, HalfHeight, Extent);
+
+    // Update the property values in BodySetup
+    BodySetup->SphereRadius = Radius;
+    BodySetup->BoxExtent = Extent;
+    BodySetup->CapsuleHalfHeight = HalfHeight;
+
+    // Clear all existing primitives
+    BodySetup->AggGeom.SphereElems.Empty();
+    BodySetup->AggGeom.BoxElems.Empty();
+    BodySetup->AggGeom.SphylElems.Empty();
+
+    // Create new primitive based on type
+    switch (NewPrimitiveType)
+    {
+    case EPrimitiveType::Sphere:
+    {
+        FSphereElem SphereElem(Radius);
+        SphereElem.Center = LocalCenter;
+        BodySetup->AggGeom.SphereElems.Add(SphereElem);
+        break;
+    }
+    case EPrimitiveType::Box:
+    {
+        FBoxElem BoxElem(Extent.X * 2.f, Extent.Y * 2.f, Extent.Z * 2.f);
+        BoxElem.Center = LocalCenter;
+        BoxElem.Rotation = LocalRotation;
+        BodySetup->AggGeom.BoxElems.Add(BoxElem);
+        break;
+    }
+    case EPrimitiveType::Capsule:
+    {
+        FSphylElem CapsuleElem(Radius, HalfHeight * 2.f);
+        CapsuleElem.Center = LocalCenter;
+        CapsuleElem.Rotation = LocalRotation;
+        BodySetup->AggGeom.SphylElems.Add(CapsuleElem);
+        break;
+    }
+    default:
+        break;
+    }
+
+    UE_LOG("RecreateBodyPrimitive: Recreated primitive for bone '%s' as type %d",
+        BodySetup->BoneName.ToString().c_str(), (int)NewPrimitiveType);
 }
 
 bool SPhysicsAssetEditorWindow::ShouldCreateBodyForBone(int32 BoneIndex, const FSkeleton* Skeleton) const
