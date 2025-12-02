@@ -91,10 +91,6 @@ public:
     UPROPERTY(EditAnywhere, Category = "Vehicle")
     float MaxHandbrakeTorque = 2000.0f;
 
-    /** 자동 기어 여부 */
-    UPROPERTY(EditAnywhere, Category = "Vehicle")
-    bool bUseAutoGears = true;
-
     // --- 입력 처리 함수 (API) ---
 
     /** 스로틀 입력 설정 (-1.0f ~ 1.0f) */
@@ -171,6 +167,12 @@ protected:
 
     /** PhysScene 등록 상태 */
     bool bRegisteredWithPhysScene = false;
+
+    /** UpdatedComponent가 루트가 아닐 때 경고를 주기 위한 카운터 (60프레임마다) */
+    int32 NonRootComponentWarningCounter = 0;
+
+    /** 초기 휠 본의 로컬 위치를 캐싱 (서스펜션 승강 계산용) */
+    TArray<FVector> InitialWheelLocalPositions;
 
     /** PhysScene 레지스트리에 등록/해제 */
     void RegisterWithPhysScene();
