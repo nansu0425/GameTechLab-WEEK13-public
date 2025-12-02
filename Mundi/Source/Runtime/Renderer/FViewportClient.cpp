@@ -36,10 +36,33 @@ FViewportClient::~FViewportClient()
 
 void FViewportClient::Tick(FViewport* Viewport, float DeltaTime)
 {
-	if (PerspectiveCameraInput)
+	// Pilot 모드에서 ESC로 해제
+	if (bPilotCameraMode && UInputManager::GetInstance().IsKeyPressed(VK_ESCAPE))
+	{
+		DisablePilotMode();
+		return;
+	}
+
+	// Pilot 모드 입력 처리
+	if (bPilotCameraMode && PilotActor && bIsMouseRightButtonDown)
+	{
+		// ACameraActor는 기존 ProcessEditorCameraInput 사용
+		if (ACameraActor* CamActor = Cast<ACameraActor>(PilotActor))
+		{
+			CamActor->ProcessEditorCameraInput(DeltaTime);
+		}
+		else
+		{
+			// 일반 액터: 직접 Transform 제어
+			ProcessPilotActorInput(DeltaTime);
+		}
+	}
+	// 기존 카메라 입력 처리 (Pilot 모드가 아닐 때만)
+	else if (!bPilotCameraMode && PerspectiveCameraInput)
 	{
 		Camera->ProcessEditorCameraInput(DeltaTime);
 	}
+
 	MouseWheel(Viewport, DeltaTime);
 	static UClipboardManager* ClipboardManager = NewObject<UClipboardManager>();
 
@@ -144,6 +167,30 @@ void FViewportClient::Draw(FViewport* Viewport)
 				return;
 			}
 		}
+	}
+
+	// Pilot 모드일 때 PilotCameraComponent 사용
+	if (bPilotCameraMode && PilotCameraComponent)
+	{
+		// ViewMode 설정
+		World->GetRenderSettings().SetViewMode(ViewMode);
+
+		// Pilot 카메라 컴포넌트의 뷰 사용
+		FSceneView RenderView(PilotCameraComponent, Viewport, &World->GetRenderSettings());
+
+		// 배경색 설정
+		RenderView.BackgroundColor = BackgroundColor;
+
+		// 렌더링
+		Renderer->RenderSceneForView(World, &RenderView, Viewport);
+
+		// 뷰포트 렌더 타겟 오버라이드 해제
+		if (Viewport->UseRenderTarget())
+		{
+			RHIDevice->ClearViewportRenderTargetOverride();
+			RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithoutDepth);
+		}
+		return;
 	}
 
 	// 1. 뷰 타입에 따라 카메라 설정 등 사전 작업을 먼저 수행
@@ -360,6 +407,99 @@ FMatrix FViewportClient::GetViewMatrix() const
 		return Camera->GetViewMatrix();
 	}
 	return FMatrix::Identity();
+}
+
+// ===== Pilot 모드 함수들 =====
+
+void FViewportClient::EnablePilotMode(AActor* TargetActor, UCameraComponent* TargetCameraComponent)
+{
+	if (!TargetActor || !TargetCameraComponent || bPilotCameraMode) return;
+
+	// 현재 에디터 카메라 저장
+	OriginalCamera = Camera;
+
+	// Pilot 대상 설정
+	PilotActor = TargetActor;
+	PilotCameraComponent = TargetCameraComponent;
+	bPilotCameraMode = true;
+
+	// ACameraActor인 경우 기존 방식 사용
+	if (ACameraActor* CamActor = Cast<ACameraActor>(TargetActor))
+	{
+		Camera = CamActor;
+		CamActor->SyncRotationCache();
+	}
+}
+
+void FViewportClient::DisablePilotMode()
+{
+	if (!bPilotCameraMode) return;
+
+	// 에디터 카메라로 복귀
+	Camera = OriginalCamera;
+	bPilotCameraMode = false;
+	PilotActor = nullptr;
+	PilotCameraComponent = nullptr;
+	OriginalCamera = nullptr;
+}
+
+void FViewportClient::ProcessPilotActorInput(float DeltaTime)
+{
+	if (!PilotActor) return;
+
+	UInputManager& Input = UInputManager::GetInstance();
+
+	// 현재 Transform 가져오기
+	FVector Location = PilotActor->GetActorLocation();
+	FQuat Rotation = PilotActor->GetActorRotation();
+
+	// 마우스 델타로 회전 (Yaw/Pitch)
+	FVector2D MouseDelta = Input.GetMouseDelta();
+	float MouseDeltaX = MouseDelta.X;
+	float MouseDeltaY = MouseDelta.Y;
+
+	// 현재 회전을 오일러로 변환
+	// ToEulerZYXDeg() 반환값: FVector(Roll(X축), Pitch(Y축), Yaw(Z축))
+	FVector EulerAngles = Rotation.ToEulerZYXDeg();
+	float Yaw = EulerAngles.Z;    // Z = Yaw (좌우 회전)
+	float Pitch = EulerAngles.Y;  // Y = Pitch (상하 회전)
+
+	// 마우스 감도 적용
+	const float MouseSensitivity = 0.1f;
+	Yaw += MouseDeltaX * MouseSensitivity;
+	Pitch += MouseDeltaY * MouseSensitivity; // 마우스 위로 = 위를 봄
+
+	// Pitch 제한 (-89 ~ 89도)
+	Pitch = FMath::Clamp(Pitch, -89.0f, 89.0f);
+
+	// 새 회전 적용
+	// MakeFromEulerZYX 입력: FVector(Roll(X축), Pitch(Y축), Yaw(Z축))
+	Rotation = FQuat::MakeFromEulerZYX(FVector(0.0f, Pitch, Yaw));
+
+	// WASD/QE 이동
+	FVector MoveDirection = FVector::Zero();
+	const float MoveSpeed = 5.0f; // 기본 이동 속도
+
+	FVector Forward = Rotation.GetForwardVector();
+	FVector Right = Rotation.GetRightVector();
+	FVector Up = FVector(0.0f, 0.0f, 1.0f); // 월드 업 벡터
+
+	if (Input.IsKeyDown('W')) MoveDirection += Forward;
+	if (Input.IsKeyDown('S')) MoveDirection -= Forward;
+	if (Input.IsKeyDown('D')) MoveDirection += Right;
+	if (Input.IsKeyDown('A')) MoveDirection -= Right;
+	if (Input.IsKeyDown('E')) MoveDirection += Up;
+	if (Input.IsKeyDown('Q')) MoveDirection -= Up;
+
+	if (MoveDirection.SizeSquared() > 0.0f)
+	{
+		MoveDirection.Normalize();
+		Location += MoveDirection * MoveSpeed * DeltaTime;
+	}
+
+	// Transform 적용
+	PilotActor->SetActorLocation(Location);
+	PilotActor->SetActorRotation(Rotation);
 }
 
 void FViewportClient::MouseWheel(FViewport* Viewport, float DeltaSeconds)

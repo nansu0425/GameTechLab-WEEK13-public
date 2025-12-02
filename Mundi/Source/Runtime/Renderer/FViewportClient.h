@@ -6,6 +6,7 @@ class FViewport;
 class UWorld;
 class UCameraComponent;
 class SViewportWindow;
+class AActor;
 
 
 /**
@@ -56,7 +57,15 @@ public:
 
     EViewMode GetViewMode() { return ViewMode;}
 
+    // ===== Pilot 모드 제어 =====
+    void EnablePilotMode(AActor* TargetActor, UCameraComponent* TargetCameraComponent);
+    void DisablePilotMode();
+    bool IsPilotModeEnabled() const { return bPilotCameraMode; }
+    AActor* GetPilotActor() const { return PilotActor; }
+    UCameraComponent* GetPilotCameraComponent() const { return PilotCameraComponent; }
+
 protected:
+    void ProcessPilotActorInput(float DeltaTime);
     EViewportType ViewportType = EViewportType::Perspective;
     UWorld* World = nullptr;
     ACameraActor* Camera = nullptr;
@@ -87,4 +96,10 @@ protected:
     FVector PerspectiveCameraPosition = FVector(-5.0f, 5.0f, 5.0f);
     FVector PerspectiveCameraRotation = FVector(0.0f, 22.5f, -45.0f);
     float PerspectiveCameraFov=60;
+
+    // ===== Pilot 모드 상태 =====
+    bool bPilotCameraMode = false;
+    AActor* PilotActor = nullptr;                    // Pilot 대상 액터
+    UCameraComponent* PilotCameraComponent = nullptr; // Pilot 대상 카메라 컴포넌트
+    ACameraActor* OriginalCamera = nullptr;           // 복귀용 에디터 카메라
 };
