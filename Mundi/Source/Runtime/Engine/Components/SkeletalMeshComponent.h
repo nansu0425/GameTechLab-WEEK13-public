@@ -19,6 +19,7 @@ public:
     USkeletalMeshComponent();
     ~USkeletalMeshComponent() override;
 
+    void BeginPlay() override;
     void TickComponent(float DeltaTime) override;
     void SetSkeletalMesh(const FString& PathFileName) override;
 
@@ -117,8 +118,12 @@ protected:
 
     void InitializeConstraints();
 
+    void PhysicsTest();
+
     void ClearBodies();
     void ClearConstraints();
+
+    void BuildPhysics();
 
 protected:
     /**
