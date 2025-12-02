@@ -568,7 +568,40 @@ void USimpleWheeledVehicleMovementComponent::UpdateVehiclePoseFromPhysX()
         return;
     }
 
-    // TODO: PhysX 결과를 월드 트랜스폼으로 복사
+    if (!PxVehicleActor)
+    {
+        return;
+    }
+
+    // PhysX 차체 글로벌 포즈를 엔진 Transform으로 변환하여 UpdatedComponent에 적용
+    physx::PxTransform PxPose = PxVehicleActor->getGlobalPose();
+    FTransform WorldTransform = PhysicsConversion::ToFTransform(PxPose);
+
+    // UpdatedComponent가 루트가 아닌 경우 경고(60프레임마다 한 번)
+    bool bIsRootComponent = false;
+    if (AActor* OwnerActor = Cast<AActor>(Owner))
+    {
+        if (USceneComponent* RootComp = OwnerActor->GetRootComponent())
+        {
+            bIsRootComponent = (RootComp == UpdatedComponent);
+        }
+    }
+    if (!bIsRootComponent)
+    {
+        NonRootComponentWarningCounter++;
+        if (NonRootComponentWarningCounter >= 60)
+        {
+            UE_LOG("[VehicleMovement] UpdatedComponent is not the root component; Actor/child components may desync.");
+            NonRootComponentWarningCounter = 0;
+        }
+    }
+    else
+    {
+        NonRootComponentWarningCounter = 0;
+    }
+
+    // UpdatedComponent는 차체 메시(스켈레탈/스태틱)여야 하므로 World Transform 설정
+    UpdatedComponent->SetWorldTransform(WorldTransform);
 }
 
 void USimpleWheeledVehicleMovementComponent::EnsureUpdatedComponentIsValid()

@@ -172,6 +172,9 @@ protected:
     /** PhysScene 등록 상태 */
     bool bRegisteredWithPhysScene = false;
 
+    /** UpdatedComponent가 루트가 아닐 때 경고를 주기 위한 카운터 (60프레임마다) */
+    int32 NonRootComponentWarningCounter = 0;
+
     /** PhysScene 레지스트리에 등록/해제 */
     void RegisterWithPhysScene();
     void UnregisterFromPhysScene();
