@@ -605,7 +605,22 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
     ImGui::RadioButton("Capsule", (int*)&SelectedPrimitiveType, (int)EPrimitiveType::Capsule);
     ImGui::PopStyleVar();
 
-    ImGui::Dummy(ImVec2(0, 5));
+    ImGui::Dummy(ImVec2(0, 6));
+    ImGui::Separator();
+    ImGui::Dummy(ImVec2(0, 6));
+    
+    // Generation Method Section
+    // Checkbox Style
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1.5, 1.5));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.23f, 0.25f, 0.27f, 0.80f)); // #3A3F45 계열
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.28f, 0.30f, 0.33f, 0.90f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.20f, 0.22f, 0.25f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.75f, 0.80f, 0.90f, 1.00f));
+
+    ImGui::Checkbox("Use bone-length based generation", &bUseBoneLengthGeneration);
+    ImGui::Dummy(ImVec2(0, 8));
+    ImGui::PopStyleColor(4);
+    ImGui::PopStyleVar();
 
     // [Generate All Bodies] button
     // Activated only when a Skeletal Mesh is loaded
@@ -1198,6 +1213,113 @@ void SPhysicsAssetEditorWindow::CreateBodyForBone(int32 BoneIndex, EPrimitiveTyp
 }
 
 void SPhysicsAssetEditorWindow::GenerateAllBodies(EPrimitiveType PrimitiveType)
+{
+    if (bUseBoneLengthGeneration)
+    {
+        GenerateBodiesByBoneStructure(PrimitiveType);
+    }
+    else
+    {
+        GenerateBodiesByVertexFitting(PrimitiveType);
+    }
+}
+
+void SPhysicsAssetEditorWindow::GenerateBodiesByBoneStructure(EPrimitiveType PrimitiveType)
+{
+    if (!ActiveState || !ActiveState->CurrentMesh)
+        return;
+
+    USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+    if (!MeshComp)
+        return;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton || Skeleton->Bones.IsEmpty())
+        return;
+
+    // Create & Clear all existing bodies before regenerating
+    if (!ActiveState->CurrentPhysicsAsset)
+        ActiveState->CurrentPhysicsAsset = NewObject<UPhysicsAsset>();
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    PhysicsAsset->ClearAllBodies();
+
+    int32 CreatedCount = 0;
+
+    // Create body for all bones
+    for (int32 BoneIndex = 0; BoneIndex < Skeleton->Bones.size(); ++BoneIndex)
+    {
+        const FBone& Bone = Skeleton->Bones[BoneIndex];
+        FName BoneName(Bone.Name);
+
+        // Filter: Skip bones that shouldn't have physics bodies
+        if (!ShouldCreateBodyForBone(BoneIndex, Skeleton))
+            continue;
+
+        // Check if this bone has enough influenced vertices
+        if (PhysicsAsset->FindBodyIndex(BoneName) >= 0)
+            continue;
+
+        // Same as CreateBodyForBone
+        FVector LocalCenter;
+        FQuat LocalRotation;
+        CalculateBoneLocalShapeTransform(BoneIndex, Skeleton, MeshComp, LocalCenter, LocalRotation);
+
+        float Radius, HalfHeight;
+        FVector Extent;
+        CalculateBodyDimensions(BoneIndex, Skeleton, MeshComp, PrimitiveType,
+            Radius, HalfHeight, Extent);
+
+        UBodySetup* NewBody = NewObject<UBodySetup>();
+        if (!NewBody)
+            continue;
+
+        NewBody->BoneName = BoneName;
+        NewBody->BodyType = ToBodySetupType(PrimitiveType);
+
+        switch (PrimitiveType)
+        {
+        case EPrimitiveType::Sphere:
+        {
+            FSphereElem SphereElem(Radius);
+            SphereElem.Center = LocalCenter;
+            NewBody->AggGeom.SphereElems.Add(SphereElem);
+            break;
+        }
+
+        case EPrimitiveType::Box:
+        {
+            FBoxElem BoxElem(Extent.X * 2.f, Extent.Y * 2.f, Extent.Z * 2.f);
+            BoxElem.Center = LocalCenter;
+            BoxElem.Rotation = LocalRotation;
+            NewBody->AggGeom.BoxElems.Add(BoxElem);
+            break;
+        }
+
+        case EPrimitiveType::Capsule:
+        {
+            FSphylElem CapsuleElem(Radius, HalfHeight * 2.f);
+            CapsuleElem.Center = LocalCenter;
+            CapsuleElem.Rotation = LocalRotation;
+            NewBody->AggGeom.SphylElems.Add(CapsuleElem);
+            break;
+        }
+        }
+
+        // Add the body to the physics asset
+        PhysicsAsset->AddBodySetup(NewBody);
+        ++CreatedCount;
+    }
+
+    // Update the body index map
+    PhysicsAsset->UpdateBodySetupIndexMap();
+    UE_LOG("GenerateAllBodies: Created %d bodies", CreatedCount);
+
+    // Mark collision shapes dirty to visualize the newly created bodies
+    ActiveState->bBoneLinesDirty = true;
+    bCollisionShapesDirty = true;
+}
+
+void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType PrimitiveType)
 {
     if (!ActiveState || !ActiveState->CurrentMesh)
         return;

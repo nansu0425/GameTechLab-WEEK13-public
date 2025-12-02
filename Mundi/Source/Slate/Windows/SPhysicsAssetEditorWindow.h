@@ -44,8 +44,11 @@ private:
     bool HasBodyInSubtree(int32 BoneIndex, const TArray<struct FBone>& Bones, const TArray<TArray<int32>>& Children) const;
 
     // Physics body generation
+    bool bUseBoneLengthGeneration = false;
     void CreateBodyForBone(int32 BoneIndex, EPrimitiveType PrimitiveType);
     void GenerateAllBodies(EPrimitiveType PrimitiveType);
+    void GenerateBodiesByBoneStructure(EPrimitiveType PrimitiveType);
+    void GenerateBodiesByVertexFitting(EPrimitiveType PrimitiveType);
 
     // Helper functions for above
     int32 FindFirstChildBone(int32 BoneIndex, const FSkeleton* Skeleton) const;
