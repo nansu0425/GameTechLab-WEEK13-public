@@ -50,6 +50,10 @@ private:
     void GenerateBodiesByBoneStructure(EPrimitiveType PrimitiveType);
     void GenerateBodiesByVertexFitting(EPrimitiveType PrimitiveType);
 
+    // Constraints generation
+    void CreateConstraintForBone(int32 BoneIndex);
+    void GenerateAllConstraints();
+
     // Helper functions for above
     int32 FindFirstChildBone(int32 BoneIndex, const FSkeleton* Skeleton) const;
     void CalculateBoneLocalShapeTransform(int32 BoneIndex, const FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp, FVector& OutLocalCenter, FQuat& OutLocalRotation);

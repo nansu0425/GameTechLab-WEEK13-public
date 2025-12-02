@@ -389,6 +389,9 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
         return;
     }
 
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    if (!PhysicsAsset) return;
+
     const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
     if (!Skeleton || Skeleton->Bones.IsEmpty())
     {
@@ -470,7 +473,7 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
             else
             {
                 if (ImGui::MenuItem("Create Body")) { CreateBodyForBone(BoneIndex, SelectedPrimitiveType); }
-                if (ImGui::MenuItem("Create Constraint")) { /* TODO */ }
+                if (ImGui::MenuItem("Create Constraint")) { CreateConstraintForBone(BoneIndex); }
             }
             ImGui::EndPopup();
         }
@@ -551,7 +554,75 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
                 }
             }
 
-            // 2. Render child bones recursively
+            // 2. Render constraints connected to this bone
+            if (ActiveState->CurrentPhysicsAsset)
+            {
+                const TArray<FConstraintSetup>& Constraints =
+                    ActiveState->CurrentPhysicsAsset->GetContraintSetups();
+
+                for (int32 i = 0; i < Constraints.Num(); ++i)
+                {
+                    const FConstraintSetup& Setup = Constraints[i];
+
+                    if (Setup.ConstraintBone1 == BoneName || Setup.ConstraintBone2 == BoneName)
+                    {
+                        // Tree flags
+                        ImGuiTreeNodeFlags cFlags =
+                            ImGuiTreeNodeFlags_Leaf |
+                            ImGuiTreeNodeFlags_NoTreePushOnOpen |
+                            ImGuiTreeNodeFlags_SpanFullWidth;
+
+                        FString OtherBone =
+                            (Setup.ConstraintBone1 == BoneName)
+                            ? Setup.ConstraintBone2.ToString()
+                            : Setup.ConstraintBone1.ToString();
+
+                        FString Label = "Constraint to " + OtherBone;
+
+                        // Selected highlight (ConstraintIndex 저장하는 변수가 필요하면 추가)
+                        bool bIsConstraintSelected = false; // TODO: 선택 기능 넣고 싶으면 ViewerState에 SelectedConstraintIndex 추가
+
+                        if (bIsConstraintSelected)
+                        {
+                            cFlags |= ImGuiTreeNodeFlags_Selected;
+                            ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.45f, 0.45f, 0.7f, 0.8f));
+                            ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.55f, 0.55f, 0.8f, 1.0f));
+                            ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.35f, 0.35f, 0.6f, 1.0f));
+                        }
+                        else
+                        {
+                            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 1.0f, 1.0f)); // 파란 글씨
+                        }
+
+                        ImGui::TreeNodeEx((void*)(intptr_t)(&Setup), cFlags, "%s", Label.c_str());
+
+                        ImGui::PopStyleColor(bIsConstraintSelected ? 3 : 1);
+
+                        // 클릭 처리
+                        if (ImGui::IsItemClicked())
+                        {
+                            // TODO: if needed
+                            // ActiveState->SelectedConstraintIndex = i;
+                            ActiveState->SelectedBoneIndex = BoneIndex;
+
+                            // Constraint 선택 시 Collision 시각화 갱신
+                            bCollisionShapesDirty = true;
+                        }
+
+                        // Context Menu
+                        if (ImGui::BeginPopupContextItem())
+                        {
+                            if (ImGui::MenuItem("Delete Constraint"))
+                            {
+                                PhysicsAsset->GetConstraintSetupsMutable().RemoveAt(i);
+                            }
+                            ImGui::EndPopup();
+                        }
+                    }
+                }
+            }
+
+            // 3. Render child bones recursively
             for (int32 Child : Children[BoneIndex])
             {
                 DrawNode(Child);
@@ -680,6 +751,51 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
     {
         ImGui::EndDisabled();
     }
+
+    // +-+-+ Constraint Tools Section +-+-+
+    ImGui::Dummy(ImVec2(0, 12));
+    ImGui::Separator();
+    ImGui::Dummy(ImVec2(0, 6));
+
+    ImGui::Selectable("Constraint Tools", false, ImGuiSelectableFlags_Disabled,
+        ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeightWithSpacing() + 4.0f));
+
+    ImGui::Dummy(ImVec2(0, 4));
+
+    // Generate All Constraints 버튼
+    bool meshLoaded = ActiveState && ActiveState->CurrentMesh;
+    if (!meshLoaded)
+        ImGui::BeginDisabled();
+
+    if (ImGui::Button("Generate All Constraints", ImVec2(-1, 30)))
+    {
+        GenerateAllConstraints();
+    }
+
+    ImGui::Dummy(ImVec2(0, 5));
+
+    // Clear All Constraints 버튼
+    bool hasConstraints =
+        ActiveState &&
+        ActiveState->CurrentPhysicsAsset &&
+        ActiveState->CurrentPhysicsAsset->GetConstraintSetupCount() > 0;
+
+    if (!hasConstraints)
+        ImGui::BeginDisabled();
+
+    if (ImGui::Button("Clear All Constraints", ImVec2(-1, 30)))
+    {
+        UE_LOG("CLEAR ALL CONSTRAINTS");
+        ActiveState->CurrentPhysicsAsset->GetConstraintSetupsMutable().Empty();
+    }
+
+    if (!hasConstraints)
+        ImGui::EndDisabled();
+
+    if (!meshLoaded)
+        ImGui::EndDisabled();
+
+    ImGui::Dummy(ImVec2(0, 5));
 }
 
 void SPhysicsAssetEditorWindow::LoadSkeletalMesh(ViewerState* State, const FString& Path)
@@ -1267,7 +1383,7 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByBoneStructure(EPrimitiveType Pri
         float Radius, HalfHeight;
         FVector Extent;
         CalculateBodyDimensions(BoneIndex, Skeleton, MeshComp, PrimitiveType,
-            Radius, HalfHeight, Extent);
+                                Radius, HalfHeight, Extent);
 
         UBodySetup* NewBody = NewObject<UBodySetup>();
         if (!NewBody)
@@ -1471,6 +1587,169 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType Pri
     // Mark collision shapes dirty to visualize the newly created bodies
     ActiveState->bBoneLinesDirty = true;
     bCollisionShapesDirty = true;
+}
+
+void SPhysicsAssetEditorWindow::CreateConstraintForBone(int32 ChildBoneIndex)
+{
+    if (!ActiveState || !ActiveState->CurrentPhysicsAsset || !ActiveState->CurrentMesh)
+        return;
+
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+
+    if (!PhysicsAsset || !Skeleton || !MeshComp)
+        return;
+
+    if (ChildBoneIndex < 0 || ChildBoneIndex >= Skeleton->Bones.Num())
+        return;
+
+    const FBone& Child = Skeleton->Bones[ChildBoneIndex];
+    int32 ParentIndex = Child.ParentIndex;
+
+    // Root bone cannot have a constraint
+    if (ParentIndex < 0)
+        return;
+
+    const FBone& Parent = Skeleton->Bones[ParentIndex];
+
+    // ------------------------------------
+    // Create setup struct
+    // ------------------------------------
+    FConstraintSetup NewSetup;
+    NewSetup.JointName = FName(Child.Name.c_str());
+    NewSetup.ConstraintBone1 = FName(Child.Name.c_str());
+    NewSetup.ConstraintBone2 = FName(Parent.Name.c_str());
+
+    // ------------------------------------
+    // Compute frames
+    // ------------------------------------
+    FTransform ChildWT = MeshComp->GetBoneWorldTransform(ChildBoneIndex);
+    FTransform ParentWT = MeshComp->GetBoneWorldTransform(ParentIndex);
+
+    ChildWT.Scale3D = FVector(1, 1, 1);
+    ParentWT.Scale3D = FVector(1, 1, 1);
+
+    // Child frame: pivot at bone origin
+    NewSetup.Frame1.Pos = FVector::Zero();
+    NewSetup.Frame1.PriAxis = FVector(1, 0, 0);
+    NewSetup.Frame1.SecAxis = FVector(0, 1, 0);
+
+    // Parent frame: child origin in parent space
+    FVector ChildInParent = ParentWT.Inverse().TransformPosition(ChildWT.Translation);
+    NewSetup.Frame2.Pos = ChildInParent;
+    NewSetup.Frame2.PriAxis = FVector(1, 0, 0);
+    NewSetup.Frame2.SecAxis = FVector(0, 1, 0);
+
+    // ------------------------------------
+    // Profile (limits)
+    // ------------------------------------
+    NewSetup.Profile.Swing1Motion = EJointMotion::Limited;
+    NewSetup.Profile.Swing2Motion = EJointMotion::Limited;
+    NewSetup.Profile.TwistMotion = EJointMotion::Limited;
+
+    NewSetup.Profile.Swing1LimitsAngle = 45.f;
+    NewSetup.Profile.Swing2LimitsAngle = 45.f;
+    NewSetup.Profile.TwistLimit = 25.f;
+
+    // Lock linear motion
+    NewSetup.Profile.LinearMotionX = EJointMotion::Locked;
+    NewSetup.Profile.LinearMotionY = EJointMotion::Locked;
+    NewSetup.Profile.LinearMotionZ = EJointMotion::Locked;
+
+    // Disable collision between parent/child bodies
+    NewSetup.Profile.bDisableCollision = true;
+
+    // Drive disabled by default
+    NewSetup.Profile.bEnableDrive = false;
+
+    // ------------------------------------
+    // Add to asset
+    // ------------------------------------
+    PhysicsAsset->GetConstraintSetupsMutable().Add(NewSetup);
+
+    UE_LOG("CreateConstraintForBone: Added constraint %s -> %s",
+        Child.Name.c_str(), Parent.Name.c_str());
+}
+
+void SPhysicsAssetEditorWindow::GenerateAllConstraints()
+{
+    if (!ActiveState || !ActiveState->CurrentPhysicsAsset || !ActiveState->CurrentMesh)
+        return;
+
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+
+    if (!Skeleton || !MeshComp)
+        return;
+
+    // Clear existing constraint setups
+    PhysicsAsset->GetConstraintSetupsMutable().Empty();
+
+    const TArray<FBone>& Bones = Skeleton->Bones;
+
+    int32 CreatedCount = 0;
+
+    for (int32 ChildIndex = 0; ChildIndex < Bones.Num(); ++ChildIndex)
+    {
+        const FBone& Child = Bones[ChildIndex];
+        int32 ParentIndex = Child.ParentIndex;
+
+        if (ParentIndex < 0)
+            continue;
+
+        // ------------------------------------
+        // Create constraint for this bone
+        // ------------------------------------
+        FConstraintSetup NewSetup;
+        NewSetup.JointName = FName(Child.Name.c_str());
+        NewSetup.ConstraintBone1 = FName(Child.Name.c_str());
+        NewSetup.ConstraintBone2 = FName(Bones[ParentIndex].Name.c_str());
+
+        // ------------------------------------
+        // Compute frames
+        // ------------------------------------
+        FTransform ChildWT = MeshComp->GetBoneWorldTransform(ChildIndex);
+        FTransform ParentWT = MeshComp->GetBoneWorldTransform(ParentIndex);
+
+        ChildWT.Scale3D = FVector(1, 1, 1);
+        ParentWT.Scale3D = FVector(1, 1, 1);
+
+        NewSetup.Frame1.Pos = FVector::Zero();
+        NewSetup.Frame1.PriAxis = FVector(1, 0, 0);
+        NewSetup.Frame1.SecAxis = FVector(0, 1, 0);
+
+        FVector ChildInParent = ParentWT.Inverse().TransformPosition(ChildWT.Translation);
+        NewSetup.Frame2.Pos = ChildInParent;
+        NewSetup.Frame2.PriAxis = FVector(1, 0, 0);
+        NewSetup.Frame2.SecAxis = FVector(0, 1, 0);
+
+        // ------------------------------------
+        // Default angular limits
+        // ------------------------------------
+        NewSetup.Profile.Swing1Motion = EJointMotion::Limited;
+        NewSetup.Profile.Swing2Motion = EJointMotion::Limited;
+        NewSetup.Profile.TwistMotion = EJointMotion::Limited;
+
+        NewSetup.Profile.Swing1LimitsAngle = 45.f;
+        NewSetup.Profile.Swing2LimitsAngle = 45.f;
+        NewSetup.Profile.TwistLimit = 25.f;
+
+        NewSetup.Profile.LinearMotionX = EJointMotion::Locked;
+        NewSetup.Profile.LinearMotionY = EJointMotion::Locked;
+        NewSetup.Profile.LinearMotionZ = EJointMotion::Locked;
+
+        NewSetup.Profile.bDisableCollision = true;
+
+        // ------------------------------------
+        // Add to list
+        // ------------------------------------
+        PhysicsAsset->GetConstraintSetupsMutable().Add(NewSetup);
+        CreatedCount++;
+    }
+
+    UE_LOG("GenerateAllConstraints: Created %d constraints", CreatedCount);
 }
 
 int32 SPhysicsAssetEditorWindow::FindFirstChildBone(int32 BoneIndex, const FSkeleton* Skeleton) const

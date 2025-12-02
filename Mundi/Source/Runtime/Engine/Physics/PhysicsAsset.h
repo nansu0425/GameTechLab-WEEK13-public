@@ -114,8 +114,8 @@ public:
     
     const TArray<FConstraintSetup>& GetContraintSetups() const { return ConstraintSetups; }
     int32 GetConstraintSetupCount() const { return ConstraintSetups.Num(); }
+    TArray<FConstraintSetup>& GetConstraintSetupsMutable() { return ConstraintSetups; }
     
-
     // Body management
     void AddBodySetup(UBodySetup* NewBody);
     void ClearAllBodies();
