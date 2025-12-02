@@ -181,6 +181,39 @@ namespace PhysicsConversion
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // 스케일 변환 (FVector ↔ PxVec3)
+    // 축 재배치만 수행, 부호 반전 없음 (크기는 항상 양수)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * @brief 스케일 FVector를 PxVec3로 변환
+     * @param S Mundi 좌표계의 스케일 (X=Forward, Y=Right, Z=Up)
+     * @return PhysX 좌표계의 스케일 (X=Right, Y=Up, Z=Back)
+     *
+     * @note 스케일은 크기이므로 부호 반전 없이 축만 재배치
+     */
+    inline physx::PxVec3 ScaleToPxVec3(const FVector& S)
+    {
+        // Mundi: X=Forward, Y=Right, Z=Up
+        // PhysX: X=Right,   Y=Up,    Z=Back
+        // 스케일은 부호 반전 없음: (Mundi.Y, Mundi.Z, Mundi.X)
+        return physx::PxVec3(S.Y, S.Z, S.X);
+    }
+
+    /**
+     * @brief 스케일 PxVec3를 FVector로 변환
+     * @param S PhysX 좌표계의 스케일 (X=Right, Y=Up, Z=Back)
+     * @return Mundi 좌표계의 스케일 (X=Forward, Y=Right, Z=Up)
+     */
+    inline FVector ScaleToFVector(const physx::PxVec3& S)
+    {
+        // PhysX: X=Right, Y=Up, Z=Back
+        // Mundi: X=Forward, Y=Right, Z=Up
+        // 스케일은 부호 반전 없음: (PhysX.Z, PhysX.X, PhysX.Y)
+        return FVector(S.z, S.x, S.y);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // 스칼라 변환 (단위계가 동일하므로 변환 불필요)
     // ═══════════════════════════════════════════════════════════════════════════
 

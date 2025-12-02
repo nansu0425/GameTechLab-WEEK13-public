@@ -2,7 +2,6 @@
 #include "BodyInstance.h"
 #include "BodyInstanceImpl.h"
 #include "BodySetup.h"
-#include "BodySetupImpl.h"
 #include "PhysScene.h"
 #include "PhysSceneImpl.h"
 #include "PhysicsCore.h"
