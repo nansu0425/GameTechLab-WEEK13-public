@@ -45,6 +45,26 @@ SPhysicsAssetEditorWindow::~SPhysicsAssetEditorWindow()
         DeleteObject(IconMultipleBody);
         IconMultipleBody = nullptr;
     }
+    if (IconBoneConstraint)
+    {
+        DeleteObject(IconBoneConstraint);
+        IconBoneConstraint = nullptr;
+    }
+    if (IconBoneCrossConstraint)
+    {
+        DeleteObject(IconBoneCrossConstraint);
+        IconBoneConstraint = nullptr;
+    }
+    if (IconPlay)
+    {
+        DeleteObject(IconPlay);
+        IconPlay = nullptr;
+    }
+    if (IconPause)
+    {
+        DeleteObject(IconPause);
+        IconPause = nullptr;
+    }
 }
 
 void SPhysicsAssetEditorWindow::OnRender()
@@ -63,6 +83,18 @@ void SPhysicsAssetEditorWindow::OnRender()
 
         IconMultipleBody = NewObject<UTexture>();
         IconMultipleBody->Load(GDataDir + "/Icon/MultipleBody.png", Device);
+
+        IconBoneConstraint = NewObject<UTexture>();
+        IconBoneConstraint->Load(GDataDir + "/Icon/BoneConstraint.png", Device);
+
+        IconBoneCrossConstraint = NewObject<UTexture>();
+        IconBoneCrossConstraint->Load(GDataDir + "/Icon/BoneCrossConstraint.png", Device);
+
+        IconPlay = NewObject<UTexture>();
+        IconPlay->Load(GDataDir + "/Icon/Anim_Play.png", Device);
+
+        IconPause = NewObject<UTexture>();
+        IconPause->Load(GDataDir + "/Icon/Anim_Pause.png", Device);
 
         bIconsLoaded = true;
     }
@@ -302,52 +334,56 @@ void SPhysicsAssetEditorWindow::PreRenderViewportUpdate()
     // 여기서는 애니메이션이 없으므로 수동으로 RefPose로 리셋해야 누적을 방지할 수 있음
     if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
     {
-        // 누적 방지를 위해 먼저 참조 포즈로 리셋
-        MeshComp->ResetToRefPose();
-
-        if (!ActiveState->BoneAdditiveTransforms.IsEmpty())
+        // 시뮬레이션 모드가 아닐 때만 수동 조작 및 포즈 리셋을 처리
+        if (!bIsSimulating)
         {
-            MeshComp->ApplyAdditiveTransforms(ActiveState->BoneAdditiveTransforms);
+            // 누적 방지를 위해 먼저 참조 포즈로 리셋
+            MeshComp->ResetToRefPose();
+
+            if (!ActiveState->BoneAdditiveTransforms.IsEmpty())
+            {
+                MeshComp->ApplyAdditiveTransforms(ActiveState->BoneAdditiveTransforms);
+            }
+
+            // 본이 선택된 경우, 기즈모 위치를 본의 최종 트랜스폼에 맞춰 업데이트
+            if (ActiveState->SelectedBoneIndex >= 0 && ActiveState->World)
+            {
+                AGizmoActor* Gizmo = ActiveState->World->GetGizmoActor();
+                bool bCurrentlyDragging = Gizmo && Gizmo->GetbIsDragging();
+
+                // 드래그 첫 프레임인지 확인 (World→Relative→World 변환 오차 방지)
+                bool bIsFirstDragFrame = bCurrentlyDragging && !ActiveState->bWasGizmoDragging;
+
+                if (bCurrentlyDragging && !bIsFirstDragFrame)
+                {
+                    // 첫 프레임이 아닐 때만 기즈모로부터 트랜스폼 업데이트
+                    UpdateBoneTransformFromGizmo(ActiveState);
+                }
+                else if (!bCurrentlyDragging)
+                {
+                    ActiveState->PreviewActor->RepositionAnchorToBone(ActiveState->SelectedBoneIndex);
+                }
+                // 첫 프레임에서는 아무것도 하지 않음 (앵커가 아직 움직이지 않았으므로)
+
+                // 드래그 상태 업데이트 (다음 프레임에서 첫 프레임 감지용)
+                ActiveState->bWasGizmoDragging = bCurrentlyDragging;
+            }
+
+            // Reconstruct bone overlay
+            if (ActiveState->bShowBones)
+            {
+                ActiveState->bBoneLinesDirty = true;
+            }
+            if (ActiveState->bShowBones && ActiveState->PreviewActor && ActiveState->CurrentMesh && ActiveState->bBoneLinesDirty)
+            {
+                if (ULineComponent* LineComp = ActiveState->PreviewActor->GetBoneLineComponent())
+                {
+                    LineComp->SetLineVisible(true);
+                }
+                ActiveState->PreviewActor->RebuildBoneLines(ActiveState->SelectedBoneIndex);
+                ActiveState->bBoneLinesDirty = false;
+            }
         }
-    }
-
-    // 본이 선택된 경우, 기즈모 위치를 본의 최종 트랜스폼에 맞춰 업데이트
-    if (ActiveState->SelectedBoneIndex >= 0 && ActiveState->World)
-    {
-        AGizmoActor* Gizmo = ActiveState->World->GetGizmoActor();
-        bool bCurrentlyDragging = Gizmo && Gizmo->GetbIsDragging();
-
-        // 드래그 첫 프레임인지 확인 (World→Relative→World 변환 오차 방지)
-        bool bIsFirstDragFrame = bCurrentlyDragging && !ActiveState->bWasGizmoDragging;
-
-        if (bCurrentlyDragging && !bIsFirstDragFrame)
-        {
-            // 첫 프레임이 아닐 때만 기즈모로부터 트랜스폼 업데이트
-            UpdateBoneTransformFromGizmo(ActiveState);
-        }
-        else if (!bCurrentlyDragging)
-        {
-            ActiveState->PreviewActor->RepositionAnchorToBone(ActiveState->SelectedBoneIndex);
-        }
-        // 첫 프레임에서는 아무것도 하지 않음 (앵커가 아직 움직이지 않았으므로)
-
-        // 드래그 상태 업데이트 (다음 프레임에서 첫 프레임 감지용)
-        ActiveState->bWasGizmoDragging = bCurrentlyDragging;
-    }
-
-    // Reconstruct bone overlay
-    if (ActiveState->bShowBones)
-    {
-        ActiveState->bBoneLinesDirty = true;
-    }
-    if (ActiveState->bShowBones && ActiveState->PreviewActor && ActiveState->CurrentMesh && ActiveState->bBoneLinesDirty)
-    {
-        if (ULineComponent* LineComp = ActiveState->PreviewActor->GetBoneLineComponent())
-        {
-            LineComp->SetLineVisible(true);
-        }
-        ActiveState->PreviewActor->RebuildBoneLines(ActiveState->SelectedBoneIndex);
-        ActiveState->bBoneLinesDirty = false;
     }
 
     // Rebuild collision shapes if dirty
@@ -374,9 +410,61 @@ void SPhysicsAssetEditorWindow::DestroyViewerState(ViewerState*& State)
     PhysicsAssetEditorBootstrap::DestroyViewerState(State);
 }
 
+void SPhysicsAssetEditorWindow::RenderContextualControls()
+{
+    ImGui::SameLine(0, ImGui::GetStyle().ItemSpacing.x * 2);
+    ImGuiStyle& style = ImGui::GetStyle();
+    
+    // Center buttons vertically
+    const float ToolbarHeight = 30.0f;  // Hard Coded !!!!
+    float textHeight = ImGui::CalcTextSize("Simulate").y;
+    float BtnHeight = textHeight + style.FramePadding.y * 2.0f;
+    float YOffset = (ToolbarHeight - BtnHeight) * 0.5f;
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + YOffset);
+
+    // Calculate a fixed width based on the "Simulate" text.
+    float textWidth = ImGui::CalcTextSize("Simulate").x;
+    ImVec2 textButtonSize(textWidth + style.FramePadding.x * 2, 0);
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.4f));
+
+    // Simulate Button
+    if (ImGui::Button(bIsSimulating ? "Stop" : "Simulate", textButtonSize))
+    {
+        bIsSimulating = !bIsSimulating;
+        if (bIsSimulating)
+        {
+            StartSimulation();
+        }
+        else
+        {
+            StopSimulation();
+        }
+    }
+    ImGui::PopStyleColor();
+    ImGui::SameLine(0, 0);
+}
+
 void SPhysicsAssetEditorWindow::RenderHierarchySection()
 {
     RenderPhysicsBodyHierarchy();
+}
+
+void SPhysicsAssetEditorWindow::RenderRightPanel()
+{
+    if (!ActiveState)   return;
+
+    if (ActiveState->SelectedBodyIndex >= 0)
+    {
+        RenderBodyProperties();
+    }
+    else if (ActiveState->SelectedConstraintIndex >= 0)
+    {
+        RenderConstraintProperties();
+    }
+    else
+    {
+        SViewerWindow::RenderRightPanel();
+    }
 }
 
 void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
@@ -388,6 +476,9 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
         ImGui::TextDisabled("Load a skeletal mesh from the Asset Browser to begin.");
         return;
     }
+
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    if (!PhysicsAsset) return;
 
     const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
     if (!Skeleton || Skeleton->Bones.IsEmpty())
@@ -458,28 +549,18 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
         }
 
         // Context menu for the BONE
-        if (ImGui::BeginPopupContextItem())
-        {
-            if (ImGui::IsItemClicked())
-            {
-                ActiveState->SelectedBoneIndex = BoneIndex;
-                ActiveState->SelectedBodyIndex = -1; // Deselect any body
-                bCollisionShapesDirty = true;
-            }
-            if (bHasBody) { /* Options for bone when it has a body */ }
-            else
-            {
-                if (ImGui::MenuItem("Create Body")) { CreateBodyForBone(BoneIndex, SelectedPrimitiveType); }
-                if (ImGui::MenuItem("Create Constraint")) { /* TODO */ }
-            }
-            ImGui::EndPopup();
-        }
-
         if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
         {
             ActiveState->SelectedBoneIndex = BoneIndex;
             ActiveState->SelectedBodyIndex = -1;
+            ActiveState->SelectedConstraintIndex = -1;
             bCollisionShapesDirty = true;
+        }
+
+        if (ImGui::BeginPopupContextItem())
+        {
+            if (!bHasBody && ImGui::MenuItem("Create Body")) { CreateBodyForBone(BoneIndex, SelectedPrimitiveType); }
+            ImGui::EndPopup();
         }
         
         if (ImGui::IsItemToggledOpen())
@@ -534,24 +615,121 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
                     if (ImGui::IsItemClicked()) {
                         ActiveState->SelectedBodyIndex = BodyIndex;
                         ActiveState->SelectedBoneIndex = BoneIndex;
-                        // TODO: Select primitive as well?
+                        ActiveState->SelectedConstraintIndex = -1;
                         bCollisionShapesDirty = true;
                     }
 
                     if (ImGui::BeginPopupContextItem())
                     {
-                         if (ImGui::IsItemClicked()) {
+                        if (ImGui::IsItemClicked()) {
                             ActiveState->SelectedBodyIndex = BodyIndex;
                             ActiveState->SelectedBoneIndex = BoneIndex;
+                            ActiveState->SelectedConstraintIndex = -1;
                             bCollisionShapesDirty = true;
                         }
                         if (ImGui::MenuItem("Add Primitive...")) { /* TODO */ }
+                        
+                        if (ImGui::BeginMenu("Add Constraint"))
+                        {
+                            UPhysicsAsset* PA = ActiveState->CurrentPhysicsAsset;
+                            const TArray<UBodySetup*>& Bodies = PA->GetBodySetups();
+
+                            for (int32 i = 0; i < Bodies.Num(); ++i)
+                            {
+                                if (i == BodyIndex)
+                                    continue; // 자기 자신 제외
+
+                                FString Name = Bodies[i]->BoneName.ToString();
+
+                                if (ImGui::MenuItem(Name.c_str()))
+                                {
+                                    CreateConstraintBetweenBodies(BodyIndex, i);
+                                    ActiveState->SelectedBodyIndex = BodyIndex;
+                                    bCollisionShapesDirty = true;
+                                }
+                            }
+                            ImGui::EndMenu();
+                        }
                         ImGui::EndPopup();
                     }
                 }
             }
 
-            // 2. Render child bones recursively
+            // 2. Render constraints connected to this bone
+            if (ActiveState->CurrentPhysicsAsset)
+            {
+                const TArray<FConstraintSetup>& Constraints =
+                    ActiveState->CurrentPhysicsAsset->GetContraintSetups();
+
+                for (int32 i = 0; i < Constraints.Num(); ++i)
+                {
+                    const FConstraintSetup& Setup = Constraints[i];
+
+                    if (Setup.ConstraintBone1 == BoneName || Setup.ConstraintBone2 == BoneName)
+                    {
+                        // Tree flags
+                        ImGuiTreeNodeFlags cFlags =
+                            ImGuiTreeNodeFlags_Leaf |
+                            ImGuiTreeNodeFlags_NoTreePushOnOpen |
+                            ImGuiTreeNodeFlags_SpanFullWidth;
+
+                        FString OtherBone =
+                            (Setup.ConstraintBone1 == BoneName)
+                            ? Setup.ConstraintBone2.ToString()
+                            : Setup.ConstraintBone1.ToString();
+
+                        FString Label = "Constraint to " + OtherBone;
+
+                        // Selected highlight
+                        bool bIsConstraintSelected = (ActiveState->SelectedConstraintIndex == i);
+                        if (bIsConstraintSelected)
+                        {
+                            cFlags |= ImGuiTreeNodeFlags_Selected;
+                            ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.5f, 0.5f, 0.5f, 0.2f));
+                            ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.6f, 0.6f, 0.6f, 0.2f));
+                            ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.55f, 0.55f, 0.55f, 0.2f));
+                        }
+                        else
+                        {
+                            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 1.0f, 1.0f)); // 파란 글씨
+                        }
+
+                        if (IconBoneConstraint)
+                        {
+                            float iconSize = ImGui::GetTextLineHeight();
+                            ImGui::Image((void*)IconBoneConstraint->GetShaderResourceView(), ImVec2(iconSize, iconSize));
+                            ImGui::SameLine(0.0f, 0.0f);
+                        }
+
+                        ImGui::TreeNodeEx((void*)(intptr_t)(&Setup), cFlags, "[%s -> %s] Constraint", 
+                            Setup.ConstraintBone1.ToString().c_str(),
+                            Setup.ConstraintBone2.ToString().c_str());
+
+                        ImGui::PopStyleColor(bIsConstraintSelected ? 3 : 1);
+
+                        // 클릭 처리
+                        if (ImGui::IsItemClicked())
+                        {
+                            ActiveState->SelectedConstraintIndex = i;
+                            ActiveState->SelectedBoneIndex = -1;
+                            ActiveState->SelectedBodyIndex = -1;
+                            bCollisionShapesDirty = true;
+                        }
+
+                        // Context Menu
+                        if (ImGui::BeginPopupContextItem())
+                        {
+                            if (ImGui::MenuItem("Delete Constraint"))
+                            {
+                                PhysicsAsset->GetConstraintSetupsMutable().RemoveAt(i);
+                            }
+                            ImGui::EndPopup();
+                        }
+                    }
+                }
+            }
+
+            // 3. Render child bones recursively
             for (int32 Child : Children[BoneIndex])
             {
                 DrawNode(Child);
@@ -575,6 +753,7 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
 
     ImGui::EndChild();
 }
+
 void SPhysicsAssetEditorWindow::RenderToolsPanel()
 {
     // Panel Header
@@ -605,7 +784,22 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
     ImGui::RadioButton("Capsule", (int*)&SelectedPrimitiveType, (int)EPrimitiveType::Capsule);
     ImGui::PopStyleVar();
 
-    ImGui::Dummy(ImVec2(0, 5));
+    ImGui::Dummy(ImVec2(0, 6));
+    ImGui::Separator();
+    ImGui::Dummy(ImVec2(0, 6));
+    
+    // Generation Method Section
+    // Checkbox Style
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1.5, 1.5));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.23f, 0.25f, 0.27f, 0.80f)); // #3A3F45 계열
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.28f, 0.30f, 0.33f, 0.90f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.20f, 0.22f, 0.25f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.75f, 0.80f, 0.90f, 1.00f));
+
+    ImGui::Checkbox("Use bone-length based generation", &bUseBoneLengthGeneration);
+    ImGui::Dummy(ImVec2(0, 8));
+    ImGui::PopStyleColor(4);
+    ImGui::PopStyleVar();
 
     // [Generate All Bodies] button
     // Activated only when a Skeletal Mesh is loaded
@@ -665,6 +859,51 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
     {
         ImGui::EndDisabled();
     }
+
+    // +-+-+ Constraint Tools Section +-+-+
+    ImGui::Dummy(ImVec2(0, 12));
+    ImGui::Separator();
+    ImGui::Dummy(ImVec2(0, 6));
+
+    ImGui::Selectable("Constraint Tools", false, ImGuiSelectableFlags_Disabled,
+        ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeightWithSpacing() + 4.0f));
+
+    ImGui::Dummy(ImVec2(0, 4));
+
+    // Generate All Constraints 버튼
+    bool meshLoaded = ActiveState && ActiveState->CurrentMesh;
+    if (!meshLoaded)
+        ImGui::BeginDisabled();
+
+    if (ImGui::Button("Generate All Constraints", ImVec2(-1, 30)))
+    {
+        GenerateAllConstraints();
+    }
+
+    ImGui::Dummy(ImVec2(0, 5));
+
+    // Clear All Constraints 버튼
+    bool hasConstraints =
+        ActiveState &&
+        ActiveState->CurrentPhysicsAsset &&
+        ActiveState->CurrentPhysicsAsset->GetConstraintSetupCount() > 0;
+
+    if (!hasConstraints)
+        ImGui::BeginDisabled();
+
+    if (ImGui::Button("Clear All Constraints", ImVec2(-1, 30)))
+    {
+        UE_LOG("CLEAR ALL CONSTRAINTS");
+        ActiveState->CurrentPhysicsAsset->GetConstraintSetupsMutable().Empty();
+    }
+
+    if (!hasConstraints)
+        ImGui::EndDisabled();
+
+    if (!meshLoaded)
+        ImGui::EndDisabled();
+
+    ImGui::Dummy(ImVec2(0, 5));
 }
 
 void SPhysicsAssetEditorWindow::LoadSkeletalMesh(ViewerState* State, const FString& Path)
@@ -767,6 +1006,287 @@ void SPhysicsAssetEditorWindow::ViewportRenderCallback(const ImDrawList* parent_
             context->Release();
         }
     }
+}
+
+void SPhysicsAssetEditorWindow::RenderBodyProperties()
+{
+    if (!ActiveState || ActiveState->SelectedBodyIndex < 0) return;
+
+    UBodySetup* SelectedBody = ActiveState->CurrentPhysicsAsset->GetBodySetups()[ActiveState->SelectedBodyIndex];
+    if (!SelectedBody) return;
+
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6);
+    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.30f, 0.30f, 0.30f, 0.8f));
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
+    ImGui::Text("BODY PROPERTIES");
+    ImGui::PopFont();
+    ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 6));
+    ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.35f, 0.35f, 0.35f, 0.6f));
+    ImGui::Separator();
+    ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 8));
+
+    bool bChanged = false;
+
+    // Store previous values to detect changes
+    EBodySetupType PrevBodyType = SelectedBody->BodyType;
+
+    // === Body Type Selection ===
+    ImGui::Text("Body Type");
+    ImGui::Spacing();
+
+    const char* BodyTypeNames[] = { "None", "Box", "Sphere", "Capsule" };
+    int CurrentBodyType = (int)SelectedBody->BodyType;
+
+    if (ImGui::Combo("##BodyType", &CurrentBodyType, BodyTypeNames, IM_ARRAYSIZE(BodyTypeNames)))
+    {
+        SelectedBody->BodyType = (EBodySetupType)CurrentBodyType;
+        bChanged = true;
+
+        // BodyType changed - reconstruct primitive
+        if (PrevBodyType != SelectedBody->BodyType)
+        {
+            EPrimitiveType NewPrimitiveType = EPrimitiveType::Sphere;
+            switch (SelectedBody->BodyType)
+            {
+            case EBodySetupType::Sphere:   NewPrimitiveType = EPrimitiveType::Sphere; break;
+            case EBodySetupType::Box:      NewPrimitiveType = EPrimitiveType::Box; break;
+            case EBodySetupType::Capsule:  NewPrimitiveType = EPrimitiveType::Capsule; break;
+            default: break;
+            }
+
+            RecreateBodyPrimitive(SelectedBody, NewPrimitiveType);
+        }
+    }
+
+    ImGui::Dummy(ImVec2(0, 8));
+    ImGui::Separator();
+    ImGui::Dummy(ImVec2(0, 8));
+
+    // === Type-Specific Properties ===
+    switch (SelectedBody->BodyType)
+    {
+    case EBodySetupType::Sphere:
+    {
+        ImGui::Text("Sphere Properties");
+        ImGui::Spacing();
+
+        float PrevRadius = SelectedBody->SphereRadius;
+        if (ImGui::DragFloat("Radius", &SelectedBody->SphereRadius, 0.01f, 0.01f, 5.0f, "%.3f"))
+        {
+            // Update AggGeom
+            if (!SelectedBody->AggGeom.SphereElems.IsEmpty())
+            {
+                for (FSphereElem& SphereElem : SelectedBody->AggGeom.SphereElems)
+                {
+                    SphereElem.Radius = SelectedBody->SphereRadius;
+                }
+            }
+            bChanged = true;
+        }
+        break;
+    }
+
+    case EBodySetupType::Box:
+    {
+        ImGui::Text("Box Properties");
+        ImGui::Spacing();
+
+        FVector PrevExtent = SelectedBody->BoxExtent;
+        if (ImGui::DragFloat3("Half Extent", &SelectedBody->BoxExtent.X, 0.01f, 0.01f, 10.0f, "%.3f"))
+        {
+            // Update AggGeom
+            if (!SelectedBody->AggGeom.BoxElems.IsEmpty())
+            {
+                for (FBoxElem& BoxElem : SelectedBody->AggGeom.BoxElems)
+                {
+                    BoxElem.X = SelectedBody->BoxExtent.X * 2.f;
+                    BoxElem.Y = SelectedBody->BoxExtent.Y * 2.f;
+                    BoxElem.Z = SelectedBody->BoxExtent.Z * 2.f;
+                }
+            }
+            bChanged = true;
+        }
+        break;
+    }
+
+    case EBodySetupType::Capsule:
+    {
+        ImGui::Text("Capsule Properties");
+        ImGui::Spacing();
+
+        float PrevRadius = SelectedBody->SphereRadius;
+        float PrevHalfHeight = SelectedBody->CapsuleHalfHeight;
+
+        bool bRadiusChanged = ImGui::DragFloat("Radius", &SelectedBody->SphereRadius, 0.01f, 0.01f, 5.0f, "%.3f");
+        bool bHeightChanged = ImGui::DragFloat("Half Height", &SelectedBody->CapsuleHalfHeight, 0.01f, 0.01f, 10.0f, "%.3f");
+
+        if (bRadiusChanged || bHeightChanged)
+        {
+            // Update AggGeom
+            if (!SelectedBody->AggGeom.SphylElems.IsEmpty())
+            {
+                for (FSphylElem& CapsuleElem : SelectedBody->AggGeom.SphylElems)
+                {
+                    if (bRadiusChanged)
+                    {
+                        CapsuleElem.Radius = SelectedBody->SphereRadius;
+                    }
+                    if (bHeightChanged)
+                    {
+                        CapsuleElem.Length = SelectedBody->CapsuleHalfHeight * 2.f;
+                    }
+                }
+            }
+            bChanged = true;
+        }
+        break;
+    }
+
+    default:
+        ImGui::TextDisabled("No shape selected");
+        break;
+    }
+
+    // Mark collision shapes dirty to update the visualization
+    if (bChanged)
+    {
+        bCollisionShapesDirty = true;
+    }
+}
+
+void SPhysicsAssetEditorWindow::RenderConstraintProperties()
+{
+    if (!ActiveState || ActiveState->SelectedConstraintIndex < 0) return;
+
+    // Get mutable reference to the constraint (not const)
+    FConstraintSetup& SelectedConstraint = ActiveState->CurrentPhysicsAsset->GetConstraintSetupsMutable()[ActiveState->SelectedConstraintIndex];
+    FConstraintProfileProperties& Profile = SelectedConstraint.Profile;
+
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6);
+    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.30f, 0.30f, 0.30f, 0.8f));
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
+    ImGui::Text("CONSTRAINT PROPERTIES");
+    ImGui::PopFont();
+    ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 6));
+    ImGui::Spacing();
+    ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.35f, 0.35f, 0.35f, 0.6f));
+    ImGui::Separator();
+    ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 8));
+
+    // Basic Info (Read-only)
+    ImGui::Text("Joint Name:");
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(0.7f, 0.9f, 1.0f, 1.0f), "%s", SelectedConstraint.JointName.ToString().c_str());
+
+    ImGui::Text("Parent Bone:");
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(0.7f, 0.9f, 1.0f, 1.0f), "%s", SelectedConstraint.ConstraintBone1.ToString().c_str());
+
+    ImGui::Text("Child Bone:");
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(0.7f, 0.9f, 1.0f, 1.0f), "%s", SelectedConstraint.ConstraintBone2.ToString().c_str());
+
+    ImGui::Dummy(ImVec2(0, 8));
+    ImGui::Separator();
+    ImGui::Dummy(ImVec2(0, 8));
+
+    // Helper lambda for rendering EJointMotion combo
+    auto RenderJointMotionCombo = [](const char* Label, EJointMotion& Motion) -> bool
+    {
+        const char* MotionNames[] = { "Locked", "Limited", "Free" };
+        int CurrentMotion = (int)Motion;
+
+        if (ImGui::Combo(Label, &CurrentMotion, MotionNames, IM_ARRAYSIZE(MotionNames)))
+        {
+            Motion = (EJointMotion)CurrentMotion;
+            return true;
+        }
+        return false;
+    };
+
+    bool bChanged = false;
+
+    // === Angular Limits ===
+    if (ImGui::TreeNodeEx("Angular Limits", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Spacing();
+
+        // Swing1
+        bChanged |= RenderJointMotionCombo("Swing1 Motion", Profile.Swing1Motion);
+        if (Profile.Swing1Motion == EJointMotion::Limited)
+        {
+            bChanged |= ImGui::DragFloat("Swing1 Limit", &Profile.Swing1LimitsAngle, 1.0f, 0.0f, 180.0f, "%.1f deg");
+        }
+
+        ImGui::Spacing();
+
+        // Swing2
+        bChanged |= RenderJointMotionCombo("Swing2 Motion", Profile.Swing2Motion);
+        if (Profile.Swing2Motion == EJointMotion::Limited)
+        {
+            bChanged |= ImGui::DragFloat("Swing2 Limit", &Profile.Swing2LimitsAngle, 1.0f, 0.0f, 180.0f, "%.1f deg");
+        }
+
+        ImGui::Spacing();
+
+        // Twist
+        bChanged |= RenderJointMotionCombo("Twist Motion", Profile.TwistMotion);
+        if (Profile.TwistMotion == EJointMotion::Limited)
+        {
+            bChanged |= ImGui::DragFloat("Twist Limit", &Profile.TwistLimit, 1.0f, 0.0f, 180.0f, "%.1f deg");
+        }
+
+        ImGui::TreePop();
+    }
+
+    ImGui::Spacing();
+
+    // === Linear Limits ===
+    if (ImGui::TreeNodeEx("Linear Limits", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Spacing();
+
+        // Linear X
+        bChanged |= RenderJointMotionCombo("Linear X Motion", Profile.LinearMotionX);
+
+        // Linear Y
+        bChanged |= RenderJointMotionCombo("Linear Y Motion", Profile.LinearMotionY);
+
+        // Linear Z
+        bChanged |= RenderJointMotionCombo("Linear Z Motion", Profile.LinearMotionZ);
+
+        ImGui::Spacing();
+
+        // Linear limit (shared for all axes when limited)
+        if (Profile.LinearMotionX == EJointMotion::Limited ||
+            Profile.LinearMotionY == EJointMotion::Limited ||
+            Profile.LinearMotionZ == EJointMotion::Limited)
+        {
+            bChanged |= ImGui::DragFloat("Linear Limit", &Profile.LinearLimit, 0.1f, 0.0f, 100.0f, "%.2f");
+        }
+
+        ImGui::TreePop();
+    }
+
+    ImGui::Spacing();
+
+    // === Other Settings ===
+    if (ImGui::TreeNodeEx("Other Settings", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Spacing();
+
+        bChanged |= ImGui::Checkbox("Disable Collision", &Profile.bDisableCollision);
+        bChanged |= ImGui::Checkbox("Enable Drive", &Profile.bEnableDrive);
+
+        ImGui::TreePop();
+    }
+
+    // Note: Constraint changes don't need to rebuild collision shapes
+    // They affect physics simulation only
 }
 
 void SPhysicsAssetEditorWindow::DrawWireframeBox(ULineComponent* LineComp, const FVector& Center, const FVector& HalfExtents, const FQuat& Rotation, const FVector4& Color)
@@ -1186,6 +1706,12 @@ void SPhysicsAssetEditorWindow::CreateBodyForBone(int32 BoneIndex, EPrimitiveTyp
 
     // Add the body to the physics asset
     PhysicsAsset->AddBodySetup(NewBody);
+
+    //// Also populate the editor-facing properties for UI consistency
+    //NewBody->SphereRadius = Radius;
+    //NewBody->BoxExtent = Extent; // Extent is already half-extent from CalculateBodyDimensions
+    //NewBody->CapsuleHalfHeight = HalfHeight;
+
     PhysicsAsset->UpdateBodySetupIndexMap();
 
     // Select the newly created body
@@ -1198,6 +1724,113 @@ void SPhysicsAssetEditorWindow::CreateBodyForBone(int32 BoneIndex, EPrimitiveTyp
 }
 
 void SPhysicsAssetEditorWindow::GenerateAllBodies(EPrimitiveType PrimitiveType)
+{
+    if (bUseBoneLengthGeneration)
+    {
+        GenerateBodiesByBoneStructure(PrimitiveType);
+    }
+    else
+    {
+        GenerateBodiesByVertexFitting(PrimitiveType);
+    }
+}
+
+void SPhysicsAssetEditorWindow::GenerateBodiesByBoneStructure(EPrimitiveType PrimitiveType)
+{
+    if (!ActiveState || !ActiveState->CurrentMesh)
+        return;
+
+    USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+    if (!MeshComp)
+        return;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton || Skeleton->Bones.IsEmpty())
+        return;
+
+    // Create & Clear all existing bodies before regenerating
+    if (!ActiveState->CurrentPhysicsAsset)
+        ActiveState->CurrentPhysicsAsset = NewObject<UPhysicsAsset>();
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    PhysicsAsset->ClearAllBodies();
+
+    int32 CreatedCount = 0;
+
+    // Create body for all bones
+    for (int32 BoneIndex = 0; BoneIndex < Skeleton->Bones.size(); ++BoneIndex)
+    {
+        const FBone& Bone = Skeleton->Bones[BoneIndex];
+        FName BoneName(Bone.Name);
+
+        // Filter: Skip bones that shouldn't have physics bodies
+        if (!ShouldCreateBodyForBone(BoneIndex, Skeleton))
+            continue;
+
+        // Check if this bone has enough influenced vertices
+        if (PhysicsAsset->FindBodyIndex(BoneName) >= 0)
+            continue;
+
+        // Same as CreateBodyForBone
+        FVector LocalCenter;
+        FQuat LocalRotation;
+        CalculateBoneLocalShapeTransform(BoneIndex, Skeleton, MeshComp, LocalCenter, LocalRotation);
+
+        float Radius, HalfHeight;
+        FVector Extent;
+        CalculateBodyDimensions(BoneIndex, Skeleton, MeshComp, PrimitiveType,
+                                Radius, HalfHeight, Extent);
+
+        UBodySetup* NewBody = NewObject<UBodySetup>();
+        if (!NewBody)
+            continue;
+
+        NewBody->BoneName = BoneName;
+        NewBody->BodyType = ToBodySetupType(PrimitiveType);
+
+        switch (PrimitiveType)
+        {
+        case EPrimitiveType::Sphere:
+        {
+            FSphereElem SphereElem(Radius);
+            SphereElem.Center = LocalCenter;
+            NewBody->AggGeom.SphereElems.Add(SphereElem);
+            break;
+        }
+
+        case EPrimitiveType::Box:
+        {
+            FBoxElem BoxElem(Extent.X * 2.f, Extent.Y * 2.f, Extent.Z * 2.f);
+            BoxElem.Center = LocalCenter;
+            BoxElem.Rotation = LocalRotation;
+            NewBody->AggGeom.BoxElems.Add(BoxElem);
+            break;
+        }
+
+        case EPrimitiveType::Capsule:
+        {
+            FSphylElem CapsuleElem(Radius, HalfHeight * 2.f);
+            CapsuleElem.Center = LocalCenter;
+            CapsuleElem.Rotation = LocalRotation;
+            NewBody->AggGeom.SphylElems.Add(CapsuleElem);
+            break;
+        }
+        }
+
+        // Add the body to the physics asset
+        PhysicsAsset->AddBodySetup(NewBody);
+        ++CreatedCount;
+    }
+
+    // Update the body index map
+    PhysicsAsset->UpdateBodySetupIndexMap();
+    UE_LOG("GenerateAllBodies: Created %d bodies", CreatedCount);
+
+    // Mark collision shapes dirty to visualize the newly created bodies
+    ActiveState->bBoneLinesDirty = true;
+    bCollisionShapesDirty = true;
+}
+
+void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType PrimitiveType)
 {
     if (!ActiveState || !ActiveState->CurrentMesh)
         return;
@@ -1351,6 +1984,193 @@ void SPhysicsAssetEditorWindow::GenerateAllBodies(EPrimitiveType PrimitiveType)
     bCollisionShapesDirty = true;
 }
 
+void SPhysicsAssetEditorWindow::CreateConstraintForBone(int32 ChildBoneIndex)
+{
+    if (!ActiveState || !ActiveState->CurrentPhysicsAsset || !ActiveState->CurrentMesh)
+        return;
+
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+
+    if (!PhysicsAsset || !Skeleton || !MeshComp)
+        return;
+
+    if (ChildBoneIndex < 0 || ChildBoneIndex >= Skeleton->Bones.Num())
+        return;
+
+    const FBone& Child = Skeleton->Bones[ChildBoneIndex];
+    int32 ParentIndex = Child.ParentIndex;
+
+    // Root bone cannot have a constraint
+    if (ParentIndex < 0)
+        return;
+
+    const FBone& Parent = Skeleton->Bones[ParentIndex];
+
+    // Build setup using common helper
+    FTransform ChildWT = MeshComp->GetBoneWorldTransform(ChildBoneIndex);
+    FTransform ParentWT = MeshComp->GetBoneWorldTransform(ParentIndex);
+
+    FConstraintSetup Setup;
+    BuildConstraintSetup(
+        FName(Parent.Name.c_str()),
+        FName(Child.Name.c_str()),
+        ParentWT,
+        ChildWT,
+        Setup
+    );
+
+    // Add to PhysicsAsset
+    PhysicsAsset->GetConstraintSetupsMutable().Add(Setup);
+
+    UE_LOG("CreateConstraintForBone: Added %s -> %s",
+        Child.Name.c_str(), Parent.Name.c_str());
+}
+
+void SPhysicsAssetEditorWindow::GenerateAllConstraints()
+{
+    if (!ActiveState || !ActiveState->CurrentPhysicsAsset || !ActiveState->CurrentMesh)
+        return;
+
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+
+    if (!PhysicsAsset || !Skeleton || !MeshComp)
+        return;
+
+    // Clear existing constraint setups
+    PhysicsAsset->GetConstraintSetupsMutable().Empty();
+
+    const TArray<FBone>& Bones = Skeleton->Bones;
+
+    int32 CreatedCount = 0;
+
+    for (int32 ChildIndex = 0; ChildIndex < Bones.Num(); ++ChildIndex)
+    {
+        const FBone& Child = Bones[ChildIndex];
+        int32 ParentIndex = Child.ParentIndex;
+
+        if (ParentIndex < 0)
+            continue;
+
+        const FBone& Parent = Bones[ParentIndex];
+
+        FTransform ChildWT = MeshComp->GetBoneWorldTransform(ChildIndex);
+        FTransform ParentWT = MeshComp->GetBoneWorldTransform(ParentIndex);
+
+        FConstraintSetup Setup;
+        BuildConstraintSetup(
+            FName(Parent.Name.c_str()),
+            FName(Child.Name.c_str()),
+            ParentWT,
+            ChildWT,
+            Setup
+        );
+
+        PhysicsAsset->GetConstraintSetupsMutable().Add(Setup);
+        CreatedCount++;
+    }
+
+    UE_LOG("GenerateAllConstraints: Created %d constraints", CreatedCount);
+}
+
+void SPhysicsAssetEditorWindow::CreateConstraintBetweenBodies(int ParentBodyIndex, int ChildBodyIndex)
+{
+    if (!ActiveState || !ActiveState->CurrentPhysicsAsset || !ActiveState->CurrentMesh)
+        return;
+
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    USkeletalMeshComponent* Mesh = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+
+    if (!PhysicsAsset || !Mesh || !Skeleton)
+        return;
+
+    if (ParentBodyIndex < 0 || ChildBodyIndex < 0)
+        return;
+
+    const TArray<UBodySetup*>& Bodies = PhysicsAsset->GetBodySetups();
+    if (ParentBodyIndex >= Bodies.Num() || ChildBodyIndex >= Bodies.Num())
+        return;
+
+    UBodySetup* ParentBody = Bodies[ParentBodyIndex];
+    UBodySetup* ChildBody = Bodies[ChildBodyIndex];
+
+    int32 ParentBoneIndex = BoneNameToIndex(ParentBody->BoneName);
+    int32 ChildBoneIndex = BoneNameToIndex(ChildBody->BoneName);
+
+    if (ParentBoneIndex < 0 || ChildBoneIndex < 0)
+        return;
+
+    FTransform ParentWT = Mesh->GetBoneWorldTransform(ParentBoneIndex);
+    FTransform ChildWT = Mesh->GetBoneWorldTransform(ChildBoneIndex);
+
+    FConstraintSetup Setup;
+    BuildConstraintSetup(
+        ParentBody->BoneName,
+        ChildBody->BoneName,
+        ParentWT,
+        ChildWT,
+        Setup
+    );
+
+    PhysicsAsset->GetConstraintSetupsMutable().Add(Setup);
+
+    UE_LOG("CreateConstraintBetweenBodies: Added constraint [%s -> %s]",
+        ChildBody->BoneName.ToString().c_str(),
+        ParentBody->BoneName.ToString().c_str());
+}
+
+void SPhysicsAssetEditorWindow::BuildConstraintSetup(const FName& ParentBoneName, const FName& ChildBoneName, const FTransform& ParentWT, const FTransform& ChildWT, FConstraintSetup& OutSetup)
+{
+    OutSetup = FConstraintSetup(); // reset
+
+    // Basic identifiers
+    OutSetup.JointName = ChildBoneName;
+    OutSetup.ConstraintBone1 = ChildBoneName;
+    OutSetup.ConstraintBone2 = ParentBoneName;
+
+    // Frames
+    FTransform PWT = ParentWT;
+    FTransform CWT = ChildWT;
+
+    PWT.Scale3D = FVector(1, 1, 1);
+    CWT.Scale3D = FVector(1, 1, 1);
+
+    // Child frame at child origin
+    OutSetup.Frame1.Pos = FVector::Zero();
+    OutSetup.Frame1.PriAxis = FVector(1, 0, 0);
+    OutSetup.Frame1.SecAxis = FVector(0, 1, 0);
+
+    // Parent frame: child origin expressed in parent local space
+    FVector ChildInParent = PWT.Inverse().TransformPosition(CWT.Translation);
+    OutSetup.Frame2.Pos = ChildInParent;
+    OutSetup.Frame2.PriAxis = FVector(1, 0, 0);
+    OutSetup.Frame2.SecAxis = FVector(0, 1, 0);
+
+    // Angular limits
+    OutSetup.Profile.Swing1Motion = EJointMotion::Limited;
+    OutSetup.Profile.Swing2Motion = EJointMotion::Limited;
+    OutSetup.Profile.TwistMotion = EJointMotion::Limited;
+
+    OutSetup.Profile.Swing1LimitsAngle = 40.f;
+    OutSetup.Profile.Swing2LimitsAngle = 40.f;
+    OutSetup.Profile.TwistLimit = 25.f;
+
+    // Lock linear movement
+    OutSetup.Profile.LinearMotionX = EJointMotion::Locked;
+    OutSetup.Profile.LinearMotionY = EJointMotion::Locked;
+    OutSetup.Profile.LinearMotionZ = EJointMotion::Locked;
+
+    // Disable collision between connected bodies
+    OutSetup.Profile.bDisableCollision = true;
+
+    // Drive disabled
+    OutSetup.Profile.bEnableDrive = false;
+}
+
 int32 SPhysicsAssetEditorWindow::FindFirstChildBone(int32 BoneIndex, const FSkeleton* Skeleton) const
 {
     if (!Skeleton || BoneIndex < 0 || BoneIndex >= Skeleton->Bones.Num())
@@ -1366,6 +2186,26 @@ int32 SPhysicsAssetEditorWindow::FindFirstChildBone(int32 BoneIndex, const FSkel
     }
 
     return -1;  // no child
+}
+
+int32 SPhysicsAssetEditorWindow::BoneNameToIndex(const FName& BoneName) const
+{
+    if (!ActiveState || !ActiveState->CurrentMesh)
+        return -1;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton)
+        return -1;
+
+    const TArray<FBone>& Bones = Skeleton->Bones;
+
+    for (int32 i = 0; i < Bones.Num(); ++i)
+    {
+        if (Bones[i].Name == BoneName.ToString())
+            return i;
+    }
+
+    return -1; // not found
 }
 
 void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex, const FSkeleton* Skeleton, USkeletalMeshComponent* MeshComp, FVector& OutLocalCenter, FQuat& OutLocalRotation)
@@ -1411,6 +2251,79 @@ void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex
         FVector LocalDir = InvRot.RotateVector(WorldDir);
         OutLocalRotation = FQuat::FindBetween(FVector(0, 0, 1), LocalDir);
     }
+}
+
+void SPhysicsAssetEditorWindow::RecreateBodyPrimitive(UBodySetup* BodySetup, EPrimitiveType NewPrimitiveType)
+{
+    if (!BodySetup || !ActiveState || !ActiveState->CurrentMesh)
+        return;
+
+    USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+    if (!MeshComp)
+        return;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton)
+        return;
+
+    // Find bone index for this body
+    int32 BoneIndex = BoneNameToIndex(BodySetup->BoneName);
+    if (BoneIndex < 0)
+        return;
+
+    // Calculate center & rotation using the same logic as CreateBodyForBone
+    FVector LocalCenter;
+    FQuat LocalRotation;
+    CalculateBoneLocalShapeTransform(BoneIndex, Skeleton, MeshComp, LocalCenter, LocalRotation);
+
+    // Calculate dimensions using the same logic as CreateBodyForBone
+    float Radius, HalfHeight;
+    FVector Extent;
+    CalculateBodyDimensions(BoneIndex, Skeleton, MeshComp, NewPrimitiveType,
+                            Radius, HalfHeight, Extent);
+
+    // Update the property values in BodySetup
+    BodySetup->SphereRadius = Radius;
+    BodySetup->BoxExtent = Extent;
+    BodySetup->CapsuleHalfHeight = HalfHeight;
+
+    // Clear all existing primitives
+    BodySetup->AggGeom.SphereElems.Empty();
+    BodySetup->AggGeom.BoxElems.Empty();
+    BodySetup->AggGeom.SphylElems.Empty();
+
+    // Create new primitive based on type
+    switch (NewPrimitiveType)
+    {
+    case EPrimitiveType::Sphere:
+    {
+        FSphereElem SphereElem(Radius);
+        SphereElem.Center = LocalCenter;
+        BodySetup->AggGeom.SphereElems.Add(SphereElem);
+        break;
+    }
+    case EPrimitiveType::Box:
+    {
+        FBoxElem BoxElem(Extent.X * 2.f, Extent.Y * 2.f, Extent.Z * 2.f);
+        BoxElem.Center = LocalCenter;
+        BoxElem.Rotation = LocalRotation;
+        BodySetup->AggGeom.BoxElems.Add(BoxElem);
+        break;
+    }
+    case EPrimitiveType::Capsule:
+    {
+        FSphylElem CapsuleElem(Radius, HalfHeight * 2.f);
+        CapsuleElem.Center = LocalCenter;
+        CapsuleElem.Rotation = LocalRotation;
+        BodySetup->AggGeom.SphylElems.Add(CapsuleElem);
+        break;
+    }
+    default:
+        break;
+    }
+
+    UE_LOG("RecreateBodyPrimitive: Recreated primitive for bone '%s' as type %d",
+        BodySetup->BoneName.ToString().c_str(), (int)NewPrimitiveType);
 }
 
 bool SPhysicsAssetEditorWindow::ShouldCreateBodyForBone(int32 BoneIndex, const FSkeleton* Skeleton) const
@@ -1861,5 +2774,28 @@ void SPhysicsAssetEditorWindow::FitMinimalBox(const TArray<FVector>& Vertices, c
     else
     {
         OutRotation = FQuat::Identity();
+    }
+}
+
+void SPhysicsAssetEditorWindow::StartSimulation()
+{
+    if (!ActiveState || !ActiveState->PreviewActor)
+        return;
+
+    if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+    {
+        MeshComp->SetSimulatePhysics(true);
+    }
+}
+
+void SPhysicsAssetEditorWindow::StopSimulation()
+{
+    if (!ActiveState || !ActiveState->PreviewActor)
+        return;
+
+    if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
+    {
+        MeshComp->SetSimulatePhysics(false);
+        MeshComp->ResetToRefPose();
     }
 }

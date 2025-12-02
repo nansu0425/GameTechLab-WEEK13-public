@@ -81,6 +81,7 @@ protected:
 
 	void RenderViewerButton(EViewerType ViewerType, EViewerType CurrentViewerType, const char* Id, const char* ToolTip, UTexture* Icon);
 	virtual void RenderTabsAndToolbar(EViewerType CurrentViewerType);
+	virtual void RenderContextualControls() {};
 	void OpenNewTab(const char* Name = "Viewer");
 	void CloseTab(int Index);
 	

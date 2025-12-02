@@ -602,6 +602,8 @@ void SViewerWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
     ImGui::PopStyleColor();
     ImGui::SameLine();
 
+    RenderContextualControls();
+
     const float framePaddingX = ImGui::GetStyle().FramePadding.x;
     const float spacingX = ImGui::GetStyle().ItemSpacing.x;
     const float singleButtonTotalWidth = IconSizeVec.x + framePaddingX * 2;

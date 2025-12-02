@@ -15,14 +15,16 @@ protected:
     virtual void DestroyViewerState(ViewerState*& State) override;
     virtual FString GetWindowTitle() const override { return "Physics Asset Editor"; }
 
+    virtual void RenderContextualControls() override;
     virtual void RenderHierarchySection() override;
+    virtual void RenderRightPanel() override;
     void RenderPhysicsBodyHierarchy();
     void RenderToolsPanel();
 
 private:
     // Load a skeletal mesh into the active tab
     void LoadSkeletalMesh(ViewerState* State, const FString& Path);
-
+    
     // ImGui draw callback for viewport rendering
     static void ViewportRenderCallback(const ImDrawList* parent_list, const ImDrawCmd* cmd);
 
@@ -30,6 +32,10 @@ private:
     EPrimitiveType SelectedPrimitiveType = EPrimitiveType::Sphere;
     bool bShowCollision = true;
     bool bCollisionShapesDirty = false;
+    
+    // Properties tab
+    void RenderBodyProperties();
+    void RenderConstraintProperties();
 
     // Wireframe helper functions
     void DrawWireframeBox(ULineComponent* LineComp, const FVector& Center, const FVector& HalfExtents, const FQuat& Rotation, const FVector4& Color);
@@ -44,15 +50,26 @@ private:
     bool HasBodyInSubtree(int32 BoneIndex, const TArray<struct FBone>& Bones, const TArray<TArray<int32>>& Children) const;
 
     // Physics body generation
+    bool bUseBoneLengthGeneration = false;
     void CreateBodyForBone(int32 BoneIndex, EPrimitiveType PrimitiveType);
     void GenerateAllBodies(EPrimitiveType PrimitiveType);
+    void GenerateBodiesByBoneStructure(EPrimitiveType PrimitiveType);
+    void GenerateBodiesByVertexFitting(EPrimitiveType PrimitiveType);
+
+    // Constraints generation
+    void CreateConstraintForBone(int32 BoneIndex);
+    void GenerateAllConstraints();
+    void CreateConstraintBetweenBodies(int ParentBodyIndex, int ChildBodyIndex);
+    void BuildConstraintSetup(const FName& ParentBoneName, const FName& ChildBoneName, const FTransform& ParentWT, const FTransform& ChildWT, class FConstraintSetup& OutSetup);
 
     // Helper functions for above
     int32 FindFirstChildBone(int32 BoneIndex, const FSkeleton* Skeleton) const;
+    int32 BoneNameToIndex(const FName& BoneName) const;
     void CalculateBoneLocalShapeTransform(int32 BoneIndex, const FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp, FVector& OutLocalCenter, FQuat& OutLocalRotation);
-    void CalculateBodyDimensions(int32 BoneIndex, const struct FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp, 
+    void CalculateBodyDimensions(int32 BoneIndex, const struct FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp,
                                  EPrimitiveType PrimitiveType, float& OutRadius, float& OutHalfHeight, FVector& OutExtent) const;
     bool ShouldCreateBodyForBone(int32 BoneIndex, const struct FSkeleton* Skeleton) const;
+    void RecreateBodyPrimitive(class UBodySetup* BodySetup, EPrimitiveType NewPrimitiveType);
 
     // Vertex-driven body generation
     struct FBoneVertexInfluence
@@ -71,4 +88,15 @@ private:
     class UTexture* IconSingleBody = nullptr;
     class UTexture* IconMultipleBody = nullptr;
     bool bIconsLoaded = false;
+
+    // Constraint Icon
+    class UTexture* IconBoneConstraint = nullptr;
+    class UTexture* IconBoneCrossConstraint = nullptr;
+
+    // Physics Simulation
+    bool bIsSimulating = false;
+    void StartSimulation();
+    void StopSimulation();
+    class UTexture* IconPlay = nullptr;
+    class UTexture* IconPause = nullptr;
 };
