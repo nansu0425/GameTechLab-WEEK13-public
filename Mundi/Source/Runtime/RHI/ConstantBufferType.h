@@ -102,19 +102,34 @@ struct alignas(16) FGammaCorrectionBufferType
 static_assert(sizeof(FGammaCorrectionBufferType) % 16 == 0, "CB must be 16-byte aligned");
 
 // Depth of Field 상수 버퍼 (b2 - PS only)
+// Phase 2: 64바이트로 확장 (Half-res 텍셀 사이즈, BlurDirection 추가)
 struct alignas(16) FDoFBufferType
 {
-    float FocalDistance;      // 초점 거리 (world units, cm)
-    float CocScale;           // CoC 스케일 팩터 (무한대 CoC = f² / (N × (d - f)))
+    // ===== Row 1 (16 bytes) - 기존 =====
+    float FocalDistance;      // 초점 거리 (world units)
+    float CocScale;           // CoC 스케일 팩터 (정규화됨)
     float MaxBlurRadius;      // 최대 블러 반경 (픽셀 단위)
     float NearClip;           // 근거리 클리핑
 
+    // ===== Row 2 (16 bytes) - 기존 + 확장 =====
     float FarClip;            // 원거리 클리핑
-    float TexelSizeX;         // 1.0f / Width
-    float TexelSizeY;         // 1.0f / Height
-    float Padding;
+    float TexelSizeX;         // 1.0f / FullWidth
+    float TexelSizeY;         // 1.0f / FullHeight
+    float HalfTexelSizeX;     // 1.0f / HalfWidth (Phase 2)
+
+    // ===== Row 3 (16 bytes) - Phase 2 =====
+    float HalfTexelSizeY;     // 1.0f / HalfHeight
+    float BlurDirection;      // 0.0f = Horizontal, 1.0f = Vertical
+    float Padding1;           // 예약
+    float Padding2;           // 예약
+
+    // ===== Row 4 (16 bytes) - Phase 2 =====
+    float Padding3;           // 예약
+    float Padding4;           // 예약
+    float Padding5;           // 예약
+    float Padding6;           // 예약
 };
-static_assert(sizeof(FDoFBufferType) % 16 == 0, "CB must be 16-byte aligned");
+static_assert(sizeof(FDoFBufferType) == 64, "FDoFBufferType must be 64 bytes");
 
 struct FXAABufferType // b2
 {

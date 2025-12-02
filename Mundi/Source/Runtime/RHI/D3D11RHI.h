@@ -201,6 +201,21 @@ public:
     // RTV Getters
     ID3D11RenderTargetView* GetBackBufferRTV() const { return BackBufferRTV; }
 
+	// ===== DoF Phase 2: Half-res 버퍼 관리 =====
+	void CreateHalfResolutionBuffers(UINT FullWidth, UINT FullHeight);
+	void ReleaseHalfResolutionBuffers();
+
+	// Half-res Ping-Pong
+	void SwapHalfResRenderTargets();
+	ID3D11ShaderResourceView* GetHalfResColorSourceSRV() const;
+	ID3D11RenderTargetView* GetHalfResColorTargetRTV() const;
+	ID3D11ShaderResourceView* GetHalfResCoCSRV() const;
+	ID3D11RenderTargetView* GetHalfResCoCRTV() const;
+
+	// 뷰포트 전환
+	void SetHalfResViewport();
+	void RestoreFullResViewport();
+
 private:
 	void CreateDeviceAndSwapChain(HWND hWindow); // 여기서 디바이스, 디바이스 컨택스트, 스왑체인, 뷰포트를 초기화한다
 	void CreateFrameBuffer();
@@ -290,6 +305,26 @@ private:
 	UShader* PreShader = nullptr; // Shaders, Inputlayout
 
 	bool bReleased = false; // Prevent double Release() calls
+
+	// ===== DoF Phase 2: Half-resolution 버퍼 =====
+	static const int NUM_HALF_RES_BUFFERS = 2;
+
+	// Half-res Scene Color (Ping-Pong)
+	ID3D11Texture2D* HalfResColorTextures[NUM_HALF_RES_BUFFERS] = { nullptr, nullptr };
+	ID3D11RenderTargetView* HalfResColorRTVs[NUM_HALF_RES_BUFFERS] = { nullptr, nullptr };
+	ID3D11ShaderResourceView* HalfResColorSRVs[NUM_HALF_RES_BUFFERS] = { nullptr, nullptr };
+
+	// Half-res CoC (R16F, 단일 버퍼)
+	ID3D11Texture2D* HalfResCoCTexture = nullptr;
+	ID3D11RenderTargetView* HalfResCoCRTV = nullptr;
+	ID3D11ShaderResourceView* HalfResCoCSRV = nullptr;
+
+	// Ping-Pong 인덱스
+	int32 HalfResSourceIndex = 0;
+	int32 HalfResTargetIndex = 1;
+
+	// Half-res 뷰포트 캐시
+	D3D11_VIEWPORT HalfResViewport = {};
 };
 
 

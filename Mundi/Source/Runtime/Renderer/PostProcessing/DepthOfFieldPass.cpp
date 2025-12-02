@@ -67,7 +67,17 @@ void FDepthOfFieldPass::Execute(const FPostProcessModifier& M, FSceneView* View,
     float ViewportHeight = static_cast<float>(View->ViewRect.Height());
     DoFConstant.TexelSizeX = (ViewportWidth > 0.f) ? (1.0f / ViewportWidth) : 0.f;
     DoFConstant.TexelSizeY = (ViewportHeight > 0.f) ? (1.0f / ViewportHeight) : 0.f;
-    DoFConstant.Padding = 0.0f;
+
+    // Phase 2 확장 필드 초기화 (Phase 1에서는 사용하지 않지만 초기화 필요)
+    DoFConstant.HalfTexelSizeX = DoFConstant.TexelSizeX * 2.0f;
+    DoFConstant.HalfTexelSizeY = DoFConstant.TexelSizeY * 2.0f;
+    DoFConstant.BlurDirection = 0.0f;
+    DoFConstant.Padding1 = 0.0f;
+    DoFConstant.Padding2 = 0.0f;
+    DoFConstant.Padding3 = 0.0f;
+    DoFConstant.Padding4 = 0.0f;
+    DoFConstant.Padding5 = 0.0f;
+    DoFConstant.Padding6 = 0.0f;
 
     RHIDevice->SetAndUpdateConstantBuffer(DoFConstant);
 

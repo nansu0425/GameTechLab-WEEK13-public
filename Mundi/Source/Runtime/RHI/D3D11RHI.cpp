@@ -16,6 +16,9 @@ void D3D11RHI::Initialize(HWND hWindow)
 	CreateSamplerState();
     UResourceManager::GetInstance().Initialize(Device,DeviceContext);
 
+    // Half-res 버퍼 생성 (DoF Phase 2)
+    CreateHalfResolutionBuffers((UINT)ViewportInfo.Width, (UINT)ViewportInfo.Height);
+
     // Initialize Direct2D overlay after device/swapchain ready
     UStatsOverlayD2D::Get().Initialize(Device, DeviceContext, SwapChain);
 }
@@ -77,6 +80,9 @@ void D3D11RHI::Release()
     // RTV/DSV/FrameBuffer
     ReleaseFrameBuffer();
     ReleaseIdBuffer();
+
+    // Half-res 버퍼 해제 (DoF Phase 2)
+    ReleaseHalfResolutionBuffers();
 
     // Device + SwapChain
     ReleaseDeviceAndSwapChain();
@@ -1077,6 +1083,9 @@ void D3D11RHI::OnResize(UINT NewWidth, UINT NewHeight)
     CreateFrameBuffer();
     CreateIdBuffer();
 
+    // Half-res 버퍼 재생성 (DoF Phase 2)
+    CreateHalfResolutionBuffers(NewWidth, NewHeight);
+
     // 뷰포트 갱신
     ViewportInfo.TopLeftX = 0.0f;
     ViewportInfo.TopLeftY = 0.0f;
@@ -1272,4 +1281,140 @@ void D3D11RHI::UpdateStructuredBuffer(ID3D11Buffer* InBuffer, const void* InData
         memcpy(mappedResource.pData, InData, InDataSize);
         DeviceContext->Unmap(InBuffer, 0);
     }
+}
+
+// ===== DoF Phase 2: Half-resolution 버퍼 관리 =====
+
+void D3D11RHI::CreateHalfResolutionBuffers(UINT FullWidth, UINT FullHeight)
+{
+    ReleaseHalfResolutionBuffers();  // 기존 버퍼 해제
+
+    UINT HalfWidth = FullWidth / 2;
+    UINT HalfHeight = FullHeight / 2;
+
+    // Half-res 뷰포트 캐시
+    HalfResViewport.Width = (float)HalfWidth;
+    HalfResViewport.Height = (float)HalfHeight;
+    HalfResViewport.MinDepth = 0.0f;
+    HalfResViewport.MaxDepth = 1.0f;
+    HalfResViewport.TopLeftX = 0.0f;
+    HalfResViewport.TopLeftY = 0.0f;
+
+    // ===== Half-res Color 버퍼 (Ping-Pong) =====
+    D3D11_TEXTURE2D_DESC ColorDesc = {};
+    ColorDesc.Width = HalfWidth;
+    ColorDesc.Height = HalfHeight;
+    ColorDesc.MipLevels = 1;
+    ColorDesc.ArraySize = 1;
+    ColorDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    ColorDesc.SampleDesc.Count = 1;
+    ColorDesc.Usage = D3D11_USAGE_DEFAULT;
+    ColorDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+
+    for (int i = 0; i < NUM_HALF_RES_BUFFERS; i++)
+    {
+        HRESULT hr = Device->CreateTexture2D(&ColorDesc, nullptr, &HalfResColorTextures[i]);
+        if (FAILED(hr))
+        {
+            UE_LOG("DoF Phase 2: Failed to create Half-res Color texture");
+            return;
+        }
+
+        hr = Device->CreateRenderTargetView(HalfResColorTextures[i], nullptr, &HalfResColorRTVs[i]);
+        if (FAILED(hr))
+        {
+            UE_LOG("DoF Phase 2: Failed to create Half-res Color RTV");
+            return;
+        }
+
+        hr = Device->CreateShaderResourceView(HalfResColorTextures[i], nullptr, &HalfResColorSRVs[i]);
+        if (FAILED(hr))
+        {
+            UE_LOG("DoF Phase 2: Failed to create Half-res Color SRV");
+            return;
+        }
+    }
+
+    // ===== Half-res CoC 버퍼 (R16F) =====
+    D3D11_TEXTURE2D_DESC CoCDesc = {};
+    CoCDesc.Width = HalfWidth;
+    CoCDesc.Height = HalfHeight;
+    CoCDesc.MipLevels = 1;
+    CoCDesc.ArraySize = 1;
+    CoCDesc.Format = DXGI_FORMAT_R16_FLOAT;
+    CoCDesc.SampleDesc.Count = 1;
+    CoCDesc.Usage = D3D11_USAGE_DEFAULT;
+    CoCDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+
+    HRESULT hr = Device->CreateTexture2D(&CoCDesc, nullptr, &HalfResCoCTexture);
+    if (FAILED(hr))
+    {
+        UE_LOG("DoF Phase 2: Failed to create Half-res CoC texture");
+        return;
+    }
+
+    hr = Device->CreateRenderTargetView(HalfResCoCTexture, nullptr, &HalfResCoCRTV);
+    if (FAILED(hr))
+    {
+        UE_LOG("DoF Phase 2: Failed to create Half-res CoC RTV");
+        return;
+    }
+
+    hr = Device->CreateShaderResourceView(HalfResCoCTexture, nullptr, &HalfResCoCSRV);
+    if (FAILED(hr))
+    {
+        UE_LOG("DoF Phase 2: Failed to create Half-res CoC SRV");
+        return;
+    }
+
+    HalfResSourceIndex = 0;
+    HalfResTargetIndex = 1;
+}
+
+void D3D11RHI::ReleaseHalfResolutionBuffers()
+{
+    for (int i = 0; i < NUM_HALF_RES_BUFFERS; i++)
+    {
+        if (HalfResColorSRVs[i]) { HalfResColorSRVs[i]->Release(); HalfResColorSRVs[i] = nullptr; }
+        if (HalfResColorRTVs[i]) { HalfResColorRTVs[i]->Release(); HalfResColorRTVs[i] = nullptr; }
+        if (HalfResColorTextures[i]) { HalfResColorTextures[i]->Release(); HalfResColorTextures[i] = nullptr; }
+    }
+    if (HalfResCoCSRV) { HalfResCoCSRV->Release(); HalfResCoCSRV = nullptr; }
+    if (HalfResCoCRTV) { HalfResCoCRTV->Release(); HalfResCoCRTV = nullptr; }
+    if (HalfResCoCTexture) { HalfResCoCTexture->Release(); HalfResCoCTexture = nullptr; }
+}
+
+void D3D11RHI::SwapHalfResRenderTargets()
+{
+    std::swap(HalfResSourceIndex, HalfResTargetIndex);
+}
+
+ID3D11ShaderResourceView* D3D11RHI::GetHalfResColorSourceSRV() const
+{
+    return HalfResColorSRVs[HalfResSourceIndex];
+}
+
+ID3D11RenderTargetView* D3D11RHI::GetHalfResColorTargetRTV() const
+{
+    return HalfResColorRTVs[HalfResTargetIndex];
+}
+
+ID3D11ShaderResourceView* D3D11RHI::GetHalfResCoCSRV() const
+{
+    return HalfResCoCSRV;
+}
+
+ID3D11RenderTargetView* D3D11RHI::GetHalfResCoCRTV() const
+{
+    return HalfResCoCRTV;
+}
+
+void D3D11RHI::SetHalfResViewport()
+{
+    DeviceContext->RSSetViewports(1, &HalfResViewport);
+}
+
+void D3D11RHI::RestoreFullResViewport()
+{
+    DeviceContext->RSSetViewports(1, &ViewportInfo);
 }
