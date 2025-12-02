@@ -845,6 +845,11 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
 
             ActiveState->CurrentPhysicsAsset->ClearAllBodies();
 
+            // Reset selection indices to prevent accessing invalid array elements
+            ActiveState->SelectedBodyIndex = -1;
+            ActiveState->SelectedConstraintIndex = -1;
+            ActiveState->SelectedBoneIndex = -1;
+
             // Clear visualization
             bCollisionShapesDirty = true;
         }
@@ -1010,9 +1015,19 @@ void SPhysicsAssetEditorWindow::ViewportRenderCallback(const ImDrawList* parent_
 
 void SPhysicsAssetEditorWindow::RenderBodyProperties()
 {
-    if (!ActiveState || ActiveState->SelectedBodyIndex < 0) return;
+    if (!ActiveState || !ActiveState->CurrentPhysicsAsset) return;
+    if (ActiveState->SelectedBodyIndex < 0) return;
 
-    UBodySetup* SelectedBody = ActiveState->CurrentPhysicsAsset->GetBodySetups()[ActiveState->SelectedBodyIndex];
+    // Bounds check before accessing array
+    const TArray<UBodySetup*>& BodySetups = ActiveState->CurrentPhysicsAsset->GetBodySetups();
+    if (ActiveState->SelectedBodyIndex >= BodySetups.Num())
+    {
+        // Selection index is out of range, reset it
+        ActiveState->SelectedBodyIndex = -1;
+        return;
+    }
+
+    UBodySetup* SelectedBody = BodySetups[ActiveState->SelectedBodyIndex];
     if (!SelectedBody) return;
 
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6);
@@ -1158,10 +1173,20 @@ void SPhysicsAssetEditorWindow::RenderBodyProperties()
 
 void SPhysicsAssetEditorWindow::RenderConstraintProperties()
 {
-    if (!ActiveState || ActiveState->SelectedConstraintIndex < 0) return;
+    if (!ActiveState || !ActiveState->CurrentPhysicsAsset) return;
+    if (ActiveState->SelectedConstraintIndex < 0) return;
+
+    // Bounds check before accessing array
+    TArray<FConstraintSetup>& ConstraintSetups = ActiveState->CurrentPhysicsAsset->GetConstraintSetupsMutable();
+    if (ActiveState->SelectedConstraintIndex >= ConstraintSetups.Num())
+    {
+        // Selection index is out of range, reset it
+        ActiveState->SelectedConstraintIndex = -1;
+        return;
+    }
 
     // Get mutable reference to the constraint (not const)
-    FConstraintSetup& SelectedConstraint = ActiveState->CurrentPhysicsAsset->GetConstraintSetupsMutable()[ActiveState->SelectedConstraintIndex];
+    FConstraintSetup& SelectedConstraint = ConstraintSetups[ActiveState->SelectedConstraintIndex];
     FConstraintProfileProperties& Profile = SelectedConstraint.Profile;
 
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6);
