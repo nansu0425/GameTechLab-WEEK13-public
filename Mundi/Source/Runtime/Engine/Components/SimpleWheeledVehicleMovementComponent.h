@@ -54,6 +54,15 @@ public:
     /** 서스펜션 레이캐스트 업데이트(시뮬레이션 전 수행) */
     void PerformSuspensionRaycasts();
 
+    /** 사용자 입력(Throttle/Steering)을 PxVehicleDrive4WRawInputData에 매핑 */
+    void ApplyInputToPhysX(float DeltaTime);
+
+    /** Vehicle simulate/update 호출 */
+    void SimulateVehicle(float DeltaTime);
+
+    /** PhysX 결과로부터 차체 및 휠의 포즈를 업데이트 */
+    void UpdateVehiclePoseFromPhysX();
+
     // =======================================================================
     // 핵심 멤버 변수 (Properties)
     // =======================================================================
@@ -99,9 +108,6 @@ public:
 
     /** 핸드브레이크 입력 설정 (0.0f ~ 1.0f) */
     void SetHandbrakeInput(float Handbrake);
-
-    /** 사용자 입력(Throttle/Steering)을 PxVehicleDrive4WRawInputData에 매핑 */
-    void ApplyInputToPhysX(float DeltaTime);
 
 protected:
     // --- PhysX Vehicle 관련 멤버 ---
@@ -153,18 +159,6 @@ protected:
      * UpdatedComponent -> 루트 컴포넌트 -> Actor의 SkeletalMeshComponent -> StaticMeshComponent 순으로 탐색합니다.
      */
     void EnsureUpdatedComponentIsValid();
-
-
-	// =======================================================================
-	// 내부 업데이트 메소드 (TickComponent에서 호출)
-	// =======================================================================
-
-    /** Vehicle simulate/update 호출 */
-    void SimulateVehicle(float DeltaTime);
-
-    /** PhysX 결과로부터 차체 및 휠의 포즈를 업데이트 */
-    void UpdateVehiclePoseFromPhysX();
-
 
     /** 초기화 진행 여부 */
     bool bVehicleInitialized = false;

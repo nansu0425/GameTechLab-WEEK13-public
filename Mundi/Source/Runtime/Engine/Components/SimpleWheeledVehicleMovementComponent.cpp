@@ -74,9 +74,6 @@ void USimpleWheeledVehicleMovementComponent::TickComponent(float DeltaTime)
             return;
         }
     }
-
-    SimulateVehicle(DeltaTime);
-    UpdateVehiclePoseFromPhysX();
 }
 
 void USimpleWheeledVehicleMovementComponent::SetThrottleInput(float Throttle)

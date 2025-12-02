@@ -150,6 +150,16 @@ void FPhysScene::EndFrame()
         Impl->FetchResults();
     }
 
+    // PhysX 결과가 확정된 후 차량 포즈를 갱신
+    TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>> Vehicles = GetRegisteredVehicleComponents();
+    for (TWeakObjectPtr<USimpleWheeledVehicleMovementComponent> VehiclePtr : Vehicles)
+    {
+        if (VehiclePtr.IsValid())
+        {
+            VehiclePtr->UpdateVehiclePoseFromPhysX();
+        }
+    }
+
     // 프레임 종료 시 총 물리 시간 기록
     FPhysicsStatManager::GetInstance().EndFrameTiming(
         FPlatformTime::Cycles64(),
@@ -380,6 +390,22 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
         }
     };
 
+    auto SimulateVehicles = [this](float Step)
+    {
+        if (Step <= 0.0f)
+        {
+            return;
+        }
+        CompactVehicleComponents();
+        for (TWeakObjectPtr<USimpleWheeledVehicleMovementComponent> VehiclePtr : VehicleComponents)
+        {
+            if (VehiclePtr.IsValid())
+            {
+                VehiclePtr->SimulateVehicle(Step);
+            }
+        }
+    };
+
     // ═══════════════════════════════════════════════════════════════════════
     // 비동기 물리 시뮬레이션 (언리얼 엔진 스타일)
     // ═══════════════════════════════════════════════════════════════════════
@@ -415,6 +441,7 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
 
                 // 입력을 시뮬레이션 직전에 적용
                 ApplyVehicleInputs(FixedTimestep);
+                SimulateVehicles(FixedTimestep);
 
                 // simulate() 타이밍 측정
                 uint64 SimStartCycles = FPlatformTime::Cycles64();
@@ -459,6 +486,7 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
 
         // 입력을 시뮬레이션 직전에 적용
         ApplyVehicleInputs(FixedTimestep);
+        SimulateVehicles(FixedTimestep);
 
         // simulate() 타이밍 측정
         uint64 SimStartCycles = FPlatformTime::Cycles64();
