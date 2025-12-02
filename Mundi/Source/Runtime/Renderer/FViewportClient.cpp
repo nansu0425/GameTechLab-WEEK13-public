@@ -413,10 +413,26 @@ FMatrix FViewportClient::GetViewMatrix() const
 
 void FViewportClient::EnablePilotMode(AActor* TargetActor, UCameraComponent* TargetCameraComponent)
 {
-	if (!TargetActor || !TargetCameraComponent || bPilotCameraMode) return;
+	if (!TargetActor || !TargetCameraComponent) return;
 
-	// 현재 에디터 카메라 저장
-	OriginalCamera = Camera;
+	// 이미 같은 카메라로 Pilot 중이면 무시
+	if (bPilotCameraMode && PilotActor == TargetActor) return;
+
+	// 이미 다른 카메라로 Pilot 중이면 먼저 해제 (카메라 전환)
+	if (bPilotCameraMode)
+	{
+		// 이전 카메라 기즈모 복원
+		if (PilotCameraComponent)
+		{
+			PilotCameraComponent->SetCameraGizmoVisible(true);
+		}
+		// 상태는 유지하되 새 카메라로 전환 준비
+	}
+	else
+	{
+		// 최초 Pilot 모드 진입 시에만 에디터 카메라 저장
+		OriginalCamera = Camera;
+	}
 
 	// Pilot 대상 설정
 	PilotActor = TargetActor;
