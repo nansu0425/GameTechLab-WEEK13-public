@@ -87,18 +87,26 @@ public:
     UPROPERTY(EditAnywhere, Category = "Vehicle")
     float MaxHandbrakeTorque = 2000.0f;
 
+    /** UpdatedComponent로부터 BodyInstance 획득 실패시 만들 fallback용 액터 크기*/
+	UPROPERTY(EditAnywhere, Category = "Vehicle")
+    FVector BackUpActorExtent;
+
     // --- 입력 처리 함수 (API) ---
 
     /** 스로틀 입력 설정 (-1.0f ~ 1.0f) */
+    UFUNCTION(LuaBind, DisplayName = "SetThrottleInput")
     void SetThrottleInput(float Throttle);
 
     /** 스티어링 입력 설정 (-1.0f ~ 1.0f) */
+    UFUNCTION(LuaBind, DisplayName = "SetSteeringInput")
     void SetSteeringInput(float Steering);
 
     /** 브레이크 입력 설정 (0.0f ~ 1.0f) */
+    UFUNCTION(LuaBind, DisplayName = "SetBrakeInput")
     void SetBrakeInput(float Brake);
 
     /** 핸드브레이크 입력 설정 (0.0f ~ 1.0f) */
+    UFUNCTION(LuaBind, DisplayName = "SetHandbrakeInput")
     void SetHandbrakeInput(float Handbrake);
 
     /** WheelSetup 변경 후 재초기화 */
@@ -145,6 +153,8 @@ protected:
     /** PxVehicleDrive4W 인스턴스 및 관련 PhysX 구조체 초기화 */
     bool InitVehiclePhysX();
 
+	physx::PxRigidDynamic* CreateFallBackVehicleActor();
+
     /** Vehicle 관련 PhysX 리소스 정리 */
     void CleanupVehiclePhysX();
 
@@ -172,6 +182,9 @@ protected:
 
     /** 초기 휠 본의 로컬 위치를 캐싱 (서스펜션 승강 계산용) */
     TArray<FVector> InitialWheelLocalPositions;
+
+    /** 내부 폴백용 차량 액터를 사용했는지 여부 */
+    bool bUseInternalVehicleActor = false;
 
     /** PhysScene 레지스트리에 등록/해제 */
     void RegisterWithPhysScene();
