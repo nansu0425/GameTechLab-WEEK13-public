@@ -91,10 +91,6 @@ public:
     UPROPERTY(EditAnywhere, Category = "Vehicle")
     float MaxHandbrakeTorque = 2000.0f;
 
-    /** 자동 기어 여부 */
-    UPROPERTY(EditAnywhere, Category = "Vehicle")
-    bool bUseAutoGears = true;
-
     // --- 입력 처리 함수 (API) ---
 
     /** 스로틀 입력 설정 (-1.0f ~ 1.0f) */
