@@ -42,9 +42,15 @@ private:
     void DrawWireframeSphere(ULineComponent* LineComp, const FVector& Center, float Radius, const FQuat& Rotation, const FVector4& Color, int32 Segments = 16);
     void DrawWireframeCapsule(ULineComponent* LineComp, const FVector& Center, float Radius, float HalfHeight, const FQuat& Rotation, const FVector4& Color, int32 Segments = 16);
 
+    // Constraint visualization functions
+    void DrawConstraintFrame(ULineComponent* LineComp, const FVector& Position, const FVector& PriAxis, const FVector& SecAxis, float AxisLength, const FVector4& Color);
+    void DrawSwingCone(ULineComponent* LineComp, const FVector& Position, const FVector& PriAxis, const FVector& SecAxis, float Swing1Angle, float Swing2Angle, const FVector4& Color, int32 Segments = 16);
+    void DrawTwistArc(ULineComponent* LineComp, const FVector& Position, const FVector& PriAxis, const FVector& SecAxis, float TwistAngle, float Radius, const FVector4& Color, int32 Segments = 16);
+
     // Collision shape management
     void RebuildCollisionShapes();
     void ClearCollisionShapes();
+    void RebuildConstraintVisualization();
 
     // Helper function for physics body hierarchy filtering
     bool HasBodyInSubtree(int32 BoneIndex, const TArray<struct FBone>& Bones, const TArray<TArray<int32>>& Children) const;

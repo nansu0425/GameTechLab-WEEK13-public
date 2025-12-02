@@ -1210,6 +1210,54 @@ void SPhysicsAssetEditorWindow::RenderConstraintProperties()
 
     bool bChanged = false;
 
+    // === Constraint Frames ===
+    if (ImGui::TreeNodeEx("Constraint Frames", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Spacing();
+
+        // Child Frame (Frame1)
+        if (ImGui::TreeNodeEx("Child Frame (Frame1)", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::Spacing();
+            bChanged |= ImGui::DragFloat3("Position##Frame1Pos", &SelectedConstraint.Frame1.Pos.X, 0.01f, -100.0f, 100.0f, "%.3f");
+            bChanged |= ImGui::DragFloat3("Primary Axis##Frame1Pri", &SelectedConstraint.Frame1.PriAxis.X, 0.01f, -1.0f, 1.0f, "%.3f");
+            bChanged |= ImGui::DragFloat3("Secondary Axis##Frame1Sec", &SelectedConstraint.Frame1.SecAxis.X, 0.01f, -1.0f, 1.0f, "%.3f");
+
+            // Normalize axes if changed
+            if (bChanged)
+            {
+                SelectedConstraint.Frame1.PriAxis = SelectedConstraint.Frame1.PriAxis.GetSafeNormal();
+                SelectedConstraint.Frame1.SecAxis = SelectedConstraint.Frame1.SecAxis.GetSafeNormal();
+            }
+
+            ImGui::TreePop();
+        }
+
+        ImGui::Spacing();
+
+        // Parent Frame (Frame2)
+        if (ImGui::TreeNodeEx("Parent Frame (Frame2)", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::Spacing();
+            bChanged |= ImGui::DragFloat3("Position##Frame2Pos", &SelectedConstraint.Frame2.Pos.X, 0.01f, -100.0f, 100.0f, "%.3f");
+            bChanged |= ImGui::DragFloat3("Primary Axis##Frame2Pri", &SelectedConstraint.Frame2.PriAxis.X, 0.01f, -1.0f, 1.0f, "%.3f");
+            bChanged |= ImGui::DragFloat3("Secondary Axis##Frame2Sec", &SelectedConstraint.Frame2.SecAxis.X, 0.01f, -1.0f, 1.0f, "%.3f");
+
+            // Normalize axes if changed
+            if (bChanged)
+            {
+                SelectedConstraint.Frame2.PriAxis = SelectedConstraint.Frame2.PriAxis.GetSafeNormal();
+                SelectedConstraint.Frame2.SecAxis = SelectedConstraint.Frame2.SecAxis.GetSafeNormal();
+            }
+
+            ImGui::TreePop();
+        }
+
+        ImGui::TreePop();
+    }
+
+    ImGui::Spacing();
+
     // === Angular Limits ===
     if (ImGui::TreeNodeEx("Angular Limits", ImGuiTreeNodeFlags_DefaultOpen))
     {
@@ -1285,8 +1333,40 @@ void SPhysicsAssetEditorWindow::RenderConstraintProperties()
         ImGui::TreePop();
     }
 
-    // Note: Constraint changes don't need to rebuild collision shapes
-    // They affect physics simulation only
+    // If any constraint property changed, update both visualization and runtime constraints
+    if (bChanged)
+    {
+        bCollisionShapesDirty = true;
+
+        // If simulating, also update the runtime constraint instance
+        if (bIsSimulating && ActiveState->PreviewActor)
+        {
+            USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+            if (MeshComp)
+            {
+                TArray<FConstraintInstance*> RuntimeConstraints = MeshComp->GetConstraints();
+
+                // Find matching runtime constraint by index
+                if (ActiveState->SelectedConstraintIndex >= 0 && ActiveState->SelectedConstraintIndex < RuntimeConstraints.Num())
+                {
+                    FConstraintInstance* RuntimeConstraint = RuntimeConstraints[ActiveState->SelectedConstraintIndex];
+                    if (RuntimeConstraint && RuntimeConstraint->IsValid())
+                    {
+                        // Update runtime constraint frames
+                        RuntimeConstraint->SetRefFrame1(SelectedConstraint.Frame1);
+                        RuntimeConstraint->SetRefFrame2(SelectedConstraint.Frame2);
+
+                        // Update runtime constraint limits
+                        RuntimeConstraint->SetAngularSwing1Limit(Profile.Swing1LimitsAngle, Profile.Swing1Motion);
+                        RuntimeConstraint->SetAngularSwing2Limit(Profile.Swing2LimitsAngle, Profile.Swing2Motion);
+                        RuntimeConstraint->SetAngularTwistLimit(Profile.TwistLimit, Profile.TwistMotion);
+                        RuntimeConstraint->SetLinearLimit(Profile.LinearLimit, Profile.LinearMotionX, Profile.LinearMotionY, Profile.LinearMotionZ);
+                        RuntimeConstraint->SetDisableCollision(Profile.bDisableCollision);
+                    }
+                }
+            }
+        }
+    }
 }
 
 void SPhysicsAssetEditorWindow::DrawWireframeBox(ULineComponent* LineComp, const FVector& Center, const FVector& HalfExtents, const FQuat& Rotation, const FVector4& Color)
@@ -1584,6 +1664,9 @@ void SPhysicsAssetEditorWindow::RebuildCollisionShapes()
         }
     }
 
+    // Rebuild constraint visualization
+    RebuildConstraintVisualization();
+
     bCollisionShapesDirty = false;
 }
 
@@ -1597,6 +1680,188 @@ void SPhysicsAssetEditorWindow::ClearCollisionShapes()
 
     // Clear only collision shape lines
     LineComp->ClearLines();
+}
+
+void SPhysicsAssetEditorWindow::DrawConstraintFrame(ULineComponent* LineComp, const FVector& Position, const FVector& PriAxis, const FVector& SecAxis, float AxisLength, const FVector4& Color)
+{
+    if (!LineComp) return;
+
+    // Calculate third axis (normal)
+    FVector NormalAxis = FVector::Cross(PriAxis, SecAxis).GetSafeNormal();
+
+    // Draw three axes
+    FVector4 RedColor(1.0f, 0.0f, 0.0f, 1.0f);    // X - PriAxis (Twist axis)
+    FVector4 GreenColor(0.0f, 1.0f, 0.0f, 1.0f);  // Y - SecAxis
+    FVector4 BlueColor(0.0f, 0.0f, 1.0f, 1.0f);   // Z - Normal
+
+    LineComp->AddLine(Position, Position + PriAxis * AxisLength, RedColor);
+    LineComp->AddLine(Position, Position + SecAxis * AxisLength, GreenColor);
+    LineComp->AddLine(Position, Position + NormalAxis * AxisLength, BlueColor);
+}
+
+void SPhysicsAssetEditorWindow::DrawSwingCone(ULineComponent* LineComp, const FVector& Position, const FVector& PriAxis, const FVector& SecAxis, float Swing1Angle, float Swing2Angle, const FVector4& Color, int32 Segments)
+{
+    if (!LineComp || Segments < 3) return;
+
+    // Convert angles from degrees to radians
+    float Swing1Rad = DegreesToRadians(Swing1Angle);
+    float Swing2Rad = DegreesToRadians(Swing2Angle);
+
+    // Calculate cone height (small scale for visualization relative to bone size)
+    float ConeLength = 0.1f;
+
+    // Calculate normal axis (perpendicular to both PriAxis and SecAxis)
+    FVector NormalAxis = FVector::Cross(PriAxis, SecAxis).GetSafeNormal();
+
+    // Draw elliptical cone
+    // The cone opens along PriAxis, with Swing1 in SecAxis direction and Swing2 in NormalAxis direction
+    TArray<FVector> CirclePoints;
+    CirclePoints.reserve(Segments);
+
+    for (int32 i = 0; i <= Segments; ++i)
+    {
+        float Angle = (static_cast<float>(i) / static_cast<float>(Segments)) * TWO_PI;
+        float CosAngle = cosf(Angle);
+        float SinAngle = sinf(Angle);
+
+        // Ellipse radii based on swing angles
+        float RadiusY = ConeLength * tanf(Swing1Rad);  // Swing1 direction (SecAxis)
+        float RadiusZ = ConeLength * tanf(Swing2Rad);  // Swing2 direction (NormalAxis)
+
+        // Point on ellipse
+        FVector LocalPoint = SecAxis * (RadiusY * CosAngle) + NormalAxis * (RadiusZ * SinAngle);
+        FVector WorldPoint = Position + PriAxis * ConeLength + LocalPoint;
+        CirclePoints.Add(WorldPoint);
+    }
+
+    // Draw cone edge circle
+    for (int32 i = 0; i < Segments; ++i)
+    {
+        LineComp->AddLine(CirclePoints[i], CirclePoints[i + 1], Color);
+    }
+
+    // Draw radial lines from apex to circle (4 lines at cardinal directions)
+    int32 NumRadialLines = 4;
+    for (int32 i = 0; i < NumRadialLines; ++i)
+    {
+        int32 Index = (i * Segments) / NumRadialLines;
+        LineComp->AddLine(Position, CirclePoints[Index], Color);
+    }
+}
+
+void SPhysicsAssetEditorWindow::DrawTwistArc(ULineComponent* LineComp, const FVector& Position, const FVector& PriAxis, const FVector& SecAxis, float TwistAngle, float Radius, const FVector4& Color, int32 Segments)
+{
+    if (!LineComp || Segments < 3) return;
+
+    // Convert angle from degrees to radians
+    float TwistRad = DegreesToRadians(TwistAngle);
+
+    // Draw arc around PriAxis
+    // Arc goes from -TwistAngle to +TwistAngle
+
+    TArray<FVector> ArcPoints;
+    ArcPoints.reserve(Segments + 1);
+
+    // Calculate normal axis
+    FVector NormalAxis = FVector::Cross(PriAxis, SecAxis).GetSafeNormal();
+
+    // Generate arc points
+    for (int32 i = 0; i <= Segments; ++i)
+    {
+        // Angle ranges from -TwistRad to +TwistRad
+        float t = static_cast<float>(i) / static_cast<float>(Segments);
+        float CurrentAngle = FMath::Lerp(-TwistRad, TwistRad, t);
+
+        // Rotate SecAxis around PriAxis
+        FVector RotatedDir = SecAxis * cosf(CurrentAngle) + NormalAxis * sinf(CurrentAngle);
+        FVector ArcPoint = Position + RotatedDir * Radius;
+        ArcPoints.Add(ArcPoint);
+    }
+
+    // Draw arc
+    for (int32 i = 0; i < Segments; ++i)
+    {
+        LineComp->AddLine(ArcPoints[i], ArcPoints[i + 1], Color);
+    }
+
+    // Draw lines from center to arc endpoints to show the limit
+    LineComp->AddLine(Position, ArcPoints[0], Color);
+    LineComp->AddLine(Position, ArcPoints[Segments], Color);
+}
+
+void SPhysicsAssetEditorWindow::RebuildConstraintVisualization()
+{
+    if (!ActiveState || !ActiveState->CurrentPhysicsAsset) return;
+
+    ULineComponent* LineComp = ActiveState->CollisionShapeLineComponent;
+    if (!LineComp) return;
+
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    const TArray<FConstraintSetup>& Constraints = PhysicsAsset->GetContraintSetups();
+
+    if (Constraints.IsEmpty()) return;
+
+    ASkeletalMeshActor* PreviewActor = ActiveState->PreviewActor;
+    if (!PreviewActor) return;
+
+    USkeletalMeshComponent* MeshComp = PreviewActor->GetSkeletalMeshComponent();
+    if (!MeshComp) return;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton) return;
+
+    // Build BoneName -> BoneIndex map for performance
+    TMap<FString, int32> BoneNameToIndexMap;
+    for (int32 i = 0; i < Skeleton->Bones.Num(); ++i)
+    {
+        BoneNameToIndexMap.Add(Skeleton->Bones[i].Name, i);
+    }
+
+    // Colors
+    FVector4 ConstraintColor(0.0f, 1.0f, 1.0f, 1.0f);  // Cyan for constraints
+    FVector4 SelectedColor(1.0f, 1.0f, 0.0f, 1.0f);    // Yellow for selected
+
+    for (int32 i = 0; i < Constraints.Num(); ++i)
+    {
+        const FConstraintSetup& Constraint = Constraints[i];
+
+        // Find child bone index
+        int32* ChildBoneIndexPtr = BoneNameToIndexMap.Find(Constraint.ConstraintBone1.ToString());
+        if (!ChildBoneIndexPtr) continue;
+        int32 ChildBoneIndex = *ChildBoneIndexPtr;
+
+        // Get child bone world transform
+        FTransform ChildBoneTransform = MeshComp->GetBoneWorldTransform(ChildBoneIndex);
+        ChildBoneTransform.Scale3D = FVector(1, 1, 1);
+
+        // Transform Frame1 to world space
+        FVector ConstraintWorldPos = ChildBoneTransform.TransformPosition(Constraint.Frame1.Pos);
+        FVector WorldPriAxis = ChildBoneTransform.TransformVector(Constraint.Frame1.PriAxis).GetSafeNormal();
+        FVector WorldSecAxis = ChildBoneTransform.TransformVector(Constraint.Frame1.SecAxis).GetSafeNormal();
+
+        // Choose color based on selection
+        FVector4 DrawColor = (i == ActiveState->SelectedConstraintIndex) ? SelectedColor : ConstraintColor;
+
+        // Draw constraint frame (coordinate axes)
+        DrawConstraintFrame(LineComp, ConstraintWorldPos, WorldPriAxis, WorldSecAxis, 0.03f, DrawColor);
+
+        const FConstraintProfileProperties& Profile = Constraint.Profile;
+
+        // Draw Swing Cone if limited
+        if (Profile.Swing1Motion == EJointMotion::Limited || Profile.Swing2Motion == EJointMotion::Limited)
+        {
+            float Swing1 = (Profile.Swing1Motion == EJointMotion::Limited) ? Profile.Swing1LimitsAngle : 180.0f;
+            float Swing2 = (Profile.Swing2Motion == EJointMotion::Limited) ? Profile.Swing2LimitsAngle : 180.0f;
+
+            DrawSwingCone(LineComp, ConstraintWorldPos, WorldPriAxis, WorldSecAxis, Swing1, Swing2, DrawColor, 24);
+        }
+
+        // Draw Twist Arc if limited
+        if (Profile.TwistMotion == EJointMotion::Limited)
+        {
+            DrawTwistArc(LineComp, ConstraintWorldPos, WorldPriAxis, WorldSecAxis, Profile.TwistLimit, 0.1f, DrawColor, 16);
+        }
+    }
 }
 
 bool SPhysicsAssetEditorWindow::HasBodyInSubtree(int32 BoneIndex, const TArray<FBone>& Bones, const TArray<TArray<int32>>& Children) const
