@@ -313,6 +313,34 @@ public:
 		return false;
 	}
 
+	static bool ReadQuat(const JSON& InJson, const FString& InKey, FQuat& OutValue, const FQuat& InDefaultValue = FQuat(0,0,0,0), bool bInUseLog = true)
+	{
+		if (InJson.hasKey(InKey))
+		{
+			const JSON& VectorJson = InJson.at(InKey);
+			if (VectorJson.JSONType() == JSON::Class::Array && VectorJson.size() == 4)
+			{
+				try
+				{
+					OutValue = {
+						static_cast<float>(VectorJson.at(0).ToFloat()),
+						static_cast<float>(VectorJson.at(1).ToFloat()),
+						static_cast<float>(VectorJson.at(2).ToFloat()),
+						static_cast<float>(VectorJson.at(3).ToFloat())
+					};
+					return true;
+				}
+				catch (const std::exception&)
+				{
+				}
+			}
+		}
+		if (bInUseLog)
+			UE_LOG("[JsonSerializer] %s Quat 파싱에 실패했습니다 (기본값 사용)", InKey.c_str());
+		OutValue = InDefaultValue;
+		return false;
+	}
+
 	//====================================================================================
 	// Converting To JSON
 	//====================================================================================
@@ -335,6 +363,13 @@ public:
 	{
 		JSON VectorArray = JSON::Make(JSON::Class::Array);
 		VectorArray.append(InFloat);
+		return VectorArray;
+	}
+
+	static JSON QuatToJson(const FQuat& InQuat)
+	{
+		JSON VectorArray = JSON::Make(JSON::Class::Array);
+		VectorArray.append(InQuat.X, InQuat.Y, InQuat.Z, InQuat.W);
 		return VectorArray;
 	}
 

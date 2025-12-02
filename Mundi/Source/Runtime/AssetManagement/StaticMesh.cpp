@@ -5,6 +5,7 @@
 #include "ResourceManager.h"
 #include "FBXLoader.h"
 #include <filesystem>
+#include "BodySetup.h"
 
 IMPLEMENT_CLASS(UStaticMesh)
 
@@ -116,6 +117,7 @@ void UStaticMesh::Load(FMeshData* InData, ID3D11Device* InDevice, EVertexLayoutT
 
     VertexCount = static_cast<uint32>(InData->Vertices.size());
     IndexCount = static_cast<uint32>(InData->Indices.size());
+
 }
 
 void UStaticMesh::SetVertexType(EVertexLayoutType InVertexType)

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PhysScene.h
@@ -12,6 +12,13 @@
 #include "Vector.h"
 #include <memory>
 #include <cstdint>
+
+// Forward declarations to avoid leaking PhysX headers
+namespace physx
+{
+    class PxScene;
+    class PxMaterial;
+}
 
 // 전방 선언 (PhysX 의존성 없음)
 class UWorld;
@@ -105,6 +112,21 @@ public:
      * @brief 소유 월드 반환
      */
     UWorld* GetOwningWorld() const;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PhysX 저수준 객체 접근 (PhysX 의존 코드용)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * @brief 내부 PxScene 포인터 반환 (PhysX 기반 시스템에서 사용)
+     * @note PhysX 좌표계(+Y Up, -Z Forward) 주의
+     */
+    physx::PxScene* GetPxScene() const;
+
+    /**
+     * @brief 기본 PhysX Material 반환
+     */
+    physx::PxMaterial* GetDefaultMaterial() const;
 
     /**
      * @brief 내부 구현 접근 (Physics 모듈 내부에서만 사용)

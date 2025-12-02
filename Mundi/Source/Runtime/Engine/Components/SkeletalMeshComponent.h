@@ -1,4 +1,5 @@
-﻿#pragma once
+#pragma once
+#include "BodyInstance.h"
 #include "SkinnedMeshComponent.h"
 #include "USkeletalMeshComponent.generated.h"
 
@@ -7,6 +8,7 @@ class UAnimationAsset;
 class UAnimSequence;
 class UAnimStateMachineInstance;
 class UAnimBlendSpaceInstance;
+struct FConstraintInstance;
 
 UCLASS(DisplayName="스켈레탈 메시 컴포넌트", Description="스켈레탈 메시를 렌더링하는 컴포넌트입니다")
 class USkeletalMeshComponent : public USkinnedMeshComponent
@@ -15,7 +17,7 @@ public:
     GENERATED_REFLECTION_BODY()
     
     USkeletalMeshComponent();
-    ~USkeletalMeshComponent() override = default;
+    ~USkeletalMeshComponent() override;
 
     void TickComponent(float DeltaTime) override;
     void SetSkeletalMesh(const FString& PathFileName) override;
@@ -107,6 +109,13 @@ protected:
      */
     void UpdateFinalSkinningMatrices();
 
+    FBodyInstance* FindBodyInstance(const FName& BoneName);
+
+    void InitializeConstraints();
+
+    void ClearBodies();
+    void ClearConstraints();
+
 protected:
     /**
      * @brief 각 뼈의 부모 기준 로컬 트랜스폼
@@ -122,6 +131,9 @@ protected:
      * @brief 부모에게 보낼 최종 스키닝 행렬 (임시 계산용)
      */
     TArray<FMatrix> TempFinalSkinningMatrices;
+
+    TArray<FBodyInstance*> Bodies;
+    TArray<FConstraintInstance*> Constraints;
 
 // FOR TEST!!!
 private:
