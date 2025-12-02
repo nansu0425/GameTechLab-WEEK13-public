@@ -21,14 +21,22 @@ struct PS_OUTPUT
 PS_OUTPUT mainPS(PS_INPUT input)
 {
     PS_OUTPUT output;
-    float2 uv = input.texCoord;
 
-    // 2x2 박스 필터 오프셋 (Full-res 텍셀 단위)
+    // Half-res 렌더 타겟의 UV (0~1 전체 범위)
+    float2 halfResUV = input.texCoord;
+
+    // Full-res 소스 텍스처의 ViewRect 영역으로 UV 변환
+    // Half-res 텍스처는 전체를 사용하지만, Full-res는 ViewRect 영역만 유효
+    float2 sourceUV = RemapToSourceUV(halfResUV);
+
+    // 2x2 박스 필터 오프셋 (Full-res 텍셀 단위 기준으로 계산)
+    // 소스 텍스처 기준 텍셀 오프셋
+    float2 srcTexelSize = float2(TexelSizeX, TexelSizeY) * float2(SourceUVScaleX, SourceUVScaleY);
     float2 offsets[4] = {
-        float2(-0.5f, -0.5f) * float2(TexelSizeX, TexelSizeY),
-        float2( 0.5f, -0.5f) * float2(TexelSizeX, TexelSizeY),
-        float2(-0.5f,  0.5f) * float2(TexelSizeX, TexelSizeY),
-        float2( 0.5f,  0.5f) * float2(TexelSizeX, TexelSizeY)
+        float2(-0.5f, -0.5f) * srcTexelSize,
+        float2( 0.5f, -0.5f) * srcTexelSize,
+        float2(-0.5f,  0.5f) * srcTexelSize,
+        float2( 0.5f,  0.5f) * srcTexelSize
     };
 
     float4 colorSum = float4(0, 0, 0, 0);
@@ -38,12 +46,12 @@ PS_OUTPUT mainPS(PS_INPUT input)
     [unroll]
     for (int i = 0; i < 4; i++)
     {
-        float2 sampleUV = uv + offsets[i];
+        float2 sampleUV = sourceUV + offsets[i];
 
-        // 색상 샘플링
+        // 색상 샘플링 (Full-res 소스 텍스처)
         colorSum += g_SceneColorTex.Sample(g_LinearClampSampler, sampleUV);
 
-        // 깊이 -> CoC
+        // 깊이 -> CoC (Full-res 깊이 텍스처)
         float depth = g_DepthTex.Sample(g_PointClampSampler, sampleUV).r;
 
         // 스카이박스 체크

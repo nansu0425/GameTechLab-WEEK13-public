@@ -1287,14 +1287,24 @@ void D3D11RHI::UpdateStructuredBuffer(ID3D11Buffer* InBuffer, const void* InData
 
 void D3D11RHI::CreateHalfResolutionBuffers(UINT FullWidth, UINT FullHeight)
 {
+    UINT NewHalfWidth = FullWidth / 2;
+    UINT NewHalfHeight = FullHeight / 2;
+
+    // 이미 같은 크기면 재생성 불필요
+    if (HalfResWidth == NewHalfWidth && HalfResHeight == NewHalfHeight)
+    {
+        return;
+    }
+
     ReleaseHalfResolutionBuffers();  // 기존 버퍼 해제
 
-    UINT HalfWidth = FullWidth / 2;
-    UINT HalfHeight = FullHeight / 2;
+    // Half-res 버퍼 크기 저장
+    HalfResWidth = NewHalfWidth;
+    HalfResHeight = NewHalfHeight;
 
     // Half-res 뷰포트 캐시
-    HalfResViewport.Width = (float)HalfWidth;
-    HalfResViewport.Height = (float)HalfHeight;
+    HalfResViewport.Width = (float)HalfResWidth;
+    HalfResViewport.Height = (float)HalfResHeight;
     HalfResViewport.MinDepth = 0.0f;
     HalfResViewport.MaxDepth = 1.0f;
     HalfResViewport.TopLeftX = 0.0f;
@@ -1302,8 +1312,8 @@ void D3D11RHI::CreateHalfResolutionBuffers(UINT FullWidth, UINT FullHeight)
 
     // ===== Half-res Color 버퍼 (Ping-Pong) =====
     D3D11_TEXTURE2D_DESC ColorDesc = {};
-    ColorDesc.Width = HalfWidth;
-    ColorDesc.Height = HalfHeight;
+    ColorDesc.Width = HalfResWidth;
+    ColorDesc.Height = HalfResHeight;
     ColorDesc.MipLevels = 1;
     ColorDesc.ArraySize = 1;
     ColorDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -1337,8 +1347,8 @@ void D3D11RHI::CreateHalfResolutionBuffers(UINT FullWidth, UINT FullHeight)
 
     // ===== Half-res CoC 버퍼 (R16F) =====
     D3D11_TEXTURE2D_DESC CoCDesc = {};
-    CoCDesc.Width = HalfWidth;
-    CoCDesc.Height = HalfHeight;
+    CoCDesc.Width = HalfResWidth;
+    CoCDesc.Height = HalfResHeight;
     CoCDesc.MipLevels = 1;
     CoCDesc.ArraySize = 1;
     CoCDesc.Format = DXGI_FORMAT_R16_FLOAT;
@@ -1382,6 +1392,10 @@ void D3D11RHI::ReleaseHalfResolutionBuffers()
     if (HalfResCoCSRV) { HalfResCoCSRV->Release(); HalfResCoCSRV = nullptr; }
     if (HalfResCoCRTV) { HalfResCoCRTV->Release(); HalfResCoCRTV = nullptr; }
     if (HalfResCoCTexture) { HalfResCoCTexture->Release(); HalfResCoCTexture = nullptr; }
+
+    // 버퍼 크기 리셋
+    HalfResWidth = 0;
+    HalfResHeight = 0;
 }
 
 void D3D11RHI::SwapHalfResRenderTargets()

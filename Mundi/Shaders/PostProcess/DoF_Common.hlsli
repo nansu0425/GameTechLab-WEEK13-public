@@ -21,12 +21,12 @@ cbuffer DoFCB : register(b2)
     // Row 3 (16 bytes)
     float HalfTexelSizeY;     // 1.0f / HalfHeight
     float BlurDirection;      // 0.0f = Horizontal, 1.0f = Vertical
-    float Padding1;
-    float Padding2;
+    float SourceUVOffsetX;    // Full-res ViewRect 시작 UV (x)
+    float SourceUVOffsetY;    // Full-res ViewRect 시작 UV (y)
 
     // Row 4 (16 bytes)
-    float Padding3;
-    float Padding4;
+    float SourceUVScaleX;     // Full-res ViewRect UV 범위 (x)
+    float SourceUVScaleY;     // Full-res ViewRect UV 범위 (y)
     float Padding5;
     float Padding6;
 }
@@ -54,6 +54,25 @@ float CalculateCoCHalfRes(float linearDepth)
     float CocScalePixels = CocScale * HalfViewportHeight;
     float coc = ((linearDepth - FocalDistance) / max(linearDepth, 0.001f)) * CocScalePixels;
     return clamp(coc, -MaxBlurRadius * 0.5f, MaxBlurRadius * 0.5f);
+}
+
+// Half-res 출력 UV (0~1) -> Full-res 소스 텍스처 UV 변환
+// Half-res 렌더 타겟은 전체 텍스처를 사용하지만,
+// Full-res 소스 텍스처는 ViewRect 영역에만 씬 데이터가 있음
+float2 RemapToSourceUV(float2 halfResUV)
+{
+    return float2(SourceUVOffsetX, SourceUVOffsetY) + halfResUV * float2(SourceUVScaleX, SourceUVScaleY);
+}
+
+// Full-res ViewRect UV -> Half-res 전체 텍스처 UV 변환 (역방향)
+// Upsample에서 Half-res 블러 텍스처 샘플링 시 사용
+float2 RemapToHalfResUV(float2 fullResUV)
+{
+    // fullResUV는 ViewRect 영역 내의 0~1 UV (FViewportConstants에 의해 계산됨)
+    // Half-res 텍스처는 0~1 전체를 사용하므로 그대로 반환
+    // 하지만 fullResUV가 전체 렌더타겟 기준이면 ViewRect 부분만 추출해야 함
+    float2 localUV = (fullResUV - float2(SourceUVOffsetX, SourceUVOffsetY)) / float2(SourceUVScaleX, SourceUVScaleY);
+    return saturate(localUV);
 }
 
 // 입력 구조체 (Full-screen triangle)

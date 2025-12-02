@@ -102,7 +102,7 @@ struct alignas(16) FGammaCorrectionBufferType
 static_assert(sizeof(FGammaCorrectionBufferType) % 16 == 0, "CB must be 16-byte aligned");
 
 // Depth of Field 상수 버퍼 (b2 - PS only)
-// Phase 2: 64바이트로 확장 (Half-res 텍셀 사이즈, BlurDirection 추가)
+// Phase 2: 64바이트로 확장 (Half-res 텍셀 사이즈, BlurDirection, SourceUV 추가)
 struct alignas(16) FDoFBufferType
 {
     // ===== Row 1 (16 bytes) - 기존 =====
@@ -120,12 +120,12 @@ struct alignas(16) FDoFBufferType
     // ===== Row 3 (16 bytes) - Phase 2 =====
     float HalfTexelSizeY;     // 1.0f / HalfHeight
     float BlurDirection;      // 0.0f = Horizontal, 1.0f = Vertical
-    float Padding1;           // 예약
-    float Padding2;           // 예약
+    float SourceUVOffsetX;    // Full-res ViewRect 시작 UV (x)
+    float SourceUVOffsetY;    // Full-res ViewRect 시작 UV (y)
 
     // ===== Row 4 (16 bytes) - Phase 2 =====
-    float Padding3;           // 예약
-    float Padding4;           // 예약
+    float SourceUVScaleX;     // Full-res ViewRect UV 범위 (x)
+    float SourceUVScaleY;     // Full-res ViewRect UV 범위 (y)
     float Padding5;           // 예약
     float Padding6;           // 예약
 };

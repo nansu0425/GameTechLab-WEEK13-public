@@ -325,6 +325,15 @@ private:
 
 	// Half-res 뷰포트 캐시
 	D3D11_VIEWPORT HalfResViewport = {};
+
+	// Half-res 버퍼 크기 캐시
+	UINT HalfResWidth = 0;
+	UINT HalfResHeight = 0;
+
+public:
+	// Half-res 버퍼 크기 getter
+	UINT GetHalfResWidth() const { return HalfResWidth; }
+	UINT GetHalfResHeight() const { return HalfResHeight; }
 };
 
 
