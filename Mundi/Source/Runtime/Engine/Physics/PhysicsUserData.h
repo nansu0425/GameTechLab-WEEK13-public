@@ -7,7 +7,7 @@ struct FBodyInstance;
 struct FConstraintInstance;
 struct FShapeElem;
 
-enum EUserDataType : uint8
+enum class EUserDataType : uint8
 {
     Invalid,
     PrimitiveComponent,
@@ -22,8 +22,7 @@ enum EUserDataType : uint8
 
 struct FUserData
 {
-public:
-    FUserData() : Type(Invalid), Payload(nullptr) {}
+    FUserData() = default;
     FUserData(UPrimitiveComponent* InPayload) : Type(EUserDataType::PrimitiveComponent), Payload(InPayload) {}
     FUserData(UPhysicalMaterial* InPayload) : Type(EUserDataType::PhysicalMaterial), Payload(InPayload) {}
     FUserData(FPhysScene* InPayload) : Type(EUserDataType::PhysScene), Payload(InPayload) {}
@@ -31,166 +30,76 @@ public:
     FUserData(FConstraintInstance* InPayload) : Type(EUserDataType::ConstraintInstance), Payload(InPayload) {}
     FUserData(FShapeElem* InPayload) : Type(EUserDataType::AggShape), Payload(InPayload) {}
 
-    template <class T>
-    static T* Get(void* UserData);
-
-    template <class T>
-    static void Set(void* UserData, T* Payload);
-
-private:
-    // Set함수의 헬퍼
-    static void SetInternal(void* UserData, void* InPayload, EUserDataType InType)
+    template <typename T>
+    static T* Get(void* UserData)
     {
+        if (!UserData)
+        {
+            return nullptr;
+        }
+
         FUserData* Data = static_cast<FUserData*>(UserData);
-        Data->Type = InType;
-        Data->Payload = InPayload;
+        if (Data->Type != GetTypeFrom<T>())
+        {
+            return nullptr;
+        }
+
+        return static_cast<T*>(Data->Payload);
     }
 
-protected:
-    EUserDataType Type;
-    void* Payload;
+    template <typename T>
+    static void Set(void* UserData, T* Payload)
+    {
+        assert(UserData && "[FUserData/Set] UserData is nullptr");
+        
+        FUserData* Data = static_cast<FUserData*>(UserData);
+        Data->Type = GetTypeFrom<T>();
+        Data->Payload = Payload;
+    }
+
+    EUserDataType Type = EUserDataType::Invalid;
+    void* Payload = nullptr;
+    
+private:
+    template<typename T>
+    static constexpr EUserDataType GetTypeFrom()
+    {
+        return EUserDataType::Invalid;
+    }
 };
 
-template <>
-inline UPrimitiveComponent* FUserData::Get(void* UserData)
+template<>
+inline constexpr EUserDataType FUserData::GetTypeFrom<UPrimitiveComponent>()
 {
-    if (!UserData)
-    {
-        return nullptr;
-    }
-
-    FUserData* Data = static_cast<FUserData*>(UserData);
-    if (Data->Type != EUserDataType::PrimitiveComponent)
-    {
-        return nullptr;
-    }
-
-    return static_cast<UPrimitiveComponent*>(Data->Payload);
+    return EUserDataType::PrimitiveComponent;
 }
 
-template <>
-inline UPhysicalMaterial* FUserData::Get(void* UserData)
+template<>
+inline constexpr EUserDataType FUserData::GetTypeFrom<UPhysicalMaterial>()
 {
-    if (!UserData)
-    {
-        return nullptr;
-    }
-
-    FUserData* Data = static_cast<FUserData*>(UserData);
-    if (Data->Type != EUserDataType::PhysicalMaterial)
-    {
-        return nullptr;
-    }
-
-    return static_cast<UPhysicalMaterial*>(Data->Payload);
+    return EUserDataType::PhysicalMaterial;
 }
 
-template <>
-inline FPhysScene* FUserData::Get(void* UserData)
+template<>
+inline constexpr EUserDataType FUserData::GetTypeFrom<FPhysScene>()
 {
-    if (!UserData)
-    {
-        return nullptr;
-    }
-
-    FUserData* Data = static_cast<FUserData*>(UserData);
-    if (Data->Type != EUserDataType::PhysScene)
-    {
-        return nullptr;
-    }
-
-    return static_cast<FPhysScene*>(Data->Payload);
+    return EUserDataType::PhysScene;
 }
 
-template <>
-inline FBodyInstance* FUserData::Get(void* UserData)
+template<>
+inline constexpr EUserDataType FUserData::GetTypeFrom<FBodyInstance>()
 {
-    if (!UserData)
-    {
-        return nullptr;
-    }
-
-    FUserData* Data = static_cast<FUserData*>(UserData);
-    if (Data->Type != EUserDataType::BodyInstance)
-    {
-        return nullptr;
-    }
-
-    return static_cast<FBodyInstance*>(Data->Payload);
+    return EUserDataType::BodyInstance;
 }
 
-template <>
-inline FConstraintInstance* FUserData::Get(void* UserData)
+template<>
+inline constexpr EUserDataType FUserData::GetTypeFrom<FConstraintInstance>()
 {
-    if (!UserData)
-    {
-        return nullptr;
-    }
-
-    FUserData* Data = static_cast<FUserData*>(UserData);
-    if (Data->Type != EUserDataType::PhysScene)
-    {
-        return nullptr;
-    }
-
-    return static_cast<FConstraintInstance*>(Data->Payload);
+    return EUserDataType::ConstraintInstance;
 }
 
-template <>
-inline FShapeElem* FUserData::Get(void* UserData)
+template<>
+inline constexpr EUserDataType FUserData::GetTypeFrom<FShapeElem>()
 {
-    if (!UserData)
-    {
-        return nullptr;
-    }
-
-    FUserData* Data = static_cast<FUserData*>(UserData);
-    if (Data->Type != EUserDataType::AggShape)
-    {
-        return nullptr;
-    } 
-
-    return static_cast<FShapeElem*>(Data->Payload);
-}
-
-template <>
-inline void FUserData::Set(void* UserData, UPrimitiveComponent* InPayload)
-{
-    assert(UserData && "Userdata is null");
-    SetInternal(UserData, InPayload, EUserDataType::PrimitiveComponent);
-}
-
-template <>
-inline void FUserData::Set(void* UserData, UPhysicalMaterial* InPayload)
-{
-    assert(UserData && "Userdata is null");
-    SetInternal(UserData, InPayload, EUserDataType::PhysicalMaterial);
-}
-
-template <>
-inline void FUserData::Set(void* UserData, FPhysScene* InPayload)
-{
-    assert(UserData && "Userdata is null");
-    SetInternal(UserData, InPayload, EUserDataType::PhysScene);
-}
-
-template <>
-inline void FUserData::Set(void* UserData, FBodyInstance* InPayload)
-{
-    assert(UserData && "Userdata is null");
-    SetInternal(UserData, InPayload, EUserDataType::BodyInstance);
-}
-
-template <>
-inline void FUserData::Set(void* UserData, FConstraintInstance* InPayload)
-{
-    assert(UserData && "Userdata is null");
-    SetInternal(UserData, InPayload, EUserDataType::ConstraintInstance);
-}
-
-template <>
-inline void FUserData::Set(void* UserData, FShapeElem* InPayload)
-{
-    assert(UserData && "Userdata is null");
-    SetInternal(UserData, InPayload, EUserDataType::AggShape);
+    return EUserDataType::AggShape;
 }
