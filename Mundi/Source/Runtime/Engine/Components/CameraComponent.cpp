@@ -24,7 +24,11 @@ UCameraComponent::UCameraComponent()
     , FarClip(100.0f)
     , ProjectionMode(ECameraProjectionMode::Perspective)
     , ZoomFactor(1.0f)
-
+    , bEnableDepthOfField(false)
+    , DepthOfFieldFocalDistance(5.0f)
+    , DepthOfFieldFstop(4.0f)
+    , DepthOfFieldFocalLength(50.0f)
+    , DepthOfFieldMaxBlurRadius(10.0f)
 {
 }
 
@@ -180,5 +184,13 @@ void UCameraComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
     else
     {
         InOutHandle["ProjectionMode"] = static_cast<int32>(ProjectionMode);
+    }
+}
+
+void UCameraComponent::SetCameraGizmoVisible(bool bVisible)
+{
+    if (CameraGizmo)
+    {
+        CameraGizmo->SetActive(bVisible);
     }
 }

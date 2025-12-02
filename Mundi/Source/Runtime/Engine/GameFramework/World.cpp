@@ -269,6 +269,9 @@ void UWorld::Tick(float DeltaSeconds)
 	// 3. Actor::Tick: 물리 시뮬레이션과 병렬 실행
 	// 4. EndFrame: 렌더링 전 결과 수집 (fetchResults) + Transform/Velocity 캡처
 
+	// VehicleMovementComponent 등에서 PhysScene이 필요할 수 있으므로 따로 뽑기
+
+
 	// 1. Pre-simulation 작업 (확장용)
 	if (bPie && PhysScene && PhysScene->IsInitialized())
 	{

@@ -668,6 +668,34 @@ struct FQuat
 		return Quat;
 	}
 
+	static FQuat FindBetween(const FVector& From, const FVector& To)
+	{
+		FVector V1 = From.GetSafeNormal();
+		FVector V2 = To.GetSafeNormal();
+		float d = FVector::Dot(V1, V2);
+
+		if (d >= 1.0f - KINDA_SMALL_NUMBER)
+		{
+			return FQuat::Identity();
+		}
+
+		if (d < -1.0f + KINDA_SMALL_NUMBER)
+		{
+			FVector Axis = FVector::Cross(FVector(1.f, 0.f, 0.f), V1);
+			if (Axis.SizeSquared() < KINDA_SMALL_NUMBER)
+			{
+				Axis = FVector::Cross(FVector(0.f, 1.f, 0.f), V1);
+			}
+			Axis.Normalize();
+			return FQuat::FromAxisAngle(Axis, PI);
+		}
+
+		float Angle = acosf(d);
+		FVector Axis = FVector::Cross(V1, V2);
+		Axis.Normalize();
+		return FQuat::FromAxisAngle(Axis, Angle);
+	}
+
 	// 비교 연산자
 	bool operator==(const FQuat& Q) const
 	{

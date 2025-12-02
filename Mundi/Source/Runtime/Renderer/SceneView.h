@@ -34,6 +34,12 @@ struct FMinimalViewInfo
     float AspectRatio = 1.7777f;
     FViewportRect ViewRect;
     ECameraProjectionMode ProjectionMode;
+
+    // ===== Depth of Field 파라미터 =====
+    bool bEnableDepthOfField = false;
+    float DepthOfFieldFocalDistance = 5.0f;   // 초점 거리 (m)
+    float DepthOfFieldCocScale = 0.0f;        // CoC 스케일 (미리 계산됨)
+    float DepthOfFieldMaxBlurRadius = 10.0f;  // 최대 블러 반경 (픽셀)
 };
 
 /**
@@ -76,6 +82,12 @@ public:
 
     // 배경색 설정 (기본값: 검은색)
     FLinearColor BackgroundColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
+    // ===== Depth of Field 파라미터 =====
+    bool bEnableDepthOfField = false;
+    float DepthOfFieldFocalDistance = 5.0f;   // 초점 거리 (m)
+    float DepthOfFieldCocScale = 0.0f;        // CoC 스케일 (미리 계산됨)
+    float DepthOfFieldMaxBlurRadius = 10.0f;  // 최대 블러 반경 (픽셀)
 
     TArray<FPostProcessModifier> Modifiers;
 };
