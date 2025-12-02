@@ -489,7 +489,7 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
             else
             {
                 if (ImGui::MenuItem("Create Body")) { CreateBodyForBone(BoneIndex, SelectedPrimitiveType); }
-                if (ImGui::MenuItem("Create Constraint")) { CreateConstraintForBone(BoneIndex); }
+                //if (ImGui::MenuItem("Create Constraint")) { CreateConstraintForBone(BoneIndex); }
             }
             ImGui::EndPopup();
         }
@@ -559,12 +559,34 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
 
                     if (ImGui::BeginPopupContextItem())
                     {
-                         if (ImGui::IsItemClicked()) {
+                        if (ImGui::IsItemClicked()) {
                             ActiveState->SelectedBodyIndex = BodyIndex;
                             ActiveState->SelectedBoneIndex = BoneIndex;
                             bCollisionShapesDirty = true;
                         }
                         if (ImGui::MenuItem("Add Primitive...")) { /* TODO */ }
+                        
+                        if (ImGui::BeginMenu("Add Constraint"))
+                        {
+                            UPhysicsAsset* PA = ActiveState->CurrentPhysicsAsset;
+                            const TArray<UBodySetup*>& Bodies = PA->GetBodySetups();
+
+                            for (int32 i = 0; i < Bodies.Num(); ++i)
+                            {
+                                if (i == BodyIndex)
+                                    continue; // 자기 자신 제외
+
+                                FString Name = Bodies[i]->BoneName.ToString();
+
+                                if (ImGui::MenuItem(Name.c_str()))
+                                {
+                                    CreateConstraintBetweenBodies(BodyIndex, i);
+                                    ActiveState->SelectedBodyIndex = BodyIndex;
+                                    bCollisionShapesDirty = true;
+                                }
+                            }
+                            ImGui::EndMenu();
+                        }
                         ImGui::EndPopup();
                     }
                 }
@@ -610,7 +632,16 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
                             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 1.0f, 1.0f)); // 파란 글씨
                         }
 
-                        ImGui::TreeNodeEx((void*)(intptr_t)(&Setup), cFlags, "%s", Label.c_str());
+                        if (IconBoneConstraint)
+                        {
+                            float iconSize = ImGui::GetTextLineHeight();
+                            ImGui::Image((void*)IconBoneConstraint->GetShaderResourceView(), ImVec2(iconSize, iconSize));
+                            ImGui::SameLine(0.0f, 0.0f);
+                        }
+
+                        ImGui::TreeNodeEx((void*)(intptr_t)(&Setup), cFlags, "[%s -> %s] Constraint", 
+                            Setup.ConstraintBone1.ToString().c_str(),
+                            Setup.ConstraintBone2.ToString().c_str());
 
                         ImGui::PopStyleColor(bIsConstraintSelected ? 3 : 1);
 
@@ -662,6 +693,7 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
 
     ImGui::EndChild();
 }
+
 void SPhysicsAssetEditorWindow::RenderToolsPanel()
 {
     // Panel Header
@@ -1629,62 +1661,23 @@ void SPhysicsAssetEditorWindow::CreateConstraintForBone(int32 ChildBoneIndex)
 
     const FBone& Parent = Skeleton->Bones[ParentIndex];
 
-    // ------------------------------------
-    // Create setup struct
-    // ------------------------------------
-    FConstraintSetup NewSetup;
-    NewSetup.JointName = FName(Child.Name.c_str());
-    NewSetup.ConstraintBone1 = FName(Child.Name.c_str());
-    NewSetup.ConstraintBone2 = FName(Parent.Name.c_str());
-
-    // ------------------------------------
-    // Compute frames
-    // ------------------------------------
+    // Build setup using common helper
     FTransform ChildWT = MeshComp->GetBoneWorldTransform(ChildBoneIndex);
     FTransform ParentWT = MeshComp->GetBoneWorldTransform(ParentIndex);
 
-    ChildWT.Scale3D = FVector(1, 1, 1);
-    ParentWT.Scale3D = FVector(1, 1, 1);
+    FConstraintSetup Setup;
+    BuildConstraintSetup(
+        FName(Parent.Name.c_str()),
+        FName(Child.Name.c_str()),
+        ParentWT,
+        ChildWT,
+        Setup
+    );
 
-    // Child frame: pivot at bone origin
-    NewSetup.Frame1.Pos = FVector::Zero();
-    NewSetup.Frame1.PriAxis = FVector(1, 0, 0);
-    NewSetup.Frame1.SecAxis = FVector(0, 1, 0);
+    // Add to PhysicsAsset
+    PhysicsAsset->GetConstraintSetupsMutable().Add(Setup);
 
-    // Parent frame: child origin in parent space
-    FVector ChildInParent = ParentWT.Inverse().TransformPosition(ChildWT.Translation);
-    NewSetup.Frame2.Pos = ChildInParent;
-    NewSetup.Frame2.PriAxis = FVector(1, 0, 0);
-    NewSetup.Frame2.SecAxis = FVector(0, 1, 0);
-
-    // ------------------------------------
-    // Profile (limits)
-    // ------------------------------------
-    NewSetup.Profile.Swing1Motion = EJointMotion::Limited;
-    NewSetup.Profile.Swing2Motion = EJointMotion::Limited;
-    NewSetup.Profile.TwistMotion = EJointMotion::Limited;
-
-    NewSetup.Profile.Swing1LimitsAngle = 45.f;
-    NewSetup.Profile.Swing2LimitsAngle = 45.f;
-    NewSetup.Profile.TwistLimit = 25.f;
-
-    // Lock linear motion
-    NewSetup.Profile.LinearMotionX = EJointMotion::Locked;
-    NewSetup.Profile.LinearMotionY = EJointMotion::Locked;
-    NewSetup.Profile.LinearMotionZ = EJointMotion::Locked;
-
-    // Disable collision between parent/child bodies
-    NewSetup.Profile.bDisableCollision = true;
-
-    // Drive disabled by default
-    NewSetup.Profile.bEnableDrive = false;
-
-    // ------------------------------------
-    // Add to asset
-    // ------------------------------------
-    PhysicsAsset->GetConstraintSetupsMutable().Add(NewSetup);
-
-    UE_LOG("CreateConstraintForBone: Added constraint %s -> %s",
+    UE_LOG("CreateConstraintForBone: Added %s -> %s",
         Child.Name.c_str(), Parent.Name.c_str());
 }
 
@@ -1697,7 +1690,7 @@ void SPhysicsAssetEditorWindow::GenerateAllConstraints()
     const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
     USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
 
-    if (!Skeleton || !MeshComp)
+    if (!PhysicsAsset || !Skeleton || !MeshComp)
         return;
 
     // Clear existing constraint setups
@@ -1715,57 +1708,120 @@ void SPhysicsAssetEditorWindow::GenerateAllConstraints()
         if (ParentIndex < 0)
             continue;
 
-        // ------------------------------------
-        // Create constraint for this bone
-        // ------------------------------------
-        FConstraintSetup NewSetup;
-        NewSetup.JointName = FName(Child.Name.c_str());
-        NewSetup.ConstraintBone1 = FName(Child.Name.c_str());
-        NewSetup.ConstraintBone2 = FName(Bones[ParentIndex].Name.c_str());
+        const FBone& Parent = Bones[ParentIndex];
 
-        // ------------------------------------
-        // Compute frames
-        // ------------------------------------
         FTransform ChildWT = MeshComp->GetBoneWorldTransform(ChildIndex);
         FTransform ParentWT = MeshComp->GetBoneWorldTransform(ParentIndex);
 
-        ChildWT.Scale3D = FVector(1, 1, 1);
-        ParentWT.Scale3D = FVector(1, 1, 1);
+        FConstraintSetup Setup;
+        BuildConstraintSetup(
+            FName(Parent.Name.c_str()),
+            FName(Child.Name.c_str()),
+            ParentWT,
+            ChildWT,
+            Setup
+        );
 
-        NewSetup.Frame1.Pos = FVector::Zero();
-        NewSetup.Frame1.PriAxis = FVector(1, 0, 0);
-        NewSetup.Frame1.SecAxis = FVector(0, 1, 0);
-
-        FVector ChildInParent = ParentWT.Inverse().TransformPosition(ChildWT.Translation);
-        NewSetup.Frame2.Pos = ChildInParent;
-        NewSetup.Frame2.PriAxis = FVector(1, 0, 0);
-        NewSetup.Frame2.SecAxis = FVector(0, 1, 0);
-
-        // ------------------------------------
-        // Default angular limits
-        // ------------------------------------
-        NewSetup.Profile.Swing1Motion = EJointMotion::Limited;
-        NewSetup.Profile.Swing2Motion = EJointMotion::Limited;
-        NewSetup.Profile.TwistMotion = EJointMotion::Limited;
-
-        NewSetup.Profile.Swing1LimitsAngle = 45.f;
-        NewSetup.Profile.Swing2LimitsAngle = 45.f;
-        NewSetup.Profile.TwistLimit = 25.f;
-
-        NewSetup.Profile.LinearMotionX = EJointMotion::Locked;
-        NewSetup.Profile.LinearMotionY = EJointMotion::Locked;
-        NewSetup.Profile.LinearMotionZ = EJointMotion::Locked;
-
-        NewSetup.Profile.bDisableCollision = true;
-
-        // ------------------------------------
-        // Add to list
-        // ------------------------------------
-        PhysicsAsset->GetConstraintSetupsMutable().Add(NewSetup);
+        PhysicsAsset->GetConstraintSetupsMutable().Add(Setup);
         CreatedCount++;
     }
 
     UE_LOG("GenerateAllConstraints: Created %d constraints", CreatedCount);
+}
+
+void SPhysicsAssetEditorWindow::CreateConstraintBetweenBodies(int ParentBodyIndex, int ChildBodyIndex)
+{
+    if (!ActiveState || !ActiveState->CurrentPhysicsAsset || !ActiveState->CurrentMesh)
+        return;
+
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    USkeletalMeshComponent* Mesh = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+
+    if (!PhysicsAsset || !Mesh || !Skeleton)
+        return;
+
+    if (ParentBodyIndex < 0 || ChildBodyIndex < 0)
+        return;
+
+    const TArray<UBodySetup*>& Bodies = PhysicsAsset->GetBodySetups();
+    if (ParentBodyIndex >= Bodies.Num() || ChildBodyIndex >= Bodies.Num())
+        return;
+
+    UBodySetup* ParentBody = Bodies[ParentBodyIndex];
+    UBodySetup* ChildBody = Bodies[ChildBodyIndex];
+
+    int32 ParentBoneIndex = BoneNameToIndex(ParentBody->BoneName);
+    int32 ChildBoneIndex = BoneNameToIndex(ChildBody->BoneName);
+
+    if (ParentBoneIndex < 0 || ChildBoneIndex < 0)
+        return;
+
+    FTransform ParentWT = Mesh->GetBoneWorldTransform(ParentBoneIndex);
+    FTransform ChildWT = Mesh->GetBoneWorldTransform(ChildBoneIndex);
+
+    FConstraintSetup Setup;
+    BuildConstraintSetup(
+        ParentBody->BoneName,
+        ChildBody->BoneName,
+        ParentWT,
+        ChildWT,
+        Setup
+    );
+
+    PhysicsAsset->GetConstraintSetupsMutable().Add(Setup);
+
+    UE_LOG("CreateConstraintBetweenBodies: Added constraint [%s -> %s]",
+        ChildBody->BoneName.ToString().c_str(),
+        ParentBody->BoneName.ToString().c_str());
+}
+
+void SPhysicsAssetEditorWindow::BuildConstraintSetup(const FName& ParentBoneName, const FName& ChildBoneName, const FTransform& ParentWT, const FTransform& ChildWT, FConstraintSetup& OutSetup)
+{
+    OutSetup = FConstraintSetup(); // reset
+
+    // Basic identifiers
+    OutSetup.JointName = ChildBoneName;
+    OutSetup.ConstraintBone1 = ChildBoneName;
+    OutSetup.ConstraintBone2 = ParentBoneName;
+
+    // Frames
+    FTransform PWT = ParentWT;
+    FTransform CWT = ChildWT;
+
+    PWT.Scale3D = FVector(1, 1, 1);
+    CWT.Scale3D = FVector(1, 1, 1);
+
+    // Child frame at child origin
+    OutSetup.Frame1.Pos = FVector::Zero();
+    OutSetup.Frame1.PriAxis = FVector(1, 0, 0);
+    OutSetup.Frame1.SecAxis = FVector(0, 1, 0);
+
+    // Parent frame: child origin expressed in parent local space
+    FVector ChildInParent = PWT.Inverse().TransformPosition(CWT.Translation);
+    OutSetup.Frame2.Pos = ChildInParent;
+    OutSetup.Frame2.PriAxis = FVector(1, 0, 0);
+    OutSetup.Frame2.SecAxis = FVector(0, 1, 0);
+
+    // Angular limits
+    OutSetup.Profile.Swing1Motion = EJointMotion::Limited;
+    OutSetup.Profile.Swing2Motion = EJointMotion::Limited;
+    OutSetup.Profile.TwistMotion = EJointMotion::Limited;
+
+    OutSetup.Profile.Swing1LimitsAngle = 40.f;
+    OutSetup.Profile.Swing2LimitsAngle = 40.f;
+    OutSetup.Profile.TwistLimit = 25.f;
+
+    // Lock linear movement
+    OutSetup.Profile.LinearMotionX = EJointMotion::Locked;
+    OutSetup.Profile.LinearMotionY = EJointMotion::Locked;
+    OutSetup.Profile.LinearMotionZ = EJointMotion::Locked;
+
+    // Disable collision between connected bodies
+    OutSetup.Profile.bDisableCollision = true;
+
+    // Drive disabled
+    OutSetup.Profile.bEnableDrive = false;
 }
 
 int32 SPhysicsAssetEditorWindow::FindFirstChildBone(int32 BoneIndex, const FSkeleton* Skeleton) const
@@ -1783,6 +1839,26 @@ int32 SPhysicsAssetEditorWindow::FindFirstChildBone(int32 BoneIndex, const FSkel
     }
 
     return -1;  // no child
+}
+
+int32 SPhysicsAssetEditorWindow::BoneNameToIndex(const FName& BoneName) const
+{
+    if (!ActiveState || !ActiveState->CurrentMesh)
+        return -1;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton)
+        return -1;
+
+    const TArray<FBone>& Bones = Skeleton->Bones;
+
+    for (int32 i = 0; i < Bones.Num(); ++i)
+    {
+        if (Bones[i].Name == BoneName.ToString())
+            return i;
+    }
+
+    return -1; // not found
 }
 
 void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex, const FSkeleton* Skeleton, USkeletalMeshComponent* MeshComp, FVector& OutLocalCenter, FQuat& OutLocalRotation)
