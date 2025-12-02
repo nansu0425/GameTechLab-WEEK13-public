@@ -24,6 +24,12 @@ FSceneView::FSceneView(FMinimalViewInfo* InMinimalViewInfo, URenderSettings* InR
 	ZoomFactor = InMinimalViewInfo->ZoomFactor;
 	ProjectionMode = InMinimalViewInfo->ProjectionMode;
 
+	// --- DoF 파라미터 복사 ---
+	bEnableDepthOfField = InMinimalViewInfo->bEnableDepthOfField;
+	DepthOfFieldFocalDistance = InMinimalViewInfo->DepthOfFieldFocalDistance;
+	DepthOfFieldCocScale = InMinimalViewInfo->DepthOfFieldCocScale;
+	DepthOfFieldMaxBlurRadius = InMinimalViewInfo->DepthOfFieldMaxBlurRadius;
+
 	// --- 2. 뷰 행렬 계산 ---
 	FMatrix WorldMatrix = InMinimalViewInfo->ViewRotation.ToMatrix() * FMatrix::MakeTranslation(InMinimalViewInfo->ViewLocation);
 	ViewMatrix = (FMatrix::YUpToZUp * WorldMatrix).InverseAffine();
@@ -76,6 +82,12 @@ FSceneView::FSceneView(UCameraComponent* InCamera, FViewport* InViewport, URende
 	ViewRect.MaxY = ViewRect.MinY + InViewport->GetSizeY();
 
 	ProjectionMode = InCamera->GetProjectionMode();
+
+	// --- DoF 파라미터 복사 ---
+	bEnableDepthOfField = InCamera->IsDepthOfFieldEnabled();
+	DepthOfFieldFocalDistance = InCamera->GetDepthOfFieldFocalDistance();
+	DepthOfFieldCocScale = InCamera->GetDepthOfFieldCocScale();
+	DepthOfFieldMaxBlurRadius = InCamera->GetDepthOfFieldMaxBlurRadius();
 
 	ViewShaderMacros = CreateViewShaderMacros();
 }

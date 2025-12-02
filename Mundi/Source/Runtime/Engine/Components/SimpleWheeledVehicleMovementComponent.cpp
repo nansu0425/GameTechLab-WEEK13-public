@@ -303,7 +303,7 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
         SusData.mSpringStrength = 35000.0f;
         SusData.mSpringDamperRate = 4500.0f;
 
-        FVector WheelCentreLocal = (i < WheelCentreOffsets.Num()) ? WheelCentreOffsets[i] : FVector::Zero();
+        FVector WheelCentreLocal = (i < static_cast<uint32_t>(WheelCentreOffsets.Num())) ? WheelCentreOffsets[i] : FVector::Zero();
         // Mundi: Z가 Up. 서스펜션 오프셋과 휠 반지름을 Z축에 적용 후 변환.
         WheelCentreLocal.Z += Setup.SuspensionOffsetZ;
         WheelCentreLocal.Z -= Setup.WheelRadius;
