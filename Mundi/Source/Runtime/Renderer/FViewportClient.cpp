@@ -37,6 +37,9 @@ FViewportClient::FViewportClient()
 		CamComp->SetClipPlanes(OriginalCameraNearClip, OriginalCameraFarClip);
 	}
 
+	// 에디터 카메라의 Yaw/Pitch 캐시를 현재 회전과 동기화 (첫 드래그 스냅핑 방지)
+	Camera->SyncRotationCache();
+
 	SetupCameraMode();
 }
 
@@ -408,6 +411,12 @@ void FViewportClient::MouseButtonDown(FViewport* Viewport, int32 X, int32 Y, int
 		bIsMouseRightButtonDown = true;
 		MouseLastX = X;
 		MouseLastY = Y;
+
+		// 우클릭 시작 시 마우스 델타 초기화 (첫 드래그 스냅핑 방지)
+		// WM_MOUSEMOVE에서 MousePosition만 업데이트되고 PreviousMousePosition은
+		// Update()에서만 갱신되기 때문에 오래된 값이 남아있을 수 있음
+		UInputManager& InputManager = UInputManager::GetInstance();
+		InputManager.SetLastMousePosition(InputManager.GetMousePosition());
 	}
 
 }
