@@ -37,9 +37,11 @@ void FPhysicsEventCallback::onContact(
         return;
     }
 
-    // userData에서 FBodyInstance 추출
-    FBodyInstance* BodyInst0 = static_cast<FBodyInstance*>(PairHeader.actors[0]->userData);
-    FBodyInstance* BodyInst1 = static_cast<FBodyInstance*>(PairHeader.actors[1]->userData);
+    // RigidActor의 userData는 FBodyInstance의 UserData를 가리킴
+    // FBodyInstance의 UserData는 자신(FBodyInstance)를 가리킨다.
+    // Actor->userData == FUserData -> Get() -> FBodyInstance*
+    FBodyInstance* BodyInst0 = FUserData::Get<FBodyInstance>(PairHeader.actors[0]->userData);
+    FBodyInstance* BodyInst1 = FUserData::Get<FBodyInstance>(PairHeader.actors[1]->userData);
 
     // BodyInstance가 없는 Actor는 무시 (외부 PhysX Actor 또는 삭제된 Actor)
     if (!BodyInst0 || !BodyInst1)
@@ -128,9 +130,11 @@ void FPhysicsEventCallback::onTrigger(PxTriggerPair* Pairs, PxU32 Count)
             continue;
         }
 
-        // userData에서 FBodyInstance 추출
-        FBodyInstance* TriggerBody = static_cast<FBodyInstance*>(TriggerPair.triggerActor->userData);
-        FBodyInstance* OtherBody = static_cast<FBodyInstance*>(TriggerPair.otherActor->userData);
+        // RigidActor의 userData는 FBodyInstance의 UserData를 가리킴
+        // FBodyInstance의 UserData는 자신(FBodyInstance)를 가리킨다.
+        // Actor->userData == FUserData -> Get() -> FBodyInstance*
+        FBodyInstance* TriggerBody = FUserData::Get<FBodyInstance>(TriggerPair.triggerActor->userData);
+        FBodyInstance* OtherBody = FUserData::Get<FBodyInstance>(TriggerPair.otherActor->userData);
 
         // BodyInstance가 없는 Actor는 무시
         if (!TriggerBody || !OtherBody)
