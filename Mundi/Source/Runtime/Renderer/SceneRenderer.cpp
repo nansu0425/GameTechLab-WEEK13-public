@@ -1293,15 +1293,10 @@ void FSceneRenderer::RenderPostProcessingPasses()
 		case EPostProcessEffectType::Gamma:
 			GammaPass.Execute(Modifier, View, RHIDevice);
 			break;
+		case EPostProcessEffectType::DepthOfField:
+			DepthOfFieldPass.Execute(Modifier, View, RHIDevice);
+			break;
 		}
-	}
-
-	// DoF 패스는 FSceneView에서 직접 활성화 상태를 확인하여 실행
-	// (FPostProcessModifier를 사용하지 않음)
-	if (View->bEnableDepthOfField)
-	{
-		FPostProcessModifier DummyModifier; // 인터페이스 호환용 더미
-		DepthOfFieldPass.Execute(DummyModifier, View, RHIDevice);
 	}
 }
 

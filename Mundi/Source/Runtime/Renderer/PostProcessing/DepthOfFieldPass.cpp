@@ -6,8 +6,8 @@
 
 void FDepthOfFieldPass::Execute(const FPostProcessModifier& M, FSceneView* View, D3D11RHI* RHIDevice)
 {
-    // DoF는 FSceneView에서 직접 활성화 상태를 확인
-    if (!View || !View->bEnableDepthOfField) return;
+    // Modifier 유효성 검사 (bEnabled, Weight > 0)
+    if (!IsApplicable(M) || !View) return;
 
     // 1) 스왑 + SRV 언바인드 관리 (깊이 + 씬 컬러 두 장 읽음)
     FSwapGuard Swap(RHIDevice, /*FirstSlot*/0, /*NumSlotsToUnbind*/2);
@@ -53,11 +53,12 @@ void FDepthOfFieldPass::Execute(const FPostProcessModifier& M, FSceneView* View,
     ECameraProjectionMode ProjectionMode = View->ProjectionMode;
     RHIDevice->SetAndUpdateConstantBuffer(PostProcessBufferType(View->NearClip, View->FarClip, ProjectionMode == ECameraProjectionMode::Orthographic));
 
-    // DoF CB (b2) - DoF 파라미터 (FSceneView에서 직접 읽음)
+    // DoF CB (b2) - DoF 파라미터 (Modifier.Payload에서 읽음)
+    // Payload.Params0: X=FocalDistance, Y=CocScale, Z=MaxBlurRadius
     FDoFBufferType DoFConstant;
-    DoFConstant.FocalDistance = View->DepthOfFieldFocalDistance;
-    DoFConstant.CocScale = View->DepthOfFieldCocScale;
-    DoFConstant.MaxBlurRadius = View->DepthOfFieldMaxBlurRadius;
+    DoFConstant.FocalDistance = M.Payload.Params0.X;
+    DoFConstant.CocScale = M.Payload.Params0.Y;
+    DoFConstant.MaxBlurRadius = M.Payload.Params0.Z;
     DoFConstant.NearClip = View->NearClip;
     DoFConstant.FarClip = View->FarClip;
 

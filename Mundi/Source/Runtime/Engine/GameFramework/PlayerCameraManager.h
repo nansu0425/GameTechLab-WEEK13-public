@@ -9,6 +9,7 @@ class UCameraModifierBase;
 class FViewport;
 class URenderSettings;
 class UCamMod_Fade;
+class UCamMod_DoF;
 
 UCLASS(DisplayName="APlayerCameraManager", Description="APlayerCameraManager 액터")
 class APlayerCameraManager : public AActor
@@ -50,7 +51,12 @@ public:
 	void AdjustVignette(float InDuration, float Radius, float Softness, float Intensity, float Roundness, const FLinearColor& InColor = FLinearColor::Zero(), int32 InPriority = 0);
 	void DeleteVignette();
 	
-	void StartGamma(float Gamma); 
+	void StartGamma(float Gamma);
+
+	// Depth of Field API
+	void StartDepthOfField(float FocalDistance, float Fstop = 4.0f, float FocalLength = 50.0f, float MaxBlurRadius = 10.0f, int32 InPriority = 0);
+	void StopDepthOfField();
+	void UpdateDepthOfField(float FocalDistance, float Fstop = 4.0f, float FocalLength = 50.0f, float MaxBlurRadius = 10.0f);
 
 public:
 	TArray<UCameraModifierBase*> ActiveModifiers;
