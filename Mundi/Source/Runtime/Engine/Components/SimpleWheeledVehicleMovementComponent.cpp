@@ -34,16 +34,19 @@ void USimpleWheeledVehicleMovementComponent::OnRegister(UWorld* InWorld)
 {
     Super::OnRegister(InWorld);
     EnsureUpdatedComponentIsValid();
+    RegisterWithPhysScene();
 }
 
 void USimpleWheeledVehicleMovementComponent::OnUnregister()
 {
+    UnregisterFromPhysScene();
     CleanupVehiclePhysX();
     Super::OnUnregister();
 }
 
 void USimpleWheeledVehicleMovementComponent::EndPlay()
 {
+    UnregisterFromPhysScene();
     CleanupVehiclePhysX();
     Super::EndPlay();
 }
@@ -649,4 +652,66 @@ void USimpleWheeledVehicleMovementComponent::CleanupVehiclePhysX()
     bWarnedMissingBodyComponent = false;
     bWarnedPhysicsUninitialized = false;
     bWarnedWheelSetup = false;
+}
+
+void USimpleWheeledVehicleMovementComponent::RegisterWithPhysScene()
+{
+    if (bRegisteredWithPhysScene)
+    {
+        return;
+    }
+
+    UWorld* World = nullptr;
+    if (UpdatedComponent)
+    {
+        World = UpdatedComponent->GetWorld();
+    }
+
+    if (!World && Owner)
+    {
+        if (AActor* OwnerActor = Cast<AActor>(Owner))
+        {
+            World = OwnerActor->GetWorld();
+        }
+    }
+
+    if (!World)
+    {
+        return;
+    }
+
+    if (FPhysScene* PhysScene = World->GetPhysScene())
+    {
+        PhysScene->RegisterVehicleComponent(this);
+        bRegisteredWithPhysScene = true;
+    }
+}
+
+void USimpleWheeledVehicleMovementComponent::UnregisterFromPhysScene()
+{
+    if (!bRegisteredWithPhysScene)
+    {
+        return;
+    }
+
+    UWorld* World = nullptr;
+    if (UpdatedComponent)
+    {
+        World = UpdatedComponent->GetWorld();
+    }
+
+    if (!World && Owner)
+    {
+        if (AActor* OwnerActor = Cast<AActor>(Owner))
+        {
+            World = OwnerActor->GetWorld();
+        }
+    }
+
+    if (FPhysScene* PhysScene = World ? World->GetPhysScene() : nullptr)
+    {
+        PhysScene->UnregisterVehicleComponent(this);
+    }
+
+    bRegisteredWithPhysScene = false;
 }

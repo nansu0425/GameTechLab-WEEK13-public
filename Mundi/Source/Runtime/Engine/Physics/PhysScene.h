@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 #include "Vector.h"
+#include "UEContainer.h"
 #include <memory>
 #include <cstdint>
 
@@ -22,6 +23,7 @@ namespace physx
 
 // 전방 선언 (PhysX 의존성 없음)
 class UWorld;
+class USimpleWheeledVehicleMovementComponent;
 class FPhysSceneImpl;  // PIMPL - 구현 숨김
 
 /**
@@ -154,6 +156,19 @@ public:
      * @brief 현재 씬 통계 반환
      */
     FPhysSceneStats GetStats() const;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Vehicle 컴포넌트 레지스트리
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** VehicleMovementComponent 등록 */
+    void RegisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent);
+
+    /** VehicleMovementComponent 등록 해제 */
+    void UnregisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent);
+
+    /** 등록된 VehicleMovementComponent 목록 반환 (무효 포인터 정리 후) */
+    TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>> GetRegisteredVehicleComponents() const;
 
 private:
     std::unique_ptr<FPhysSceneImpl> Impl;  // PIMPL - PhysX 구현 숨김

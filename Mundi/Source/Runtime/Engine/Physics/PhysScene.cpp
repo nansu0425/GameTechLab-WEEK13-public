@@ -176,6 +176,31 @@ FPhysScene::FPhysSceneStats FPhysScene::GetStats() const
     return Stats;
 }
 
+void FPhysScene::RegisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent)
+{
+    if (Impl)
+    {
+        Impl->RegisterVehicleComponent(InComponent);
+    }
+}
+
+void FPhysScene::UnregisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent)
+{
+    if (Impl)
+    {
+        Impl->UnregisterVehicleComponent(InComponent);
+    }
+}
+
+TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>> FPhysScene::GetRegisteredVehicleComponents() const
+{
+    if (Impl)
+    {
+        return Impl->GetVehicleComponents();
+    }
+    return {};
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // FPhysSceneImpl - PhysX 구현부
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -865,4 +890,58 @@ void FPhysSceneImpl::CaptureActiveActorsVelocity()
             }
         }
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Vehicle 컴포넌트 레지스트리
+// ═══════════════════════════════════════════════════════════════════════════════
+
+void FPhysSceneImpl::RegisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent)
+{
+    if (!InComponent)
+    {
+        return;
+    }
+
+    VehicleComponents.AddUnique(TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>(InComponent));
+    bVehicleListDirty = true;
+}
+
+void FPhysSceneImpl::UnregisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent)
+{
+    if (!InComponent)
+    {
+        return;
+    }
+
+    bool bRemoved = VehicleComponents.Remove(TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>(InComponent));
+    if (bRemoved)
+    {
+        bVehicleListDirty = true;
+    }
+}
+
+const TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>>& FPhysSceneImpl::GetVehicleComponents()
+{
+    CompactVehicleComponents();
+    return VehicleComponents;
+}
+
+void FPhysSceneImpl::CompactVehicleComponents()
+{
+    if (!bVehicleListDirty)
+    {
+        return;
+    }
+
+    for (int32 Index = VehicleComponents.Num() - 1; Index >= 0; --Index)
+    {
+        if (!VehicleComponents[Index].IsValid())
+        {
+            VehicleComponents.RemoveAt(Index);
+        }
+    }
+
+    VehicleComponents.Shrink();
+    bVehicleListDirty = false;
 }
