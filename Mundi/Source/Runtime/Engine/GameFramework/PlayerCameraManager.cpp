@@ -367,6 +367,12 @@ void APlayerCameraManager::UpdateViewInfo(float DeltaTime)
 		CurrentViewInfo.ZoomFactor = CurrentViewCamera->GetZoomFactor();
 		CurrentViewInfo.ProjectionMode = CurrentViewCamera->GetProjectionMode();
 
+		// DoF 파라미터 복사 (최종 타겟의 것을 즉시 따름)
+		CurrentViewInfo.bEnableDepthOfField = CurrentViewCamera->IsDepthOfFieldEnabled();
+		CurrentViewInfo.DepthOfFieldFocalDistance = CurrentViewCamera->GetDepthOfFieldFocalDistance();
+		CurrentViewInfo.DepthOfFieldCocScale = CurrentViewCamera->GetDepthOfFieldCocScale();
+		CurrentViewInfo.DepthOfFieldMaxBlurRadius = CurrentViewCamera->GetDepthOfFieldMaxBlurRadius();
+
 		// 남은 시간 계산
 		BlendTimeRemaining -= DeltaTime;
 		if (BlendTimeRemaining <= 0.0f)
@@ -387,5 +393,11 @@ void APlayerCameraManager::UpdateViewInfo(float DeltaTime)
 		CurrentViewInfo.FieldOfView = CurrentViewCamera->GetFOV();
 		CurrentViewInfo.ZoomFactor = CurrentViewCamera->GetZoomFactor();
 		CurrentViewInfo.ProjectionMode = CurrentViewCamera->GetProjectionMode();
+
+		// DoF 파라미터 복사
+		CurrentViewInfo.bEnableDepthOfField = CurrentViewCamera->IsDepthOfFieldEnabled();
+		CurrentViewInfo.DepthOfFieldFocalDistance = CurrentViewCamera->GetDepthOfFieldFocalDistance();
+		CurrentViewInfo.DepthOfFieldCocScale = CurrentViewCamera->GetDepthOfFieldCocScale();
+		CurrentViewInfo.DepthOfFieldMaxBlurRadius = CurrentViewCamera->GetDepthOfFieldMaxBlurRadius();
 	}
 }

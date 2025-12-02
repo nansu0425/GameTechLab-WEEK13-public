@@ -7,6 +7,7 @@
 #include "AnimSingleNodeInstance.h"
 #include "AnimStateMachineInstance.h"
 #include "AnimBlendSpaceInstance.h"
+#include "PhysicsAsset.h"
 
 USkeletalMeshComponent::USkeletalMeshComponent()
 {
@@ -18,6 +19,12 @@ USkeletalMeshComponent::USkeletalMeshComponent()
 	UAnimationAsset* AnimationAsset = UResourceManager::GetInstance().Get<UAnimSequence>("Data/DancingRacer_mixamo.com");
     PlayAnimation(AnimationAsset, true, 1.f);
     */
+}
+
+USkeletalMeshComponent::~USkeletalMeshComponent()
+{
+    ClearBodies();
+    ClearConstraints();
 }
 
 
@@ -319,6 +326,87 @@ void USkeletalMeshComponent::UpdateFinalSkinningMatrices()
     // 본 행렬 계산 시간을 부모 USkinnedMeshComponent로 전달
     // 부모에서 실제 스키닝 모드(CPU/GPU)에 따라 통계에 추가됨
     UpdateSkinningMatrices(TempFinalSkinningMatrices, BoneMatrixCalcTimeMS);
+}
+
+FBodyInstance* USkeletalMeshComponent::FindBodyInstance(const FName& BoneName)
+{
+    USkeletalMesh* Mesh = GetSkeletalMesh();
+    if (!Mesh || !Mesh->GetPhysicsAsset())
+    {
+        return nullptr;
+    }
+    
+    UPhysicsAsset* PhysicsAsset = Mesh->GetPhysicsAsset();
+    
+    int32 BodyIndex = PhysicsAsset->FindBodyIndex(BoneName);    
+    if (BodyIndex != -1 && BodyIndex < Bodies.Num())
+    {
+        return Bodies[BodyIndex];
+    }
+
+    return nullptr;
+}
+
+void USkeletalMeshComponent::InitializeConstraints()
+{
+    USkeletalMesh* Mesh = GetSkeletalMesh();
+    if (!Mesh || !Mesh->GetPhysicsAsset())
+    {
+        return;
+    }
+    
+    UPhysicsAsset* PhysicsAsset = Mesh->GetPhysicsAsset();
+    
+    const TArray<FConstraintSetup>& Setups = PhysicsAsset->GetContraintSetups();
+    int32 SetupCount = PhysicsAsset->GetConstraintSetupCount();
+    
+    ClearConstraints();
+    
+    Constraints.Reserve(SetupCount);
+    for (const FConstraintSetup& Setup : Setups)
+    {
+        FBodyInstance* Child = FindBodyInstance(Setup.ConstraintBone1);        
+        if (!Child)
+        {
+            UE_LOG("[USkeletalMeshComponent/InitializeConstraints] Cant find body");
+            continue;
+        }
+        FConstraintInstance* NewJoint = new FConstraintInstance();
+
+        Setup.CopyToInstance(*NewJoint);
+
+        NewJoint->ChildBody = Child;
+        NewJoint->ParentBody = FindBodyInstance(Setup.ConstraintBone2);
+        
+        NewJoint->Initialize();
+
+        if (NewJoint->IsValid())
+        {
+            Constraints.Add(NewJoint);
+        }
+        else
+        {
+            delete NewJoint;
+        }
+    }   
+}
+
+void USkeletalMeshComponent::ClearBodies()
+{
+    for (auto *Body : Bodies)
+    {
+        delete Body;
+    }
+    Bodies.Empty();
+}
+
+void USkeletalMeshComponent::ClearConstraints()
+{
+    for (auto *Constraint : Constraints)
+    {
+        delete Constraint;
+    }
+    Constraints.Empty();
 }
 
 void USkeletalMeshComponent::ApplyAdditiveTransforms(const TMap<int32, FTransform>& AdditiveTransforms)

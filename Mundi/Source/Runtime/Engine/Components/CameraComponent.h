@@ -33,6 +33,23 @@ public:
 
     UPROPERTY(EditAnywhere, Category="Camera", Range="0.1, 10.0")
     float ZoomFactor;
+
+    // ===== Depth of Field 파라미터 =====
+    UPROPERTY(EditAnywhere, Category="DepthOfField")
+    bool bEnableDepthOfField = false;
+
+    UPROPERTY(EditAnywhere, Category="DepthOfField", Range="0.0, 1000.0")
+    float DepthOfFieldFocalDistance = 5.0f;  // 초점 거리 (m)
+
+    UPROPERTY(EditAnywhere, Category="DepthOfField", Range="1.2, 32.0")
+    float DepthOfFieldFstop = 4.0f;  // f-stop (조리개) - 낮을수록 블러 강함
+
+    UPROPERTY(EditAnywhere, Category="DepthOfField", Range="10.0, 200.0")
+    float DepthOfFieldFocalLength = 50.0f;  // 렌즈 초점거리 (mm)
+
+    UPROPERTY(EditAnywhere, Category="DepthOfField", Range="1.0, 50.0")
+    float DepthOfFieldMaxBlurRadius = 10.0f;  // 최대 블러 반경 (픽셀)
+
     void OnRegister(UWorld* InWorld) override;
     void OnUnregister() override;
 
@@ -51,6 +68,21 @@ public:
     float GetFarClip() const { return FarClip; }
     float GetZoomFactor()const { return ZoomFactor; };
     ECameraProjectionMode GetProjectionMode() const { return ProjectionMode; }
+
+    // ===== Depth of Field Getters =====
+    bool IsDepthOfFieldEnabled() const { return bEnableDepthOfField; }
+    float GetDepthOfFieldFocalDistance() const { return DepthOfFieldFocalDistance; }
+    float GetDepthOfFieldMaxBlurRadius() const { return DepthOfFieldMaxBlurRadius; }
+
+    // CoC 스케일 계산: CoC_∞ = f² / (N × (d - f))
+    // f = 초점 거리 (mm → m), N = f-stop, d = 피사체 거리 (m)
+    float GetDepthOfFieldCocScale() const
+    {
+        float FocalLengthM = DepthOfFieldFocalLength * 0.001f;  // mm → m
+        float Denominator = DepthOfFieldFstop * (DepthOfFieldFocalDistance - FocalLengthM);
+        if (Denominator <= 0.0001f) return 0.0f;
+        return (FocalLengthM * FocalLengthM) / Denominator;
+    }
 
     // Matrices
     FMatrix GetViewMatrix() const;

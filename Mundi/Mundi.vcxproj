@@ -440,6 +440,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Source\Runtime\Renderer\PostProcessing\FadeInOutPass.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\PostProcessing\PostProcessing.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\PostProcessing\VignettePass.cpp" />
+    <ClCompile Include="Source\Runtime\Renderer\PostProcessing\DepthOfFieldPass.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\SceneView.cpp" />
     <ClCompile Include="Source\Runtime\Renderer\TileLightCuller.cpp" />
     <ClCompile Include="Source\Slate\Widgets\PropertyRenderer.cpp" />
@@ -977,6 +978,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Source\Runtime\Renderer\PostProcessing\FadeInOutPass.h" />
     <ClInclude Include="Source\Runtime\Renderer\PostProcessing\PostProcessing.h" />
     <ClInclude Include="Source\Runtime\Renderer\PostProcessing\VignettePass.h" />
+    <ClInclude Include="Source\Runtime\Renderer\PostProcessing\DepthOfFieldPass.h" />
     <ClInclude Include="Source\Runtime\Renderer\SceneView.h" />
     <ClInclude Include="Source\Runtime\Renderer\TileCullingStats.h" />
     <ClInclude Include="Source\Runtime\Renderer\TileLightCuller.h" />

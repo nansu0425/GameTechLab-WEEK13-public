@@ -3,6 +3,8 @@
 #include "MeshBVH.h"
 #include <d3d11.h>
 
+class UBodySetup;
+
 class UStaticMeshComponent;
 class FMeshBVH;
 class UStaticMesh : public UResourceBase
@@ -37,6 +39,8 @@ public:
     FAABB GetLocalBound() const {return LocalBound; }
     
     const FString& GetCacheFilePath() const { return CacheFilePath; }
+	
+	UBodySetup* GetBodySetup() const { return BodySetup; }
 
 private:
     void CreateVertexBuffer(FMeshData* InMeshData, ID3D11Device* InDevice, EVertexLayoutType InVertexType);
@@ -59,6 +63,8 @@ private:
 
 	// CPU 리소스
     FStaticMesh* StaticMeshAsset = nullptr;
+
+	UBodySetup* BodySetup = nullptr;
 
     // 메시 단위 BVH (ResourceManager에서 캐싱, 소유)
     // 초기화되지 않는 멤버변수 (참조도 ResourceManager에서만 이루어짐) 

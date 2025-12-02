@@ -26,6 +26,8 @@ FConstraintInstance::FConstraintInstance()
       AngularRotationOffset(FQuat::Identity()),
       bScaleLinearLimits(true),
       AverageMass(0.0f),
+      ChildBody(nullptr),
+      ParentBody(nullptr),
       UserData(this)
 {
     Pos1 = FVector(0.0f, 0.0f, 0.0f);
@@ -37,9 +39,126 @@ FConstraintInstance::FConstraintInstance()
     SecAxis2 = FVector(0.0f, 1.0f, 0.0f);
 }
 
+FConstraintInstance::FConstraintInstance(const FConstraintInstance& Other)
+    : FConstraintInstanceBase() // Base는 초기화 (Joint = nullptr)
+    , JointName(Other.JointName)
+    , ChildBody(Other.ChildBody)
+    , ParentBody(Other.ParentBody)
+    , Pos1(Other.Pos1), PriAxis1(Other.PriAxis1), SecAxis1(Other.SecAxis1)
+    , Pos2(Other.Pos2), PriAxis2(Other.PriAxis2), SecAxis2(Other.SecAxis2)
+    , AngularRotationOffset(Other.AngularRotationOffset)
+    , bScaleLinearLimits(Other.bScaleLinearLimits)
+    , AverageMass(Other.AverageMass)
+    , Profile(Other.Profile)
+    , UserData(this)
+{
+}
+
+FConstraintInstance::FConstraintInstance(FConstraintInstance&& Other) noexcept
+    : FConstraintInstanceBase()
+    , JointName(std::move(Other.JointName))
+    , ChildBody(Other.ChildBody)
+    , ParentBody(Other.ParentBody)
+    , Pos1(Other.Pos1), PriAxis1(Other.PriAxis1), SecAxis1(Other.SecAxis1)
+    , Pos2(Other.Pos2), PriAxis2(Other.PriAxis2), SecAxis2(Other.SecAxis2)
+    , AngularRotationOffset(Other.AngularRotationOffset)
+    , bScaleLinearLimits(Other.bScaleLinearLimits)
+    , AverageMass(Other.AverageMass)
+    , Profile(Other.Profile) // Profile 내부에 무거운게 없다면 복사됨
+    , UserData(this) // [중요] 이동해왔어도 내 주소는 'this'
+{
+    // [핵심] 리소스 소유권 이전 (Steal Resource)
+    this->Joint = Other.Joint;
+    this->PhysScene = Other.PhysScene;
+    this->ContraintIndex = Other.ContraintIndex;
+
+    // [핵심] PhysX Back-pointer 갱신
+    if (this->Joint)
+    {
+        this->Joint->userData = &this->UserData;
+    }
+
+    // 원본 초기화 (Reset)
+    Other.Joint = nullptr;
+    Other.PhysScene = nullptr;
+    Other.ContraintIndex = 0;
+}
+
 FConstraintInstance::~FConstraintInstance()
 {
     Reset();
+}
+
+FConstraintInstance& FConstraintInstance::operator=(const FConstraintInstance& Other)
+{
+    if (this != &Other)
+    {
+        // 1. 기존 리소스 정리
+        // (이미 연결된 조인트가 있다면 끊어야 함)
+        if (Joint)
+        {
+            Joint->release();
+            Joint = nullptr;
+        }
+        
+        // 2. 데이터 복사
+        JointName = Other.JointName;
+        ChildBody = Other.ChildBody;
+        ParentBody = Other.ParentBody;
+        Pos1 = Other.Pos1; PriAxis1 = Other.PriAxis1; SecAxis1 = Other.SecAxis1;
+        Pos2 = Other.Pos2; PriAxis2 = Other.PriAxis2; SecAxis2 = Other.SecAxis2;
+        AngularRotationOffset = Other.AngularRotationOffset;
+        bScaleLinearLimits = Other.bScaleLinearLimits;
+        AverageMass = Other.AverageMass;
+        Profile = Other.Profile;
+
+        // 3. UserData는 건드리지 않음 (내 주소 유지)
+        
+        // 4. Base 클래스 데이터 (PhysScene 등)는 상황에 따라 복사하거나 초기화
+        PhysScene = nullptr; // 보통 복사 시에는 씬 등록 전이라 가정
+    }
+    return *this;
+}
+
+FConstraintInstance& FConstraintInstance::operator=(FConstraintInstance&& Other) noexcept
+{
+    if (this != &Other)
+    {
+        // 1. 기존 리소스 정리
+        if (Joint)
+        {
+            Joint->release();
+            Joint = nullptr;
+        }
+
+        // 2. 데이터 이동/복사
+        JointName = std::move(Other.JointName);
+        ChildBody = Other.ChildBody;
+        ParentBody = Other.ParentBody;
+        Pos1 = Other.Pos1; PriAxis1 = Other.PriAxis1; SecAxis1 = Other.SecAxis1;
+        Pos2 = Other.Pos2; PriAxis2 = Other.PriAxis2; SecAxis2 = Other.SecAxis2;
+        AngularRotationOffset = Other.AngularRotationOffset;
+        bScaleLinearLimits = Other.bScaleLinearLimits;
+        AverageMass = Other.AverageMass;
+        Profile = Other.Profile;
+
+        // 3. 리소스 소유권 이전
+        this->Joint = Other.Joint;
+        this->PhysScene = Other.PhysScene;
+        this->ContraintIndex = Other.ContraintIndex;
+
+        // 4. [핵심] PhysX Back-pointer 갱신
+        if (this->Joint)
+        {
+            this->Joint->userData = &this->UserData;
+        }
+
+        // 5. 원본 초기화
+        Other.Joint = nullptr;
+        Other.PhysScene = nullptr;
+        Other.ContraintIndex = 0;
+    }
+    return *this;
 }
 
 void FConstraintInstance::Initialize(const FConstraintFrame& ChildFrame, const FConstraintFrame& ParentFrame)
@@ -122,7 +241,7 @@ void FConstraintInstance::UpdateProfile()
 
     if (Profile.TwistMotion == EJointMotion::Limited)
     {
-        float TwistRad = DegreesToRadians(Profile.TwistLimits);
+        float TwistRad = DegreesToRadians(Profile.TwistLimit);
 
         PxJointAngularLimitPair TwistLimit(-TwistRad, TwistRad);
         Joint->setTwistLimit(TwistLimit);
@@ -171,11 +290,33 @@ void FConstraintInstance::SetRefFrame1(const FVector& Pos, const FVector& PriAxi
     }
 }
 
+void FConstraintInstance::SetRefFrame1(const FConstraintFrame& Frame)
+{
+    Pos1 = Frame.Pos;
+    PriAxis1 = Frame.PriAxis;
+    SecAxis1 = Frame.SecAxis;
+    if (IsValid())
+    {
+        UpdateFrames();
+    }
+}
+
 void FConstraintInstance::SetRefFrame2(const FVector& Pos, const FVector& PriAxis, const FVector& SecAxis)
 {
     Pos2 = Pos;
     PriAxis2 = PriAxis;
     SecAxis2 = SecAxis;
+    if (IsValid())
+    {
+        UpdateFrames();
+    }
+}
+
+void FConstraintInstance::SetRefFrame2(const FConstraintFrame& Frame)
+{
+    Pos2 = Frame.Pos;
+    PriAxis2 = Frame.PriAxis;
+    SecAxis2 = Frame.SecAxis;
     if (IsValid())
     {
         UpdateFrames();

@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include "ResourceBase.h"
 
+class UPhysicsAsset;
+
 class USkeletalMesh : public UResourceBase
 {
 public:
@@ -34,6 +36,8 @@ public:
 
     // GPU 스키닝용 버텍스 버퍼 생성 (FSkinnedVertex 그대로 사용)
     void CreateGPUSkinnedVertexBuffer(ID3D11Buffer** InVertexBuffer);
+
+    UPhysicsAsset* GetPhysicsAsset() const { return PhysicsAsset; }
     
 private:
     void CreateIndexBuffer(FSkeletalMeshData* InSkeletalMesh, ID3D11Device* InDevice);
@@ -46,6 +50,8 @@ private:
     uint32 VertexCount = 0;     // 정점 개수
     uint32 IndexCount = 0;     // 버텍스 점의 개수 
     uint32 VertexStride = 0;
+
+    UPhysicsAsset* PhysicsAsset = nullptr;
     
     // CPU 리소스
     FSkeletalMeshData* Data = nullptr;
