@@ -78,4 +78,8 @@ private:
     class UTexture* IconSingleBody = nullptr;
     class UTexture* IconMultipleBody = nullptr;
     bool bIconsLoaded = false;
+
+    // Constraint Icon
+    class UTexture* IconBoneConstraint = nullptr;
+    class UTexture* IconBoneCrossConstraint = nullptr;
 };

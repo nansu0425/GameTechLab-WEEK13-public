@@ -45,6 +45,16 @@ SPhysicsAssetEditorWindow::~SPhysicsAssetEditorWindow()
         DeleteObject(IconMultipleBody);
         IconMultipleBody = nullptr;
     }
+    if (IconBoneConstraint)
+    {
+        DeleteObject(IconBoneConstraint);
+        IconBoneConstraint = nullptr;
+    }
+    if (IconBoneCrossConstraint)
+    {
+        DeleteObject(IconBoneCrossConstraint);
+        IconBoneConstraint = nullptr;
+    }
 }
 
 void SPhysicsAssetEditorWindow::OnRender()
@@ -63,6 +73,12 @@ void SPhysicsAssetEditorWindow::OnRender()
 
         IconMultipleBody = NewObject<UTexture>();
         IconMultipleBody->Load(GDataDir + "/Icon/MultipleBody.png", Device);
+
+        IconBoneConstraint = NewObject<UTexture>();
+        IconBoneConstraint->Load(GDataDir + "/Icon/BoneConstraint.png", Device);
+
+        IconBoneCrossConstraint = NewObject<UTexture>();
+        IconBoneCrossConstraint->Load(GDataDir + "/Icon/BoneCrossConstraint.png", Device);
 
         bIconsLoaded = true;
     }
