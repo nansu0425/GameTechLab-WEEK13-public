@@ -917,8 +917,14 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 			{
 				if (!Actor || Actor->IsPendingDestroy()) continue;
 
-				// 에디터 카메라 제외
-				if (ViewportClient && Actor == ViewportClient->GetCamera()) continue;
+				// 에디터 카메라 제외 (Pilot 모드일 때는 Pilot 액터도 목록에 포함)
+				if (ViewportClient)
+				{
+					// Pilot 모드가 아닐 때: 현재 에디터 카메라는 제외
+					// Pilot 모드일 때: Pilot 액터는 포함, 원래 에디터 카메라만 제외
+					bool bIsPilotMode = ViewportClient->IsPilotModeEnabled();
+					if (!bIsPilotMode && Actor == ViewportClient->GetCamera()) continue;
+				}
 
 				// UCameraComponent 검색
 				for (UActorComponent* Comp : Actor->GetOwnedComponents())
