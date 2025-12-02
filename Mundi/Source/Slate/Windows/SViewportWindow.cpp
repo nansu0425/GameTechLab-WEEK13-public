@@ -302,9 +302,17 @@ void SViewportWindow::RenderToolbar()
 		// Camera는 ViewMode 왼쪽 (ViewMode 너비에 따라 위치 변동)
 		float CameraX = ViewModeX - ButtonSpacing - CameraButtonWidth;
 
+		// PIE 모드 체크
+		UWorld* World = ViewportClient ? ViewportClient->GetWorld() : nullptr;
+		bool bIsPIE = World && World->bPie;
+
 		// 버튼들을 순서대로 그리기 (Y 위치는 동일하게 유지)
-		ImGui::SetCursorPos(ImVec2(CameraX, CurrentCursor.y));
-		RenderCameraOptionDropdownMenu();
+		// PIE 모드에서는 카메라 옵션 드롭다운만 숨김
+		if (!bIsPIE)
+		{
+			ImGui::SetCursorPos(ImVec2(CameraX, CurrentCursor.y));
+			RenderCameraOptionDropdownMenu();
+		}
 
 		ImGui::SetCursorPos(ImVec2(ViewModeX, CurrentCursor.y));
 		RenderViewModeDropdownMenu();
