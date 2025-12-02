@@ -263,11 +263,22 @@ void FViewportClient::SetupCameraMode()
 		DisablePilotMode();
 	}
 
+	// 참고: 원근 → 직교 전환 시 카메라 상태 저장은 SetViewportType()에서 수행됨
+
 	switch (ViewportType)
 	{
 	case EViewportType::Perspective:
-		// Pilot 모드가 아닌 상태에서는 기존 카메라 위치 유지 (초기 설정 시에만 기본값 사용)
-		// 이미 DisablePilotMode()에서 복원되었으므로 여기서는 아무것도 하지 않음
+		// 직교 뷰에서 원근 뷰로 전환 시 저장된 에디터 카메라 Transform 복원
+		// (직교 뷰의 카메라 설정이 아닌 원래 원근 카메라 설정으로 복원)
+		Camera->SetActorLocation(OriginalCameraLocation);
+		Camera->SetActorRotation(OriginalCameraRotation);
+		if (UCameraComponent* CamComp = Camera->GetCameraComponent())
+		{
+			CamComp->SetFOV(OriginalCameraFOV);
+			CamComp->SetClipPlanes(OriginalCameraNearClip, OriginalCameraFarClip);
+		}
+		// Yaw/Pitch 캐시도 동기화 (회전 스냅핑 방지)
+		Camera->SyncRotationCache();
 		break;
 	case EViewportType::Orthographic_Top:
 	{
@@ -449,6 +460,29 @@ FMatrix FViewportClient::GetViewMatrix() const
 	return FMatrix::Identity();
 }
 
+void FViewportClient::SetViewportType(EViewportType InType)
+{
+	// 원근 → 직교 전환 시 현재 원근 카메라 상태 저장
+	// (직교에서 다시 원근으로 돌아올 때 복원하기 위함)
+	if (ViewportType == EViewportType::Perspective && InType != EViewportType::Perspective)
+	{
+		// Pilot 모드가 아닐 때만 저장 (Pilot 모드에서는 이미 EnablePilotMode에서 저장됨)
+		if (!bPilotCameraMode && Camera)
+		{
+			OriginalCameraLocation = Camera->GetActorLocation();
+			OriginalCameraRotation = Camera->GetActorRotation();
+			if (UCameraComponent* CamComp = Camera->GetCameraComponent())
+			{
+				OriginalCameraFOV = CamComp->GetFOV();
+				OriginalCameraNearClip = CamComp->GetNearClip();
+				OriginalCameraFarClip = CamComp->GetFarClip();
+			}
+		}
+	}
+
+	ViewportType = InType;
+}
+
 // ===== Pilot 모드 함수들 =====
 
 void FViewportClient::EnablePilotMode(AActor* TargetActor, UCameraComponent* TargetCameraComponent)
@@ -471,14 +505,20 @@ void FViewportClient::EnablePilotMode(AActor* TargetActor, UCameraComponent* Tar
 	else
 	{
 		// 최초 Pilot 모드 진입 시에만 에디터 카메라 Transform 저장
-		OriginalCameraLocation = Camera->GetActorLocation();
-		OriginalCameraRotation = Camera->GetActorRotation();
-		if (UCameraComponent* CamComp = Camera->GetCameraComponent())
+		// 단, 원근 뷰일 때만 저장 (직교 뷰의 Transform은 저장하면 안 됨)
+		if (ViewportType == EViewportType::Perspective)
 		{
-			OriginalCameraFOV = CamComp->GetFOV();
-			OriginalCameraNearClip = CamComp->GetNearClip();
-			OriginalCameraFarClip = CamComp->GetFarClip();
+			OriginalCameraLocation = Camera->GetActorLocation();
+			OriginalCameraRotation = Camera->GetActorRotation();
+			if (UCameraComponent* CamComp = Camera->GetCameraComponent())
+			{
+				OriginalCameraFOV = CamComp->GetFOV();
+				OriginalCameraNearClip = CamComp->GetNearClip();
+				OriginalCameraFarClip = CamComp->GetFarClip();
+			}
 		}
+		// 직교 뷰에서 Pilot 진입 시 원근 뷰로 전환
+		ViewportType = EViewportType::Perspective;
 	}
 
 	// Pilot 대상 설정

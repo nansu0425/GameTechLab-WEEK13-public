@@ -31,7 +31,7 @@ public:
     virtual void KeyUp(FViewport* Viewport, int32 KeyCode) {}
 
     // 뷰포트 설정
-    void SetViewportType(EViewportType InType) { ViewportType = InType; }
+    void SetViewportType(EViewportType InType);
     EViewportType GetViewportType() const { return ViewportType; }
 
     void SetWorld(UWorld* InWorld) { World = InWorld; }
