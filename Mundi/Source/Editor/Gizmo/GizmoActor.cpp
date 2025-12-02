@@ -395,10 +395,28 @@ void AGizmoActor::ProcessGizmoInteraction(ACameraActor* Camera, FViewport* Viewp
 {
 	if (!SelectionManager)
 	{
+		bIsHovering = false;
 		return;
 	}
 	USceneComponent* SelectedComponent = SelectionManager->GetSelectedComponent();
-	if (!SelectedComponent || !Camera) return;
+
+	// 선택된 컴포넌트가 없거나 Pilot 중인 액터가 선택된 경우 호버링 상태 리셋
+	if (!SelectedComponent || !Camera)
+	{
+		bIsHovering = false;
+		return;
+	}
+
+	// Pilot 중인 액터가 선택된 경우 기즈모 상호작용 무시
+	if (GetWorld())
+	{
+		AActor* SelectedActor = SelectionManager->GetSelectedActor();
+		if (SelectedActor && GetWorld()->IsPilotingActor(SelectedActor))
+		{
+			bIsHovering = false;
+			return;
+		}
+	}
 
 	// 기즈모 드래그
 	ProcessGizmoDragging(Camera, Viewport, MousePositionX, MousePositionY);

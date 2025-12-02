@@ -70,6 +70,7 @@ public:
 
 protected:
     void ProcessPilotActorInput(float DeltaTime);
+    void SyncCameraWithPilot();  // Pilot 모드에서 PilotCameraComponent를 Camera에 동기화
     EViewportType ViewportType = EViewportType::Perspective;
     UWorld* World = nullptr;
     ACameraActor* Camera = nullptr;

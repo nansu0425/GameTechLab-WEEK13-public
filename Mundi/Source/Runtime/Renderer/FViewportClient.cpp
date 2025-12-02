@@ -63,6 +63,11 @@ void FViewportClient::Tick(FViewport* Viewport, float DeltaTime)
 		Camera->ProcessEditorCameraInput(DeltaTime);
 	}
 
+	// 모든 Pilot 모드에서 내부 Camera를 PilotCameraComponent와 동기화
+	// (기즈모 상호작용, 피킹 등에서 Camera를 사용하므로 동기화 필요)
+	// ACameraActor와 Non-ACameraActor를 동일하게 처리하여 일관성 보장
+	SyncCameraWithPilot();
+
 	MouseWheel(Viewport, DeltaTime);
 	static UClipboardManager* ClipboardManager = NewObject<UClipboardManager>();
 
@@ -287,6 +292,9 @@ void FViewportClient::SetupCameraMode()
 
 void FViewportClient::MouseMove(FViewport* Viewport, int32 X, int32 Y)
 {
+	// Pilot 모드일 때 기즈모 상호작용 전에 Camera를 PilotCameraComponent와 즉시 동기화
+	SyncCameraWithPilot();
+
 	if (World->GetGizmoActor())
 		World->GetGizmoActor()->ProcessGizmoInteraction(Camera, Viewport, static_cast<float>(X), static_cast<float>(Y));
 
@@ -334,6 +342,10 @@ void FViewportClient::MouseButtonDown(FViewport* Viewport, int32 X, int32 Y, int
 	if (!Viewport || !World) // Only handle left mouse button
 		return;
 
+	// Pilot 모드일 때 피킹 전에 Camera를 PilotCameraComponent와 즉시 동기화
+	// (Tick 전에 마우스 이벤트가 발생할 수 있으므로)
+	SyncCameraWithPilot();
+
 	// GetInstance viewport size
 	FVector2D ViewportSize(static_cast<float>(Viewport->GetSizeX()), static_cast<float>(Viewport->GetSizeY()));
 	FVector2D ViewportOffset(static_cast<float>(Viewport->GetStartX()), static_cast<float>(Viewport->GetStartY()));
@@ -351,14 +363,13 @@ void FViewportClient::MouseButtonDown(FViewport* Viewport, int32 X, int32 Y, int
 		// 뷰포트의 실제 aspect ratio 계산
 		float PickingAspectRatio = ViewportSize.X / ViewportSize.Y;
 		if (ViewportSize.Y == 0) PickingAspectRatio = 1.0f; // 0으로 나누기 방지
-		if (World->GetGizmoActor()->GetbIsHovering())
+		bool bGizmoHovering = World->GetGizmoActor()->GetbIsHovering();
+		if (bGizmoHovering)
 		{
 			return;
 		}
 		Camera->SetWorld(World);
 		PickedComponent = URenderManager::GetInstance().GetRenderer()->GetPrimitiveCollided(static_cast<int>(ViewportMousePos.X), static_cast<int>(ViewportMousePos.Y));
-		// PickedActor = CPickingSystem::PerformViewportPicking(AllActors, Camera, ViewportMousePos, ViewportSize, ViewportOffset, PickingAspectRatio,  Viewport);
-
 
 		if (PickedComponent)
 		{
@@ -448,12 +459,12 @@ void FViewportClient::EnablePilotMode(AActor* TargetActor, UCameraComponent* Tar
 	// 카메라 기즈모 숨김 (Pilot 모드에서는 카메라 메시가 보이면 안 됨)
 	TargetCameraComponent->SetCameraGizmoVisible(false);
 
-	// ACameraActor인 경우 기존 방식 사용
+	// ACameraActor의 경우 회전 캐시 동기화 (입력 처리용)
 	if (ACameraActor* CamActor = Cast<ACameraActor>(TargetActor))
 	{
-		Camera = CamActor;
 		CamActor->SyncRotationCache();
 	}
+	// Camera는 항상 에디터 카메라 유지 - 매 Tick에서 PilotCameraComponent와 동기화
 }
 
 void FViewportClient::DisablePilotMode()
@@ -480,9 +491,33 @@ void FViewportClient::DisablePilotMode()
 	OriginalCamera = nullptr;
 }
 
+void FViewportClient::SyncCameraWithPilot()
+{
+	if (!bPilotCameraMode || !PilotCameraComponent) 
+	{
+		return;
+	}
+
+	// PilotCameraComponent의 Transform을 Camera에 동기화
+	FTransform CamTransform = PilotCameraComponent->GetWorldTransform();
+	Camera->SetActorLocation(CamTransform.Translation);
+	Camera->SetActorRotation(CamTransform.Rotation);
+
+	// 카메라 속성도 동기화
+	UCameraComponent* CamComp = Camera->GetCameraComponent();
+	if (CamComp)
+	{
+		CamComp->SetFOV(PilotCameraComponent->GetFOV());
+		CamComp->SetClipPlanes(PilotCameraComponent->GetNearClip(), PilotCameraComponent->GetFarClip());
+	}
+}
+
 void FViewportClient::ProcessPilotActorInput(float DeltaTime)
 {
-	if (!PilotActor) return;
+	if (!PilotActor) 
+	{
+		return;
+	}
 
 	UInputManager& Input = UInputManager::GetInstance();
 
