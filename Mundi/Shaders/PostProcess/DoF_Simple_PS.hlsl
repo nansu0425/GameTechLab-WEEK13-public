@@ -49,15 +49,20 @@ float LinearizeDepth(float depth)
     return NearClip * FarClip / (FarClip - depth * (FarClip - NearClip));
 }
 
-// Circle of Confusion (CoC) 계산
+// Circle of Confusion (CoC) 계산 (픽셀 단위)
 // UE 방식: CoC = ((depth - focusDistance) / depth) × CocInfinity
 // 음수 CoC: 전경 (카메라보다 가까움)
 // 양수 CoC: 배경 (카메라보다 멀음)
 float CalculateCoC(float linearDepth)
 {
+    // CocScale은 정규화된 값 (0~1, 화면 높이 기준)
+    // ViewportHeight를 곱해서 픽셀 단위로 변환
+    float ViewportHeight = 1.0f / TexelSizeY;
+    float CocScalePixels = CocScale * ViewportHeight;
+
     // 초점 거리에서 CoC = 0
-    // 무한대에서 CoC = CocScale (무한대 CoC)
-    float coc = ((linearDepth - FocalDistance) / max(linearDepth, 0.001f)) * CocScale;
+    // 무한대에서 CoC = CocScalePixels (무한대 CoC, 픽셀 단위)
+    float coc = ((linearDepth - FocalDistance) / max(linearDepth, 0.001f)) * CocScalePixels;
 
     // 최대 블러 반경으로 클램핑 (전경/배경 모두)
     return clamp(coc, -MaxBlurRadius, MaxBlurRadius);

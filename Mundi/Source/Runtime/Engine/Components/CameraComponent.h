@@ -50,6 +50,9 @@ public:
     UPROPERTY(EditAnywhere, Category="DepthOfField", Range="1.0, 50.0")
     float DepthOfFieldMaxBlurRadius = 10.0f;  // 최대 블러 반경 (픽셀)
 
+    UPROPERTY(EditAnywhere, Category="DepthOfField", Range="1.0, 100.0")
+    float DepthOfFieldSensorWidth = 36.0f;  // 센서 너비 (mm) - Full Frame 기본값
+
     void OnRegister(UWorld* InWorld) override;
     void OnUnregister() override;
 
@@ -74,14 +77,26 @@ public:
     float GetDepthOfFieldFocalDistance() const { return DepthOfFieldFocalDistance; }
     float GetDepthOfFieldMaxBlurRadius() const { return DepthOfFieldMaxBlurRadius; }
 
-    // CoC 스케일 계산: CoC_∞ = f² / (N × (d - f))
-    // f = 초점 거리 (mm → m), N = f-stop, d = 피사체 거리 (m)
+    // CoC 스케일 계산 (정규화된 값, 화면 높이 기준 0~1)
+    // 물리 공식: CoC_∞ = f² / (N × (d - f))
+    // 센서 정규화: CoC_normalized = CoC_∞ / SensorHeight
+    // f = 초점 거리 (mm), N = f-stop, d = 피사체 거리 (mm로 변환)
     float GetDepthOfFieldCocScale() const
     {
-        float FocalLengthM = DepthOfFieldFocalLength * 0.001f;  // mm → m
-        float Denominator = DepthOfFieldFstop * (DepthOfFieldFocalDistance - FocalLengthM);
+        // 모든 단위를 mm로 통일
+        float FocalLengthMM = DepthOfFieldFocalLength;  // 이미 mm
+        float FocalDistanceMM = DepthOfFieldFocalDistance * 1000.0f;  // m → mm
+        float SensorHeightMM = DepthOfFieldSensorWidth / AspectRatio;  // 센서 높이 (mm)
+
+        float Denominator = DepthOfFieldFstop * (FocalDistanceMM - FocalLengthMM);
         if (Denominator <= 0.0001f) return 0.0f;
-        return (FocalLengthM * FocalLengthM) / Denominator;
+
+        // 물리적 CoC (mm 단위)
+        float CocMM = (FocalLengthMM * FocalLengthMM) / Denominator;
+
+        // 센서 높이 기준으로 정규화 (0~1 범위)
+        // 셰이더에서 ViewportHeight를 곱하면 픽셀 단위가 됨
+        return CocMM / SensorHeightMM;
     }
 
     // Matrices

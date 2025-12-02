@@ -610,6 +610,9 @@ void UMainToolbarWidget::OnNewScene()
         UUIManager::GetInstance().ClearTransformWidgetSelection();
         GWorld->GetSelectionManager()->ClearSelection();
 
+        // Pilot 모드 해제 (dangling pointer 방지)
+        USlateManager::GetInstance().DisableAllPilotModes();
+
         // 새 레벨 생성 후 월드에 적용
         CurrentWorld->GetLightManager()->ClearAllLightList();
         CurrentWorld->SetLevel(ULevelService::CreateNewLevel());
@@ -694,6 +697,9 @@ void UMainToolbarWidget::OnLoadScene()
         // 로드 직전: Transform 위젯/선택 초기화
         UUIManager::GetInstance().ClearTransformWidgetSelection();
         GWorld->GetSelectionManager()->ClearSelection();
+
+        // Pilot 모드 해제 (dangling pointer 방지)
+        USlateManager::GetInstance().DisableAllPilotModes();
 
         std::unique_ptr<ULevel> NewLevel = ULevelService::CreateDefaultLevel();
         JSON LevelJsonData;

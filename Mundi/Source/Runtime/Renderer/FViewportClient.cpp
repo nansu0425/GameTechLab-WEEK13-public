@@ -17,6 +17,7 @@
 #include "SceneView.h"
 #include "SlateManager.h"
 #include "D3D11RHI.h"
+#include "PostProcessing/PostProcessing.h"
 
 // 언리얼 방식: 모든 직교 뷰포트가 하나의 3D 위치를 공유
 FVector FViewportClient::CameraAddPosition{};
@@ -195,6 +196,24 @@ void FViewportClient::Draw(FViewport* Viewport)
 
 		// Pilot 카메라 컴포넌트의 뷰 사용
 		FSceneView RenderView(PilotCameraComponent, Viewport, &World->GetRenderSettings());
+
+		// Pilot 카메라의 DoF가 활성화된 경우 Modifier 생성
+		if (PilotCameraComponent->IsDepthOfFieldEnabled())
+		{
+			FPostProcessModifier DoFMod;
+			DoFMod.Type = EPostProcessEffectType::DepthOfField;
+			DoFMod.Priority = 0;
+			DoFMod.bEnabled = true;
+			DoFMod.Weight = 1.0f;
+			DoFMod.SourceObject = nullptr;
+			DoFMod.Payload.Params0 = FVector4(
+				PilotCameraComponent->GetDepthOfFieldFocalDistance(),
+				PilotCameraComponent->GetDepthOfFieldCocScale(),
+				PilotCameraComponent->GetDepthOfFieldMaxBlurRadius(),
+				0.0f
+			);
+			RenderView.Modifiers.Add(DoFMod);
+		}
 
 		// 배경색 설정
 		RenderView.BackgroundColor = BackgroundColor;
@@ -575,8 +594,15 @@ void FViewportClient::DisablePilotMode()
 
 void FViewportClient::SyncCameraWithPilot()
 {
-	if (!bPilotCameraMode || !PilotCameraComponent) 
+	if (!bPilotCameraMode || !PilotCameraComponent)
 	{
+		return;
+	}
+
+	// 삭제 대기 중인 컴포넌트 체크 (씬 전환 시 dangling pointer 방지)
+	if (PilotCameraComponent->IsPendingDestroy())
+	{
+		DisablePilotMode();
 		return;
 	}
 
