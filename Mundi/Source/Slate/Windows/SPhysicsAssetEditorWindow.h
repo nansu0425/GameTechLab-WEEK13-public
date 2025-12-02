@@ -17,13 +17,14 @@ protected:
 
     virtual void RenderContextualControls() override;
     virtual void RenderHierarchySection() override;
+    virtual void RenderRightPanel() override;
     void RenderPhysicsBodyHierarchy();
     void RenderToolsPanel();
 
 private:
     // Load a skeletal mesh into the active tab
     void LoadSkeletalMesh(ViewerState* State, const FString& Path);
-
+    
     // ImGui draw callback for viewport rendering
     static void ViewportRenderCallback(const ImDrawList* parent_list, const ImDrawCmd* cmd);
 
@@ -31,6 +32,10 @@ private:
     EPrimitiveType SelectedPrimitiveType = EPrimitiveType::Sphere;
     bool bShowCollision = true;
     bool bCollisionShapesDirty = false;
+    
+    // Properties tab
+    void RenderBodyProperties();
+    void RenderConstraintProperties();
 
     // Wireframe helper functions
     void DrawWireframeBox(ULineComponent* LineComp, const FVector& Center, const FVector& HalfExtents, const FQuat& Rotation, const FVector4& Color);

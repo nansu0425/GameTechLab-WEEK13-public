@@ -102,6 +102,7 @@ public:
     // Physics Asset (Physics Asset Editor)
     class UPhysicsAsset* CurrentPhysicsAsset = nullptr;
     int32 SelectedBodyIndex = -1;
+    int32 SelectedConstraintIndex = -1;
 };
 
 // 파티클 에디터 상태

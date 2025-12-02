@@ -449,6 +449,24 @@ void SPhysicsAssetEditorWindow::RenderHierarchySection()
     RenderPhysicsBodyHierarchy();
 }
 
+void SPhysicsAssetEditorWindow::RenderRightPanel()
+{
+    if (!ActiveState)   return;
+
+    if (ActiveState->SelectedBodyIndex >= 0)
+    {
+        RenderBodyProperties();
+    }
+    else if (ActiveState->SelectedConstraintIndex >= 0)
+    {
+        RenderConstraintProperties();
+    }
+    else
+    {
+        SViewerWindow::RenderRightPanel();
+    }
+}
+
 void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
 {
     if (!ActiveState || !ActiveState->CurrentMesh)
@@ -531,28 +549,18 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
         }
 
         // Context menu for the BONE
-        if (ImGui::BeginPopupContextItem())
-        {
-            if (ImGui::IsItemClicked())
-            {
-                ActiveState->SelectedBoneIndex = BoneIndex;
-                ActiveState->SelectedBodyIndex = -1; // Deselect any body
-                bCollisionShapesDirty = true;
-            }
-            if (bHasBody) { /* Options for bone when it has a body */ }
-            else
-            {
-                if (ImGui::MenuItem("Create Body")) { CreateBodyForBone(BoneIndex, SelectedPrimitiveType); }
-                //if (ImGui::MenuItem("Create Constraint")) { CreateConstraintForBone(BoneIndex); }
-            }
-            ImGui::EndPopup();
-        }
-
         if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
         {
             ActiveState->SelectedBoneIndex = BoneIndex;
             ActiveState->SelectedBodyIndex = -1;
+            ActiveState->SelectedConstraintIndex = -1;
             bCollisionShapesDirty = true;
+        }
+
+        if (ImGui::BeginPopupContextItem())
+        {
+            if (!bHasBody && ImGui::MenuItem("Create Body")) { CreateBodyForBone(BoneIndex, SelectedPrimitiveType); }
+            ImGui::EndPopup();
         }
         
         if (ImGui::IsItemToggledOpen())
@@ -607,7 +615,7 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
                     if (ImGui::IsItemClicked()) {
                         ActiveState->SelectedBodyIndex = BodyIndex;
                         ActiveState->SelectedBoneIndex = BoneIndex;
-                        // TODO: Select primitive as well?
+                        ActiveState->SelectedConstraintIndex = -1;
                         bCollisionShapesDirty = true;
                     }
 
@@ -616,6 +624,7 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
                         if (ImGui::IsItemClicked()) {
                             ActiveState->SelectedBodyIndex = BodyIndex;
                             ActiveState->SelectedBoneIndex = BoneIndex;
+                            ActiveState->SelectedConstraintIndex = -1;
                             bCollisionShapesDirty = true;
                         }
                         if (ImGui::MenuItem("Add Primitive...")) { /* TODO */ }
@@ -671,15 +680,14 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
 
                         FString Label = "Constraint to " + OtherBone;
 
-                        // Selected highlight (ConstraintIndex 저장하는 변수가 필요하면 추가)
-                        bool bIsConstraintSelected = false; // TODO: 선택 기능 넣고 싶으면 ViewerState에 SelectedConstraintIndex 추가
-
+                        // Selected highlight
+                        bool bIsConstraintSelected = (ActiveState->SelectedConstraintIndex == i);
                         if (bIsConstraintSelected)
                         {
                             cFlags |= ImGuiTreeNodeFlags_Selected;
-                            ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.45f, 0.45f, 0.7f, 0.8f));
-                            ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.55f, 0.55f, 0.8f, 1.0f));
-                            ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.35f, 0.35f, 0.6f, 1.0f));
+                            ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.5f, 0.5f, 0.5f, 0.2f));
+                            ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.6f, 0.6f, 0.6f, 0.2f));
+                            ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.55f, 0.55f, 0.55f, 0.2f));
                         }
                         else
                         {
@@ -702,11 +710,9 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
                         // 클릭 처리
                         if (ImGui::IsItemClicked())
                         {
-                            // TODO: if needed
-                            // ActiveState->SelectedConstraintIndex = i;
-                            ActiveState->SelectedBoneIndex = BoneIndex;
-
-                            // Constraint 선택 시 Collision 시각화 갱신
+                            ActiveState->SelectedConstraintIndex = i;
+                            ActiveState->SelectedBoneIndex = -1;
+                            ActiveState->SelectedBodyIndex = -1;
                             bCollisionShapesDirty = true;
                         }
 
@@ -1000,6 +1006,57 @@ void SPhysicsAssetEditorWindow::ViewportRenderCallback(const ImDrawList* parent_
             context->Release();
         }
     }
+}
+
+void SPhysicsAssetEditorWindow::RenderBodyProperties()
+{
+    if (!ActiveState || ActiveState->SelectedBodyIndex < 0) return;
+
+    UBodySetup* SelectedBody = ActiveState->CurrentPhysicsAsset->GetBodySetups()[ActiveState->SelectedBodyIndex];
+    if (!SelectedBody) return;
+
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6);
+    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.30f, 0.30f, 0.30f, 0.8f));
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
+    ImGui::Text("BODY PROPERTIES");
+    ImGui::PopFont();
+    ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 6));
+    ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.35f, 0.35f, 0.35f, 0.6f));
+    ImGui::Separator();
+    ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 4));
+
+    ImGui::Text("Bone Name: %s", SelectedBody->BoneName.ToString().c_str());
+}
+
+void SPhysicsAssetEditorWindow::RenderConstraintProperties()
+{
+    if (!ActiveState || ActiveState->SelectedConstraintIndex < 0) return;
+
+    const FConstraintSetup& SelectedConstraint = ActiveState->CurrentPhysicsAsset->GetContraintSetups()[ActiveState->SelectedConstraintIndex];
+
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6);
+    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.30f, 0.30f, 0.30f, 0.8f));
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
+    ImGui::Text("CONSTRAINT PROPERTIES");
+    ImGui::PopFont();
+    ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 6));
+    ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.35f, 0.35f, 0.35f, 0.6f));
+    ImGui::Separator();
+    ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 4));
+
+    ImGui::Text("Joint Name: %s", SelectedConstraint.JointName.ToString().c_str());
+    ImGui::Text("Parent: %s", SelectedConstraint.ConstraintBone1.ToString().c_str());
+    ImGui::Text("Child: %s", SelectedConstraint.ConstraintBone2.ToString().c_str());
+
+    ImGui::Dummy(ImVec2(0, 10));
+    ImGui::Separator();
+    ImGui::Dummy(ImVec2(0, 10));
+
+
 }
 
 void SPhysicsAssetEditorWindow::DrawWireframeBox(ULineComponent* LineComp, const FVector& Center, const FVector& HalfExtents, const FQuat& Rotation, const FVector4& Color)
