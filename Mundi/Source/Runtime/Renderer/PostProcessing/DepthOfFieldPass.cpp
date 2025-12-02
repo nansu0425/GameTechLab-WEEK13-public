@@ -99,6 +99,11 @@ void FDepthOfFieldPass::ExecutePass1_Downsample(D3D11RHI* RHIDevice, FSceneView*
 {
     auto* DC = RHIDevice->GetDeviceContext();
 
+    // ★ Full-res SceneColor Swap: 직전 패스(LitPath 또는 이전 포스트프로세스)가 Target에 그린 것을
+    // Source로 전환하여 읽을 수 있게 함. Pass 1은 Half-res 버퍼에 그리므로 Commit하지 않음.
+    // 스코프 끝에서 자동 롤백되어 Full-res 버퍼 상태가 원래대로 유지됨.
+    FSwapGuard FullResSwap(RHIDevice, 0, 2);
+
     // Half-res 뷰포트로 전환
     RHIDevice->SetHalfResViewport();
 
@@ -116,6 +121,7 @@ void FDepthOfFieldPass::ExecutePass1_Downsample(D3D11RHI* RHIDevice, FSceneView*
     RHIDevice->PrepareShader(DoFFullScreenVS, DownsamplePS);
 
     // SRV 설정: Full-res SceneColor + Full-res Depth
+    // FSwapGuard로 Swap했으므로 GetCurrentSourceSRV()가 직전 패스 결과를 반환
     ID3D11ShaderResourceView* SceneSRV = RHIDevice->GetCurrentSourceSRV();
     ID3D11ShaderResourceView* DepthSRV = RHIDevice->GetSRV(RHI_SRV_Index::SceneDepth);
     ID3D11ShaderResourceView* SRVs[2] = { SceneSRV, DepthSRV };
@@ -135,11 +141,12 @@ void FDepthOfFieldPass::ExecutePass1_Downsample(D3D11RHI* RHIDevice, FSceneView*
     // Draw
     RHIDevice->DrawFullScreenQuad();
 
-    // SRV 언바인드
-    ClearPSSRVs(RHIDevice, 0, 2);
+    // SRV 언바인드는 FSwapGuard 소멸자에서 자동 처리됨
 
     // Ping-Pong 스왑 (다음 패스에서 방금 그린 것을 Source로 사용)
     RHIDevice->SwapHalfResRenderTargets();
+
+    // FullResSwap은 Commit 없이 소멸 → Full-res SceneColor 버퍼 상태 자동 롤백
 }
 
 // ===== Pass 2: Horizontal Blur =====
