@@ -6,6 +6,7 @@
 #include "Camera/CamMod_LetterBox.h"
 #include "Camera/CamMod_Vignette.h"
 #include "Camera/CamMod_Gamma.h"
+#include "Camera/CamMod_DoF.h"
 #include "SceneView.h"
 #include "CameraActor.h"
 #include "CameraComponent.h"
@@ -76,6 +77,19 @@ void APlayerCameraManager::BeginPlay()
 	{
 		UE_LOG("[warning] 현재 월드에 카메라가 없습니다. (Editor에서만 Editor 전용 카메라로 Fallback 처리됨)");
 	}
+	else
+	{
+		// PIE 시작 시 CameraComponent의 DoF 설정이 활성화되어 있으면 Modifier 자동 생성
+		if (CurrentViewCamera->IsDepthOfFieldEnabled())
+		{
+			StartDepthOfField(
+				CurrentViewCamera->FocalDistance,
+				CurrentViewCamera->Fstop,
+				CurrentViewCamera->FocalLength,
+				CurrentViewCamera->MaxBlurRadius
+			);
+		}
+	}
 }
 
 // 월드에 또 다른 APlayerCameraManager 가 있을 때만 삭제 가능
@@ -123,6 +137,9 @@ void APlayerCameraManager::UnregisterView(UCameraComponent* UnregisterViewTarget
 {
 	if (CurrentViewCamera == UnregisterViewTarget)
 	{
+		// DoF 정리
+		StopDepthOfField();
+
 		CurrentViewCamera = nullptr;
 		CurrentViewCamera = GetWorld()->FindComponent<UCameraComponent>();	// 현재 카메라는 PendingDestroy 라서 다른 카메라가 반환됨
 
@@ -182,19 +199,20 @@ void APlayerCameraManager::BuildForFrame(float DeltaTime)
 	for (int32 i= ActiveModifiers.Num()-1; i>=0; i--)
 	{
 		UCameraModifierBase* M = ActiveModifiers[i];
-		if (!M) 
-		{ 
+		if (!M)
+		{
 			ActiveModifiers.RemoveAtSwap(i); 
-			continue; 
+			continue;
 		}
-		
+
 		ActiveModifiers[i]->TickLifetime(DeltaTime);
 
+		// Duration >= 0 && bEnabled == false 조건 시 자동 삭제
 		if (M->Duration >= 0.f && !M->bEnabled)
 		{
 			delete M;
 			ActiveModifiers.RemoveAtSwap(i); 
-			continue; 
+			continue;
 		}
 	}
 
@@ -323,6 +341,75 @@ void APlayerCameraManager::StartGamma(float Gamma)
 	ActiveModifiers.Add(GammaModifier);
 }
 
+void APlayerCameraManager::StartDepthOfField(float FocalDistance, float Fstop, float FocalLength, float MaxBlurRadius, int32 InPriority)
+{
+	// 기존 DoF Modifier가 있으면 먼저 제거
+	StopDepthOfField();
+
+	if (CurrentViewCamera)
+	{
+		// CameraComponent 파라미터 설정 (CoC 계산에 필요)
+		CurrentViewCamera->bEnableDepthOfField = true;
+		CurrentViewCamera->FocalDistance = FocalDistance;
+		CurrentViewCamera->Fstop = Fstop;
+		CurrentViewCamera->FocalLength = FocalLength;
+		CurrentViewCamera->MaxBlurRadius = MaxBlurRadius;
+
+		// 다른 Modifier들처럼 직접 생성
+		UCamMod_DoF* DoFMod = new UCamMod_DoF();
+		DoFMod->Priority = InPriority;
+		DoFMod->bEnabled = true;
+		DoFMod->Duration = -1.0f;  // 무한 지속 (StopDepthOfField()로 명시적 종료)
+		DoFMod->FocalDistance = FocalDistance;
+		DoFMod->CocScale = CurrentViewCamera->GetCocScale();
+		DoFMod->MaxBlurRadius = MaxBlurRadius;
+		ActiveModifiers.Add(DoFMod);
+	}
+}
+
+void APlayerCameraManager::StopDepthOfField()
+{
+	if (CurrentViewCamera)
+	{
+		CurrentViewCamera->bEnableDepthOfField = false;
+	}
+
+	// ActiveModifiers에서 DoF Modifier 찾아서 비활성화
+	for (UCameraModifierBase* M : ActiveModifiers)
+	{
+		if (UCamMod_DoF* DoFMod = Cast<UCamMod_DoF>(M))
+		{
+			DoFMod->Duration = 0.0f;
+			DoFMod->bEnabled = false;
+			break;  // DoF는 하나만 존재
+		}
+	}
+}
+
+void APlayerCameraManager::UpdateDepthOfField(float FocalDistance, float Fstop, float FocalLength, float MaxBlurRadius)
+{
+	if (CurrentViewCamera)
+	{
+		// CameraComponent 파라미터 업데이트
+		CurrentViewCamera->FocalDistance = FocalDistance;
+		CurrentViewCamera->Fstop = Fstop;
+		CurrentViewCamera->FocalLength = FocalLength;
+		CurrentViewCamera->MaxBlurRadius = MaxBlurRadius;
+
+		// ActiveModifiers에서 DoF Modifier 찾아서 파라미터 동기화
+		for (UCameraModifierBase* M : ActiveModifiers)
+		{
+			if (UCamMod_DoF* DoFMod = Cast<UCamMod_DoF>(M))
+			{
+				DoFMod->FocalDistance = FocalDistance;
+				DoFMod->CocScale = CurrentViewCamera->GetCocScale();
+				DoFMod->MaxBlurRadius = MaxBlurRadius;
+				break;
+			}
+		}
+	}
+}
+
 // CurrentViewInfo를 현재 카메라를 기준으로 설정 (트렌지션 중에는 사이 값으로 설정)
 void APlayerCameraManager::UpdateViewInfo(float DeltaTime)
 {
@@ -369,9 +456,9 @@ void APlayerCameraManager::UpdateViewInfo(float DeltaTime)
 
 		// DoF 파라미터 복사 (최종 타겟의 것을 즉시 따름)
 		CurrentViewInfo.bEnableDepthOfField = CurrentViewCamera->IsDepthOfFieldEnabled();
-		CurrentViewInfo.DepthOfFieldFocalDistance = CurrentViewCamera->GetDepthOfFieldFocalDistance();
-		CurrentViewInfo.DepthOfFieldCocScale = CurrentViewCamera->GetDepthOfFieldCocScale();
-		CurrentViewInfo.DepthOfFieldMaxBlurRadius = CurrentViewCamera->GetDepthOfFieldMaxBlurRadius();
+		CurrentViewInfo.FocalDistance = CurrentViewCamera->GetFocalDistance();
+		CurrentViewInfo.CocScale = CurrentViewCamera->GetCocScale();
+		CurrentViewInfo.MaxBlurRadius = CurrentViewCamera->GetMaxBlurRadius();
 
 		// 남은 시간 계산
 		BlendTimeRemaining -= DeltaTime;
@@ -396,8 +483,9 @@ void APlayerCameraManager::UpdateViewInfo(float DeltaTime)
 
 		// DoF 파라미터 복사
 		CurrentViewInfo.bEnableDepthOfField = CurrentViewCamera->IsDepthOfFieldEnabled();
-		CurrentViewInfo.DepthOfFieldFocalDistance = CurrentViewCamera->GetDepthOfFieldFocalDistance();
-		CurrentViewInfo.DepthOfFieldCocScale = CurrentViewCamera->GetDepthOfFieldCocScale();
-		CurrentViewInfo.DepthOfFieldMaxBlurRadius = CurrentViewCamera->GetDepthOfFieldMaxBlurRadius();
+		CurrentViewInfo.FocalDistance = CurrentViewCamera->GetFocalDistance();
+		CurrentViewInfo.CocScale = CurrentViewCamera->GetCocScale();
+		CurrentViewInfo.MaxBlurRadius = CurrentViewCamera->GetMaxBlurRadius();
 	}
 }
+

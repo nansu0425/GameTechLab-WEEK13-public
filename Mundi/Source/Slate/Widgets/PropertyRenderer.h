@@ -77,6 +77,9 @@ private:
 	static void CacheResources();	// 필요할 때 리소스 목록을 멤버 변수에 캐시합니다.
 
 private:
+	// 현재 렌더링 중인 Object (특정 타입 체크용)
+	static UObject* CurrentRenderingObject;
+
 	// 렌더링 중 캐시되는 리소스 목록
 	static TArray<FString> CachedSkeletalMeshPaths;
 	static TArray<FString> CachedSkeletalMeshItems;

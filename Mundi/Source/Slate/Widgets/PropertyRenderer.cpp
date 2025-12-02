@@ -28,8 +28,10 @@
 #include "ParticleModule.h"
 #include "ParticleSystemComponent.h"
 #include "ParticleSystem.h"
+#include "CameraComponent.h"
 
 // 정적 멤버 변수 초기화
+UObject* UPropertyRenderer::CurrentRenderingObject = nullptr;
 TArray<FString> UPropertyRenderer::CachedSkeletalMeshPaths;
 TArray<FString> UPropertyRenderer::CachedSkeletalMeshItems;
 TArray<FString> UPropertyRenderer::CachedStaticMeshPaths;
@@ -341,6 +343,9 @@ void UPropertyRenderer::RenderProperties(const TArray<FProperty>& Properties, UO
 	if (Properties.IsEmpty())
 		return;
 
+	// 현재 렌더링 중인 Object 저장 (특정 타입 체크용)
+	CurrentRenderingObject = Object;
+
 	// 1. 카테고리 (삽입 순서 보장용 TArray)
 	TArray<TPair<FString, TArray<const FProperty*>>> CategorizedProps;
 
@@ -629,6 +634,24 @@ void UPropertyRenderer::ClearResourcesCache()
 bool UPropertyRenderer::RenderBoolProperty(const FProperty& Prop, void* Instance)
 {
 	bool* Value = Prop.GetValuePtr<bool>(Instance);
+
+	// DoF 활성화 토글 시 SetEnableDepthOfField 함수 호출 (FocalLength 초기화 로직 수행)
+	if (strcmp(Prop.Name, "bEnableDepthOfField") == 0 && CurrentRenderingObject)
+	{
+		if (UCameraComponent* CamComp = Cast<UCameraComponent>(CurrentRenderingObject))
+		{
+			bool bOldValue = *Value;
+			if (ImGui::Checkbox(Prop.Name, Value))
+			{
+				// 값이 변경되었으면 SetEnableDepthOfField 호출
+				// (활성화 시 FocalLength 역산 초기화 수행)
+				CamComp->SetEnableDepthOfField(*Value);
+				return true;
+			}
+			return false;
+		}
+	}
+
 	return ImGui::Checkbox(Prop.Name, Value);
 }
 
@@ -648,6 +671,25 @@ bool UPropertyRenderer::RenderFloatProperty(const FProperty& Prop, void* Instanc
 {
 	float* Value = Prop.GetValuePtr<float>(Instance);
 	char DisplayFormat[16]; // 포맷 문자열을 저장할 버퍼 (예: "%.5f")
+
+	// DoF 활성화 시 UCameraComponent의 FieldOfView 읽기 전용 처리
+	// DoF가 활성화되면 FoV는 FocalLength/SensorWidth에 의해 자동 계산됨
+	if (strcmp(Prop.Name, "FieldOfView") == 0 && CurrentRenderingObject)
+	{
+		if (UCameraComponent* CamComp = Cast<UCameraComponent>(CurrentRenderingObject))
+		{
+			if (CamComp->IsDepthOfFieldEnabled())
+			{
+				// DoF 활성화 시: 물리 기반 FoV 값을 읽기 전용으로 표시
+				float ComputedFoV = CamComp->GetFOV();
+				snprintf(DisplayFormat, 16, "%%.1f (DoF)");
+				ImGui::BeginDisabled();
+				ImGui::DragFloat(Prop.Name, &ComputedFoV, 1.0f, Prop.MinValue, Prop.MaxValue, DisplayFormat);
+				ImGui::EndDisabled();
+				return false; // 값 변경 없음
+			}
+		}
+	}
 
 	// Min과 Max가 둘 다 0이면 범위 제한 없음
 	if (Prop.MinValue == 0.0f && Prop.MaxValue == 0.0f)

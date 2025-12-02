@@ -37,9 +37,9 @@ struct FMinimalViewInfo
 
     // ===== Depth of Field 파라미터 =====
     bool bEnableDepthOfField = false;
-    float DepthOfFieldFocalDistance = 5.0f;   // 초점 거리 (m)
-    float DepthOfFieldCocScale = 0.0f;        // CoC 스케일 (미리 계산됨)
-    float DepthOfFieldMaxBlurRadius = 10.0f;  // 최대 블러 반경 (픽셀)
+    float FocalDistance = 5.0f;   // 초점 거리 (m)
+    float CocScale = 0.0f;        // CoC 스케일 (미리 계산됨)
+    float MaxBlurRadius = 10.0f;  // 최대 블러 반경 (픽셀)
 };
 
 /**
@@ -85,9 +85,9 @@ public:
 
     // ===== Depth of Field 파라미터 =====
     bool bEnableDepthOfField = false;
-    float DepthOfFieldFocalDistance = 5.0f;   // 초점 거리 (m)
-    float DepthOfFieldCocScale = 0.0f;        // CoC 스케일 (미리 계산됨)
-    float DepthOfFieldMaxBlurRadius = 10.0f;  // 최대 블러 반경 (픽셀)
+    float FocalDistance = 5.0f;   // 초점 거리 (m)
+    float CocScale = 0.0f;        // CoC 스케일 (미리 계산됨)
+    float MaxBlurRadius = 10.0f;  // 최대 블러 반경 (픽셀)
 
     TArray<FPostProcessModifier> Modifiers;
 };

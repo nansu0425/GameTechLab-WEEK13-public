@@ -81,6 +81,9 @@ public:
     void CloseDetachedWindow(SWindow* WindowToClose);
     void RequestCloseDetachedWindow(SWindow* WindowToClose);
 
+    // Pilot 모드 해제 (씬 전환 시 사용)
+    void DisableAllPilotModes();
+
 private:
     FRect Rect; // 이전엔 SWindow로부터 상속받던 영역 정보
 

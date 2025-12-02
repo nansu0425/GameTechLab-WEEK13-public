@@ -98,12 +98,24 @@ void ACameraActor::SetAnglesImmediate(float InPitchDeg, float InYawDeg)
 
 void ACameraActor::SyncRotationCache()
 {
-    // 만약 ProcessCameraRotation에서 이전 각도/쿼터니언을 보간에 사용한다면
-    // 그 캐시를 현재 상태로 맞춰 1프레임 스냅을 방지
-    // 예시:
-    // LastYawDeg = CameraYawDeg;
-    // LastPitchDeg = CameraPitchDeg;
-    // LastRotQuat = GetActorRotation();
+    // 현재 쿼터니언에서 Yaw/Pitch를 추출하여 CameraYawDeg/CameraPitchDeg와 동기화
+    // ProcessCameraRotation()에서 이 값들을 사용하여 회전을 계산하므로
+    // 실제 회전과 불일치하면 첫 드래그 시 스냅핑이 발생함
+
+    // Forward 벡터에서 Yaw/Pitch 추출
+    FVector Forward = GetForward();
+
+    // Yaw: atan2(Forward.Y, Forward.X) - 수평면에서의 방향
+    float HorizontalLen = std::sqrt(Forward.X * Forward.X + Forward.Y * Forward.Y);
+    if (HorizontalLen > KINDA_SMALL_NUMBER)
+    {
+        CameraYawDeg = RadiansToDegrees(std::atan2(Forward.Y, Forward.X));
+    }
+
+    // Pitch: atan2(-Forward.Z, HorizontalLen) - 수직 각도
+    // Forward가 아래를 향하면 Pitch > 0, 위를 향하면 Pitch < 0
+    CameraPitchDeg = -RadiansToDegrees(std::atan2(Forward.Z, HorizontalLen));
+    CameraPitchDeg = std::clamp(CameraPitchDeg, -89.0f, 89.0f);
 }
 
 ACameraActor::~ACameraActor()

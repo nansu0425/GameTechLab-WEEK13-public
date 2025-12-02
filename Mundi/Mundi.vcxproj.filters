@@ -464,6 +464,9 @@
     <ClCompile Include="Source\Runtime\Engine\GameFramework\Camera\CamMod_Vignette.cpp">
       <Filter>Source\Runtime\Engine\GameFramework\Camera</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Runtime\Engine\GameFramework\Camera\CamMod_DoF.cpp">
+      <Filter>Source\Runtime\Engine\GameFramework\Camera</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\GameFramework\Camera\CameraModifierBase.cpp">
       <Filter>Source\Runtime\Engine\GameFramework\Camera</Filter>
     </ClCompile>

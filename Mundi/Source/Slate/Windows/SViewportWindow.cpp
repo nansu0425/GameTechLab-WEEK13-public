@@ -12,6 +12,8 @@
 #include "CameraComponent.h"
 #include "CameraActor.h"
 #include "StatsOverlayD2D.h"
+#include "Level.h"
+#include "ActorComponent.h"
 
 #include "StaticMeshActor.h"
 #include "ResourceManager.h"
@@ -300,9 +302,17 @@ void SViewportWindow::RenderToolbar()
 		// Camera는 ViewMode 왼쪽 (ViewMode 너비에 따라 위치 변동)
 		float CameraX = ViewModeX - ButtonSpacing - CameraButtonWidth;
 
+		// PIE 모드 체크
+		UWorld* World = ViewportClient ? ViewportClient->GetWorld() : nullptr;
+		bool bIsPIE = World && World->bPie;
+
 		// 버튼들을 순서대로 그리기 (Y 위치는 동일하게 유지)
-		ImGui::SetCursorPos(ImVec2(CameraX, CurrentCursor.y));
-		RenderCameraOptionDropdownMenu();
+		// PIE 모드에서는 카메라 옵션 드롭다운만 숨김
+		if (!bIsPIE)
+		{
+			ImGui::SetCursorPos(ImVec2(CameraX, CurrentCursor.y));
+			RenderCameraOptionDropdownMenu();
+		}
 
 		ImGui::SetCursorPos(ImVec2(ViewModeX, CurrentCursor.y));
 		RenderViewModeDropdownMenu();
@@ -670,9 +680,28 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 
 	const ImVec2 IconSize(17, 17);
 
+	// Pilot 모드가 외부에서 해제되었는지 확인 (ESC 키 등)
+	// ViewportName이 카메라 이름으로 설정되어 있지만 Pilot 모드가 아닌 경우 복원
+	if (ViewportClient && !ViewportClient->IsPilotModeEnabled() && ViewportType == EViewportType::Perspective)
+	{
+		// Perspective 모드인데 ViewportName이 "원근"이 아니면 복원
+		if (ViewportName != "원근" && ViewportName != "Perspective")
+		{
+			ViewportName = "원근";
+		}
+	}
+
 	// 드롭다운 버튼 텍스트 준비
 	char ButtonText[64];
-	sprintf_s(ButtonText, "%s %s", ViewportName.ToString().c_str(), "∨");
+	// Pilot 모드일 때 액터 이름 표시
+	if (ViewportClient && ViewportClient->IsPilotModeEnabled() && ViewportClient->GetPilotActor())
+	{
+		sprintf_s(ButtonText, "%s %s", ViewportClient->GetPilotActor()->GetName().c_str(), "∨");
+	}
+	else
+	{
+		sprintf_s(ButtonText, "%s %s", ViewportName.ToString().c_str(), "∨");
+	}
 
 	// 버튼 너비 계산 (아이콘 크기 + 간격 + 텍스트 크기 + 좌우 패딩)
 	ImVec2 TextSize = ImGui::CalcTextSize(ButtonText);
@@ -762,7 +791,9 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 		ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "원근");
 		ImGui::Separator();
 
-		bool bIsPerspective = (ViewportType == EViewportType::Perspective);
+		// Pilot 모드일 때는 원근이 선택되지 않은 것으로 표시
+		bool bIsPilotMode = ViewportClient && ViewportClient->IsPilotModeEnabled();
+		bool bIsPerspective = (ViewportType == EViewportType::Perspective) && !bIsPilotMode;
 		const char* RadioIcon = bIsPerspective ? "●" : "○";
 
 		// 원근 모드 선택 항목 (라디오 버튼 + 아이콘 + 텍스트 통합)
@@ -771,6 +802,11 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 
 		if (ImGui::Selectable("##Perspective", bIsPerspective, 0, SelectableSize))
 		{
+			// Pilot 모드 해제
+			if (ViewportClient && ViewportClient->IsPilotModeEnabled())
+			{
+				ViewportClient->DisablePilotMode();
+			}
 			ViewportType = EViewportType::Perspective;
 			ViewportName = "원근";
 			if (ViewportClient)
@@ -825,7 +861,8 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 		for (int i = 0; i < 6; i++)
 		{
 			const auto& mode = orthographicModes[i];
-			bool bIsSelected = (ViewportType == mode.type);
+			// Pilot 모드일 때는 직교도 선택되지 않은 것으로 표시
+			bool bIsSelected = (ViewportType == mode.type) && !bIsPilotMode;
 			const char* RadioIcon = bIsSelected ? "●" : "○";
 
 			// 직교 모드 선택 항목 (라디오 버튼 + 아이콘 + 텍스트 통합)
@@ -836,6 +873,11 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 
 			if (ImGui::Selectable(SelectableID, bIsSelected, 0, SelectableSize))
 			{
+				// Pilot 모드 해제
+				if (ViewportClient && ViewportClient->IsPilotModeEnabled())
+				{
+					ViewportClient->DisablePilotMode();
+				}
 				ViewportType = mode.type;
 				ViewportName = mode.koreanName;
 				if (ViewportClient)
@@ -867,12 +909,142 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 			ImGui::Text("%s", mode.koreanName);
 		}
 
+		// --- 섹션: 카메라 (Pilot 모드) ---
+		UWorld* World = ViewportClient ? ViewportClient->GetWorld() : nullptr;
+		if (World && World->GetLevel())
+		{
+			// UCameraComponent를 가진 모든 액터 검색
+			struct FPilotableCamera
+			{
+				AActor* Actor;
+				UCameraComponent* CameraComponent;
+			};
+			TArray<FPilotableCamera> PilotableCameras;
+
+			for (AActor* Actor : World->GetLevel()->GetActors())
+			{
+				if (!Actor || Actor->IsPendingDestroy()) continue;
+
+				// 에디터 카메라 제외 (Pilot 모드일 때는 Pilot 액터도 목록에 포함)
+				if (ViewportClient)
+				{
+					// Pilot 모드가 아닐 때: 현재 에디터 카메라는 제외
+					// Pilot 모드일 때: Pilot 액터는 포함, 원래 에디터 카메라만 제외
+					bool bIsPilotMode = ViewportClient->IsPilotModeEnabled();
+					if (!bIsPilotMode && Actor == ViewportClient->GetCamera()) continue;
+				}
+
+				// UCameraComponent 검색
+				for (UActorComponent* Comp : Actor->GetOwnedComponents())
+				{
+					if (UCameraComponent* CamComp = Cast<UCameraComponent>(Comp))
+					{
+						PilotableCameras.Add({ Actor, CamComp });
+						break; // 액터당 하나의 카메라만
+					}
+				}
+			}
+
+			if (PilotableCameras.Num() > 0)
+			{
+				ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "카메라");
+				ImGui::Separator();
+
+				for (int32 i = 0; i < PilotableCameras.Num(); i++)
+				{
+					const FPilotableCamera& PilotCam = PilotableCameras[i];
+					bool bIsPiloting = ViewportClient && ViewportClient->IsPilotModeEnabled() &&
+									   ViewportClient->GetPilotActor() == PilotCam.Actor;
+					const char* PilotRadioIcon = bIsPiloting ? "●" : "○";
+
+					char PilotSelectableID[64];
+					sprintf_s(PilotSelectableID, "##PilotCamera%d", i);
+
+					ImVec2 CamSelectableCursorPos = ImGui::GetCursorPos();
+
+					if (ImGui::Selectable(PilotSelectableID, bIsPiloting, 0, SelectableSize))
+					{
+						if (bIsPiloting)
+						{
+							// 이미 Pilot 중이면 해제
+							ViewportClient->DisablePilotMode();
+							ViewportType = EViewportType::Perspective;
+							ViewportName = "원근";
+							ViewportClient->SetViewportType(ViewportType);
+							ViewportClient->SetupCameraMode();
+						}
+						else
+						{
+							// Pilot 모드 진입
+							ViewportClient->EnablePilotMode(PilotCam.Actor, PilotCam.CameraComponent);
+							ViewportName = PilotCam.Actor->GetName().c_str();
+						}
+						ImGui::CloseCurrentPopup();
+					}
+
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::SetTooltip("이 카메라 시점으로 전환합니다 (Pilot 모드)");
+					}
+
+					// 라디오 아이콘 + 카메라 이름 렌더링
+					ImVec2 CamContentPos = ImVec2(CamSelectableCursorPos.x + 4,
+						CamSelectableCursorPos.y + (SelectableSize.y - IconSize.y) * 0.5f);
+					ImGui::SetCursorPos(CamContentPos);
+
+					ImGui::Text("%s", PilotRadioIcon);
+					ImGui::SameLine(0, 4);
+
+					// 카메라 아이콘
+					if (IconCamera && IconCamera->GetShaderResourceView())
+					{
+						ImGui::Image((void*)IconCamera->GetShaderResourceView(), IconSize);
+						ImGui::SameLine(0, 4);
+					}
+
+					ImGui::Text("%s", PilotCam.Actor->GetName().c_str());
+				}
+			}
+		}
+
 		// --- 섹션 3: 이동 ---
 		ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "이동");
 		ImGui::Separator();
 
-		ACameraActor* Camera = ViewportClient ? ViewportClient->GetCamera() : nullptr;
-		if (Camera)
+		// 이동 속도 UI 표시
+		bool bShowSpeedUI = false;
+		ACameraActor* SpeedCamera = nullptr;
+		bool bUsePilotMoveSpeed = false;  // non-ACameraActor Pilot 모드용
+
+		if (ViewportClient)
+		{
+			if (ViewportClient->IsPilotModeEnabled())
+			{
+				// Pilot 모드: ACameraActor인 경우와 아닌 경우 구분
+				SpeedCamera = Cast<ACameraActor>(ViewportClient->GetPilotActor());
+				if (SpeedCamera)
+				{
+					bShowSpeedUI = true;
+				}
+				else
+				{
+					// non-ACameraActor: FViewportClient의 PilotMoveSpeed 사용
+					bUsePilotMoveSpeed = true;
+					bShowSpeedUI = true;
+				}
+			}
+			else
+			{
+				// 일반 모드: 에디터 카메라
+				SpeedCamera = ViewportClient->GetCamera();
+				if (SpeedCamera)
+				{
+					bShowSpeedUI = true;
+				}
+			}
+		}
+
+		if (bShowSpeedUI)
 		{
 			if (IconSpeed && IconSpeed->GetShaderResourceView())
 			{
@@ -881,12 +1053,27 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 			}
 			ImGui::Text("카메라 이동 속도");
 
-			float speed = Camera->GetCameraSpeed();
-			ImGui::SetNextItemWidth(180);
-			if (ImGui::SliderFloat("##CameraSpeed", &speed, 1.0f, 100.0f, "%.1f"))
+			if (bUsePilotMoveSpeed)
 			{
-				Camera->SetCameraSpeed(speed);
+				// non-ACameraActor Pilot 모드: FViewportClient의 PilotMoveSpeed 사용
+				float speed = ViewportClient->GetPilotMoveSpeed();
+				ImGui::SetNextItemWidth(180);
+				if (ImGui::SliderFloat("##CameraSpeed", &speed, 1.0f, 100.0f, "%.1f"))
+				{
+					ViewportClient->SetPilotMoveSpeed(speed);
+				}
 			}
+			else if (SpeedCamera)
+			{
+				// ACameraActor: 기존 방식
+				float speed = SpeedCamera->GetCameraSpeed();
+				ImGui::SetNextItemWidth(180);
+				if (ImGui::SliderFloat("##CameraSpeed", &speed, 1.0f, 100.0f, "%.1f"))
+				{
+					SpeedCamera->SetCameraSpeed(speed);
+				}
+			}
+
 			if (ImGui::IsItemHovered())
 			{
 				ImGui::SetTooltip("WASD 키로 카메라를 이동할 때의 속도 (1-100)");
@@ -897,9 +1084,22 @@ void SViewportWindow::RenderCameraOptionDropdownMenu()
 		ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "뷰");
 		ImGui::Separator();
 
-		if (Camera && Camera->GetCameraComponent())
+		// Pilot 모드일 때는 PilotCameraComponent 사용
+		UCameraComponent* camComp = nullptr;
+		if (ViewportClient)
 		{
-			UCameraComponent* camComp = Camera->GetCameraComponent();
+			if (ViewportClient->IsPilotModeEnabled() && ViewportClient->GetPilotCameraComponent())
+			{
+				camComp = ViewportClient->GetPilotCameraComponent();
+			}
+			else if (ViewportClient->GetCamera() && ViewportClient->GetCamera()->GetCameraComponent())
+			{
+				camComp = ViewportClient->GetCamera()->GetCameraComponent();
+			}
+		}
+
+		if (camComp)
+		{
 
 			// FOV
 			if (IconFOV && IconFOV->GetShaderResourceView())

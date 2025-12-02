@@ -133,11 +133,11 @@ void FSceneRenderer::Render()
 	{
 		RenderSceneDepthPath();
 	}
-	
+
+	// 디버그 요소들(그리드, 선택 박스 등)은 Post-Processing 이후에 렌더링 (DoF 영향 X)
 	if (!World->bPie)
 	{
-		// 디버그 요소는 Post Processing 적용하지 않음
-		// NOTE: RenderDebugPass()는 이미 투명 패스 전에 호출됨 (파티클과의 깊이 관계를 위해)
+		RenderDebugPass();
 		RenderEditorPrimitivesPass();	// 빌보드, 기타 화살표 출력 (상호작용, 피킹 O)
 
 		// 오버레이(Overlay) Primitive 렌더링
@@ -206,12 +206,8 @@ void FSceneRenderer::RenderLitPath()
 	RHIDevice->OMSetBlendState(false);  // 불투명: 블렌딩 OFF
 	RenderOpaquePass(View->RenderSettings->GetViewMode());
 
-	// 디버그 요소들(그리드, 선택 박스 등)을 투명 패스 전에 렌더링
-	// 깊이 버퍼에 기록하여 파티클과 올바른 깊이 관계 유지
-	if (!World->bPie)
-	{
-		RenderDebugPass();
-	}
+	// 디버그 요소들(그리드, 선택 박스 등)은 Post-Processing(DoF) 이후에 렌더링됨
+	// Render() 함수에서 RenderDebugPass() 호출
 
 	RenderDecalPass();
 	RenderParticleSystemPass();
@@ -253,11 +249,7 @@ void FSceneRenderer::RenderWireframePath()
 	// 상태 복구 (그리드 등 디버그 요소는 Solid로 렌더링)
 	RHIDevice->RSSetState(ERasterizerMode::Solid);
 
-	// 디버그 요소 렌더링 (그리드, 선택 박스 등)
-	if (!World->bPie)
-	{
-		RenderDebugPass();
-	}
+	// 디버그 요소들(그리드, 선택 박스 등)은 Render() 함수에서 RenderDebugPass()로 렌더링됨
 
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTargetWithId);
 }
@@ -1293,15 +1285,10 @@ void FSceneRenderer::RenderPostProcessingPasses()
 		case EPostProcessEffectType::Gamma:
 			GammaPass.Execute(Modifier, View, RHIDevice);
 			break;
+		case EPostProcessEffectType::DepthOfField:
+			DepthOfFieldPass.Execute(Modifier, View, RHIDevice);
+			break;
 		}
-	}
-
-	// DoF 패스는 FSceneView에서 직접 활성화 상태를 확인하여 실행
-	// (FPostProcessModifier를 사용하지 않음)
-	if (View->bEnableDepthOfField)
-	{
-		FPostProcessModifier DummyModifier; // 인터페이스 호환용 더미
-		DepthOfFieldPass.Execute(DummyModifier, View, RHIDevice);
 	}
 }
 
@@ -1437,17 +1424,19 @@ void FSceneRenderer::RenderEditorPrimitivesPass()
 }
 
 // 경계, 외곽선 등 표시 (상호 작용, 피킹 X)
+// Post-Processing 이후에 호출되어 DoF 영향을 받지 않음
 void FSceneRenderer::RenderDebugPass()
 {
 	RHIDevice->OMSetRenderTargets(ERTVMode::SceneColorTarget);
 
-	// 그리드 라인 수집
+	// 그리드 라인 렌더링 (SF_Grid 플래그가 켜져있을 때만)
+	OwnerRenderer->BeginLineBatch();
 	for (ULineComponent* LineComponent : Proxies.EditorLines)
 	{
 		if (!LineComponent || LineComponent->IsAlwaysOnTop())
 			continue;
-		
-        if (World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Grid))
+
+		if (World->GetRenderSettings().IsShowFlagEnabled(EEngineShowFlags::SF_Grid))
 		{
 			LineComponent->CollectLineBatches(OwnerRenderer);
 		}
@@ -1460,7 +1449,7 @@ void FSceneRenderer::RenderDebugPass()
 	{
 		if (!LineComponent || !LineComponent->IsAlwaysOnTop())
 			continue;
-		
+
 		LineComponent->CollectLineBatches(OwnerRenderer);
 	}
 	OwnerRenderer->EndLineBatchAlwaysOnTop(FMatrix::Identity());

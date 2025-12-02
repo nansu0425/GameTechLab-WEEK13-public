@@ -34,16 +34,28 @@ void USimpleWheeledVehicleMovementComponent::OnRegister(UWorld* InWorld)
 {
     Super::OnRegister(InWorld);
     EnsureUpdatedComponentIsValid();
+    RegisterWithPhysScene();
 }
 
 void USimpleWheeledVehicleMovementComponent::OnUnregister()
 {
+    UnregisterFromPhysScene();
     CleanupVehiclePhysX();
     Super::OnUnregister();
 }
 
+void USimpleWheeledVehicleMovementComponent::BeginPlay()
+{
+    Super::BeginPlay();
+    if (!bRegisteredWithPhysScene)
+    {
+        RegisterWithPhysScene();
+	}
+}
+
 void USimpleWheeledVehicleMovementComponent::EndPlay()
 {
+    UnregisterFromPhysScene();
     CleanupVehiclePhysX();
     Super::EndPlay();
 }
@@ -62,11 +74,6 @@ void USimpleWheeledVehicleMovementComponent::TickComponent(float DeltaTime)
             return;
         }
     }
-
-    ApplyInputToPhysX(DeltaTime);
-    PerformSuspensionRaycasts();
-    SimulateVehicle(DeltaTime);
-    UpdateVehiclePoseFromPhysX();
 }
 
 void USimpleWheeledVehicleMovementComponent::SetThrottleInput(float Throttle)
@@ -109,26 +116,6 @@ void USimpleWheeledVehicleMovementComponent::SetUpdatedComponent(USceneComponent
     }
 }
 
-void USimpleWheeledVehicleMovementComponent::GearUp()
-{
-    if (!bVehicleInitialized || !PxVehicleDrive4WInstance)
-    {
-        return;
-    }
-
-    UE_LOG("[VehicleMovement] GearUp not implemented yet");
-}
-
-void USimpleWheeledVehicleMovementComponent::GearDown()
-{
-    if (!bVehicleInitialized || !PxVehicleDrive4WInstance)
-    {
-        return;
-    }
-
-    UE_LOG("[VehicleMovement] GearDown not implemented yet");
-}
-
 bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
 {
     if (bVehicleInitialized)
@@ -137,7 +124,6 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
     }
 
     EnsureUpdatedComponentIsValid();
-
 
 	// 검사1: UpdatedComponent가 UPrimitiveComponent인지 확인
     UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(UpdatedComponent);
@@ -202,7 +188,16 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
     }
 
     // BodyInstance가 생성한 차체 Dynamic Actor 재사용
-    physx::PxRigidDynamic* ChassisActor = PrimComp->GetBodyInstanceRef().GetPxRigidDynamic();
+    physx::PxRigidDynamic* ChassisActor;
+    if(USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(PrimComp))
+    {
+		TArray<FBodyInstance*> Bodies = SkelComp->GetBodies();
+		ChassisActor = Bodies[0]->GetPxRigidDynamic();
+    }
+    else
+    {
+        ChassisActor = PrimComp->GetBodyInstanceRef().GetPxRigidDynamic();
+	}
     if (!ChassisActor)
     {
         UE_LOG("[VehicleMovement] BodyInstance does not have a valid PxRigidDynamic. Ensure CreatePhysicsState() was called.");
@@ -274,7 +269,7 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
         SurfaceTypes[0].mType = 0;
         const physx::PxMaterial* SurfaceMats[1] = { DefaultMat };
         TireFrictionPairs->setup(1, 1, SurfaceMats, SurfaceTypes);
-        TireFrictionPairs->setTypePairFriction(0, 0, 1.0f);
+		TireFrictionPairs->setTypePairFriction(0, 0, 1.0f); // Tire Type 0 & Surface Type 0 => Friction 1.0f
     }
 
     // 기본 설정
@@ -362,6 +357,45 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
 
     bVehicleInitialized = true;
     UE_LOG("[VehicleMovement] Vehicle PhysX initialization complete.");
+
+    // 초기 휠 본 로컬 위치 캐싱 (스켈레탈 메시에만 적용)
+    if (USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(UpdatedComponent))
+    {
+        InitialWheelLocalPositions.Empty();
+        InitialWheelLocalPositions.SetNum(WheelSetups.Num());
+
+        USkeletalMesh* SkelMesh = SkelComp->GetSkeletalMesh();
+        const FSkeleton* Skeleton = SkelMesh ? SkelMesh->GetSkeletalMeshData() ? &SkelMesh->GetSkeletalMeshData()->Skeleton : nullptr : nullptr;
+        if (Skeleton)
+        {
+            for (int32 WheelIdx = 0; WheelIdx < WheelSetups.Num(); ++WheelIdx)
+            {
+                const FWheelSetup& Setup = WheelSetups[WheelIdx];
+                int32 BoneIndex = -1;
+                for (int32 i = 0; i < Skeleton->Bones.Num(); ++i)
+                {
+                    if (Skeleton->Bones[i].Name == Setup.BoneName)
+                    {
+                        BoneIndex = i;
+                        break;
+                    }
+                }
+
+                if (BoneIndex != -1)
+                {
+                    // 컴포넌트 공간에서 본 트랜스폼을 얻어 차체(UpdatedComponent) 로컬로 변환
+                    FTransform BoneWorld = SkelComp->GetBoneWorldTransform(BoneIndex);
+                    FTransform ChassisWorld = UpdatedComponent->GetWorldTransform();
+                    FTransform BoneLocalToChassis = BoneWorld.GetRelativeTransform(ChassisWorld);
+                    InitialWheelLocalPositions[WheelIdx] = BoneLocalToChassis.Translation;
+                }
+                else
+                {
+                    InitialWheelLocalPositions[WheelIdx] = FVector::Zero();
+                }
+            }
+        }
+    }
     return true;
 }
 
@@ -573,7 +607,93 @@ void USimpleWheeledVehicleMovementComponent::UpdateVehiclePoseFromPhysX()
         return;
     }
 
-    // TODO: PhysX 결과를 월드 트랜스폼으로 복사
+    if (!PxVehicleActor)
+    {
+        return;
+    }
+
+    // PhysX 차체 글로벌 포즈를 엔진 Transform으로 변환하여 UpdatedComponent에 적용
+    physx::PxTransform PxPose = PxVehicleActor->getGlobalPose();
+    FTransform WorldTransform = PhysicsConversion::ToFTransform(PxPose);
+
+    // UpdatedComponent가 루트가 아닌 경우 경고(60프레임마다 한 번)
+    bool bIsRootComponent = false;
+    if (AActor* OwnerActor = Cast<AActor>(Owner))
+    {
+        if (USceneComponent* RootComp = OwnerActor->GetRootComponent())
+        {
+            bIsRootComponent = (RootComp == UpdatedComponent);
+        }
+    }
+    if (!bIsRootComponent)
+    {
+        NonRootComponentWarningCounter++;
+        if (NonRootComponentWarningCounter >= 60)
+        {
+            UE_LOG("[VehicleMovement] UpdatedComponent is not the root component; Actor/child components may desync.");
+            NonRootComponentWarningCounter = 0;
+        }
+    }
+    else
+    {
+        NonRootComponentWarningCounter = 0;
+    }
+
+    // UpdatedComponent는 차체 메시(스켈레탈/스태틱)여야 하므로 World Transform 설정
+    UpdatedComponent->SetWorldTransform(WorldTransform);
+
+    // 휠 본 승강 반영 (스켈레탈 메시에만 적용, 회전/스티어는 추후)
+    if (USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(UpdatedComponent))
+    {
+        USkeletalMesh* SkelMesh = SkelComp->GetSkeletalMesh();
+        const FSkeleton* Skeleton = SkelMesh ? SkelMesh->GetSkeletalMeshData() ? &SkelMesh->GetSkeletalMeshData()->Skeleton : nullptr : nullptr;
+        if (Skeleton)
+        {
+            // WheelQueryResults와 캐싱된 로컬 위치를 안전하게 접근
+            const int32 NumWheels = WheelSetups.Num();
+            for (int32 WheelIdx = 0; WheelIdx < NumWheels; ++WheelIdx)
+            {
+                const FWheelSetup& Setup = WheelSetups[WheelIdx];
+
+                // 본 인덱스 찾기
+                int32 BoneIndex = -1;
+                for (int32 i = 0; i < Skeleton->Bones.Num(); ++i)
+                {
+                    if (Skeleton->Bones[i].Name == Setup.BoneName)
+                    {
+                        BoneIndex = i;
+                        break;
+                    }
+                }
+
+                if (BoneIndex == -1)
+                {
+                    continue;
+                }
+
+                // 현재 로컬 트랜스폼에서 회전/스케일 유지, 위치만 수정
+                FTransform Local = SkelComp->GetBoneLocalTransform(BoneIndex);
+
+                FVector BaseLocalPos = (WheelIdx < InitialWheelLocalPositions.Num())
+                    ? InitialWheelLocalPositions[WheelIdx]
+                    : Local.Translation;
+
+                float SuspJounce = (WheelIdx < WheelQueryResults.Num()) ? WheelQueryResults[WheelIdx].suspJounce : 0.0f;
+                bool bInAir = (WheelIdx < WheelQueryResults.Num()) ? WheelQueryResults[WheelIdx].isInAir : true;
+
+                // 접지 시: 압축만큼 위로 이동, 공중 시: 기본 위치 유지
+                FVector NewLocalPos = BaseLocalPos;
+                if (!bInAir)
+                {
+                    NewLocalPos.Z -= SuspJounce;
+                }
+
+                Local.Translation = NewLocalPos;
+
+                SkelComp->SetBoneLocalTransform(BoneIndex, Local);
+            }
+        }
+    }
 }
 
 void USimpleWheeledVehicleMovementComponent::EnsureUpdatedComponentIsValid()
@@ -661,4 +781,71 @@ void USimpleWheeledVehicleMovementComponent::CleanupVehiclePhysX()
     bWarnedMissingBodyComponent = false;
     bWarnedPhysicsUninitialized = false;
     bWarnedWheelSetup = false;
+}
+
+void USimpleWheeledVehicleMovementComponent::RegisterWithPhysScene()
+{
+    if (bRegisteredWithPhysScene)
+    {
+        return;
+    }
+
+    UWorld* World = nullptr;
+    if (UpdatedComponent)
+    {
+        World = UpdatedComponent->GetWorld();
+    }
+
+    if (!World && Owner)
+    {
+        if (AActor* OwnerActor = Cast<AActor>(Owner))
+        {
+            World = OwnerActor->GetWorld();
+        }
+    }
+
+    if (!World)
+    {
+		UE_LOG("[VehicleMovement] Failed to register vehicle component: World is null.");
+        return;
+    }
+
+    if (FPhysScene* PhysScene = World->GetPhysScene())
+    {
+        PhysScene->RegisterVehicleComponent(this);
+        bRegisteredWithPhysScene = true;
+    }
+    else
+    {
+		UE_LOG("[VehicleMovement] Failed to register vehicle component: PhysScene is null.");
+    }
+}
+
+void USimpleWheeledVehicleMovementComponent::UnregisterFromPhysScene()
+{
+    if (!bRegisteredWithPhysScene)
+    {
+        return;
+    }
+
+    UWorld* World = nullptr;
+    if (UpdatedComponent)
+    {
+        World = UpdatedComponent->GetWorld();
+    }
+
+    if (!World && Owner)
+    {
+        if (AActor* OwnerActor = Cast<AActor>(Owner))
+        {
+            World = OwnerActor->GetWorld();
+        }
+    }
+
+    if (FPhysScene* PhysScene = World ? World->GetPhysScene() : nullptr)
+    {
+        PhysScene->UnregisterVehicleComponent(this);
+    }
+
+    bRegisteredWithPhysScene = false;
 }

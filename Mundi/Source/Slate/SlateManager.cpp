@@ -300,6 +300,22 @@ void USlateManager::RequestCloseDetachedWindow(SWindow* WindowToClose)
     }
 }
 
+void USlateManager::DisableAllPilotModes()
+{
+    // 모든 Viewport의 Pilot 모드 해제 (씬 전환 시 dangling pointer 방지)
+    for (int32 i = 0; i < 4; ++i)
+    {
+        if (Viewports[i] && Viewports[i]->GetViewportClient())
+        {
+            Viewports[i]->GetViewportClient()->DisablePilotMode();
+        }
+    }
+    if (MainViewport && MainViewport->GetViewportClient())
+    {
+        MainViewport->GetViewportClient()->DisablePilotMode();
+    }
+}
+
 void USlateManager::SwitchLayout(EViewportLayoutMode NewMode)
 {
     if (NewMode == CurrentMode) return;

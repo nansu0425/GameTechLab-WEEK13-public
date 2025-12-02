@@ -395,10 +395,28 @@ void AGizmoActor::ProcessGizmoInteraction(ACameraActor* Camera, FViewport* Viewp
 {
 	if (!SelectionManager)
 	{
+		bIsHovering = false;
 		return;
 	}
 	USceneComponent* SelectedComponent = SelectionManager->GetSelectedComponent();
-	if (!SelectedComponent || !Camera) return;
+
+	// 선택된 컴포넌트가 없거나 Pilot 중인 액터가 선택된 경우 호버링 상태 리셋
+	if (!SelectedComponent || !Camera)
+	{
+		bIsHovering = false;
+		return;
+	}
+
+	// Pilot 중인 액터가 선택된 경우 기즈모 상호작용 무시
+	if (GetWorld())
+	{
+		AActor* SelectedActor = SelectionManager->GetSelectedActor();
+		if (SelectedActor && GetWorld()->IsPilotingActor(SelectedActor))
+		{
+			bIsHovering = false;
+			return;
+		}
+	}
 
 	// 기즈모 드래그
 	ProcessGizmoDragging(Camera, Viewport, MousePositionX, MousePositionY);
@@ -617,6 +635,16 @@ void AGizmoActor::UpdateComponentVisibility()
 {
 	// 선택된 액터가 없으면 모든 기즈모 컴포넌트를 비활성화
 	bool bHasSelection = SelectionManager && SelectionManager->GetSelectedComponent();
+
+	// Pilot 모드 중인 액터가 선택되어 있으면 기즈모 숨김
+	if (bHasSelection && GetWorld())
+	{
+		AActor* SelectedActor = SelectionManager->GetSelectedActor();
+		if (SelectedActor && GetWorld()->IsPilotingActor(SelectedActor))
+		{
+			bHasSelection = false;  // Pilot 중인 액터에 대해선 기즈모 표시 안 함
+		}
+	}
 
 	// 드래그 중일 때는 고정된 축(DraggingAxis)을, 아닐 때는 호버 축(GizmoAxis)을 사용
 	uint32 HighlightAxis = bIsDragging ? DraggingAxis : GizmoAxis;
