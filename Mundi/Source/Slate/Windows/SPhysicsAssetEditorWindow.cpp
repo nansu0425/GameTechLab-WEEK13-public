@@ -1160,7 +1160,9 @@ void SPhysicsAssetEditorWindow::RenderConstraintProperties()
 {
     if (!ActiveState || ActiveState->SelectedConstraintIndex < 0) return;
 
-    const FConstraintSetup& SelectedConstraint = ActiveState->CurrentPhysicsAsset->GetContraintSetups()[ActiveState->SelectedConstraintIndex];
+    // Get mutable reference to the constraint (not const)
+    FConstraintSetup& SelectedConstraint = ActiveState->CurrentPhysicsAsset->GetConstraintSetupsMutable()[ActiveState->SelectedConstraintIndex];
+    FConstraintProfileProperties& Profile = SelectedConstraint.Profile;
 
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6);
     ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.30f, 0.30f, 0.30f, 0.8f));
@@ -1169,20 +1171,122 @@ void SPhysicsAssetEditorWindow::RenderConstraintProperties()
     ImGui::PopFont();
     ImGui::PopStyleColor();
     ImGui::Dummy(ImVec2(0, 6));
+    ImGui::Spacing();
     ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.35f, 0.35f, 0.35f, 0.6f));
     ImGui::Separator();
     ImGui::PopStyleColor();
-    ImGui::Dummy(ImVec2(0, 4));
+    ImGui::Dummy(ImVec2(0, 8));
 
-    ImGui::Text("Joint Name: %s", SelectedConstraint.JointName.ToString().c_str());
-    ImGui::Text("Parent: %s", SelectedConstraint.ConstraintBone1.ToString().c_str());
-    ImGui::Text("Child: %s", SelectedConstraint.ConstraintBone2.ToString().c_str());
+    // Basic Info (Read-only)
+    ImGui::Text("Joint Name:");
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(0.7f, 0.9f, 1.0f, 1.0f), "%s", SelectedConstraint.JointName.ToString().c_str());
 
-    ImGui::Dummy(ImVec2(0, 10));
+    ImGui::Text("Parent Bone:");
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(0.7f, 0.9f, 1.0f, 1.0f), "%s", SelectedConstraint.ConstraintBone1.ToString().c_str());
+
+    ImGui::Text("Child Bone:");
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(0.7f, 0.9f, 1.0f, 1.0f), "%s", SelectedConstraint.ConstraintBone2.ToString().c_str());
+
+    ImGui::Dummy(ImVec2(0, 8));
     ImGui::Separator();
-    ImGui::Dummy(ImVec2(0, 10));
+    ImGui::Dummy(ImVec2(0, 8));
 
+    // Helper lambda for rendering EJointMotion combo
+    auto RenderJointMotionCombo = [](const char* Label, EJointMotion& Motion) -> bool
+    {
+        const char* MotionNames[] = { "Locked", "Limited", "Free" };
+        int CurrentMotion = (int)Motion;
 
+        if (ImGui::Combo(Label, &CurrentMotion, MotionNames, IM_ARRAYSIZE(MotionNames)))
+        {
+            Motion = (EJointMotion)CurrentMotion;
+            return true;
+        }
+        return false;
+    };
+
+    bool bChanged = false;
+
+    // === Angular Limits ===
+    if (ImGui::TreeNodeEx("Angular Limits", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Spacing();
+
+        // Swing1
+        bChanged |= RenderJointMotionCombo("Swing1 Motion", Profile.Swing1Motion);
+        if (Profile.Swing1Motion == EJointMotion::Limited)
+        {
+            bChanged |= ImGui::DragFloat("Swing1 Limit", &Profile.Swing1LimitsAngle, 1.0f, 0.0f, 180.0f, "%.1f deg");
+        }
+
+        ImGui::Spacing();
+
+        // Swing2
+        bChanged |= RenderJointMotionCombo("Swing2 Motion", Profile.Swing2Motion);
+        if (Profile.Swing2Motion == EJointMotion::Limited)
+        {
+            bChanged |= ImGui::DragFloat("Swing2 Limit", &Profile.Swing2LimitsAngle, 1.0f, 0.0f, 180.0f, "%.1f deg");
+        }
+
+        ImGui::Spacing();
+
+        // Twist
+        bChanged |= RenderJointMotionCombo("Twist Motion", Profile.TwistMotion);
+        if (Profile.TwistMotion == EJointMotion::Limited)
+        {
+            bChanged |= ImGui::DragFloat("Twist Limit", &Profile.TwistLimit, 1.0f, 0.0f, 180.0f, "%.1f deg");
+        }
+
+        ImGui::TreePop();
+    }
+
+    ImGui::Spacing();
+
+    // === Linear Limits ===
+    if (ImGui::TreeNodeEx("Linear Limits", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Spacing();
+
+        // Linear X
+        bChanged |= RenderJointMotionCombo("Linear X Motion", Profile.LinearMotionX);
+
+        // Linear Y
+        bChanged |= RenderJointMotionCombo("Linear Y Motion", Profile.LinearMotionY);
+
+        // Linear Z
+        bChanged |= RenderJointMotionCombo("Linear Z Motion", Profile.LinearMotionZ);
+
+        ImGui::Spacing();
+
+        // Linear limit (shared for all axes when limited)
+        if (Profile.LinearMotionX == EJointMotion::Limited ||
+            Profile.LinearMotionY == EJointMotion::Limited ||
+            Profile.LinearMotionZ == EJointMotion::Limited)
+        {
+            bChanged |= ImGui::DragFloat("Linear Limit", &Profile.LinearLimit, 0.1f, 0.0f, 100.0f, "%.2f");
+        }
+
+        ImGui::TreePop();
+    }
+
+    ImGui::Spacing();
+
+    // === Other Settings ===
+    if (ImGui::TreeNodeEx("Other Settings", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Spacing();
+
+        bChanged |= ImGui::Checkbox("Disable Collision", &Profile.bDisableCollision);
+        bChanged |= ImGui::Checkbox("Enable Drive", &Profile.bEnableDrive);
+
+        ImGui::TreePop();
+    }
+
+    // Note: Constraint changes don't need to rebuild collision shapes
+    // They affect physics simulation only
 }
 
 void SPhysicsAssetEditorWindow::DrawWireframeBox(ULineComponent* LineComp, const FVector& Center, const FVector& HalfExtents, const FQuat& Rotation, const FVector4& Color)
