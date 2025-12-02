@@ -618,6 +618,16 @@ void AGizmoActor::UpdateComponentVisibility()
 	// 선택된 액터가 없으면 모든 기즈모 컴포넌트를 비활성화
 	bool bHasSelection = SelectionManager && SelectionManager->GetSelectedComponent();
 
+	// Pilot 모드 중인 액터가 선택되어 있으면 기즈모 숨김
+	if (bHasSelection && GetWorld())
+	{
+		AActor* SelectedActor = SelectionManager->GetSelectedActor();
+		if (SelectedActor && GetWorld()->IsPilotingActor(SelectedActor))
+		{
+			bHasSelection = false;  // Pilot 중인 액터에 대해선 기즈모 표시 안 함
+		}
+	}
+
 	// 드래그 중일 때는 고정된 축(DraggingAxis)을, 아닐 때는 호버 축(GizmoAxis)을 사용
 	uint32 HighlightAxis = bIsDragging ? DraggingAxis : GizmoAxis;
 

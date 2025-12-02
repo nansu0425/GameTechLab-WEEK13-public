@@ -423,6 +423,15 @@ void FViewportClient::EnablePilotMode(AActor* TargetActor, UCameraComponent* Tar
 	PilotCameraComponent = TargetCameraComponent;
 	bPilotCameraMode = true;
 
+	// World에 Pilot 액터 설정 (기즈모/카메라 메시 숨김용)
+	if (World)
+	{
+		World->SetPilotActor(TargetActor);
+	}
+
+	// 카메라 기즈모 숨김 (Pilot 모드에서는 카메라 메시가 보이면 안 됨)
+	TargetCameraComponent->SetCameraGizmoVisible(false);
+
 	// ACameraActor인 경우 기존 방식 사용
 	if (ACameraActor* CamActor = Cast<ACameraActor>(TargetActor))
 	{
@@ -434,6 +443,18 @@ void FViewportClient::EnablePilotMode(AActor* TargetActor, UCameraComponent* Tar
 void FViewportClient::DisablePilotMode()
 {
 	if (!bPilotCameraMode) return;
+
+	// World에서 Pilot 액터 해제
+	if (World)
+	{
+		World->SetPilotActor(nullptr);
+	}
+
+	// 카메라 기즈모 복원 (Pilot 모드 해제 시 다시 보이게)
+	if (PilotCameraComponent)
+	{
+		PilotCameraComponent->SetCameraGizmoVisible(true);
+	}
 
 	// 에디터 카메라로 복귀
 	Camera = OriginalCamera;

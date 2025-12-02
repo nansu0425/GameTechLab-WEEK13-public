@@ -133,6 +133,11 @@ public:
     UCollisionManager* GetCollisionManager() { return CollisionManager.get(); }
     FPhysScene* GetPhysScene() { return PhysScene.get(); }
 
+    // Pilot 모드 액터 관리 (뷰포트에서 해당 액터의 카메라로 보는 중)
+    void SetPilotActor(AActor* InActor) { PilotActor = InActor; }
+    AActor* GetPilotActor() const { return PilotActor; }
+    bool IsPilotingActor(AActor* Actor) const { return PilotActor && PilotActor == Actor; }
+
     // PIE용 World 생성
     static UWorld* DuplicateWorldForPIE(UWorld* InEditorWorld);
 
@@ -154,6 +159,7 @@ private:
     AGizmoActor* GizmoActor = nullptr;
     APlayerCameraManager* PlayerCameraManager;
     AParticleEventManager* ParticleEventManager = nullptr;
+    AActor* PilotActor = nullptr;  // 현재 Pilot 모드로 보고 있는 액터 (기즈모/카메라 메시 숨김용)
 
     /** === 레벨 컨테이너 === */
     std::unique_ptr<ULevel> Level;
