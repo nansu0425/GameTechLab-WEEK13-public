@@ -27,6 +27,19 @@ FViewportClient::FViewportClient()
 	ViewportType = EViewportType::Perspective;
 	// 직교 뷰별 기본 카메라 설정
 	Camera = NewObject<ACameraActor>();
+
+	// 에디터 카메라 초기 Transform 설정 (원점에서 떨어져 위에서 내려다보는 위치)
+	Camera->SetActorLocation(OriginalCameraLocation);
+	Camera->SetActorRotation(OriginalCameraRotation);
+	if (UCameraComponent* CamComp = Camera->GetCameraComponent())
+	{
+		CamComp->SetFOV(OriginalCameraFOV);
+		CamComp->SetClipPlanes(OriginalCameraNearClip, OriginalCameraFarClip);
+	}
+
+	// 에디터 카메라의 Yaw/Pitch 캐시를 현재 회전과 동기화 (첫 드래그 스냅핑 방지)
+	Camera->SyncRotationCache();
+
 	SetupCameraMode();
 }
 
@@ -36,10 +49,38 @@ FViewportClient::~FViewportClient()
 
 void FViewportClient::Tick(FViewport* Viewport, float DeltaTime)
 {
-	if (PerspectiveCameraInput)
+	// Pilot 모드에서 ESC로 해제
+	if (bPilotCameraMode && UInputManager::GetInstance().IsKeyPressed(VK_ESCAPE))
+	{
+		DisablePilotMode();
+		return;
+	}
+
+	// Pilot 모드 입력 처리
+	if (bPilotCameraMode && PilotActor && bIsMouseRightButtonDown)
+	{
+		// ACameraActor는 기존 ProcessEditorCameraInput 사용
+		if (ACameraActor* CamActor = Cast<ACameraActor>(PilotActor))
+		{
+			CamActor->ProcessEditorCameraInput(DeltaTime);
+		}
+		else
+		{
+			// 일반 액터: 직접 Transform 제어
+			ProcessPilotActorInput(DeltaTime);
+		}
+	}
+	// 기존 카메라 입력 처리 (Pilot 모드가 아닐 때만)
+	else if (!bPilotCameraMode && PerspectiveCameraInput)
 	{
 		Camera->ProcessEditorCameraInput(DeltaTime);
 	}
+
+	// 모든 Pilot 모드에서 내부 Camera를 PilotCameraComponent와 동기화
+	// (기즈모 상호작용, 피킹 등에서 Camera를 사용하므로 동기화 필요)
+	// ACameraActor와 Non-ACameraActor를 동일하게 처리하여 일관성 보장
+	SyncCameraWithPilot();
+
 	MouseWheel(Viewport, DeltaTime);
 	static UClipboardManager* ClipboardManager = NewObject<UClipboardManager>();
 
@@ -146,6 +187,30 @@ void FViewportClient::Draw(FViewport* Viewport)
 		}
 	}
 
+	// Pilot 모드일 때 PilotCameraComponent 사용
+	if (bPilotCameraMode && PilotCameraComponent)
+	{
+		// ViewMode 설정
+		World->GetRenderSettings().SetViewMode(ViewMode);
+
+		// Pilot 카메라 컴포넌트의 뷰 사용
+		FSceneView RenderView(PilotCameraComponent, Viewport, &World->GetRenderSettings());
+
+		// 배경색 설정
+		RenderView.BackgroundColor = BackgroundColor;
+
+		// 렌더링
+		Renderer->RenderSceneForView(World, &RenderView, Viewport);
+
+		// 뷰포트 렌더 타겟 오버라이드 해제
+		if (Viewport->UseRenderTarget())
+		{
+			RHIDevice->ClearViewportRenderTargetOverride();
+			RHIDevice->OMSetRenderTargets(ERTVMode::BackBufferWithoutDepth);
+		}
+		return;
+	}
+
 	// 1. 뷰 타입에 따라 카메라 설정 등 사전 작업을 먼저 수행
 	switch (ViewportType)
 	{
@@ -185,14 +250,35 @@ void FViewportClient::Draw(FViewport* Viewport)
 
 void FViewportClient::SetupCameraMode()
 {
+	// Pilot 모드에서 원근 카메라로 전환 시 저장된 Transform 복원
+	if (bPilotCameraMode && ViewportType == EViewportType::Perspective)
+	{
+		DisablePilotMode();
+		return;
+	}
+
+	// Pilot 모드에서 직교 카메라로 전환 시 Pilot 모드 해제
+	if (bPilotCameraMode)
+	{
+		DisablePilotMode();
+	}
+
+	// 참고: 원근 → 직교 전환 시 카메라 상태 저장은 SetViewportType()에서 수행됨
+
 	switch (ViewportType)
 	{
 	case EViewportType::Perspective:
-
-		Camera->SetActorLocation(PerspectiveCameraPosition);
-		Camera->SetRotationFromEulerAngles(PerspectiveCameraRotation);
-		Camera->GetCameraComponent()->SetFOV(PerspectiveCameraFov);
-		Camera->GetCameraComponent()->SetClipPlanes(0.1f, 2000.0f);
+		// 직교 뷰에서 원근 뷰로 전환 시 저장된 에디터 카메라 Transform 복원
+		// (직교 뷰의 카메라 설정이 아닌 원래 원근 카메라 설정으로 복원)
+		Camera->SetActorLocation(OriginalCameraLocation);
+		Camera->SetActorRotation(OriginalCameraRotation);
+		if (UCameraComponent* CamComp = Camera->GetCameraComponent())
+		{
+			CamComp->SetFOV(OriginalCameraFOV);
+			CamComp->SetClipPlanes(OriginalCameraNearClip, OriginalCameraFarClip);
+		}
+		// Yaw/Pitch 캐시도 동기화 (회전 스냅핑 방지)
+		Camera->SyncRotationCache();
 		break;
 	case EViewportType::Orthographic_Top:
 	{
@@ -240,6 +326,9 @@ void FViewportClient::SetupCameraMode()
 
 void FViewportClient::MouseMove(FViewport* Viewport, int32 X, int32 Y)
 {
+	// Pilot 모드일 때 기즈모 상호작용 전에 Camera를 PilotCameraComponent와 즉시 동기화
+	SyncCameraWithPilot();
+
 	if (World->GetGizmoActor())
 		World->GetGizmoActor()->ProcessGizmoInteraction(Camera, Viewport, static_cast<float>(X), static_cast<float>(Y));
 
@@ -287,6 +376,10 @@ void FViewportClient::MouseButtonDown(FViewport* Viewport, int32 X, int32 Y, int
 	if (!Viewport || !World) // Only handle left mouse button
 		return;
 
+	// Pilot 모드일 때 피킹 전에 Camera를 PilotCameraComponent와 즉시 동기화
+	// (Tick 전에 마우스 이벤트가 발생할 수 있으므로)
+	SyncCameraWithPilot();
+
 	// GetInstance viewport size
 	FVector2D ViewportSize(static_cast<float>(Viewport->GetSizeX()), static_cast<float>(Viewport->GetSizeY()));
 	FVector2D ViewportOffset(static_cast<float>(Viewport->GetStartX()), static_cast<float>(Viewport->GetStartY()));
@@ -304,14 +397,13 @@ void FViewportClient::MouseButtonDown(FViewport* Viewport, int32 X, int32 Y, int
 		// 뷰포트의 실제 aspect ratio 계산
 		float PickingAspectRatio = ViewportSize.X / ViewportSize.Y;
 		if (ViewportSize.Y == 0) PickingAspectRatio = 1.0f; // 0으로 나누기 방지
-		if (World->GetGizmoActor()->GetbIsHovering())
+		bool bGizmoHovering = World->GetGizmoActor()->GetbIsHovering();
+		if (bGizmoHovering)
 		{
 			return;
 		}
 		Camera->SetWorld(World);
 		PickedComponent = URenderManager::GetInstance().GetRenderer()->GetPrimitiveCollided(static_cast<int>(ViewportMousePos.X), static_cast<int>(ViewportMousePos.Y));
-		// PickedActor = CPickingSystem::PerformViewportPicking(AllActors, Camera, ViewportMousePos, ViewportSize, ViewportOffset, PickingAspectRatio,  Viewport);
-
 
 		if (PickedComponent)
 		{
@@ -330,6 +422,12 @@ void FViewportClient::MouseButtonDown(FViewport* Viewport, int32 X, int32 Y, int
 		bIsMouseRightButtonDown = true;
 		MouseLastX = X;
 		MouseLastY = Y;
+
+		// 우클릭 시작 시 마우스 델타 초기화 (첫 드래그 스냅핑 방지)
+		// WM_MOUSEMOVE에서 MousePosition만 업데이트되고 PreviousMousePosition은
+		// Update()에서만 갱신되기 때문에 오래된 값이 남아있을 수 있음
+		UInputManager& InputManager = UInputManager::GetInstance();
+		InputManager.SetLastMousePosition(InputManager.GetMousePosition());
 	}
 
 }
@@ -360,6 +458,202 @@ FMatrix FViewportClient::GetViewMatrix() const
 		return Camera->GetViewMatrix();
 	}
 	return FMatrix::Identity();
+}
+
+void FViewportClient::SetViewportType(EViewportType InType)
+{
+	// 원근 → 직교 전환 시 현재 원근 카메라 상태 저장
+	// (직교에서 다시 원근으로 돌아올 때 복원하기 위함)
+	if (ViewportType == EViewportType::Perspective && InType != EViewportType::Perspective)
+	{
+		// Pilot 모드가 아닐 때만 저장 (Pilot 모드에서는 이미 EnablePilotMode에서 저장됨)
+		if (!bPilotCameraMode && Camera)
+		{
+			OriginalCameraLocation = Camera->GetActorLocation();
+			OriginalCameraRotation = Camera->GetActorRotation();
+			if (UCameraComponent* CamComp = Camera->GetCameraComponent())
+			{
+				OriginalCameraFOV = CamComp->GetFOV();
+				OriginalCameraNearClip = CamComp->GetNearClip();
+				OriginalCameraFarClip = CamComp->GetFarClip();
+			}
+		}
+	}
+
+	ViewportType = InType;
+}
+
+// ===== Pilot 모드 함수들 =====
+
+void FViewportClient::EnablePilotMode(AActor* TargetActor, UCameraComponent* TargetCameraComponent)
+{
+	if (!TargetActor || !TargetCameraComponent) return;
+
+	// 이미 같은 카메라로 Pilot 중이면 무시
+	if (bPilotCameraMode && PilotActor == TargetActor) return;
+
+	// 이미 다른 카메라로 Pilot 중이면 먼저 해제 (카메라 전환)
+	if (bPilotCameraMode)
+	{
+		// 이전 카메라 기즈모 복원
+		if (PilotCameraComponent)
+		{
+			PilotCameraComponent->SetCameraGizmoVisible(true);
+		}
+		// 상태는 유지하되 새 카메라로 전환 준비
+	}
+	else
+	{
+		// 최초 Pilot 모드 진입 시에만 에디터 카메라 Transform 저장
+		// 단, 원근 뷰일 때만 저장 (직교 뷰의 Transform은 저장하면 안 됨)
+		if (ViewportType == EViewportType::Perspective)
+		{
+			OriginalCameraLocation = Camera->GetActorLocation();
+			OriginalCameraRotation = Camera->GetActorRotation();
+			if (UCameraComponent* CamComp = Camera->GetCameraComponent())
+			{
+				OriginalCameraFOV = CamComp->GetFOV();
+				OriginalCameraNearClip = CamComp->GetNearClip();
+				OriginalCameraFarClip = CamComp->GetFarClip();
+			}
+		}
+		// 직교 뷰에서 Pilot 진입 시 원근 뷰로 전환
+		ViewportType = EViewportType::Perspective;
+	}
+
+	// Pilot 대상 설정
+	PilotActor = TargetActor;
+	PilotCameraComponent = TargetCameraComponent;
+	bPilotCameraMode = true;
+
+	// World에 Pilot 액터 설정 (기즈모/카메라 메시 숨김용)
+	if (World)
+	{
+		World->SetPilotActor(TargetActor);
+	}
+
+	// 카메라 기즈모 숨김 (Pilot 모드에서는 카메라 메시가 보이면 안 됨)
+	TargetCameraComponent->SetCameraGizmoVisible(false);
+
+	// ACameraActor의 경우 회전 캐시 동기화 (입력 처리용)
+	if (ACameraActor* CamActor = Cast<ACameraActor>(TargetActor))
+	{
+		CamActor->SyncRotationCache();
+	}
+	// Camera는 항상 에디터 카메라 유지 - 매 Tick에서 PilotCameraComponent와 동기화
+}
+
+void FViewportClient::DisablePilotMode()
+{
+	if (!bPilotCameraMode) return;
+
+	// World에서 Pilot 액터 해제
+	if (World)
+	{
+		World->SetPilotActor(nullptr);
+	}
+
+	// 카메라 기즈모 복원 (Pilot 모드 해제 시 다시 보이게)
+	if (PilotCameraComponent)
+	{
+		PilotCameraComponent->SetCameraGizmoVisible(true);
+	}
+
+	// 에디터 카메라 Transform 복원
+	Camera->SetActorLocation(OriginalCameraLocation);
+	Camera->SetActorRotation(OriginalCameraRotation);
+	if (UCameraComponent* CamComp = Camera->GetCameraComponent())
+	{
+		CamComp->SetFOV(OriginalCameraFOV);
+		CamComp->SetClipPlanes(OriginalCameraNearClip, OriginalCameraFarClip);
+	}
+
+	bPilotCameraMode = false;
+	PilotActor = nullptr;
+	PilotCameraComponent = nullptr;
+}
+
+void FViewportClient::SyncCameraWithPilot()
+{
+	if (!bPilotCameraMode || !PilotCameraComponent) 
+	{
+		return;
+	}
+
+	// PilotCameraComponent의 Transform을 Camera에 동기화
+	FTransform CamTransform = PilotCameraComponent->GetWorldTransform();
+	Camera->SetActorLocation(CamTransform.Translation);
+	Camera->SetActorRotation(CamTransform.Rotation);
+
+	// 카메라 속성도 동기화
+	UCameraComponent* CamComp = Camera->GetCameraComponent();
+	if (CamComp)
+	{
+		CamComp->SetFOV(PilotCameraComponent->GetFOV());
+		CamComp->SetClipPlanes(PilotCameraComponent->GetNearClip(), PilotCameraComponent->GetFarClip());
+	}
+}
+
+void FViewportClient::ProcessPilotActorInput(float DeltaTime)
+{
+	if (!PilotActor) 
+	{
+		return;
+	}
+
+	UInputManager& Input = UInputManager::GetInstance();
+
+	// 현재 Transform 가져오기
+	FVector Location = PilotActor->GetActorLocation();
+	FQuat Rotation = PilotActor->GetActorRotation();
+
+	// 마우스 델타로 회전 (Yaw/Pitch)
+	FVector2D MouseDelta = Input.GetMouseDelta();
+	float MouseDeltaX = MouseDelta.X;
+	float MouseDeltaY = MouseDelta.Y;
+
+	// 현재 회전을 오일러로 변환
+	// ToEulerZYXDeg() 반환값: FVector(Roll(X축), Pitch(Y축), Yaw(Z축))
+	FVector EulerAngles = Rotation.ToEulerZYXDeg();
+	float Yaw = EulerAngles.Z;    // Z = Yaw (좌우 회전)
+	float Pitch = EulerAngles.Y;  // Y = Pitch (상하 회전)
+
+	// 마우스 감도 적용
+	const float MouseSensitivity = 0.1f;
+	Yaw += MouseDeltaX * MouseSensitivity;
+	Pitch += MouseDeltaY * MouseSensitivity; // 마우스 위로 = 위를 봄
+
+	// Pitch 제한 (-89 ~ 89도)
+	Pitch = FMath::Clamp(Pitch, -89.0f, 89.0f);
+
+	// 새 회전 적용
+	// MakeFromEulerZYX 입력: FVector(Roll(X축), Pitch(Y축), Yaw(Z축))
+	Rotation = FQuat::MakeFromEulerZYX(FVector(0.0f, Pitch, Yaw));
+
+	// WASD/QE 이동
+	FVector MoveDirection = FVector::Zero();
+	const float MoveSpeed = PilotMoveSpeed; // UI에서 조절 가능한 이동 속도
+
+	FVector Forward = Rotation.GetForwardVector();
+	FVector Right = Rotation.GetRightVector();
+	FVector Up = FVector(0.0f, 0.0f, 1.0f); // 월드 업 벡터
+
+	if (Input.IsKeyDown('W')) MoveDirection += Forward;
+	if (Input.IsKeyDown('S')) MoveDirection -= Forward;
+	if (Input.IsKeyDown('D')) MoveDirection += Right;
+	if (Input.IsKeyDown('A')) MoveDirection -= Right;
+	if (Input.IsKeyDown('E')) MoveDirection += Up;
+	if (Input.IsKeyDown('Q')) MoveDirection -= Up;
+
+	if (MoveDirection.SizeSquared() > 0.0f)
+	{
+		MoveDirection.Normalize();
+		Location += MoveDirection * MoveSpeed * DeltaTime;
+	}
+
+	// Transform 적용
+	PilotActor->SetActorLocation(Location);
+	PilotActor->SetActorRotation(Rotation);
 }
 
 void FViewportClient::MouseWheel(FViewport* Viewport, float DeltaSeconds)

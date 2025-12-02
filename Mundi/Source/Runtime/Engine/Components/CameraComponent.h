@@ -109,6 +109,9 @@ public:
     // Serialization
     void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
 
+    // 카메라 기즈모 가시성 제어 (Pilot 모드용)
+    void SetCameraGizmoVisible(bool bVisible);
+
 private:
 
 

@@ -6,6 +6,7 @@ class FViewport;
 class UWorld;
 class UCameraComponent;
 class SViewportWindow;
+class AActor;
 
 
 /**
@@ -30,7 +31,7 @@ public:
     virtual void KeyUp(FViewport* Viewport, int32 KeyCode) {}
 
     // 뷰포트 설정
-    void SetViewportType(EViewportType InType) { ViewportType = InType; }
+    void SetViewportType(EViewportType InType);
     EViewportType GetViewportType() const { return ViewportType; }
 
     void SetWorld(UWorld* InWorld) { World = InWorld; }
@@ -56,7 +57,20 @@ public:
 
     EViewMode GetViewMode() { return ViewMode;}
 
+    // ===== Pilot 모드 제어 =====
+    void EnablePilotMode(AActor* TargetActor, UCameraComponent* TargetCameraComponent);
+    void DisablePilotMode();
+    bool IsPilotModeEnabled() const { return bPilotCameraMode; }
+    AActor* GetPilotActor() const { return PilotActor; }
+    UCameraComponent* GetPilotCameraComponent() const { return PilotCameraComponent; }
+
+    // Pilot 모드 이동 속도 (non-ACameraActor용)
+    float GetPilotMoveSpeed() const { return PilotMoveSpeed; }
+    void SetPilotMoveSpeed(float InSpeed) { PilotMoveSpeed = InSpeed; }
+
 protected:
+    void ProcessPilotActorInput(float DeltaTime);
+    void SyncCameraWithPilot();  // Pilot 모드에서 PilotCameraComponent를 Camera에 동기화
     EViewportType ViewportType = EViewportType::Perspective;
     UWorld* World = nullptr;
     ACameraActor* Camera = nullptr;
@@ -87,4 +101,18 @@ protected:
     FVector PerspectiveCameraPosition = FVector(-5.0f, 5.0f, 5.0f);
     FVector PerspectiveCameraRotation = FVector(0.0f, 22.5f, -45.0f);
     float PerspectiveCameraFov=60;
+
+    // ===== Pilot 모드 상태 =====
+    bool bPilotCameraMode = false;
+    AActor* PilotActor = nullptr;                    // Pilot 대상 액터
+    UCameraComponent* PilotCameraComponent = nullptr; // Pilot 대상 카메라 컴포넌트
+    float PilotMoveSpeed = 10.0f;                    // Pilot 모드 이동 속도 (non-ACameraActor용)
+
+    // 에디터 카메라 원본 Transform (Pilot 모드 해제 시 복원용)
+    // 초기값: 원점에서 떨어져 위에서 원점을 내려다보는 위치
+    FVector OriginalCameraLocation = FVector(-5.0f, 5.0f, 5.0f);
+    FQuat OriginalCameraRotation = FQuat::MakeFromEulerZYX(FVector(0.0f, 22.5f, -45.0f));
+    float OriginalCameraFOV = 60.0f;
+    float OriginalCameraNearClip = 0.1f;
+    float OriginalCameraFarClip = 2000.0f;
 };
