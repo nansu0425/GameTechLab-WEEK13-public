@@ -1972,10 +1972,10 @@ void SPhysicsAssetEditorWindow::CreateBodyForBone(int32 BoneIndex, EPrimitiveTyp
     // Add the body to the physics asset
     PhysicsAsset->AddBodySetup(NewBody);
 
-    //// Also populate the editor-facing properties for UI consistency
-    //NewBody->SphereRadius = Radius;
-    //NewBody->BoxExtent = Extent; // Extent is already half-extent from CalculateBodyDimensions
-    //NewBody->CapsuleHalfHeight = HalfHeight;
+    // Also populate the editor-facing properties for UI consistency
+    NewBody->SphereRadius = Radius;
+    NewBody->BoxExtent = Extent; // Extent is already half-extent from CalculateBodyDimensions
+    NewBody->CapsuleHalfHeight = HalfHeight;
 
     PhysicsAsset->UpdateBodySetupIndexMap();
 
@@ -2699,7 +2699,45 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
 
     // Calculate bone length
     float BoneLength = (ChildWorldPos - BoneWorldPos).Size();
-    const float DefaultLeafLength = 5.0f;
+
+    // Estimate scale factor from average skeleton bone lengths to determine appropriate defaults
+    // We sample multiple bones to get a better estimate of the overall model scale
+    float AvgBoneLength = 0.0f;
+    int32 SampleCount = 0;
+    for (int32 i = 0; i < Skeleton->Bones.Num() && SampleCount < 10; ++i)
+    {
+        int32 ChildIdx = FindFirstChildBone(i, Skeleton);
+        if (ChildIdx >= 0)
+        {
+            FTransform ParentTM = MeshComp->GetBoneWorldTransform(i);
+            FTransform ChildTM = MeshComp->GetBoneWorldTransform(ChildIdx);
+            ParentTM.Scale3D = FVector(1, 1, 1);
+            ChildTM.Scale3D = FVector(1, 1, 1);
+            float Length = (ChildTM.Translation - ParentTM.Translation).Size();
+            if (Length > 0.001f)  // Exclude very small bones
+            {
+                AvgBoneLength += Length;
+                SampleCount++;
+            }
+        }
+    }
+    if (SampleCount > 0)
+    {
+        AvgBoneLength /= SampleCount;
+    }
+
+    // Determine scale factor based on average bone length
+    // If average bone length is very small (< 0.2), we're dealing with a small-scale model (e.g., FBX with cm units)
+    float ScaleFactor = 1.0f;
+    if (AvgBoneLength > 0.0f && AvgBoneLength < 0.2f)
+    {
+        ScaleFactor = 0.01f;
+    }
+
+    const float DefaultLeafLength = 5.0f * ScaleFactor;
+    const float MinRadius = 1.0f * ScaleFactor;
+    const float MinCylinderLength = 1.0f * ScaleFactor;
+
     if (FirstChildIndex < 0)
     {
         BoneLength = DefaultLeafLength;
@@ -2732,9 +2770,9 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
     }
     case EPrimitiveType::Capsule:
     {
-        float Radius = FMath::Max(BoneLength * 0.25f, 1.0f);
+        float Radius = FMath::Max(BoneLength * 0.25f, MinRadius);
         float CylinderLength = BoneLength - (Radius * 2.0f);
-        CylinderLength = FMath::Max(CylinderLength, 1.0f);
+        CylinderLength = FMath::Max(CylinderLength, MinCylinderLength);
 
         OutRadius = Radius;
         OutHalfHeight = CylinderLength * 0.5f;
