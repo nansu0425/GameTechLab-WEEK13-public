@@ -11,6 +11,7 @@
 #include "StaticMeshComponent.h"
 #include "SkeletalMeshComponent.h"
 #include "World.h"
+#include "Renderer.h"
 
 #include <PxPhysicsAPI.h>
 
@@ -23,16 +24,17 @@ UVehicleMovementComponent::UVehicleMovementComponent()
     SteeringInput = 0.0f;
     BrakeInput = 0.0f;
     HandbrakeInput = 0.0f;
+	ChassisHalfExtents = FVector(2.75f, 1.1f, 0.4f);
 	BackUpActorExtent = FVector(1.0f, 1.0f, 1.0f);
 
     VehicleQueryResults.wheelQueryResults = nullptr;
     VehicleQueryResults.nbWheelQueryResults = 0;
 
 	// WheelSetups 기본값 세팅 (4륜 구동 차량)
-    WheelSetups.Add({ "FL", FVector::Zero(), 5.0f, true, true });
-	WheelSetups.Add({ "FR", FVector::Zero(), 5.0f, true, true });
-	WheelSetups.Add({ "RL", FVector::Zero(), 5.0f, true, false });
-	WheelSetups.Add({ "RR", FVector::Zero(), 5.0f, true, false });
+    WheelSetups.Add({ "FL", {  1.75f, -1.2f, -0.03f }, 0.5f, true, true });
+	WheelSetups.Add({ "FR", {  1.75f,  1.2f, -0.03f }, 0.5f, true, true });
+	WheelSetups.Add({ "RL", { -1.75f, -1.2f, -0.03f }, 0.55f, true, false });
+	WheelSetups.Add({ "RR", { -1.75f,  1.2f, -0.03f }, 0.55f, true, false });
 }
 
 UVehicleMovementComponent::~UVehicleMovementComponent() = default;
@@ -881,6 +883,108 @@ void UVehicleMovementComponent::UnregisterFromPhysScene()
     bRegisteredWithPhysScene = false;
 }
 
+void UVehicleMovementComponent::RenderDebugLines(URenderer* Renderer)
+{
+    if (!Renderer)
+    {
+        return;
+    }
+
+    // 루트 기준 로컬 → 월드 변환
+    FTransform RootTransform;
+    if (AActor* OwnerActor = Cast<AActor>(Owner))
+    {
+        if (USceneComponent* RootComp = OwnerActor->GetRootComponent())
+        {
+            RootTransform = RootComp->GetWorldTransform();
+        }
+    }
+
+    auto ToWorld = [&RootTransform](const FVector& Local) -> FVector
+    {
+        return RootTransform.TransformPosition(Local);
+    };
+
+    // ── 차체 박스 (half extent)
+    FVector Extents = ChassisHalfExtents;
+    Extents.X = FMath::Abs(Extents.X);
+    Extents.Y = FMath::Abs(Extents.Y);
+    Extents.Z = FMath::Abs(Extents.Z);
+
+    const FVector ChassisCenter = ChassisOffset;
+
+    const FVector Corners[8] = {
+        FVector(-Extents.X, -Extents.Y, -Extents.Z) + ChassisCenter,
+        FVector(-Extents.X, -Extents.Y,  Extents.Z) + ChassisCenter,
+        FVector(-Extents.X,  Extents.Y, -Extents.Z) + ChassisCenter,
+        FVector(-Extents.X,  Extents.Y,  Extents.Z) + ChassisCenter,
+        FVector( Extents.X, -Extents.Y, -Extents.Z) + ChassisCenter,
+        FVector( Extents.X, -Extents.Y,  Extents.Z) + ChassisCenter,
+        FVector( Extents.X,  Extents.Y, -Extents.Z) + ChassisCenter,
+        FVector( Extents.X,  Extents.Y,  Extents.Z) + ChassisCenter,
+    };
+
+    const int32 BoxEdges[12][2] = {
+        {0,1}, {0,2}, {0,4},
+        {7,6}, {7,5}, {7,3},
+        {1,3}, {1,5},
+        {2,3}, {2,6},
+        {4,5}, {4,6},
+    };
+
+    const FVector4 ChassisColor(0.0f, 1.0f, 0.0f, 1.0f);
+    for (const auto& Edge : BoxEdges)
+    {
+        Renderer->AddLine(ToWorld(Corners[Edge[0]]), ToWorld(Corners[Edge[1]]), ChassisColor);
+    }
+
+    // ── 휠 (로컬 기본 위치 + 반지름, 얇은 두께 0.1)
+    const float HalfThickness = 0.05f;
+    const int32 Segments = 24;
+    const float Step = 2.0f * PI / static_cast<float>(Segments);
+    const FVector4 WheelColor(0.0f, 0.6f, 1.0f, 1.0f);
+
+    for (const FWheelSetup& Setup : WheelSetups)
+    {
+        const float Radius = FMath::Max(Setup.WheelRadius, 0.0f);
+        if (Radius <= KINDA_SMALL_NUMBER)
+        {
+            continue;
+        }
+
+        FVector Center = Setup.DefaultPosition + ChassisOffset;
+
+        // 두 개의 얇은 링을 그리고, 대응 점을 연결해 얇은 두께를 표현
+        TArray<FVector> RingA;
+        TArray<FVector> RingB;
+        RingA.Reserve(Segments);
+        RingB.Reserve(Segments);
+
+        for (int32 i = 0; i < Segments; ++i)
+        {
+            const float Angle = Step * static_cast<float>(i);
+            const float X = Radius * std::cosf(Angle);
+            const float Z = Radius * std::sinf(Angle);
+
+            RingA.Add(Center + FVector(X, -HalfThickness, Z));
+            RingB.Add(Center + FVector(X,  HalfThickness, Z));
+        }
+
+        // 링 자체
+        for (int32 i = 0; i < Segments; ++i)
+        {
+            const int32 Next = (i + 1) % Segments;
+            Renderer->AddLine(ToWorld(RingA[i]), ToWorld(RingA[Next]), WheelColor);
+            Renderer->AddLine(ToWorld(RingB[i]), ToWorld(RingB[Next]), WheelColor);
+        }
+
+        // 앞/뒤 연결선 (두께 표현)
+        for (int32 i = 0; i < Segments; ++i)
+        {
+            Renderer->AddLine(ToWorld(RingA[i]), ToWorld(RingB[i]), WheelColor);
+        }
+    }
+}
 
 // ============================================================================================
 // 아래는 테스트 전용 코드 영역

@@ -18,6 +18,7 @@ namespace physx
 }
 
 class USkeletalMeshComponent;
+class URenderer;
 
 /** 언리얼 엔진의 USimpleWheeledVehicleMovementComponent를 모방한 컴포넌트 */
 UCLASS(DisplayName = "심플 휠 비히클 무브먼트 컴포넌트", Description = "비히클 움직임을 구현하는 컴포넌트입니다.")
@@ -71,6 +72,9 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Vehicle")
 	FVector ChassisHalfExtents;
 
+    UPROPERTY(EditAnywhere, Category = "Vehicle")
+	FVector ChassisOffset;
+
     /** 바퀴 설정 배열 */
     UPROPERTY(EditAnywhere, Category = "Vehicle")
     TArray<FWheelSetup> WheelSetups;
@@ -119,6 +123,8 @@ public:
 
     /** WheelSetup 변경 후 재초기화 */
     void ResetVehicle();
+
+    void RenderDebugLines(URenderer* Renderer);
 
 protected:
     // --- PhysX Vehicle 관련 멤버 ---

@@ -58,6 +58,7 @@
 #include "Modules/ParticleModuleTypeDataMesh.h"
 #include "Modules/ParticleModuleTypeDataBeam.h"
 #include "Modules/ParticleModuleTypeDataRibbon.h"
+#include "VehicleMovementComponent.h"
 
 FSceneRenderer::FSceneRenderer(UWorld* InWorld, FSceneView* InView, URenderer* InOwnerRenderer)
 	: World(InWorld)
@@ -1465,6 +1466,16 @@ void FSceneRenderer::RenderDebugPass()
 			// 모든 컴포넌트에서 RenderDebugVolume 호출
 			// 각 컴포넌트는 필요한 경우 override하여 디버그 시각화 제공
 			Component->RenderDebugVolume(OwnerRenderer);
+		}
+
+		// VehicleMovementComponent 전용 디버그 라인
+		TSet<UActorComponent*> Components = SelectedActor->GetOwnedComponents();
+		for (UActorComponent* Comp : Components)
+		{
+			if (UVehicleMovementComponent* VehicleComp = Cast<UVehicleMovementComponent>(Comp))
+			{
+				VehicleComp->RenderDebugLines(OwnerRenderer);
+			}
 		}
 	}
 
