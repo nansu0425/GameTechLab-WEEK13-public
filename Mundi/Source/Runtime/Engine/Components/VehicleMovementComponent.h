@@ -2,6 +2,7 @@
 #include "vehicle/PxVehicleUpdate.h"
 #include "MovementComponent.h"
 #include "WheelSetup.h"
+#include "BoxComponent.h"
 #include "UVehicleMovementComponent.generated.h"
 
 // PhysX vehicle 전방 선언
@@ -63,6 +64,13 @@ public:
 
 	const static int32 NumWheels4W = 4; // 4륜 고정
 
+	/**
+     * @brief 차체 박스 shape 크기
+	 * @note physx 벡터로 변환시 좌표계 차이로 양수값 보장이 안되니 별도의 절대값 처리 필요
+     */
+	UPROPERTY(EditAnywhere, Category = "Vehicle")
+	FVector ChassisHalfExtents;
+
     /** 바퀴 설정 배열 */
     UPROPERTY(EditAnywhere, Category = "Vehicle")
     TArray<FWheelSetup> WheelSetups;
@@ -87,7 +95,7 @@ public:
     UPROPERTY(EditAnywhere, Category = "Vehicle")
     float MaxHandbrakeTorque = 2000.0f;
 
-    /** UpdatedComponent로부터 BodyInstance 획득 실패시 만들 fallback용 액터 크기*/
+    /** (depracated) UpdatedComponent로부터 BodyInstance 획득 실패시 만들 fallback용 액터 크기*/
 	UPROPERTY(EditAnywhere, Category = "Vehicle")
     FVector BackUpActorExtent;
 
@@ -154,17 +162,17 @@ protected:
     /** PxVehicleDrive4W 인스턴스 및 관련 PhysX 구조체 초기화 */
     bool InitVehiclePhysX();
 
-	physx::PxRigidDynamic* CreateFallBackVehicleActor();
-
     /** Vehicle 관련 PhysX 리소스 정리 */
     void CleanupVehiclePhysX();
 
-    /**
-     * @brief UpdatedComponent가 유효한 차량 메시인지 보장 (필요 시 자동 탐색)
-     * @note SkeletalMeshComponent 또는 StaticMeshComponent만을 유효한 컴포넌트로 취급합니다.
-     * UpdatedComponent -> 루트 컴포넌트 -> Actor의 SkeletalMeshComponent -> StaticMeshComponent 순으로 탐색합니다.
-     */
-    void EnsureUpdatedComponentIsValid();
+    // 유효한 UpdatedComponent 찾아 저장합니다.
+    void SearchForUpdatedComponent();
+
+    // 바퀴 본 이름으로부터 움직일 수 있는 바퀴 본 인덱스를 찾아 캐싱합니다.
+    void SearchForRollableWheels();
+
+    /** 차량 메시가 스켈레탈 메시고 바퀴 본을 찾은 경우 true -> 실제 바퀴 pose를 update할 수 있습니다. */
+	bool bUseRollableWheels = false;
 
     /** 초기화 진행 여부 */
     bool bVehicleInitialized = false;
