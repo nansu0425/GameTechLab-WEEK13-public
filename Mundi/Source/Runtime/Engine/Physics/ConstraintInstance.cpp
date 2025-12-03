@@ -342,48 +342,39 @@ void FConstraintInstance::SetDisableCollision(bool bDisable)
 
 physx::PxTransform FConstraintInstance::CalcPxTransform(const FVector& Pos, const FVector& PriAxis, const FVector& SecAxis)
 {
-    physx::PxVec3 InputPos(Pos.X, Pos.Y, Pos.Z);
-    // physx::PxVec3 InputPriAxis(PriAxis.X, PriAxis.Y, PriAxis.Z);
-    // physx::PxVec3 InputSecAxis(SecAxis.X, SecAxis.Y, SecAxis.Z);
-    //
-    // physx::PxVec3 XAxis = InputPriAxis.getNormalized();
-    // physx::PxVec3 ZAxis = XAxis.cross(InputSecAxis).getNormalized();
+    using namespace PhysicsConversion;
 
-    // Forward
+    // 1. 위치 변환: Mundi → PhysX 좌표계
+    physx::PxVec3 PxPos = ToPxVec3(Pos);
+
+    // 2. 축 계산 (Mundi 좌표계에서)
+    // PriAxis = Twist 축 (X축)
+    // SecAxis = Swing1 축에 사용될 보조 축
     FVector XAxis = PriAxis.GetSafeNormal();
-    // Up
     FVector ZAxis = FVector::Cross(XAxis, SecAxis.GetSafeNormal()).GetSafeNormal();
     if (ZAxis.IsZero())
     {
+        // PriAxis와 SecAxis가 평행한 경우 대체 축 사용
         FVector Right = FMath::Abs(XAxis.Y) < 0.99f ? FVector(0.0f, 1.0f, 0.0f) : FVector(-1.0f, 0.0f, 0.0f);
-        ZAxis = FVector::Cross(XAxis, Right).GetSafeNormal();        
+        ZAxis = FVector::Cross(XAxis, Right).GetSafeNormal();
     }
     FVector YAxis = FVector::Cross(ZAxis, XAxis).GetSafeNormal();
-    physx::PxMat33 BasisMatrix(
-        physx::PxVec3(XAxis.X, XAxis.Y, XAxis.Z),
-        physx::PxVec3(YAxis.X, YAxis.Y, YAxis.Z),
-        physx::PxVec3(ZAxis.X, ZAxis.Y, ZAxis.Z));
-    physx::PxQuat Rotation(BasisMatrix);
-    physx::PxQuat Offset(AngularRotationOffset.X, AngularRotationOffset.Y, AngularRotationOffset.Z, AngularRotationOffset.W);
-    Rotation = Rotation * Offset;
 
-    return physx::PxTransform(InputPos, Rotation);
-    
+    // 3. Mundi 회전 행렬 → FQuat
+    // 행렬의 각 열이 새로운 축 방향
+    FMatrix RotMatrix = FMatrix::Identity();
+    RotMatrix.M[0][0] = XAxis.X; RotMatrix.M[0][1] = XAxis.Y; RotMatrix.M[0][2] = XAxis.Z;
+    RotMatrix.M[1][0] = YAxis.X; RotMatrix.M[1][1] = YAxis.Y; RotMatrix.M[1][2] = YAxis.Z;
+    RotMatrix.M[2][0] = ZAxis.X; RotMatrix.M[2][1] = ZAxis.Y; RotMatrix.M[2][2] = ZAxis.Z;
+    FQuat MundiRot(RotMatrix);
 
-    // if (ZAxis.isZero())
-    // {
-    //     physx::PxVec3 Up = FMath::Abs(XAxis.y) < 0.99f ? physx::PxVec3(0, 1, 0) : physx::PxVec3(0, 0, 1);
-    //     ZAxis = XAxis.cross(Up).getNormalized();
-    // }
-    //
-    // physx::PxVec3 YAxis = ZAxis.cross(XAxis).getNormalized();
-    //
-    // physx::PxMat33 BasisMatrix(XAxis, YAxis, ZAxis);
-    // physx::PxQuat Rotation(BasisMatrix);
-    //
-    // Rotation = Rotation * Offset;
-    //
-    // return physx::PxTransform(InputPos, Rotation);
+    // 4. AngularRotationOffset 적용 (Mundi 좌표계에서)
+    MundiRot = MundiRot * AngularRotationOffset;
+
+    // 5. PhysX 좌표계로 변환
+    physx::PxQuat PxRot = ToPxQuat(MundiRot);
+
+    return physx::PxTransform(PxPos, PxRot);
 }
 
 physx::PxD6Motion::Enum FConstraintInstance::ConvertMotion(EJointMotion Motion)

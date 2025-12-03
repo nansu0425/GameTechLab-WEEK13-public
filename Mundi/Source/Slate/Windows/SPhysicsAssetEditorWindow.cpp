@@ -2848,16 +2848,42 @@ void SPhysicsAssetEditorWindow::BuildConstraintSetup(const FName& ParentBoneName
     PWT.Scale3D = FVector(1, 1, 1);
     CWT.Scale3D = FVector(1, 1, 1);
 
+    // ========== 본 방향 기반 축 계산 ==========
+    // Parent → Child 방향 = 본의 길이 방향 = Twist 축 (PhysX X축)
+    FVector BoneDirection = (CWT.Translation - PWT.Translation).GetSafeNormal();
+
+    // 본 방향이 거의 0인 경우 (같은 위치) 기본 축 사용
+    if (BoneDirection.IsZero())
+    {
+        BoneDirection = FVector(1, 0, 0);
+    }
+
+    FVector WorldPriAxis = BoneDirection;
+
+    // SecAxis = PriAxis에 수직인 축 계산
+    // 월드 Up 벡터와 외적하여 수직 축 생성
+    FVector WorldUp = FVector(0, 0, 1);
+    FVector WorldSecAxis = FVector::Cross(WorldPriAxis, WorldUp).GetSafeNormal();
+
+    // PriAxis가 WorldUp과 거의 평행한 경우 대체 축 사용
+    if (WorldSecAxis.IsZero())
+    {
+        FVector WorldRight = FVector(0, 1, 0);
+        WorldSecAxis = FVector::Cross(WorldPriAxis, WorldRight).GetSafeNormal();
+    }
+
     // Child frame at child origin
+    // Frame1 (Child): Child 본-로컬 좌표계로 월드 축 변환
     OutSetup.Frame1.Pos = FVector::Zero();
-    OutSetup.Frame1.PriAxis = FVector(1, 0, 0);
-    OutSetup.Frame1.SecAxis = FVector(0, 1, 0);
+    OutSetup.Frame1.PriAxis = CWT.Rotation.Inverse().RotateVector(WorldPriAxis);
+    OutSetup.Frame1.SecAxis = CWT.Rotation.Inverse().RotateVector(WorldSecAxis);
 
     // Parent frame: child origin expressed in parent local space
+    // Frame2 (Parent): Parent 본-로컬 좌표계로 월드 축 변환
     FVector ChildInParent = PWT.Inverse().TransformPosition(CWT.Translation);
     OutSetup.Frame2.Pos = ChildInParent;
-    OutSetup.Frame2.PriAxis = FVector(1, 0, 0);
-    OutSetup.Frame2.SecAxis = FVector(0, 1, 0);
+    OutSetup.Frame2.PriAxis = PWT.Rotation.Inverse().RotateVector(WorldPriAxis);
+    OutSetup.Frame2.SecAxis = PWT.Rotation.Inverse().RotateVector(WorldSecAxis);
 
     // Angular limits
     OutSetup.Profile.Swing1Motion = EJointMotion::Limited;
