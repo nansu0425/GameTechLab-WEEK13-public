@@ -112,7 +112,4 @@ private:
     void StopSimulation();
     class UTexture* IconPlay = nullptr;
     class UTexture* IconPause = nullptr;
-
-    // 시뮬레이션용 바닥 액터
-    class APhysGroundActor* FloorActor = nullptr;
 };

@@ -29,6 +29,12 @@ SPhysicsAssetEditorWindow::SPhysicsAssetEditorWindow()
 
 SPhysicsAssetEditorWindow::~SPhysicsAssetEditorWindow()
 {
+    // 시뮬레이션 중이면 먼저 정지 (물리 리소스 정리)
+    if (bIsSimulating)
+    {
+        StopSimulation();
+    }
+
     // Cleanup
     for (int i = 0; i < Tabs.Num(); ++i)
     {
@@ -4119,21 +4125,13 @@ void SPhysicsAssetEditorWindow::StartSimulation()
     // 1. PreviewWorld의 Physics 활성화
     PreviewWorld->EnablePhysicsSimulation(true);
 
-    // 2. 바닥 액터 생성
-    if (!FloorActor)
+    // 2. 바닥의 물리 상태 생성 (정적 물리 바디)
+    // 바닥 액터는 ViewerState 생성 시 이미 스폰됨
+    if (ActiveState->FloorActor)
     {
-        FloorActor = PreviewWorld->SpawnActor<APhysGroundActor>();
-        if (FloorActor)
+        if (UBoxComponent* BoxComp = ActiveState->FloorActor->GetBoxComponent())
         {
-            // 캐릭터 발 아래에 바닥 배치 (약간 아래로)
-            FVector FloorPosition = FVector(0.0f, 0.0f, -5.0f);
-            FloorActor->SetActorLocation(FloorPosition);
-
-            // 바닥의 물리 상태 생성 (정적 물리 바디)
-            if (UBoxComponent* BoxComp = FloorActor->GetBoxComponent())
-            {
-                BoxComp->CreatePhysicsState();
-            }
+            BoxComp->CreatePhysicsState();
         }
     }
 
@@ -4144,9 +4142,14 @@ void SPhysicsAssetEditorWindow::StartSimulation()
         // (프로퍼티가 단일 진실 원천, CreatePhysicsState에서 이 값을 참조)
         MeshComp->bSimulatePhysics = true;
         MeshComp->bEnableGravity = true;
+		MeshComp->bEnableRagdoll = true;
 
         // 물리 상태 생성 (Bodies + Constraints) - bSimulatePhysics=true 상태로 Dynamic Actor 생성
         MeshComp->CreatePhysicsState();
+
+        // 래그돌 모드 활성화 - bSimulatingRagdoll을 true로 설정해야
+        // TickComponent에서 UpdateBoneTransformsFromPhysics()가 호출됨
+        // MeshComp->SetAllBodiesSimulatePhysics(true);
     }
 
     bIsSimulating = true;
@@ -4167,21 +4170,31 @@ void SPhysicsAssetEditorWindow::StopSimulation()
 
         // 3. 원래 포즈로 복원
         MeshComp->ResetToRefPose();
+
+        // 4. 캐릭터를 원점(바닥 위)으로 복원
+        ActiveState->PreviewActor->SetActorLocation(FVector(0.0f, 0.0f, 0.0f));
     }
 
-    // 4. 바닥 액터 제거
-    if (FloorActor && ActiveState->World)
+    // 5. 바닥의 물리 상태 정리 (바닥 액터는 유지)
+    if (ActiveState->FloorActor)
     {
-        ActiveState->World->GetLevel()->RemoveActor(FloorActor);
-        ObjectFactory::DeleteObject(FloorActor);
-        FloorActor = nullptr;
+        if (UBoxComponent* BoxComp = ActiveState->FloorActor->GetBoxComponent())
+        {
+            BoxComp->DestroyPhysicsState();
+        }
     }
 
-    // 5. PreviewWorld의 Physics 비활성화 (선택적)
-    UWorld* PreviewWorld = ActiveState->World;
-    if (PreviewWorld)
+    // 6. PhysScene 비활성화
+    // 시뮬레이션 중지 시에는 PhysScene도 정리해야 함.
+    // DestroyPhysicsState() 후 PhysScene의 active actors 캐시에 dangling 포인터가 남아있어
+    // 다음 UWorld::Tick()의 EndFrame()에서 크래시가 발생할 수 있음.
+    //
+    // 주의: DestroyViewerState()에서는 EnablePhysicsSimulation(false)를 호출하면 안 됨!
+    //       (World 삭제 전에 PhysScene이 먼저 삭제되면 Actor 삭제 시 크래시)
+    //       하지만 StopSimulation()에서는 Editor가 계속 실행되므로 안전함.
+    if (ActiveState->World)
     {
-        PreviewWorld->EnablePhysicsSimulation(false);
+        ActiveState->World->EnablePhysicsSimulation(false);
     }
 
     bIsSimulating = false;
