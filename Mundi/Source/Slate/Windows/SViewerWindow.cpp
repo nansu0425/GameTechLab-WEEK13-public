@@ -140,6 +140,11 @@ SViewerWindow::~SViewerWindow()
 		DeleteObject(IconBone);
 		IconBone = nullptr;
 	}
+    if (IconLoad)
+    {
+        DeleteObject(IconLoad);
+        IconLoad = nullptr;
+    }
 	if (IconSave)
 	{
 		DeleteObject(IconSave);
@@ -595,6 +600,30 @@ void SViewerWindow::RenderTabsAndToolbar(EViewerType CurrentViewerType)
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Save Changes");
     
     if (bIsSaveButtonDisabled)
+    {
+        ImGui::EndDisabled();
+    }
+
+    // Load Button
+    ImGui::SameLine();
+    const bool bIsLoadButtonDisabled = (ActiveState == nullptr);
+    if (bIsLoadButtonDisabled)
+    {
+        ImGui::BeginDisabled();
+    }
+    
+    if (IconLoad && IconLoad->GetShaderResourceView())
+    {
+        if (ImGui::ImageButton("##LoadBtn", (void*)IconLoad->GetShaderResourceView(), IconSizeVec))
+        {
+            if (ActiveState)
+            {
+                OnLoad();
+            }
+        }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Load Asset");
+    }
+    if (bIsLoadButtonDisabled)
     {
         ImGui::EndDisabled();
     }
@@ -1447,6 +1476,9 @@ void SViewerWindow::LoadViewerToolbarIcons(ID3D11Device* Device)
     // 뷰어 아이콘 로드
     IconSave = NewObject<UTexture>();
     IconSave->Load(GDataDir + "/Icon/Toolbar_Save.png", Device);
+
+    IconLoad = NewObject<UTexture>();
+    IconLoad->Load(GDataDir + "/Icon/Toolbar_Load.png", Device);
 
     IconSkeletalViewer = NewObject<UTexture>();
     IconSkeletalViewer->Load(GDataDir + "/Icon/Skeletal_Viewer.png", Device);

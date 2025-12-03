@@ -110,3 +110,41 @@ bool PhysicsAssetEditorBootstrap::SavePhysicsAsset(UPhysicsAsset* Asset, const F
     UE_LOG("[PhysicsAssetEditorBootstrap] SavePhysicsAsset: 저장 성공: %s", Path.c_str());
     return true;
 }
+
+UPhysicsAsset* PhysicsAssetEditorBootstrap::LoadPhysicsAsset(const FString& Path)
+{
+    if (Path.empty())
+    {
+        UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: FilePath가 비어있습니다.");
+        return nullptr;
+    }
+    
+    UPhysicsAsset* CachedAsset = UResourceManager::GetInstance().GetPhysicsAsset(Path);    
+    if (CachedAsset)
+    {
+        UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: 캐시된 애셋 반환: %s", Path.c_str());
+        return CachedAsset;
+    }
+
+    FWideString WidePath = UTF8ToWide(Path);
+    
+    JSON JsonHandle;
+    if (!FJsonSerializer::LoadJsonFromFile(JsonHandle, WidePath))
+    {
+        UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: 파일 로드 실패: %s", Path.c_str());
+        return nullptr;
+    }
+
+    UPhysicsAsset* NewAsset = NewObject<UPhysicsAsset>();
+    if (!NewAsset)
+    {
+        UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: PhysicsAsset 객체 생성 실패");
+        return nullptr;
+    }
+    NewAsset->Serialize(true, JsonHandle);
+
+    UResourceManager::GetInstance().AddOrReplacePhysicsAsset(Path, NewAsset);
+    UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: 로드 성공: %s", Path.c_str());
+
+    return NewAsset;
+}

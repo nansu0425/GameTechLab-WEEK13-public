@@ -948,6 +948,7 @@ void SPhysicsAssetEditorWindow::OnSave()
         L"PhysicsAsset Files",       // 파일 타입 설명
         L"NewPhysicsAsset"     // 기본 파일명
     );
+    
     if (SavePath.empty())
     {
         UE_LOG("[SPhysicsAssetEditorWindow] OnSave: 사용자가 취소했습니다");
@@ -955,6 +956,7 @@ void SPhysicsAssetEditorWindow::OnSave()
     }
 
     FString SavePathStr = ResolveAssetRelativePath(NormalizePath(WideToUTF8(SavePath.wstring())), "");
+    PhysicsAsset->SetMeshFilePath(ActiveState->CurrentMesh->GetPathFileName());
     if (PhysicsAssetEditorBootstrap::SavePhysicsAsset(PhysicsAsset, SavePathStr))
     {
         UResourceManager::GetInstance().AddOrReplacePhysicsAsset(SavePathStr, PhysicsAsset);
@@ -966,6 +968,44 @@ void SPhysicsAssetEditorWindow::OnSave()
         UE_LOG("[SPhysicsAssetEditorWindow] PhysicsAsset 저장 실패: %s", SavePathStr.c_str());
     }
     
+}
+
+void SPhysicsAssetEditorWindow::OnLoad()
+{
+    if (!ActiveState)
+    {
+        return;
+    }
+    
+    std::filesystem::path SelectedPath = FPlatformProcess::OpenLoadFileDialog(
+        L"Data/PhysicsAsset",
+        L"PhysicsAsset",
+        L"PhysicsAsset Files"
+    );
+    
+    if (SelectedPath.empty())
+    {
+        return;
+    }
+
+    FString SelectedPathStr = ResolveAssetRelativePath(NormalizePath(WideToUTF8(SelectedPath.wstring())), "");
+    if (UPhysicsAsset* Asset = PhysicsAssetEditorBootstrap::LoadPhysicsAsset(SelectedPathStr))
+    {
+        ActiveState->CurrentPhysicsAsset = Asset;
+        ActiveState->CurrentMesh->SetPhysicsAsset(Asset);
+        if (ActiveState->PreviewActor && ActiveState->PreviewActor->GetSkeletalMeshComponent())
+        {
+            ActiveState->PreviewActor->GetSkeletalMeshComponent()->SetPhysicsAsset(Asset);
+        }
+        
+        UE_LOG("[SPhysicsAssetEditorWindow] PhysicsAsset 불러오기 성공: %s", SelectedPathStr.c_str());
+        ActiveState->bBoneLinesDirty = true;
+        bCollisionShapesDirty = true;
+    }
+    else
+    {
+        UE_LOG("[SPhysicsAssetEditorWindow] PhysicsAsset 불러오기 실패: %s", SelectedPathStr.c_str());
+    }
 }
 
 void SPhysicsAssetEditorWindow::LoadSkeletalMesh(ViewerState* State, const FString& Path)
@@ -1028,8 +1068,6 @@ void SPhysicsAssetEditorWindow::LoadSkeletalMesh(ViewerState* State, const FStri
 
         UE_LOG("SPhysicsAssetEditorWindow: Loaded skeletal mesh from %s", Path.c_str());
 
-        // 직렬화/역직렬화 시 메시에 적합한 애셋 선택할 수 있도록 경로 기억
-        State->CurrentPhysicsAsset->SetMeshFilePath(Path);
     }
     else
     {
@@ -3030,6 +3068,20 @@ void SPhysicsAssetEditorWindow::BuildConstraintSetup(const FName& ParentBoneName
 
     // Drive disabled
     OutSetup.Profile.bEnableDrive = false;
+}
+
+void SPhysicsAssetEditorWindow::BuildAfterLoad()
+{
+    TArray<FConstraintSetup>& ConstraintSetups = ActiveState->CurrentPhysicsAsset->GetConstraintSetupsMutable();
+    if (ConstraintSetups.IsEmpty())
+    {
+        return;
+    }
+
+    for (const auto& Setup : ConstraintSetups)
+    {
+        
+    }
 }
 
 int32 SPhysicsAssetEditorWindow::FindFirstChildBone(int32 BoneIndex, const FSkeleton* Skeleton) const

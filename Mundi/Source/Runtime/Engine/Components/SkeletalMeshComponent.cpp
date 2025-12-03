@@ -285,6 +285,14 @@ FTransform USkeletalMeshComponent::GetBoneWorldTransform(int32 BoneIndex)
     return GetWorldTransform(); // 실패 시 컴포넌트 위치 반환
 }
 
+void USkeletalMeshComponent::SetPhysicsAsset(UPhysicsAsset* InAsset)
+{
+    if (GetSkeletalMesh())
+    {
+        GetSkeletalMesh()->SetPhysicsAsset(InAsset);
+    }
+}
+
 void USkeletalMeshComponent::ForceRecomputePose()
 {
     if (!SkeletalMesh) { return; } 

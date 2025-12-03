@@ -17,14 +17,17 @@ void UPhysicsAsset::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 
     if (bInIsLoading)
     {
-        JSON MeshJson;
-        FString SavedMeshFilePath = {};
-        FJsonSerializer::ReadString(MeshJson, "MeshFilePath", SavedMeshFilePath);
-        if (SavedMeshFilePath != MeshFilePath)
-        {
-            UE_LOG("스켈레탈과 애셋이 일치하지 않습니다.");
-            return;
-        }
+        // JSON MeshJson;
+        // if (FJsonSerializer::ReadObject(InOutHandle, "Mesh", MeshJson))
+        // {
+        //     FString SavedMeshFilePath = {};
+        //     FJsonSerializer::ReadString(MeshJson, "MeshFilePath", SavedMeshFilePath);
+        //     if (SavedMeshFilePath != MeshFilePath)
+        //     {
+        //         UE_LOG("스켈레탈과 애셋이 일치하지 않습니다.");
+        //         return;
+        //     }
+        // }
         
         BodySetups.Empty();
         ConstraintSetups.Empty();
@@ -40,8 +43,9 @@ void UPhysicsAsset::Serialize(const bool bInIsLoading, JSON& InOutHandle)
                 JSON& BodyJson = Pair.second;
                 UBodySetup* NewBody = NewObject<UBodySetup>();
                 // BoneName
-                FString BoneName = NewBody->BoneName.ToString();
+                FString BoneName;
                 FJsonSerializer::ReadString(BodyJson, "Bone", BoneName);
+                NewBody->BoneName = FName(BoneName);
                 // BodyType 및 기본 치수
                 int32 BodyTypeValue = 0;
                 FJsonSerializer::ReadInt32(BodyJson, "BodyType", BodyTypeValue);
@@ -113,6 +117,7 @@ void UPhysicsAsset::Serialize(const bool bInIsLoading, JSON& InOutHandle)
         {
             JSON MeshJson;
             MeshJson["MeshFilePath"] = MeshFilePath;
+            InOutHandle["Mesh"] = MeshJson;
         }
 
         // Bodies
@@ -471,12 +476,18 @@ void UPhysicsAsset::SerializeConstraintSetup(bool bIsLoading, JSON& InOut, FCons
 {
     if (bIsLoading)
     {
-        FString JointName = Setup.JointName.ToString();
+        FString JointName;
         FJsonSerializer::ReadString(InOut, "JointName", JointName);
-        FString ConstraintBone1 = Setup.ConstraintBone1.ToString();
+        Setup.JointName = FName(JointName);
+        
+        FString ConstraintBone1;
         FJsonSerializer::ReadString(InOut, "Child", ConstraintBone1);
-        FString ConstraintBone2 = Setup.ConstraintBone2.ToString();
+        Setup.ConstraintBone1 = FName(ConstraintBone1);
+        
+        FString ConstraintBone2;
         FJsonSerializer::ReadString(InOut, "Parent", ConstraintBone2);
+        Setup.ConstraintBone2 = FName(ConstraintBone2);
+        
         SerializeConstraintFrame(true, InOut["Frame1"], Setup.Frame1);
         SerializeConstraintFrame(true, InOut["Frame2"], Setup.Frame2);
         FJsonSerializer::ReadQuat(InOut, "AngularOffset", Setup.AngularRotationOffset);

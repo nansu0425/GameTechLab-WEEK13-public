@@ -140,7 +140,8 @@ UPhysicsAsset* UResourceManager::GetPhysicsAsset(const FString& InFilePath)
     {
         return It->second;
     }
-    // TODO 맵에 없으면 Json 로드
+
+    return nullptr;
 }
 
 FMeshBVH* UResourceManager::GetMeshBVH(const FString& ObjPath)

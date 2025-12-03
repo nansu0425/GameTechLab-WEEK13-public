@@ -110,6 +110,9 @@ public:
 	TArray<FBodyInstance*> GetBodies() { return Bodies; }
 	TArray<FConstraintInstance*> GetConstraints() { return Constraints; }
 
+    void SetPhysicsAsset(UPhysicsAsset* InAsset);
+    
+
 protected:
     /**
      * @brief CurrentLocalSpacePose의 변경사항을 ComponentSpace -> FinalMatrices 계산까지 모두 수행

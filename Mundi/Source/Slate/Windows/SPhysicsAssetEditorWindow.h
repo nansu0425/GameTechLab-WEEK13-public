@@ -22,6 +22,7 @@ protected:
     void RenderToolsPanel();
 
     virtual void OnSave() override;
+    virtual void OnLoad() override;
 
 private:
     // Load a skeletal mesh into the active tab
@@ -69,6 +70,7 @@ private:
     void GenerateAllConstraints();
     void CreateConstraintBetweenBodies(int ParentBodyIndex, int ChildBodyIndex);
     void BuildConstraintSetup(const FName& ParentBoneName, const FName& ChildBoneName, const FTransform& ParentWT, const FTransform& ChildWT, const FVector& ParentCapsuleCenter, const FVector& ChildCapsuleCenter, const FVector& ComponentScale, struct FConstraintSetup& OutSetup);
+    void BuildAfterLoad();
 
     // Helper functions for above
     int32 FindFirstChildBone(int32 BoneIndex, const FSkeleton* Skeleton) const;
