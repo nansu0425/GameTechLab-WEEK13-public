@@ -369,43 +369,217 @@ void USkeletalMeshComponent::InitializeConstraints()
     USkeletalMesh* Mesh = GetSkeletalMesh();
     if (!Mesh || !Mesh->GetPhysicsAsset())
     {
+        UE_LOG("[Ragdoll] InitializeConstraints: No mesh or physics asset");
         return;
     }
-    
+
     UPhysicsAsset* PhysicsAsset = Mesh->GetPhysicsAsset();
-    
+
     const TArray<FConstraintSetup>& Setups = PhysicsAsset->GetContraintSetups();
     int32 SetupCount = PhysicsAsset->GetConstraintSetupCount();
-    
+
     ClearConstraints();
-    
-    Constraints.Reserve(SetupCount);
-    for (const FConstraintSetup& Setup : Setups)
+
+    // PhysicsAsset에 Constraint가 정의되어 있으면 그걸 사용
+    if (SetupCount > 0)
     {
-        FBodyInstance* Child = FindBodyInstance(Setup.ConstraintBone1);        
-        if (!Child)
-        {
-            UE_LOG("[USkeletalMeshComponent/InitializeConstraints] Cant find body");
-            continue;
-        }
-        FConstraintInstance* NewJoint = new FConstraintInstance();
+        UE_LOG("[Ragdoll] InitializeConstraints: Using %d predefined constraint setups", SetupCount);
 
-        Setup.CopyToInstance(*NewJoint);
-
-        NewJoint->ChildBody = Child;
-        NewJoint->ParentBody = FindBodyInstance(Setup.ConstraintBone2);
-        
-        NewJoint->Initialize();
-
-        if (NewJoint->IsValid())
+        Constraints.Reserve(SetupCount);
+        int32 SuccessCount = 0;
+        for (const FConstraintSetup& Setup : Setups)
         {
-            Constraints.Add(NewJoint);
+            FBodyInstance* Child = FindBodyInstance(Setup.ConstraintBone1);
+            if (!Child)
+            {
+                UE_LOG("[Ragdoll] Constraint: Can't find child body for bone '%s'", Setup.ConstraintBone1.ToString().c_str());
+                continue;
+            }
+
+            FBodyInstance* Parent = FindBodyInstance(Setup.ConstraintBone2);
+            if (!Parent)
+            {
+                UE_LOG("[Ragdoll] Constraint: Can't find parent body for bone '%s' (child: '%s')",
+                    Setup.ConstraintBone2.ToString().c_str(), Setup.ConstraintBone1.ToString().c_str());
+                continue;
+            }
+
+            FConstraintInstance* NewJoint = new FConstraintInstance();
+
+            Setup.CopyToInstance(*NewJoint);
+
+            NewJoint->ChildBody = Child;
+            NewJoint->ParentBody = Parent;
+
+            NewJoint->Initialize();
+
+            if (NewJoint->IsValid())
+            {
+                Constraints.Add(NewJoint);
+                SuccessCount++;
+            }
+            else
+            {
+                UE_LOG("[Ragdoll] Constraint: Joint creation failed for '%s' -> '%s'",
+                    Setup.ConstraintBone1.ToString().c_str(), Setup.ConstraintBone2.ToString().c_str());
+                delete NewJoint;
+            }
         }
-        else
+
+        UE_LOG("[Ragdoll] InitializeConstraints: Created %d/%d constraints successfully", SuccessCount, SetupCount);
+    }
+    else
+    {
+        // PhysicsAsset에 Constraint가 없으면 스켈레톤 계층 구조 기반으로 자동 생성
+        UE_LOG("[Ragdoll] InitializeConstraints: No predefined constraints, auto-generating from skeleton hierarchy");
+
+        const FSkeleton* Skeleton = Mesh->GetSkeleton();
+        if (!Skeleton)
         {
-            delete NewJoint;
+            UE_LOG("[Ragdoll] InitializeConstraints: No skeleton found");
+            return;
         }
-    }   
+
+        TArray<UBodySetup*>& BodySetups = PhysicsAsset->GetBodySetups();
+        int32 SuccessCount = 0;
+
+        // 각 BodySetup에 대해 부모 본을 찾아서 Constraint 생성
+        for (int32 i = 0; i < BodySetups.Num(); ++i)
+        {
+            UBodySetup* ChildSetup = BodySetups[i];
+            if (!ChildSetup)
+            {
+                continue;
+            }
+
+            FBodyInstance* ChildBody = Bodies[i];
+            if (!ChildBody)
+            {
+                continue;
+            }
+
+            // 이 본의 인덱스 찾기
+            int32 ChildBoneIndex = Mesh->GetBoneIndexFromBoneName(ChildSetup->BoneName);
+            if (ChildBoneIndex == -1)
+            {
+                continue;
+            }
+
+            // 부모 본 찾기 (물리 바디가 있는 가장 가까운 조상)
+            int32 ParentBoneIndex = Skeleton->Bones[ChildBoneIndex].ParentIndex;
+            FBodyInstance* ParentBody = nullptr;
+
+            while (ParentBoneIndex != -1)
+            {
+                FName ParentBoneName = FName(Skeleton->Bones[ParentBoneIndex].Name);
+                ParentBody = FindBodyInstance(ParentBoneName);
+                if (ParentBody)
+                {
+                    break;
+                }
+                ParentBoneIndex = Skeleton->Bones[ParentBoneIndex].ParentIndex;
+            }
+
+            // 부모 바디가 없으면 (루트 본) 스킵
+            if (!ParentBody)
+            {
+                continue;
+            }
+
+            // Constraint 생성
+            FConstraintInstance* NewJoint = new FConstraintInstance();
+            NewJoint->ChildBody = ChildBody;
+            NewJoint->ParentBody = ParentBody;
+
+            // ═══════════════════════════════════════════════════════════════
+            // Joint 앵커를 Rigid Body 로컬 공간 기준으로 계산
+            // 캡슐 중심은 본 원점이 아닌 본-자식본 중간점에 위치하므로 보정 필요
+            // ═══════════════════════════════════════════════════════════════
+
+            // Child Body의 캡슐 중심 오프셋 가져오기 (BodySetup의 SphylElems에서)
+            FVector ChildCapsuleLocalCenter = FVector::Zero();
+            if (ChildSetup->AggGeom.SphylElems.Num() > 0)
+            {
+                ChildCapsuleLocalCenter = ChildSetup->AggGeom.SphylElems[0].Center;
+            }
+
+            // Parent Body의 캡슐 중심 오프셋 가져오기
+            FVector ParentCapsuleLocalCenter = FVector::Zero();
+            for (int32 j = 0; j < BodySetups.Num(); ++j)
+            {
+                if (BodySetups[j] && BodySetups[j]->BoneName == FName(Skeleton->Bones[ParentBoneIndex].Name))
+                {
+                    if (BodySetups[j]->AggGeom.SphylElems.Num() > 0)
+                    {
+                        ParentCapsuleLocalCenter = BodySetups[j]->AggGeom.SphylElems[0].Center;
+                    }
+                    break;
+                }
+            }
+
+            // Child Body 로컬 공간에서 본 원점 위치 (캡슐 중심 → 본 원점)
+            NewJoint->Pos1 = -ChildCapsuleLocalCenter;
+            NewJoint->PriAxis1 = FVector(1, 0, 0);  // X축
+            NewJoint->SecAxis1 = FVector(0, 1, 0);  // Y축
+
+            // Parent Body 로컬 공간에서 Child 본 위치 계산
+            // CurrentComponentSpacePose를 직접 사용 (월드 스케일 없이 뼈 로컬 스케일 유지)
+            const FTransform& ChildBoneComponent = CurrentComponentSpacePose[ChildBoneIndex];
+            const FTransform& ParentBoneComponent = CurrentComponentSpacePose[ParentBoneIndex];
+
+            // Parent 본 기준 Child 본 상대 위치
+            // GetRelativeTransform: Parent 좌표계에서 Child가 어디에 있는지 반환
+            FTransform RelativeTransform = ParentBoneComponent.GetRelativeTransform(ChildBoneComponent);
+            FVector ChildPosInParentBone = RelativeTransform.Translation;
+
+            UE_LOG("[Ragdoll] DEBUG Bone '%s': ChildComponent=(%.2f,%.2f,%.2f) Scale=(%.4f,%.4f,%.4f)",
+                ChildSetup->BoneName.ToString().c_str(),
+                ChildBoneComponent.Translation.X, ChildBoneComponent.Translation.Y, ChildBoneComponent.Translation.Z,
+                ChildBoneComponent.Scale3D.X, ChildBoneComponent.Scale3D.Y, ChildBoneComponent.Scale3D.Z);
+            UE_LOG("[Ragdoll] DEBUG: ParentComponent=(%.2f,%.2f,%.2f) RelativePos=(%.2f,%.2f,%.2f)",
+                ParentBoneComponent.Translation.X, ParentBoneComponent.Translation.Y, ParentBoneComponent.Translation.Z,
+                ChildPosInParentBone.X, ChildPosInParentBone.Y, ChildPosInParentBone.Z);
+
+            // Parent Body 로컬 공간으로 변환 (본 원점 → 캡슐 중심 오프셋 적용)
+            NewJoint->Pos2 = ChildPosInParentBone - ParentCapsuleLocalCenter;
+            NewJoint->PriAxis2 = FVector(1, 0, 0);
+            NewJoint->SecAxis2 = FVector(0, 1, 0);
+
+            // 기본 프로필 설정 (적당한 제한)
+            NewJoint->Profile.Swing1Motion = EJointMotion::Limited;
+            NewJoint->Profile.Swing1LimitsAngle = 45.0f;
+            NewJoint->Profile.Swing2Motion = EJointMotion::Limited;
+            NewJoint->Profile.Swing2LimitsAngle = 45.0f;
+            NewJoint->Profile.TwistMotion = EJointMotion::Limited;
+            NewJoint->Profile.TwistLimit = 30.0f;
+            NewJoint->Profile.LinearMotionX = EJointMotion::Locked;
+            NewJoint->Profile.LinearMotionY = EJointMotion::Locked;
+            NewJoint->Profile.LinearMotionZ = EJointMotion::Locked;
+            NewJoint->Profile.bDisableCollision = true;
+
+            NewJoint->Initialize();
+
+            if (NewJoint->IsValid())
+            {
+                Constraints.Add(NewJoint);
+                SuccessCount++;
+                UE_LOG("[Ragdoll] Constraint %s: Pos1=(%.2f,%.2f,%.2f) Pos2=(%.2f,%.2f,%.2f) ChildCenter=(%.2f,%.2f,%.2f) ParentCenter=(%.2f,%.2f,%.2f)",
+                    ChildSetup->BoneName.ToString().c_str(),
+                    NewJoint->Pos1.X, NewJoint->Pos1.Y, NewJoint->Pos1.Z,
+                    NewJoint->Pos2.X, NewJoint->Pos2.Y, NewJoint->Pos2.Z,
+                    ChildCapsuleLocalCenter.X, ChildCapsuleLocalCenter.Y, ChildCapsuleLocalCenter.Z,
+                    ParentCapsuleLocalCenter.X, ParentCapsuleLocalCenter.Y, ParentCapsuleLocalCenter.Z);
+            }
+            else
+            {
+                UE_LOG("[Ragdoll] Auto-constraint creation failed for bone '%s'",
+                    ChildSetup->BoneName.ToString().c_str());
+                delete NewJoint;
+            }
+        }
+
+        UE_LOG("[Ragdoll] InitializeConstraints: Auto-created %d constraints from skeleton hierarchy", SuccessCount);
+    }
 }
 
 void USkeletalMeshComponent::CreatePhysicsState()
@@ -417,6 +591,7 @@ void USkeletalMeshComponent::CreatePhysicsState()
     if (!Mesh)
     {
         return;
+
     }
 
     UPhysicsAsset* PhysicsAsset = Mesh->GetPhysicsAsset();
