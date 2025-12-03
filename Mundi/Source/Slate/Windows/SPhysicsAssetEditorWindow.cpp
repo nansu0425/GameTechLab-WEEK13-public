@@ -924,11 +924,18 @@ void SPhysicsAssetEditorWindow::LoadSkeletalMesh(ViewerState* State, const FStri
         State->PreviewActor->SetSkeletalMesh(Path);
         State->CurrentMesh = Mesh;
 
-        // Create or load PhysicsAsset for this skeletal mesh
-        if (!State->CurrentPhysicsAsset)
+        // SkeletalMesh의 기존 PhysicsAsset을 사용하거나, 없으면 새로 생성하여 연결
+        UPhysicsAsset* ExistingPhysicsAsset = Mesh->GetPhysicsAsset();
+        if (ExistingPhysicsAsset)
+        {
+            State->CurrentPhysicsAsset = ExistingPhysicsAsset;
+            UE_LOG("SPhysicsAssetEditorWindow: Using existing PhysicsAsset from SkeletalMesh %s", Path.c_str());
+        }
+        else
         {
             State->CurrentPhysicsAsset = NewObject<UPhysicsAsset>();
-            UE_LOG("SPhysicsAssetEditorWindow: Created new PhysicsAsset for %s", Path.c_str());
+            Mesh->SetPhysicsAsset(State->CurrentPhysicsAsset);
+            UE_LOG("SPhysicsAssetEditorWindow: Created new PhysicsAsset and linked to SkeletalMesh %s", Path.c_str());
         }
 
         // Expand all bone nodes by default on mesh load
