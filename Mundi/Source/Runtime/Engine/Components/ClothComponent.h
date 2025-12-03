@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "PrimitiveComponent.h"
 #include "UClothComponent.generated.h"
@@ -6,6 +6,8 @@
 // 전방 선언
 class UClothAsset;
 class UMeshComponent;
+class UDynamicMesh;
+class UMaterial;
 
 namespace nv
 {
@@ -38,9 +40,10 @@ public:
 
 	void OnRegister(UWorld* InWorld) override;
 	void OnUnregister() override;
-	void BeginPlay() override;
-	void EndPlay() override;
 	void TickComponent(float DeltaTime) override;
+
+	// Rendering
+	void CollectMeshBatches(TArray<FMeshBatchElement>& OutMeshBatchElements, const FSceneView* View) override;
 
 	// ═══════════════════════════════════════════════════════════════════════
 	// Cloth Asset
@@ -63,6 +66,14 @@ public:
 	/** 중력 벡터 */
 	UPROPERTY(EditAnywhere, Category = "Cloth")
 	FVector Gravity = FVector(0.0f, 0.0f, -980.0f);
+
+	/** 바람 벡터 (외력) */
+	UPROPERTY(EditAnywhere, Category = "Cloth")
+	FVector Wind = FVector(500.0f, 0.0f, 0.0f);
+
+	/** 바람 적용 여부 */
+	UPROPERTY(EditAnywhere, Category = "Cloth")
+	bool bEnableWind = true;
 
 	/** Damping (0~1, 높을수록 움직임 감소) */
 	UPROPERTY(EditAnywhere, Category = "Cloth")
@@ -117,6 +128,12 @@ public:
 	/** 렌더링 메쉬 컴포넌트 접근 */
 	UMeshComponent* GetRenderMeshComponent() const { return RenderMeshComponent; }
 
+	/** Get dynamic mesh for rendering */
+	UDynamicMesh* GetDynamicMesh() const { return DynamicMesh; }
+
+	/** Set material for cloth rendering */
+	void SetClothMaterial(UMaterial* InMaterial);
+
 protected:
 	/** Cloth 시뮬레이션 결과를 렌더링 메쉬에 반영 */
 	void UpdateRenderMesh();
@@ -136,6 +153,12 @@ private:
 
 	/** 렌더링 메쉬 컴포넌트 (동적 메쉬 업데이트용) */
 	UMeshComponent* RenderMeshComponent = nullptr;
+
+	/** Dynamic mesh for cloth rendering */
+	UDynamicMesh* DynamicMesh = nullptr;
+
+	/** Material for cloth */
+	UMaterial* ClothMaterial = nullptr;
 
 	/** Cloth 시뮬레이션 런타임 상태 */
 	bool bSimulatingCloth = false;

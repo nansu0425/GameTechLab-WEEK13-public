@@ -273,15 +273,19 @@ void UWorld::Tick(float DeltaSeconds)
 
 
 	// 1. Pre-simulation 작업 (확장용)
-	if (bPie && PhysScene && PhysScene->IsInitialized())
+	if (PhysScene && PhysScene->IsInitialized())
 	{
 		PhysScene->StartFrame();
 	}
 
-	// 2. 물리 시뮬레이션 시작 (비블로킹) - PIE 모드에서만
-	if (bPie && PhysScene && PhysScene->IsInitialized())
+	// 2. 물리 시뮬레이션 시작 (비블로킹)
+	// ★ 에디터에서도 Cloth 시뮬레이션을 위해 항상 실행
+	if (PhysScene && PhysScene->IsInitialized())
 	{
-		PhysScene->Tick(GetDeltaTime(EDeltaTime::Game));
+		// PIE: Game delta time 사용
+		// Editor: Unscaled delta time 사용 (에디터는 pause 없음)
+		float PhysDeltaTime = bPie ? GetDeltaTime(EDeltaTime::Game) : DeltaSeconds;
+		PhysScene->Tick(PhysDeltaTime);
 	}
 
 	// 3. Actor Tick (물리 시뮬레이션과 병렬 실행)
@@ -328,8 +332,9 @@ void UWorld::Tick(float DeltaSeconds)
 		CollisionManager->UpdateCollisions(GetDeltaTime(EDeltaTime::Game));
 	}
 
-	// 4. 렌더링 전 물리 결과 수집 (시뮬레이션 완료 대기) - PIE 모드에서만
-	if (bPie && PhysScene && PhysScene->IsInitialized())
+	// 4. 렌더링 전 물리 결과 수집 (시뮬레이션 완료 대기)
+	// ★ 에디터에서도 Cloth 시뮬레이션을 위해 항상 실행
+	if (PhysScene && PhysScene->IsInitialized())
 	{
 		PhysScene->EndFrame();
 	}

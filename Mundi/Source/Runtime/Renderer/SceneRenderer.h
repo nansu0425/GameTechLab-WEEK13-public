@@ -30,6 +30,7 @@ class FSceneView;
 class FTileLightCuller;
 class ULineComponent;
 class UParticleSystemComponent;
+class UClothComponent;
 
 struct FCandidateDrawable;
 
@@ -42,6 +43,7 @@ struct FVisibleRenderProxySet
 	TArray<UDecalComponent*> Decals;
 	TArray<UTextRenderComponent*> Texts;
 	TArray<UParticleSystemComponent*> ParticleSystems;
+	TArray<UClothComponent*> Cloths;
 
 	// --- Type 2: In-Scene Editor (PP X, Depth-Test O) ---
 	TArray<ULineComponent*> EditorLines;	// 그리드

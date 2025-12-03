@@ -5,7 +5,6 @@
 
 class UClothComponent;
 class UClothAsset;
-class ULineComponent;
 
 UCLASS(DisplayName = "Cloth Actor", Description = "Simple cloth simulation actor for testing")
 class AClothActor : public AActor
@@ -16,15 +15,12 @@ public:
 	AClothActor();
 	~AClothActor() override;
 
-	void BeginPlay() override;
-	void Tick(float DeltaTime) override;
-
 	// Cloth parameters (editable in editor)
 	UPROPERTY(EditAnywhere, Category = "Cloth")
-	float ClothWidth = 10.0f;
+	float ClothWidth = 5.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Cloth")
-	float ClothHeight = 10.0f;
+	float ClothHeight = 5.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Cloth")
 	int32 ResolutionX = 15;
@@ -36,23 +32,15 @@ public:
 	FVector Gravity = FVector(0.0f, 0.0f, -980.0f);
 
 	UPROPERTY(EditAnywhere, Category = "Cloth")
-	float Damping = 0.2f;
+	float Damping = 0.8f;  // 높은 damping으로 떨림 방지
 
 	UPROPERTY(EditAnywhere, Category = "Cloth")
-	float StiffnessFrequency = 10.0f;
+	float StiffnessFrequency = 100.0f;  // 매우 높은 강성도 (늘어남 방지)
 
 private:
 	void InitializeCloth();
-	void UpdateVisualization();
-	void InitializeLineCache();
 
 	UClothComponent* ClothComponent = nullptr;
 	UClothAsset* ClothAsset = nullptr;
-	ULineComponent* LineComponent = nullptr;
 	bool bClothInitialized = false;
-
-	// Line cache for performance (avoid recreating ULine objects every frame)
-	TArray<class ULine*> CachedLines;
-	TArray<std::pair<uint32, uint32>> UniqueEdgeList; // Pre-computed edge list
-	bool bLineCacheInitialized = false;
 };

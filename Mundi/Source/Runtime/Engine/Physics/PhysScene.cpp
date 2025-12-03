@@ -498,6 +498,38 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
         // 보간 Alpha 업데이트 (시뮬레이션 여부와 무관하게 매 프레임 수행)
         StatManager.SetAccumulatedTimeRatio(GetInterpolationAlpha());
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // NvCloth 시뮬레이션 (비동기 모드에서도 동작)
+        // ═══════════════════════════════════════════════════════════════════════
+        if (FClothCore::GetInstance().IsInitialized())
+        {
+            nv::cloth::Solver* ClothSolver = FClothCore::GetInstance().GetSolver();
+            if (ClothSolver)
+            {
+                int32 NumCloths = ClothSolver->getNumCloths();
+
+                static bool bLoggedClothSim = false;
+                if (!bLoggedClothSim && NumCloths > 0)
+                {
+                    bLoggedClothSim = true;
+                    UE_LOG("[PhysScene] Cloth simulation running: %d cloths, DeltaTime=%.4f\n", NumCloths, DeltaSeconds);
+                }
+
+                if (NumCloths > 0)
+                {
+                    ClothSolver->beginSimulation(DeltaSeconds);
+
+                    int32 NumChunks = ClothSolver->getSimulationChunkCount();
+                    for (int32 i = 0; i < NumChunks; ++i)
+                    {
+                        ClothSolver->simulateChunk(i);
+                    }
+
+                    ClothSolver->endSimulation();
+                }
+            }
+        }
+
         // 렌더 보간은 FetchResults() 이후에 수행 (getActiveActors는 시뮬레이션 중 호출 불가)
         return;
     }
@@ -563,6 +595,31 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
     UpdateRenderInterpolation(Alpha);
     uint64 InterpEndCycles = FPlatformTime::Cycles64();
     StatManager.RecordInterpolationUpdateTime(FPlatformTime::ToMilliseconds(InterpEndCycles - InterpStartCycles));
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // NvCloth 시뮬레이션 (동기 모드)
+    // ═══════════════════════════════════════════════════════════════════════
+    if (NumSteps > 0 && FClothCore::GetInstance().IsInitialized())
+    {
+        nv::cloth::Solver* ClothSolver = FClothCore::GetInstance().GetSolver();
+        if (ClothSolver)
+        {
+            int32 NumCloths = ClothSolver->getNumCloths();
+            if (NumCloths > 0)
+            {
+                float ClothDeltaTime = NumSteps * FixedTimestep;
+                ClothSolver->beginSimulation(ClothDeltaTime);
+
+                int32 NumChunks = ClothSolver->getSimulationChunkCount();
+                for (int32 i = 0; i < NumChunks; ++i)
+                {
+                    ClothSolver->simulateChunk(i);
+                }
+
+                ClothSolver->endSimulation();
+            }
+        }
+    }
 }
 
 void FPhysSceneImpl::FetchResults()
