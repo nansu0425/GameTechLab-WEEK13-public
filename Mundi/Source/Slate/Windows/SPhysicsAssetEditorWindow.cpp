@@ -2150,7 +2150,11 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType Pri
     TArray<FBoneVertexInfluence> InfluenceMap;
     BuildBoneVertexInfluenceMap(MeshData, InfluenceMap, 0.3f);  // 30% weight threshold
 
-    // Step 2: Create bodies for bones with sufficient vertex influence
+    // Step 2: Track bones that are absorbed into parent bodies
+    // (e.g., clavicle absorbed into spine_05, so don't create separate clavicle body)
+    TArray<int32> AbsorbedBones;
+
+    // Step 3: Create bodies for bones with sufficient vertex influence
     const TArray<FBone>& Bones = Skeleton->Bones;
     int32 CreatedCount = 0;
 
@@ -2163,23 +2167,34 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType Pri
         if (BoneIndex < 0 || BoneIndex >= InfluenceMap.Num())
             continue;
 
+        // Skip if this bone was absorbed into a parent body
+        if (AbsorbedBones.Contains(BoneIndex))
+        {
+            UE_LOG("GenerateAllBodies: Skipping bone '%s' - already absorbed into parent body", Bone.Name.c_str());
+            continue;
+        }
+
         // Apply same filtering logic as bone-length generation
         if (!ShouldCreateBodyForBone(BoneIndex, Skeleton))
             continue;
 
         // For vertex-driven generation, also check vertex count
         const FBoneVertexInfluence& Influence = InfluenceMap[BoneIndex];
-        if (Influence.Vertices.Num() < 50)  // Need significant vertex influence for meaningful shape
+
+        FString BoneName_Lower = Bone.Name;
+        std::transform(BoneName_Lower.begin(), BoneName_Lower.end(), BoneName_Lower.begin(), ::tolower);
+
+        // Exception: neck should always create body (even with few vertices) to absorb head
+        bool bIsNeck = (BoneName_Lower.find("neck") != FString::npos);
+
+        if (!bIsNeck && Influence.Vertices.Num() < 50)  // Need significant vertex influence for meaningful shape
         {
             continue;
         }
 
         // Collect vertices for fitting
-        // For hand/foot/pelvis, include descendant/child bone vertices
+        // For hand/foot/pelvis/neck, include descendant/child bone vertices
         TArray<FVector> VerticesToFit = Influence.Vertices;
-
-        FString BoneName_Lower = Bone.Name;
-        std::transform(BoneName_Lower.begin(), BoneName_Lower.end(), BoneName_Lower.begin(), ::tolower);
 
         bool bIsHandOrFoot =
             (BoneName_Lower.find("hand") != FString::npos) ||
@@ -2192,15 +2207,30 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType Pri
         if (bIsHandOrFoot)
         {
             // Include all descendant bones' vertices (fingers/toes)
+            TArray<FString> AbsorbedBoneNames;
             for (int32 i = 0; i < Bones.size(); ++i)
             {
                 if (IsDescendantOf(i, BoneIndex, Bones) && i < InfluenceMap.Num())
                 {
                     VerticesToFit.Append(InfluenceMap[i].Vertices);
+                    // Mark descendant as absorbed (don't create separate body)
+                    if (!AbsorbedBones.Contains(i))
+                    {
+                        AbsorbedBones.Add(i);
+                        AbsorbedBoneNames.Add(Bones[i].Name);
+                    }
                 }
             }
-            UE_LOG("GenerateAllBodies: Hand/Foot '%s' - expanded to %d vertices (including descendants)",
-                Bone.Name.c_str(), VerticesToFit.Num());
+
+            FString AbsorbedList = "";
+            for (int32 idx = 0; idx < AbsorbedBoneNames.Num(); ++idx)
+            {
+                if (idx > 0) AbsorbedList += ", ";
+                AbsorbedList += AbsorbedBoneNames[idx];
+            }
+
+            UE_LOG("GenerateAllBodies: Hand/Foot '%s' - expanded to %d vertices, absorbed %d bones: [%s]",
+                Bone.Name.c_str(), VerticesToFit.Num(), AbsorbedBoneNames.Num(), AbsorbedList.c_str());
         }
         else if (bIsPelvis)
         {
@@ -2244,10 +2274,189 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType Pri
             UE_LOG("GenerateAllBodies: Pelvis '%s' - expanded from %d to %d vertices (distance-filtered)",
                 Bone.Name.c_str(), VertexCountBefore, VerticesToFit.Num());
         }
+        else if (bIsNeck)
+        {
+            // Neck should absorb head (descendant) to create natural head capsule
+            TArray<FString> AbsorbedBoneNames;
+            for (int32 i = 0; i < Bones.size(); ++i)
+            {
+                if (IsDescendantOf(i, BoneIndex, Bones) && i < InfluenceMap.Num())
+                {
+                    VerticesToFit.Append(InfluenceMap[i].Vertices);
+                    // Mark descendant as absorbed (don't create separate body)
+                    if (!AbsorbedBones.Contains(i))
+                    {
+                        AbsorbedBones.Add(i);
+                        AbsorbedBoneNames.Add(Bones[i].Name);
+                    }
+                }
+            }
+
+            FString AbsorbedList = "";
+            for (int32 idx = 0; idx < AbsorbedBoneNames.Num(); ++idx)
+            {
+                if (idx > 0) AbsorbedList += ", ";
+                AbsorbedList += AbsorbedBoneNames[idx];
+            }
+
+            UE_LOG("GenerateAllBodies: Neck '%s' - expanded to %d vertices, absorbed %d bones: [%s]",
+                Bone.Name.c_str(), VerticesToFit.Num(), AbsorbedBoneNames.Num(), AbsorbedList.c_str());
+        }
         else
         {
-            UE_LOG("GenerateAllBodies: Processing bone %s with %d influenced vertices",
-                Bone.Name.c_str(), Influence.Vertices.Num());
+            // Check if this is a spine/chest bone (torso)
+            bool bIsSpine =
+                (BoneName_Lower.find("spine") != FString::npos) ||
+                (BoneName_Lower.find("chest") != FString::npos);
+
+            if (bIsSpine)
+            {
+                // Spine bones should encompass nearby torso structures:
+                // - Upper spine (spine_05) → includes clavicles, scapulae
+                // - Mid spine (spine_03/04) → includes ribs, neck base
+                // - Lower spine (spine_01/02) → includes lower torso
+
+                TArray<int32> Children;
+                GetAllChildBones(BoneIndex, Skeleton, Children);
+
+                FTransform SpineWorldTM = MeshComp->GetBoneWorldTransform(BoneIndex);
+                SpineWorldTM.Scale3D = FVector(1, 1, 1);
+                FVector SpinePos = SpineWorldTM.Translation;
+
+                // Find sibling bones and children to determine coverage area
+                // Siblings: bones with same parent (e.g., clavicle_l/r share spine_05 parent)
+                TArray<int32> Siblings;
+                int32 ParentIdx = Bone.ParentIndex;
+                if (ParentIdx >= 0)
+                {
+                    for (int32 i = 0; i < Bones.size(); ++i)
+                    {
+                        if (i != BoneIndex && Bones[i].ParentIndex == ParentIdx)
+                        {
+                            Siblings.Add(i);
+                        }
+                    }
+                }
+
+                // Calculate max distance from spine to related bones
+                float MaxRelatedBoneDist = 0.f;
+
+                // Check children bones (e.g., next spine segment, neck)
+                for (int32 ChildIdx : Children)
+                {
+                    FTransform ChildTM = MeshComp->GetBoneWorldTransform(ChildIdx);
+                    ChildTM.Scale3D = FVector(1, 1, 1);
+                    float Dist = (ChildTM.Translation - SpinePos).Size();
+                    MaxRelatedBoneDist = FMath::Max(MaxRelatedBoneDist, Dist);
+                }
+
+                // Check sibling bones (e.g., clavicles attached to upper spine)
+                for (int32 SiblingIdx : Siblings)
+                {
+                    FTransform SiblingTM = MeshComp->GetBoneWorldTransform(SiblingIdx);
+                    SiblingTM.Scale3D = FVector(1, 1, 1);
+                    float Dist = (SiblingTM.Translation - SpinePos).Size();
+                    MaxRelatedBoneDist = FMath::Max(MaxRelatedBoneDist, Dist);
+                }
+
+                // Expand radius to cover torso volume
+                // Use a larger multiplier for spine since it's the torso "core"
+                float MaxVertexDistance = MaxRelatedBoneDist * 2.5f;
+
+                int32 VertexCountBefore = VerticesToFit.Num();
+
+                // Include children's vertices (e.g., upper spine chain)
+                // EXCLUDE neck - it should be its own body that absorbs head
+                TArray<int32> AbsorbedChildren;
+                for (int32 ChildIdx : Children)
+                {
+                    if (ChildIdx < InfluenceMap.Num())
+                    {
+                        // Check if this child is a neck bone - don't absorb it
+                        FString ChildName = Bones[ChildIdx].Name;
+                        std::transform(ChildName.begin(), ChildName.end(), ChildName.begin(), ::tolower);
+                        bool bIsNeck = (ChildName.find("neck") != FString::npos) || (ChildName.find("head") != FString::npos);
+
+                        if (bIsNeck)
+                        {
+                            UE_LOG("GenerateAllBodies: Spine '%s' - skipping child '%s' (neck/head should be separate body)",
+                                Bone.Name.c_str(), Bones[ChildIdx].Name.c_str());
+                            continue;  // Skip neck - let it be its own body
+                        }
+
+                        int32 ChildVertexCount = 0;
+                        for (const FVector& Vert : InfluenceMap[ChildIdx].Vertices)
+                        {
+                            if ((Vert - SpinePos).Size() <= MaxVertexDistance)
+                            {
+                                VerticesToFit.Add(Vert);
+                                ChildVertexCount++;
+                            }
+                        }
+
+                        // If most of child's vertices were absorbed, mark as absorbed
+                        if (ChildVertexCount > 0 && ChildVertexCount >= InfluenceMap[ChildIdx].Vertices.Num() * 0.7f)
+                        {
+                            if (!AbsorbedBones.Contains(ChildIdx))
+                            {
+                                AbsorbedBones.Add(ChildIdx);
+                                AbsorbedChildren.Add(ChildIdx);
+                            }
+                        }
+                    }
+                }
+
+                // Include siblings' vertices (e.g., clavicles, scapulae, shoulders for upper spine)
+                TArray<int32> AbsorbedSiblings;
+                for (int32 SiblingIdx : Siblings)
+                {
+                    if (SiblingIdx < InfluenceMap.Num())
+                    {
+                        FString SiblingName = Bones[SiblingIdx].Name;
+                        std::transform(SiblingName.begin(), SiblingName.end(), SiblingName.begin(), ::tolower);
+
+                        // Only include torso-related siblings (not arms/legs)
+                        bool bIsTorsoSibling =
+                            (SiblingName.find("clavicle") != FString::npos) ||
+                            (SiblingName.find("scapula") != FString::npos) ||
+                            (SiblingName.find("shoulder") != FString::npos) ||  // Added shoulder
+                            (SiblingName.find("neck") != FString::npos) ||
+                            (SiblingName.find("spine") != FString::npos) ||
+                            (SiblingName.find("chest") != FString::npos);
+
+                        if (bIsTorsoSibling)
+                        {
+                            int32 SiblingVertexCount = 0;
+                            for (const FVector& Vert : InfluenceMap[SiblingIdx].Vertices)
+                            {
+                                if ((Vert - SpinePos).Size() <= MaxVertexDistance)
+                                {
+                                    VerticesToFit.Add(Vert);
+                                    SiblingVertexCount++;
+                                }
+                            }
+
+                            // If most of sibling's vertices were absorbed, mark as absorbed
+                            if (SiblingVertexCount > 0 && SiblingVertexCount >= InfluenceMap[SiblingIdx].Vertices.Num() * 0.7f)
+                            {
+                                if (!AbsorbedBones.Contains(SiblingIdx))
+                                {
+                                    AbsorbedBones.Add(SiblingIdx);
+                                    AbsorbedSiblings.Add(SiblingIdx);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                UE_LOG("GenerateAllBodies: Spine '%s' - expanded from %d to %d vertices (torso integration, radius=%.1f)",
+                    Bone.Name.c_str(), VertexCountBefore, VerticesToFit.Num(), MaxVertexDistance);
+            }
+            else
+            {
+                UE_LOG("GenerateAllBodies: Processing bone %s with %d influenced vertices",
+                    Bone.Name.c_str(), Influence.Vertices.Num());
+            }
         }
 
         // Create new BodySetup
@@ -2305,7 +2514,25 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType Pri
         // Compute bone-local center and rotation (same rules as CreateBodyForBone)
         FVector LocalCenter;
         FQuat   LocalRotation;
-        CalculateBoneLocalShapeTransform(BoneIndex, Skeleton, MeshComp, LocalCenter, LocalRotation);
+
+        // Neck/Head should use fitted center from vertices to properly cover head mesh
+        if (bIsNeck)
+        {
+            // Convert world-space fitted center to bone-local space
+            FTransform BoneWorldTM = MeshComp->GetBoneWorldTransform(BoneIndex);
+            BoneWorldTM.Scale3D = FVector(1, 1, 1);
+            LocalCenter = BoneWorldTM.Inverse().TransformPosition(FittedCenter);
+            // Convert world rotation to bone-local rotation
+            LocalRotation = BoneWorldTM.Rotation.Inverse() * FittedRotation;
+
+            UE_LOG("GenerateAllBodies: Neck '%s' - using vertex-fitted center (local: %.1f, %.1f, %.1f)",
+                Bone.Name.c_str(), LocalCenter.X, LocalCenter.Y, LocalCenter.Z);
+        }
+        else
+        {
+            // Other bones use bone-local center
+            CalculateBoneLocalShapeTransform(BoneIndex, Skeleton, MeshComp, LocalCenter, LocalRotation);
+        }
 
         // Create final primitive: use bone-local center/rotation and vertex-fitted dimensions
         switch (PrimitiveType)
@@ -2773,7 +3000,7 @@ void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex
     // 2) LocalRotation --------------------------------
     // Align collider Z-axis with bone direction
     FVector WorldDir = (ChildWorldPos - BoneWorldPos).GetSafeNormal();
-    if (!WorldDir.IsZero())
+    if (WorldDir.IsZero())
     {
         FVector LocalDir = InvRot.RotateVector(WorldDir);
         OutLocalRotation = FQuat::FindBetween(FVector(0, 0, 1), LocalDir);
