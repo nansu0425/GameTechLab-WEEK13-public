@@ -23,6 +23,10 @@ public:
     void TickComponent(float DeltaTime) override;
     void SetSkeletalMesh(const FString& PathFileName) override;
 
+    // 물리 상태 생성/파괴 (다중 BodyInstance 지원)
+    void CreatePhysicsState() override;
+    void DestroyPhysicsState() override;
+
     // Animation Integration
 public:
     void SetAnimInstance(class UAnimInstance* InInstance);

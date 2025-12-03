@@ -32,12 +32,7 @@ USkeletalMeshComponent::~USkeletalMeshComponent()
 void USkeletalMeshComponent::BeginPlay()
 {
     Super::BeginPlay();
-    PhysicsTest();
-    // UBodySetup* BodySetup = NewObject<UBodySetup>();
-    // FSphylElem SPhylElem(5.0f, 10.0f);
-    // BodySetup->AggGeom.SphylElems.Add(SPhylElem);
-    // FBodyInstance& Body = GetBodyInstanceRef();
-    // Body.InitBody(BodySetup, GetWorldTransform(), this, GetWorld()->GetPhysScene());
+    // CreatePhysicsState()는 Super::BeginPlay() 내부에서 호출됨
 }
 
 
@@ -405,15 +400,18 @@ void USkeletalMeshComponent::InitializeConstraints()
     }   
 }
 
-void USkeletalMeshComponent::PhysicsTest()
+void USkeletalMeshComponent::CreatePhysicsState()
 {
+    // 부모의 단일 BodyInstance 로직은 사용하지 않음 (Super 호출 안 함)
+    // 스켈레탈 메시는 본마다 별도의 FBodyInstance를 생성
+
     USkeletalMesh* Mesh = GetSkeletalMesh();
     if (!Mesh)
     {
         return;
     }
-    
-    UPhysicsAsset* PhysicsAsset = GetSkeletalMesh() ? GetSkeletalMesh()->GetPhysicsAsset() : nullptr;
+
+    UPhysicsAsset* PhysicsAsset = Mesh->GetPhysicsAsset();
     if (!PhysicsAsset)
     {
         return;
@@ -424,11 +422,11 @@ void USkeletalMeshComponent::PhysicsTest()
     {
         return;
     }
-    
+
     TArray<UBodySetup*>& Setups = PhysicsAsset->GetBodySetups();
     int32 SetupCount = Setups.Num();
     ClearBodies();
-    Bodies.Reserve(SetupCount);    
+    Bodies.Reserve(SetupCount);
     for (int32 i = 0; i < SetupCount; ++i)
     {
         UBodySetup* CurrentSetup = Setups[i];
@@ -436,21 +434,33 @@ void USkeletalMeshComponent::PhysicsTest()
         {
             continue;
         }
-        
-        int32 BoneIndex = Mesh->GetBoneIndexFromBoneName(CurrentSetup->BoneName);        
+
+        int32 BoneIndex = Mesh->GetBoneIndexFromBoneName(CurrentSetup->BoneName);
         if (BoneIndex != -1)
         {
             FBodyInstance* Body = new FBodyInstance();
             FTransform BoneWorld = GetBoneWorldTransform(BoneIndex);
             BoneWorld.Scale3D = FVector(1.0f, 1.0f, 1.0f);
-            UE_LOG("before Scene %p", PhysScene->GetPxScene());
-            Body->bSimulatePhysics = false;
-            Body->bEnableGravity = false;            
+            Body->bSimulatePhysics = bSimulatePhysics;
+            Body->bEnableGravity = bEnableGravity;
+            Body->bIsTrigger = bIsTrigger;
             Body->InitBody(CurrentSetup, BoneWorld, this, PhysScene);
-            // Body->InitBody(CurrentSetup, GetWorldTransform(), this, PhysScene);
             Bodies.Add(Body);
-        }        
+        }
     }
+}
+
+void USkeletalMeshComponent::DestroyPhysicsState()
+{
+    // 부모의 단일 BodyInstance 로직은 사용하지 않음 (Super 호출 안 함)
+    ClearBodies();
+    ClearConstraints();
+}
+
+void USkeletalMeshComponent::PhysicsTest()
+{
+    // CreatePhysicsState()로 이동됨 - 호환성을 위해 유지
+    CreatePhysicsState();
 }
 
 void USkeletalMeshComponent::ClearBodies()
