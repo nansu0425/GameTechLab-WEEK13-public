@@ -926,11 +926,18 @@ void SPhysicsAssetEditorWindow::LoadSkeletalMesh(ViewerState* State, const FStri
         State->PreviewActor->SetSkeletalMesh(Path);
         State->CurrentMesh = Mesh;
 
-        // Create or load PhysicsAsset for this skeletal mesh
-        if (!State->CurrentPhysicsAsset)
+        // SkeletalMesh의 기존 PhysicsAsset을 사용하거나, 없으면 새로 생성하여 연결
+        UPhysicsAsset* ExistingPhysicsAsset = Mesh->GetPhysicsAsset();
+        if (ExistingPhysicsAsset)
+        {
+            State->CurrentPhysicsAsset = ExistingPhysicsAsset;
+            UE_LOG("SPhysicsAssetEditorWindow: Using existing PhysicsAsset from SkeletalMesh %s", Path.c_str());
+        }
+        else
         {
             State->CurrentPhysicsAsset = NewObject<UPhysicsAsset>();
-            UE_LOG("SPhysicsAssetEditorWindow: Created new PhysicsAsset for %s", Path.c_str());
+            Mesh->SetPhysicsAsset(State->CurrentPhysicsAsset);
+            UE_LOG("SPhysicsAssetEditorWindow: Created new PhysicsAsset and linked to SkeletalMesh %s", Path.c_str());
         }
 
         // Expand all bone nodes by default on mesh load
@@ -2692,12 +2699,49 @@ void SPhysicsAssetEditorWindow::CreateConstraintForBone(int32 ChildBoneIndex)
     FTransform ChildWT = MeshComp->GetBoneWorldTransform(ChildBoneIndex);
     FTransform ParentWT = MeshComp->GetBoneWorldTransform(ParentIndex);
 
+    // 본 이름으로 BodySetup 찾아서 캡슐 정보 추출
+    FVector ParentCapsuleCenter = FVector::Zero();
+    float ParentCapsuleHalfHeight = 0.0f;
+    float ParentCapsuleRadius = 1.0f;
+    FQuat ParentCapsuleRotation = FQuat::Identity();
+    FVector ChildCapsuleCenter = FVector::Zero();
+
+    const TArray<UBodySetup*>& Bodies = PhysicsAsset->GetBodySetups();
+    for (UBodySetup* Body : Bodies)
+    {
+        if (Body && Body->BoneName == FName(Parent.Name.c_str()))
+        {
+            if (!Body->AggGeom.SphylElems.IsEmpty())
+            {
+                const FSphylElem& Capsule = Body->AggGeom.SphylElems[0];
+                ParentCapsuleCenter = Capsule.Center;
+                ParentCapsuleHalfHeight = Capsule.Length * 0.5f; // FSphylElem.Length는 전체 길이
+                ParentCapsuleRadius = Capsule.Radius;
+                ParentCapsuleRotation = Capsule.Rotation;
+            }
+        }
+        if (Body && Body->BoneName == FName(Child.Name.c_str()))
+        {
+            if (!Body->AggGeom.SphylElems.IsEmpty())
+                ChildCapsuleCenter = Body->AggGeom.SphylElems[0].Center;
+        }
+    }
+
+    // 컴포넌트 스케일 가져오기 (월드 트랜스폼을 로컬로 변환할 때 필요)
+    FVector ComponentScale = MeshComp->GetWorldTransform().Scale3D;
+
     FConstraintSetup Setup;
     BuildConstraintSetup(
         FName(Parent.Name.c_str()),
         FName(Child.Name.c_str()),
         ParentWT,
         ChildWT,
+        ParentCapsuleCenter,
+        ParentCapsuleHalfHeight,
+        ParentCapsuleRadius,
+        ParentCapsuleRotation,
+        ChildCapsuleCenter,
+        ComponentScale,
         Setup
     );
 
@@ -2809,12 +2853,39 @@ void SPhysicsAssetEditorWindow::CreateConstraintBetweenBodies(int ParentBodyInde
     FTransform ParentWT = Mesh->GetBoneWorldTransform(ParentBoneIndex);
     FTransform ChildWT = Mesh->GetBoneWorldTransform(ChildBoneIndex);
 
+    // 캡슐 정보 추출
+    FVector ParentCapsuleCenter = FVector::Zero();
+    float ParentCapsuleHalfHeight = 0.0f;
+    float ParentCapsuleRadius = 1.0f;
+    FQuat ParentCapsuleRotation = FQuat::Identity();
+    FVector ChildCapsuleCenter = FVector::Zero();
+
+    if (!ParentBody->AggGeom.SphylElems.IsEmpty())
+    {
+        const FSphylElem& Capsule = ParentBody->AggGeom.SphylElems[0];
+        ParentCapsuleCenter = Capsule.Center;
+        ParentCapsuleHalfHeight = Capsule.Length * 0.5f; // FSphylElem.Length는 전체 길이
+        ParentCapsuleRadius = Capsule.Radius;
+        ParentCapsuleRotation = Capsule.Rotation;
+    }
+    if (!ChildBody->AggGeom.SphylElems.IsEmpty())
+        ChildCapsuleCenter = ChildBody->AggGeom.SphylElems[0].Center;
+
+    // 컴포넌트 스케일 가져오기 (월드 트랜스폼을 로컬로 변환할 때 필요)
+    FVector ComponentScale = Mesh->GetWorldTransform().Scale3D;
+
     FConstraintSetup Setup;
     BuildConstraintSetup(
         ParentBody->BoneName,
         ChildBody->BoneName,
         ParentWT,
         ChildWT,
+        ParentCapsuleCenter,
+        ParentCapsuleHalfHeight,
+        ParentCapsuleRadius,
+        ParentCapsuleRotation,
+        ChildCapsuleCenter,
+        ComponentScale,
         Setup
     );
 
@@ -2825,7 +2896,7 @@ void SPhysicsAssetEditorWindow::CreateConstraintBetweenBodies(int ParentBodyInde
         ParentBody->BoneName.ToString().c_str());
 }
 
-void SPhysicsAssetEditorWindow::BuildConstraintSetup(const FName& ParentBoneName, const FName& ChildBoneName, const FTransform& ParentWT, const FTransform& ChildWT, FConstraintSetup& OutSetup)
+void SPhysicsAssetEditorWindow::BuildConstraintSetup(const FName& ParentBoneName, const FName& ChildBoneName, const FTransform& ParentWT, const FTransform& ChildWT, const FVector& ParentCapsuleCenter, float ParentCapsuleHalfHeight, float ParentCapsuleRadius, const FQuat& ParentCapsuleRotation, const FVector& ChildCapsuleCenter, const FVector& ComponentScale, FConstraintSetup& OutSetup)
 {
     OutSetup = FConstraintSetup(); // reset
 
@@ -2841,16 +2912,74 @@ void SPhysicsAssetEditorWindow::BuildConstraintSetup(const FName& ParentBoneName
     PWT.Scale3D = FVector(1, 1, 1);
     CWT.Scale3D = FVector(1, 1, 1);
 
-    // Child frame at child origin
-    OutSetup.Frame1.Pos = FVector::Zero();
-    OutSetup.Frame1.PriAxis = FVector(1, 0, 0);
-    OutSetup.Frame1.SecAxis = FVector(0, 1, 0);
+    // ========== 본 방향 기반 축 계산 ==========
+    // Parent → Child 방향 = 본의 길이 방향 = Twist 축 (PhysX X축)
+    FVector BoneDirection = (CWT.Translation - PWT.Translation).GetSafeNormal();
 
-    // Parent frame: child origin expressed in parent local space
-    FVector ChildInParent = PWT.Inverse().TransformPosition(CWT.Translation);
-    OutSetup.Frame2.Pos = ChildInParent;
-    OutSetup.Frame2.PriAxis = FVector(1, 0, 0);
-    OutSetup.Frame2.SecAxis = FVector(0, 1, 0);
+    // 본 방향이 거의 0인 경우 (같은 위치) 기본 축 사용
+    if (BoneDirection.IsZero())
+    {
+        BoneDirection = FVector(1, 0, 0);
+    }
+
+    FVector WorldPriAxis = BoneDirection;
+
+    // SecAxis = PriAxis에 수직인 축 계산
+    // 월드 Up 벡터와 외적하여 수직 축 생성
+    FVector WorldUp = FVector(0, 0, 1);
+    FVector WorldSecAxis = FVector::Cross(WorldPriAxis, WorldUp).GetSafeNormal();
+
+    // PriAxis가 WorldUp과 거의 평행한 경우 대체 축 사용
+    if (WorldSecAxis.IsZero())
+    {
+        FVector WorldRight = FVector(0, 1, 0);
+        WorldSecAxis = FVector::Cross(WorldPriAxis, WorldRight).GetSafeNormal();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Frame 위치 계산 (월드 트랜스폼 기반, 컴포넌트 스케일로 나눠서 로컬화)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 핵심 수정: Parent 캡슐의 끝단(자식 방향)에서 약간 안쪽 지점에 조인트 위치
+    // 기존: 캡슐 중심에 연결 → 관절 접힐 때 스킨 부자연스러움
+    // 수정: 캡슐 끝단 안쪽에 연결 → 자연스러운 관절 움직임
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Child frame: Child 캡슐 중심에서 Child 본 원점(조인트 위치)으로의 오프셋
+    // Frame1 (Child): Child 본-로컬 좌표계로 월드 축 변환
+    OutSetup.Frame1.Pos = -ChildCapsuleCenter;
+    OutSetup.Frame1.PriAxis = CWT.Rotation.Inverse().RotateVector(WorldPriAxis);
+    OutSetup.Frame1.SecAxis = CWT.Rotation.Inverse().RotateVector(WorldSecAxis);
+
+    // Parent frame: 월드 좌표에서 Child 본의 Parent 본 기준 상대 위치 계산
+    // 월드 좌표 차이를 Parent 본 로컬로 변환 후 컴포넌트 스케일로 나눔
+    FVector ChildPosWorld = CWT.Translation;
+    FVector ParentPosWorld = PWT.Translation;
+
+    // Parent 본 로컬 좌표계에서 Child 본의 위치 (월드 스케일)
+    FVector ChildInParentWorld = PWT.Rotation.Inverse().RotateVector(ChildPosWorld - ParentPosWorld);
+
+    // 컴포넌트 스케일로 나눠서 본 로컬 스케일로 변환
+    // (월드 좌표는 컴포넌트 스케일이 적용된 상태이므로)
+    FVector ChildInParentLocal = FVector(
+        ChildInParentWorld.X / ComponentScale.X,
+        ChildInParentWorld.Y / ComponentScale.Y,
+        ChildInParentWorld.Z / ComponentScale.Z
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Frame2 (Parent) 위치 계산
+    //
+    // 언리얼 방식: Frame2.Pos = ChildInParentLocal - ParentCapsuleCenter
+    // - ChildInParentLocal: Parent 본 로컬 좌표계에서 Child 본의 원점 위치
+    // - ParentCapsuleCenter: Parent 본 로컬 좌표계에서 Parent 캡슐의 중심 위치
+    // - 결과: Parent 캡슐 로컬 좌표계에서 조인트(Child 본 원점) 위치
+    //
+    // Frame2.Pos = 캡슐 로컬 좌표계에서 조인트 위치
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    OutSetup.Frame2.Pos = ChildInParentLocal - ParentCapsuleCenter;
+    OutSetup.Frame2.PriAxis = PWT.Rotation.Inverse().RotateVector(WorldPriAxis);
+    OutSetup.Frame2.SecAxis = PWT.Rotation.Inverse().RotateVector(WorldSecAxis);
 
     // Angular limits
     OutSetup.Profile.Swing1Motion = EJointMotion::Limited;
@@ -3044,8 +3173,16 @@ void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex
     }
 
     // 1) LocalCenter ---------------------------------
-    // Compute bone midpoint in world space
-    // Special handling for multi-branch bones (pelvis/hips) and limbs (hand/foot)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 캡슐 중심 위치 계산 전략:
+    // 기존: 본 시작점과 자식 본 사이의 중간점 → 관절 접힘 시 빈 공간 발생
+    // 수정: 본 시작점에서 본 방향으로 HalfHeight만큼만 이동
+    //       → 캡슐 시작점이 본 원점(조인트 위치)과 일치하여 자연스러운 접힘
+    //
+    // 시각화:
+    // 기존: Bone──────[====●====]──────Child (●=center, 중간점)
+    // 수정: Bone[==●==]──────────────Child (●=center, 본 원점 기준)
+    // ═══════════════════════════════════════════════════════════════════════════
     const TArray<FBone>& Bones = Skeleton->Bones;
     FString BoneName = Bones[BoneIndex].Name;
     std::transform(BoneName.begin(), BoneName.end(), BoneName.begin(), ::tolower);
@@ -3067,13 +3204,49 @@ void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex
     else if (bIsPelvis)
     {
         // For pelvis/hips: keep center at pelvis position
-        // (Box primitive will adjust center separately)
         WorldCenter = BoneWorldPos;
     }
     else
     {
-        // Normal bones: use midpoint between bone and first child
-        WorldCenter = (BoneWorldPos + ChildWorldPos) * 0.5f;
+        // ═══════════════════════════════════════════════════════════════════════
+        // 캡슐 배치 전략: 본 원점에서 캡슐 시작점이 시작하도록 배치
+        //
+        // 문제: 캡슐 중심이 본 중간점에 있으면 관절 접힘 시 빈 공간 발생
+        // 해결: 캡슐 시작점(중심 - HalfHeight)이 본 원점과 일치하도록 배치
+        //
+        // 시각화:
+        // 기존: Joint───[====●====]───Child (캡슐 중심이 본 중간점)
+        //       접힘 시 빈 공간 ↗
+        //
+        // 수정: Joint(==●==)────────Child (캡슐 시작점이 본 원점)
+        //       접힘 시 캡슐이 조인트 위치에서 바로 시작 → 빈 공간 최소화
+        //
+        // 계산: 캡슐 길이(Length) = 본 길이 - 2*Radius (CalculateBodyDimensions에서)
+        //       캡슐 중심 = 본 원점 + 방향 * (Length/2 + Radius)
+        //       → 캡슐 시작점 = 중심 - HalfHeight = 본 원점 + Radius (반구 끝이 본 원점)
+        //
+        // 더 간단한 방법: 본 원점에서 Radius만큼 떨어진 곳에 캡슐 시작
+        // ═══════════════════════════════════════════════════════════════════════
+        FVector BoneDirection = (ChildWorldPos - BoneWorldPos).GetSafeNormal();
+        float BoneLength = (ChildWorldPos - BoneWorldPos).Size();
+
+        // 캡슐 파라미터 추정 (CalculateBodyDimensions와 동일한 로직)
+        // 캡슐이 약간 겹치도록 길이를 10% 늘림
+        const float OverlapFactor = 1.1f;
+        float EffectiveBoneLength = BoneLength * OverlapFactor;
+
+        const float MinRadius = 0.01f;
+        float EstimatedRadius = FMath::Max(EffectiveBoneLength * 0.25f, MinRadius);
+        float CylinderLength = EffectiveBoneLength - (EstimatedRadius * 2.0f);
+        CylinderLength = FMath::Max(CylinderLength, 0.01f);
+        float HalfHeight = CylinderLength * 0.5f;
+
+        // 캡슐 시작점(반구 시작)이 본 원점과 일치하도록 중심 위치 계산
+        // 캡슐 시작점 = Center - HalfHeight - Radius
+        // 캡슐 시작점 = 본 원점 원할 경우:
+        // Center = 본 원점 + HalfHeight + Radius
+        float CenterOffset = HalfHeight + EstimatedRadius;
+        WorldCenter = BoneWorldPos + BoneDirection * CenterOffset;
     }
 
     FVector WorldOffset = WorldCenter - BoneWorldPos;
@@ -3479,8 +3652,13 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
     }
     case EPrimitiveType::Capsule:
     {
-        float Radius = FMath::Max(BoneLength * 0.25f, MinRadius);
-        float CylinderLength = BoneLength - (Radius * 2.0f);
+        // 캡슐이 약간 겹치도록 길이를 10% 늘림
+        // 이렇게 하면 관절이 접힐 때 스킨이 자연스럽게 보임
+        const float OverlapFactor = 1.1f;  // 10% 오버랩
+        float EffectiveBoneLength = BoneLength * OverlapFactor;
+
+        float Radius = FMath::Max(EffectiveBoneLength * 0.25f, MinRadius);
+        float CylinderLength = EffectiveBoneLength - (Radius * 2.0f);
         CylinderLength = FMath::Max(CylinderLength, MinCylinderLength);
 
         // Special handling for pelvis: use full length for cylinder

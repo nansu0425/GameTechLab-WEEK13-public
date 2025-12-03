@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <FxCompile Include="Shaders\Materials\Fireball.hlsl">
@@ -1177,6 +1177,9 @@
     </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\Physics\PhysicsAsset.cpp">
       <Filter>Source\Runtime\Engine\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="Generated\UVehicleMovementComponent.generated.cpp">
+      <Filter>Generated</Filter>
     </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\Physics\ClothAsset.cpp">
       <Filter>Source\Runtime\Engine\Physics</Filter>
@@ -2533,6 +2536,9 @@
     </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\Physics\WheelSetup.h">
       <Filter>Source\Runtime\Engine\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Generated\UVehicleMovementComponent.generated.h">
+      <Filter>Generated</Filter>
     </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\GameFramework\Camera\CamMod_DoF.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\AggregateGeom.h" />

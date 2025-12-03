@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "PropertyRenderer.h"
 #include "ImGui/imgui.h"
 #include "Vector.h"
@@ -30,7 +30,7 @@
 #include "ParticleSystem.h"
 #include "CameraComponent.h"
 #include "WheelSetup.h"
-#include "Source/Runtime/Engine/Components/SimpleWheeledVehicleMovementComponent.h"
+#include "VehicleMovementComponent.h"
 
 // 정적 멤버 변수 초기화
 UObject* UPropertyRenderer::CurrentRenderingObject = nullptr;
@@ -1036,14 +1036,6 @@ bool UPropertyRenderer::RenderWheelArrayProperty(const FProperty& Prop, void* In
 
 	bool bChanged = false;
 
-	// 수동 초기화 버튼 (WheelSetup 변경 후 PhysX 재초기화)
-	USimpleWheeledVehicleMovementComponent* VehicleComp = static_cast<USimpleWheeledVehicleMovementComponent*>(Instance);
-	if (VehicleComp && ImGui::Button("Init Vehicle"))
-	{
-		VehicleComp->ResetVehicle();
-		bChanged = true;
-	}
-
 	char HeaderLabel[128];
 	sprintf_s(HeaderLabel, "%s [%d]", Prop.Name, WheelArray->Num());
 	bool bHeaderOpen = ImGui::TreeNode(Prop.Name, HeaderLabel);
@@ -1052,7 +1044,7 @@ bool UPropertyRenderer::RenderWheelArrayProperty(const FProperty& Prop, void* In
 	if (ImGui::SmallButton("+"))
 	{
 		FWheelSetup NewSetup{};
-		NewSetup.WheelRadius = 30.0f;
+		NewSetup.WheelRadius = 5.0f;
 		WheelArray->Add(NewSetup);
 		bChanged = true;
 	}
@@ -1102,7 +1094,7 @@ bool UPropertyRenderer::RenderWheelArrayProperty(const FProperty& Prop, void* In
 					bChanged = true;
 				}
 
-				if (ImGui::DragFloat("서스펜션 오프셋(Z)", &Setup.SuspensionOffsetZ, 1.0f))
+				if (ImGui::DragFloat3("기본 위치(로컬)", &Setup.DefaultPosition.X, 1.0f))
 				{
 					bChanged = true;
 				}
@@ -1113,6 +1105,13 @@ bool UPropertyRenderer::RenderWheelArrayProperty(const FProperty& Prop, void* In
 				}
 
 				if (ImGui::Checkbox("구동륜 여부", &Setup.bIsDriveWheel))
+				{
+					bChanged = true;
+				}
+
+				ImGui::SameLine();
+
+				if (ImGui::Checkbox("조향륜 여부", &Setup.bIsSteerableWheel))
 				{
 					bChanged = true;
 				}

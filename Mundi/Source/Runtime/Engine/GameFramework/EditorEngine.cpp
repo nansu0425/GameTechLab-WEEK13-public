@@ -7,6 +7,7 @@
 #include "PlatformCrashHandler.h"
 #include <ObjManager.h>
 #include "PhysicsCore.h"
+#include "PhysScene.h"
 #include "ClothCore.h"
 
 float UEditorEngine::ClientWidth = 1024.0f;
@@ -379,6 +380,9 @@ void UEditorEngine::StartPIE()
 {
     UE_LOG("[info] START PIE");
 
+    // PIE 시작 시 PVD 재연결 시도
+    FPhysicsCore::Get().ReconnectPvd();
+
     // Initialize ClothCore if not already initialized
     if (!FClothCore::GetInstance().IsInitialized())
     {
@@ -391,6 +395,12 @@ void UEditorEngine::StartPIE()
 
     GWorld = PIEWorld;
     SLATE.SetPIEWorld(GWorld);  // SLATE의 카메라를 가져와서 설정, TODO: 추후 월드의 카메라 컴포넌트를 가져와서 설정하도록 변경 필요
+
+    // PVD 재연결 후 PIE World의 PhysScene에 PVD 클라이언트 설정 갱신
+    if (FPhysScene* PhysScene = GWorld->GetPhysScene())
+    {
+        PhysScene->RefreshPvdClient();
+    }
 
     bPIEActive = true;
 

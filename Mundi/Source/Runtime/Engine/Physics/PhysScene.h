@@ -23,7 +23,7 @@ namespace physx
 
 // 전방 선언 (PhysX 의존성 없음)
 class UWorld;
-class USimpleWheeledVehicleMovementComponent;
+class UVehicleMovementComponent;
 class FPhysSceneImpl;  // PIMPL - 구현 숨김
 
 /**
@@ -131,6 +131,11 @@ public:
     physx::PxMaterial* GetDefaultMaterial() const;
 
     /**
+     * @brief PVD 클라이언트 설정 갱신 (PVD 재연결 후 호출)
+     */
+    void RefreshPvdClient();
+
+    /**
      * @brief 내부 구현 접근 (Physics 모듈 내부에서만 사용)
      *
      * 주의: FPhysSceneImpl은 PhysX 의존성이 있으므로
@@ -162,13 +167,13 @@ public:
     // ═══════════════════════════════════════════════════════════════════════
 
     /** VehicleMovementComponent 등록 */
-    void RegisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent);
+    void RegisterVehicleComponent(UVehicleMovementComponent* InComponent);
 
     /** VehicleMovementComponent 등록 해제 */
-    void UnregisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent);
+    void UnregisterVehicleComponent(UVehicleMovementComponent* InComponent);
 
     /** 등록된 VehicleMovementComponent 목록 반환 (무효 포인터 정리 후) */
-    TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>> GetRegisteredVehicleComponents() const;
+    TArray<TWeakObjectPtr<UVehicleMovementComponent>> GetRegisteredVehicleComponents() const;
 
 private:
     std::unique_ptr<FPhysSceneImpl> Impl;  // PIMPL - PhysX 구현 숨김

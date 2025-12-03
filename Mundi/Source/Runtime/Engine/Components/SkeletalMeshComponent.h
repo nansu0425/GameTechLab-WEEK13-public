@@ -45,6 +45,7 @@ public:
     void SetAnimationPosition(float InSeconds);
     float GetAnimationPosition();
     bool IsPlayingAnimation() const;
+    void SetAnimationUsage(bool bValue) { bUseAnimation = bValue; }
 
     //==== Minimal Lua-friendly helper to switch to a state machine anim instance ====
     UFUNCTION(LuaBind, DisplayName="UseStateMachine")
@@ -134,7 +135,7 @@ protected:
     void ClearBodies();
     void ClearConstraints();
 
-    void BuildPhysics();
+    // void BuildPhysics();
 
     // 래그돌: 물리 결과를 본 트랜스폼에 동기화
     void UpdateBoneTransformsFromPhysics();

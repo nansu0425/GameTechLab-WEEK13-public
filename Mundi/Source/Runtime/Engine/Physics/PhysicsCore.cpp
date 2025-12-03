@@ -209,6 +209,66 @@ void FPhysicsCore::DisconnectPvd()
     }
 }
 
+void FPhysicsCore::ReconnectPvd()
+{
+#ifdef _DEBUG
+    // PIE 시작 시 항상 강제 재연결하여 깨끗한 PVD 세션 보장
+    // (빠른 PIE 껐다키기 시 이전 세션 상태가 남아있는 문제 방지)
+
+    // 기존 연결 강제 해제 (연결 상태와 무관하게)
+    if (GPvd)
+    {
+        GPvd->disconnect();
+    }
+
+    // Transport 해제 및 재생성 (Transport는 재사용 불가)
+    if (GPvdTransport)
+    {
+        GPvdTransport->release();
+        GPvdTransport = nullptr;
+    }
+
+    // PVD가 없으면 생성
+    if (!GPvd)
+    {
+        GPvd = PxCreatePvd(*GFoundation);
+        if (!GPvd)
+        {
+            UE_LOG("FPhysicsCore: Failed to create PVD");
+            return;
+        }
+    }
+
+    // Transport 새로 생성 (짧은 timeout으로 빠른 연결 시도)
+    GPvdTransport = PxDefaultPvdSocketTransportCreate("127.0.0.1", 5425, 100);  // 100ms timeout
+    if (!GPvdTransport)
+    {
+        UE_LOG("FPhysicsCore: Failed to create PVD transport");
+        return;
+    }
+
+    // 연결 시도
+    bool bConnected = GPvd->connect(*GPvdTransport, PxPvdInstrumentationFlag::eALL);
+    if (bConnected)
+    {
+        UE_LOG("FPhysicsCore: PVD reconnected (127.0.0.1:5425)");
+    }
+    else
+    {
+        UE_LOG("FPhysicsCore: PVD reconnection failed - Make sure PVD app is running");
+    }
+#endif
+}
+
+bool FPhysicsCore::IsPvdConnected() const
+{
+#ifdef _DEBUG
+    return GPvd && GPvd->isConnected();
+#else
+    return false;
+#endif
+}
+
 PxMaterial* FPhysicsCore::CreateMaterial(float StaticFriction, float DynamicFriction, float Restitution)
 {
     if (!GPhysics)

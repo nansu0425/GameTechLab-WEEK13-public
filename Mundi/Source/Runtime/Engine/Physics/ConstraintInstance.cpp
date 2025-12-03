@@ -342,48 +342,57 @@ void FConstraintInstance::SetDisableCollision(bool bDisable)
 
 physx::PxTransform FConstraintInstance::CalcPxTransform(const FVector& Pos, const FVector& PriAxis, const FVector& SecAxis)
 {
-    physx::PxVec3 InputPos(Pos.X, Pos.Y, Pos.Z);
-    // physx::PxVec3 InputPriAxis(PriAxis.X, PriAxis.Y, PriAxis.Z);
-    // physx::PxVec3 InputSecAxis(SecAxis.X, SecAxis.Y, SecAxis.Z);
-    //
-    // physx::PxVec3 XAxis = InputPriAxis.getNormalized();
-    // physx::PxVec3 ZAxis = XAxis.cross(InputSecAxis).getNormalized();
+    using namespace PhysicsConversion;
 
-    // Forward
-    FVector XAxis = PriAxis.GetSafeNormal();
-    // Up
-    FVector ZAxis = FVector::Cross(XAxis, SecAxis.GetSafeNormal()).GetSafeNormal();
-    if (ZAxis.IsZero())
+    // 1. 위치 변환: Mundi → PhysX 좌표계
+    physx::PxVec3 PxPos = ToPxVec3(Pos);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PhysX D6 Joint 축 규약:
+    //   PhysX X축 = Twist 축 (원뿔 중심축)
+    //   PhysX Y축 = Swing1 방향
+    //   PhysX Z축 = Swing2 방향
+    //
+    // 전략: PhysX 좌표계에서 직접 축을 계산
+    // 1) PriAxis를 PhysX로 변환 → PhysX Twist 축 (X)
+    // 2) PhysX 좌표계에서 직교 축 계산
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // 2. PriAxis(Twist)와 SecAxis를 PhysX 좌표계로 변환
+    physx::PxVec3 PxTwist = ToPxVec3(PriAxis).getNormalized();
+    physx::PxVec3 PxSecAxis = ToPxVec3(SecAxis).getNormalized();
+
+    // 3. PhysX 좌표계에서 직교 좌표계 구성 (Right-Handed)
+    // X = Twist, Z = Cross(X, SecAxis), Y = Cross(Z, X)
+    physx::PxVec3 PxZAxis = PxTwist.cross(PxSecAxis);
+    if (PxZAxis.magnitudeSquared() < 1e-6f)
     {
-        FVector Right = FMath::Abs(XAxis.Y) < 0.99f ? FVector(0.0f, 1.0f, 0.0f) : FVector(-1.0f, 0.0f, 0.0f);
-        ZAxis = FVector::Cross(XAxis, Right).GetSafeNormal();        
+        // PriAxis와 SecAxis가 평행한 경우 대체 축 사용
+        physx::PxVec3 Fallback = fabsf(PxTwist.y) < 0.99f
+            ? physx::PxVec3(0.0f, 1.0f, 0.0f)
+            : physx::PxVec3(1.0f, 0.0f, 0.0f);
+        PxZAxis = PxTwist.cross(Fallback);
     }
-    FVector YAxis = FVector::Cross(ZAxis, XAxis).GetSafeNormal();
-    physx::PxMat33 BasisMatrix(
-        physx::PxVec3(XAxis.X, XAxis.Y, XAxis.Z),
-        physx::PxVec3(YAxis.X, YAxis.Y, YAxis.Z),
-        physx::PxVec3(ZAxis.X, ZAxis.Y, ZAxis.Z));
-    physx::PxQuat Rotation(BasisMatrix);
-    physx::PxQuat Offset(AngularRotationOffset.X, AngularRotationOffset.Y, AngularRotationOffset.Z, AngularRotationOffset.W);
-    Rotation = Rotation * Offset;
+    PxZAxis.normalize();
 
-    return physx::PxTransform(InputPos, Rotation);
-    
+    physx::PxVec3 PxYAxis = PxZAxis.cross(PxTwist);
+    PxYAxis.normalize();
 
-    // if (ZAxis.isZero())
-    // {
-    //     physx::PxVec3 Up = FMath::Abs(XAxis.y) < 0.99f ? physx::PxVec3(0, 1, 0) : physx::PxVec3(0, 0, 1);
-    //     ZAxis = XAxis.cross(Up).getNormalized();
-    // }
-    //
-    // physx::PxVec3 YAxis = ZAxis.cross(XAxis).getNormalized();
-    //
-    // physx::PxMat33 BasisMatrix(XAxis, YAxis, ZAxis);
-    // physx::PxQuat Rotation(BasisMatrix);
-    //
-    // Rotation = Rotation * Offset;
-    //
-    // return physx::PxTransform(InputPos, Rotation);
+    // 4. PhysX 회전 행렬 생성 (열 기준, Right-Handed)
+    // column0 = X축 (Twist), column1 = Y축 (Swing1), column2 = Z축 (Swing2)
+    physx::PxMat33 PxRotMat(PxTwist, PxYAxis, PxZAxis);
+    physx::PxQuat PxRot(PxRotMat);
+    PxRot.normalize();
+
+    // 5. AngularRotationOffset 적용 (PhysX 좌표계에서)
+    if (!AngularRotationOffset.IsIdentity())
+    {
+        physx::PxQuat PxOffset = ToPxQuat(AngularRotationOffset);
+        PxRot = PxRot * PxOffset;
+        PxRot.normalize();
+    }
+
+    return physx::PxTransform(PxPos, PxRot);
 }
 
 physx::PxD6Motion::Enum FConstraintInstance::ConvertMotion(EJointMotion Motion)
