@@ -134,6 +134,7 @@ enum class EPrimitiveType : uint32
     Sphere,
     Box,
     Capsule,
+    Convex,
 
     End,
 };
@@ -178,6 +179,8 @@ enum class EEngineShowFlags : uint64
 
     SF_Collision = 1ull << 21,    // Show/hide collision component debug shapes
     SF_CollisionBVH = 1ull << 22, // Show/hide collision BVH debug visualization
+
+    SF_PhysicsBodies = 1ull << 23, // Show/hide physics asset body setup colliders
 
     // Default enabled flags
     SF_DefaultEnabled = SF_Primitives | SF_StaticMeshes | SF_SkeletalMeshes | SF_Grid | SF_Lighting | SF_Decals |

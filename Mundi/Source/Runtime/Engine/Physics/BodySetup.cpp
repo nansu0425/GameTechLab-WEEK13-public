@@ -122,7 +122,7 @@ void UBodySetup::AddBoxElems(physx::PxRigidActor* RigidActor, physx::PxMaterial*
         PxVec3 PxHalfExtent = PhysicsConversion::ScaleToPxVec3(MundiHalfExtent);
         PxBoxGeometry BoxGeom(PxHalfExtent.x, PxHalfExtent.y, PxHalfExtent.z);
 
-        PxShape* Shape = Physics->createShape(BoxGeom, *DefaultMaterial);
+        PxShape* Shape = Physics->createShape(BoxGeom, *DefaultMaterial, true);
         if (Shape)
         {
             FTransform BoxTransform(BoxElem.Center, BoxElem.Rotation, FVector::One());
@@ -153,7 +153,7 @@ void UBodySetup::AddSphereElems(physx::PxRigidActor* RigidActor, physx::PxMateri
 
         PxSphereGeometry SphereGeom(Radius);
 
-        PxShape* Shape = Physics->createShape(SphereGeom, *DefaultMaterial);
+        PxShape* Shape = Physics->createShape(SphereGeom, *DefaultMaterial, true);
         if (Shape)
         {
             PxTransform LocalPose(PhysicsConversion::ToPxVec3(SphereElem.Center));
@@ -184,7 +184,7 @@ void UBodySetup::AddSphylElems(physx::PxRigidActor* RigidActor, physx::PxMateria
 
         PxCapsuleGeometry CapsuleGeom(Radius, ScaledHalfLength);
 
-        PxShape* Shape = Physics->createShape(CapsuleGeom, *DefaultMaterial);
+        PxShape* Shape = Physics->createShape(CapsuleGeom, *DefaultMaterial, true);
         if (Shape)
         {
             // PhysX Capsule은 기본적으로 PhysX X축 방향으로 누워있음
@@ -275,7 +275,7 @@ void UBodySetup::AddConvexElems(physx::PxRigidActor* RigidActor, physx::PxMateri
             );
 
             PxConvexMeshGeometry ConvexGeom(TargetMesh, PxScale);
-            PxShape* Shape = Physics->createShape(ConvexGeom, *DefaultMaterial);
+            PxShape* Shape = Physics->createShape(ConvexGeom, *DefaultMaterial, true);
             if (Shape)
             {
                 Shape->setLocalPose(PhysicsConversion::ToPxTransform(ConvexElem.Transform));

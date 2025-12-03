@@ -134,7 +134,6 @@ protected:
     /** PhysX PxVehicleDrive4W 인스턴스 */
     physx::PxVehicleDrive4W* PxVehicleDrive4WInstance = nullptr;
 
-    /** PxVehicleWheels 인스턴스 (바퀴 시뮬레이션 데이터 포함) */
     /** 노면-타이어 마찰 매핑 테이블 (타이어와 노면 타입은 단일 타입 & 마찰계수 1 고정) */
     physx::PxVehicleDrivableSurfaceToTireFrictionPairs* TireFrictionPairs = nullptr;
 
