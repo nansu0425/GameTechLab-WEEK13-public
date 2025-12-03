@@ -87,6 +87,16 @@ struct FPhysicsAssetSolverSettings
     {}
 
     ~FPhysicsAssetSolverSettings() = default;
+
+    void Clear()
+    {
+        PositionIterations = 0;
+        VelocityIterations = 0;
+        MaxAngularVelocity = 0.0f;
+        MaxDepenetrationVelocity = 0.0f;
+        SleepThreshold = 0.0f;
+        bEnableStabilization = true;
+    }
 };
 
 UCLASS(DisplayName = "물리 애셋", Description = "물리 애셋")
@@ -108,12 +118,17 @@ public:
     void DisableCollision(int32 BodyIndexA, int32 BodyIndexB);
     void EnableCollision(int32 BodyIndexA, int32 BodyIndexB);
 
+    void SetBoneNameIndexTable(const FName& BoneName, int32 Index);
+
     // Getters for editor access
     const TArray<UBodySetup*>& GetBodySetups() const { return BodySetups; }
+    TArray<UBodySetup*>& GetBodySetups() { return BodySetups; }
     int32 GetBodySetupCount() const { return BodySetups.Num(); }
     
     const TArray<FConstraintSetup>& GetContraintSetups() const { return ConstraintSetups; }
+    TArray<FConstraintSetup>& GetContraintSetups() { return ConstraintSetups; }
     int32 GetConstraintSetupCount() const { return ConstraintSetups.Num(); }
+
     TArray<FConstraintSetup>& GetConstraintSetupsMutable() { return ConstraintSetups; }
     
     // Body management

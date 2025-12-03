@@ -3,6 +3,12 @@
 
 class UPhysicsAsset;
 
+struct FInfluencedVertex
+{
+    TArray<FVector> Vertices;
+    float TotalWeight;
+};
+
 class USkeletalMesh : public UResourceBase
 {
 public:
@@ -38,6 +44,9 @@ public:
     void CreateGPUSkinnedVertexBuffer(ID3D11Buffer** InVertexBuffer);
 
     UPhysicsAsset* GetPhysicsAsset() const { return PhysicsAsset; }
+    void SetPhysicsAsset(UPhysicsAsset* InPhysicsAsset) { PhysicsAsset = InPhysicsAsset; }
+
+    int32 GetBoneIndexFromBoneName(const FName& BoneName);
     
 private:
     void CreateIndexBuffer(FSkeletalMeshData* InSkeletalMesh, ID3D11Device* InDevice);

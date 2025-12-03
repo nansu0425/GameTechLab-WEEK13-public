@@ -1151,9 +1151,6 @@
     <ClCompile Include="Source\Runtime\Engine\Physics\BodySetup.cpp">
       <Filter>Source\Runtime\Engine\Physics</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Runtime\Engine\Physics\BodySetupImpl.cpp">
-      <Filter>Source\Runtime\Engine\Physics</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Runtime\Engine\GameFramework\PhysBoxActor.cpp">
       <Filter>Source\Runtime\Engine\GameFramework</Filter>
     </ClCompile>
@@ -2457,9 +2454,6 @@
       <Filter>Source\Runtime\Engine\Physics</Filter>
     </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\Physics\BodySetup.h">
-      <Filter>Source\Runtime\Engine\Physics</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Runtime\Engine\Physics\BodySetupImpl.h">
       <Filter>Source\Runtime\Engine\Physics</Filter>
     </ClInclude>
     <ClInclude Include="Source\Runtime\Engine\GameFramework\PhysBoxActor.h">

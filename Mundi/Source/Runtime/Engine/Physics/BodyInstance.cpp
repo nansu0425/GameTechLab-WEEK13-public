@@ -2,7 +2,6 @@
 #include "BodyInstance.h"
 #include "BodyInstanceImpl.h"
 #include "BodySetup.h"
-#include "BodySetupImpl.h"
 #include "PhysScene.h"
 #include "PhysSceneImpl.h"
 #include "PhysicsCore.h"
@@ -170,6 +169,7 @@ void FBodyInstance::InitBody(
     PxScene* PScene = SceneImpl->GetPxScene();
     PxMaterial* DefaultMaterial = SceneImpl->GetDefaultMaterial();
 
+    UE_LOG("init scene %p phy %p", PScene, Physics);
     if (!Physics || !PScene || !DefaultMaterial)
     {
         UE_LOG("FBodyInstance::InitBody - PhysX objects not available");
@@ -199,7 +199,8 @@ void FBodyInstance::InitBody(
     Impl->RigidActorSync = NewActor;
 
     // Shape 생성 및 부착
-    FVector Scale = Transform.Scale3D;
+    FVector Scale = OwnerComponent ? OwnerComponent->GetWorldTransform().Scale3D : FVector(1.0f, 1.0f, 1.0f);
+    // FVector Scale = Transform.Scale3D;
     int32 ShapeCount = Setup->AddShapesToRigidActor(NewActor, DefaultMaterial, Scale);
     // 만들어진 Shape이 없으면 액터가 의미없다.
     if (ShapeCount == 0)
@@ -239,6 +240,20 @@ void FBodyInstance::InitBody(
     UE_LOG("FBodyInstance::InitBody - Body created successfully (Simulate=%s, Trigger=%s)",
         bSimulatePhysics ? "true" : "false",
         bIsTrigger ? "true" : "false");
+
+    PxU32 NbActors = PScene->getNbActors(PxActorTypeFlag::eRIGID_STATIC | PxActorTypeFlag::eRIGID_DYNAMIC);
+    TArray<PxRigidActor*> Actors;
+    Actors.SetNum(NbActors);
+    PScene->getActors(PxActorTypeFlag::eRIGID_STATIC | PxActorTypeFlag::eRIGID_DYNAMIC,
+                      reinterpret_cast<PxActor**>(Actors.GetData()), NbActors);
+
+    for (PxU32 i = 0; i < NbActors; ++i)
+    {
+        PxRigidActor* A = Actors[i];
+        PxU32 NbShapes = A->getNbShapes();
+
+        UE_LOG("InitBody: Actor[%u]=%p, NbShapes=%u", i, A, NbShapes);
+    }
 }
 
 void FBodyInstance::TermBody()

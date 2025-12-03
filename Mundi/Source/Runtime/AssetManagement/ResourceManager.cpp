@@ -518,6 +518,7 @@ void UResourceManager::InitShaderILMap()
     layout.clear();
     
     ShaderToInputLayoutMap["Shaders/Utility/FullScreenTriangle_VS.hlsl"] = {};  // FullScreenTriangle 는 InputLayout을 사용하지 않는다
+    ShaderToInputLayoutMap["Shaders/PostProcess/DoF_FullScreen_VS.hlsl"] = {};  // DoF 전용 VS도 SV_VertexID만 사용하므로 InputLayout 불필요
 
     // ────────────────────────────────
     // 파티클 스프라이트 인스턴싱

@@ -291,7 +291,7 @@ void SPhysicsAssetEditorWindow::OnRender()
         ImGui::BeginChild("RightPanel", ImVec2(rightWidth, totalHeight), true);
         ImGui::PopStyleVar();
         {
-            float propertiesHeight = ImGui::GetContentRegionAvail().y * 0.5f;
+            float propertiesHeight = ImGui::GetContentRegionAvail().y * 0.6f;
 
             ImGui::BeginChild("BonePropertiesArea", ImVec2(0, propertiesHeight), false);
             RenderRightPanel();
@@ -845,6 +845,11 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
 
             ActiveState->CurrentPhysicsAsset->ClearAllBodies();
 
+            // Reset selection indices to prevent accessing invalid array elements
+            ActiveState->SelectedBodyIndex = -1;
+            ActiveState->SelectedConstraintIndex = -1;
+            ActiveState->SelectedBoneIndex = -1;
+
             // Clear visualization
             bCollisionShapesDirty = true;
         }
@@ -1010,9 +1015,19 @@ void SPhysicsAssetEditorWindow::ViewportRenderCallback(const ImDrawList* parent_
 
 void SPhysicsAssetEditorWindow::RenderBodyProperties()
 {
-    if (!ActiveState || ActiveState->SelectedBodyIndex < 0) return;
+    if (!ActiveState || !ActiveState->CurrentPhysicsAsset) return;
+    if (ActiveState->SelectedBodyIndex < 0) return;
 
-    UBodySetup* SelectedBody = ActiveState->CurrentPhysicsAsset->GetBodySetups()[ActiveState->SelectedBodyIndex];
+    // Bounds check before accessing array
+    const TArray<UBodySetup*>& BodySetups = ActiveState->CurrentPhysicsAsset->GetBodySetups();
+    if (ActiveState->SelectedBodyIndex >= BodySetups.Num())
+    {
+        // Selection index is out of range, reset it
+        ActiveState->SelectedBodyIndex = -1;
+        return;
+    }
+
+    UBodySetup* SelectedBody = BodySetups[ActiveState->SelectedBodyIndex];
     if (!SelectedBody) return;
 
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6);
@@ -1158,10 +1173,20 @@ void SPhysicsAssetEditorWindow::RenderBodyProperties()
 
 void SPhysicsAssetEditorWindow::RenderConstraintProperties()
 {
-    if (!ActiveState || ActiveState->SelectedConstraintIndex < 0) return;
+    if (!ActiveState || !ActiveState->CurrentPhysicsAsset) return;
+    if (ActiveState->SelectedConstraintIndex < 0) return;
+
+    // Bounds check before accessing array
+    TArray<FConstraintSetup>& ConstraintSetups = ActiveState->CurrentPhysicsAsset->GetConstraintSetupsMutable();
+    if (ActiveState->SelectedConstraintIndex >= ConstraintSetups.Num())
+    {
+        // Selection index is out of range, reset it
+        ActiveState->SelectedConstraintIndex = -1;
+        return;
+    }
 
     // Get mutable reference to the constraint (not const)
-    FConstraintSetup& SelectedConstraint = ActiveState->CurrentPhysicsAsset->GetConstraintSetupsMutable()[ActiveState->SelectedConstraintIndex];
+    FConstraintSetup& SelectedConstraint = ConstraintSetups[ActiveState->SelectedConstraintIndex];
     FConstraintProfileProperties& Profile = SelectedConstraint.Profile;
 
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6);
@@ -1209,6 +1234,54 @@ void SPhysicsAssetEditorWindow::RenderConstraintProperties()
     };
 
     bool bChanged = false;
+
+    // === Constraint Frames ===
+    if (ImGui::TreeNodeEx("Constraint Frames", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Spacing();
+
+        // Child Frame (Frame1)
+        if (ImGui::TreeNodeEx("Child Frame (Frame1)", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::Spacing();
+            bChanged |= ImGui::DragFloat3("Position##Frame1Pos", &SelectedConstraint.Frame1.Pos.X, 0.01f, -100.0f, 100.0f, "%.3f");
+            bChanged |= ImGui::DragFloat3("Primary Axis##Frame1Pri", &SelectedConstraint.Frame1.PriAxis.X, 0.01f, -1.0f, 1.0f, "%.3f");
+            bChanged |= ImGui::DragFloat3("Secondary Axis##Frame1Sec", &SelectedConstraint.Frame1.SecAxis.X, 0.01f, -1.0f, 1.0f, "%.3f");
+
+            // Normalize axes if changed
+            if (bChanged)
+            {
+                SelectedConstraint.Frame1.PriAxis = SelectedConstraint.Frame1.PriAxis.GetSafeNormal();
+                SelectedConstraint.Frame1.SecAxis = SelectedConstraint.Frame1.SecAxis.GetSafeNormal();
+            }
+
+            ImGui::TreePop();
+        }
+
+        ImGui::Spacing();
+
+        // Parent Frame (Frame2)
+        if (ImGui::TreeNodeEx("Parent Frame (Frame2)", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::Spacing();
+            bChanged |= ImGui::DragFloat3("Position##Frame2Pos", &SelectedConstraint.Frame2.Pos.X, 0.01f, -100.0f, 100.0f, "%.3f");
+            bChanged |= ImGui::DragFloat3("Primary Axis##Frame2Pri", &SelectedConstraint.Frame2.PriAxis.X, 0.01f, -1.0f, 1.0f, "%.3f");
+            bChanged |= ImGui::DragFloat3("Secondary Axis##Frame2Sec", &SelectedConstraint.Frame2.SecAxis.X, 0.01f, -1.0f, 1.0f, "%.3f");
+
+            // Normalize axes if changed
+            if (bChanged)
+            {
+                SelectedConstraint.Frame2.PriAxis = SelectedConstraint.Frame2.PriAxis.GetSafeNormal();
+                SelectedConstraint.Frame2.SecAxis = SelectedConstraint.Frame2.SecAxis.GetSafeNormal();
+            }
+
+            ImGui::TreePop();
+        }
+
+        ImGui::TreePop();
+    }
+
+    ImGui::Spacing();
 
     // === Angular Limits ===
     if (ImGui::TreeNodeEx("Angular Limits", ImGuiTreeNodeFlags_DefaultOpen))
@@ -1285,8 +1358,40 @@ void SPhysicsAssetEditorWindow::RenderConstraintProperties()
         ImGui::TreePop();
     }
 
-    // Note: Constraint changes don't need to rebuild collision shapes
-    // They affect physics simulation only
+    // If any constraint property changed, update both visualization and runtime constraints
+    if (bChanged)
+    {
+        bCollisionShapesDirty = true;
+
+        // If simulating, also update the runtime constraint instance
+        if (bIsSimulating && ActiveState->PreviewActor)
+        {
+            USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent();
+            if (MeshComp)
+            {
+                TArray<FConstraintInstance*> RuntimeConstraints = MeshComp->GetConstraints();
+
+                // Find matching runtime constraint by index
+                if (ActiveState->SelectedConstraintIndex >= 0 && ActiveState->SelectedConstraintIndex < RuntimeConstraints.Num())
+                {
+                    FConstraintInstance* RuntimeConstraint = RuntimeConstraints[ActiveState->SelectedConstraintIndex];
+                    if (RuntimeConstraint && RuntimeConstraint->IsValid())
+                    {
+                        // Update runtime constraint frames
+                        RuntimeConstraint->SetRefFrame1(SelectedConstraint.Frame1);
+                        RuntimeConstraint->SetRefFrame2(SelectedConstraint.Frame2);
+
+                        // Update runtime constraint limits
+                        RuntimeConstraint->SetAngularSwing1Limit(Profile.Swing1LimitsAngle, Profile.Swing1Motion);
+                        RuntimeConstraint->SetAngularSwing2Limit(Profile.Swing2LimitsAngle, Profile.Swing2Motion);
+                        RuntimeConstraint->SetAngularTwistLimit(Profile.TwistLimit, Profile.TwistMotion);
+                        RuntimeConstraint->SetLinearLimit(Profile.LinearLimit, Profile.LinearMotionX, Profile.LinearMotionY, Profile.LinearMotionZ);
+                        RuntimeConstraint->SetDisableCollision(Profile.bDisableCollision);
+                    }
+                }
+            }
+        }
+    }
 }
 
 void SPhysicsAssetEditorWindow::DrawWireframeBox(ULineComponent* LineComp, const FVector& Center, const FVector& HalfExtents, const FQuat& Rotation, const FVector4& Color)
@@ -1584,6 +1689,9 @@ void SPhysicsAssetEditorWindow::RebuildCollisionShapes()
         }
     }
 
+    // Rebuild constraint visualization
+    RebuildConstraintVisualization();
+
     bCollisionShapesDirty = false;
 }
 
@@ -1597,6 +1705,188 @@ void SPhysicsAssetEditorWindow::ClearCollisionShapes()
 
     // Clear only collision shape lines
     LineComp->ClearLines();
+}
+
+void SPhysicsAssetEditorWindow::DrawConstraintFrame(ULineComponent* LineComp, const FVector& Position, const FVector& PriAxis, const FVector& SecAxis, float AxisLength, const FVector4& Color)
+{
+    if (!LineComp) return;
+
+    // Calculate third axis (normal)
+    FVector NormalAxis = FVector::Cross(PriAxis, SecAxis).GetSafeNormal();
+
+    // Draw three axes
+    FVector4 RedColor(1.0f, 0.0f, 0.0f, 1.0f);    // X - PriAxis (Twist axis)
+    FVector4 GreenColor(0.0f, 1.0f, 0.0f, 1.0f);  // Y - SecAxis
+    FVector4 BlueColor(0.0f, 0.0f, 1.0f, 1.0f);   // Z - Normal
+
+    LineComp->AddLine(Position, Position + PriAxis * AxisLength, RedColor);
+    LineComp->AddLine(Position, Position + SecAxis * AxisLength, GreenColor);
+    LineComp->AddLine(Position, Position + NormalAxis * AxisLength, BlueColor);
+}
+
+void SPhysicsAssetEditorWindow::DrawSwingCone(ULineComponent* LineComp, const FVector& Position, const FVector& PriAxis, const FVector& SecAxis, float Swing1Angle, float Swing2Angle, const FVector4& Color, int32 Segments)
+{
+    if (!LineComp || Segments < 3) return;
+
+    // Convert angles from degrees to radians
+    float Swing1Rad = DegreesToRadians(Swing1Angle);
+    float Swing2Rad = DegreesToRadians(Swing2Angle);
+
+    // Calculate cone height (small scale for visualization relative to bone size)
+    float ConeLength = 0.1f;
+
+    // Calculate normal axis (perpendicular to both PriAxis and SecAxis)
+    FVector NormalAxis = FVector::Cross(PriAxis, SecAxis).GetSafeNormal();
+
+    // Draw elliptical cone
+    // The cone opens along PriAxis, with Swing1 in SecAxis direction and Swing2 in NormalAxis direction
+    TArray<FVector> CirclePoints;
+    CirclePoints.reserve(Segments);
+
+    for (int32 i = 0; i <= Segments; ++i)
+    {
+        float Angle = (static_cast<float>(i) / static_cast<float>(Segments)) * TWO_PI;
+        float CosAngle = cosf(Angle);
+        float SinAngle = sinf(Angle);
+
+        // Ellipse radii based on swing angles
+        float RadiusY = ConeLength * tanf(Swing1Rad);  // Swing1 direction (SecAxis)
+        float RadiusZ = ConeLength * tanf(Swing2Rad);  // Swing2 direction (NormalAxis)
+
+        // Point on ellipse
+        FVector LocalPoint = SecAxis * (RadiusY * CosAngle) + NormalAxis * (RadiusZ * SinAngle);
+        FVector WorldPoint = Position + PriAxis * ConeLength + LocalPoint;
+        CirclePoints.Add(WorldPoint);
+    }
+
+    // Draw cone edge circle
+    for (int32 i = 0; i < Segments; ++i)
+    {
+        LineComp->AddLine(CirclePoints[i], CirclePoints[i + 1], Color);
+    }
+
+    // Draw radial lines from apex to circle (4 lines at cardinal directions)
+    int32 NumRadialLines = 4;
+    for (int32 i = 0; i < NumRadialLines; ++i)
+    {
+        int32 Index = (i * Segments) / NumRadialLines;
+        LineComp->AddLine(Position, CirclePoints[Index], Color);
+    }
+}
+
+void SPhysicsAssetEditorWindow::DrawTwistArc(ULineComponent* LineComp, const FVector& Position, const FVector& PriAxis, const FVector& SecAxis, float TwistAngle, float Radius, const FVector4& Color, int32 Segments)
+{
+    if (!LineComp || Segments < 3) return;
+
+    // Convert angle from degrees to radians
+    float TwistRad = DegreesToRadians(TwistAngle);
+
+    // Draw arc around PriAxis
+    // Arc goes from -TwistAngle to +TwistAngle
+
+    TArray<FVector> ArcPoints;
+    ArcPoints.reserve(Segments + 1);
+
+    // Calculate normal axis
+    FVector NormalAxis = FVector::Cross(PriAxis, SecAxis).GetSafeNormal();
+
+    // Generate arc points
+    for (int32 i = 0; i <= Segments; ++i)
+    {
+        // Angle ranges from -TwistRad to +TwistRad
+        float t = static_cast<float>(i) / static_cast<float>(Segments);
+        float CurrentAngle = FMath::Lerp(-TwistRad, TwistRad, t);
+
+        // Rotate SecAxis around PriAxis
+        FVector RotatedDir = SecAxis * cosf(CurrentAngle) + NormalAxis * sinf(CurrentAngle);
+        FVector ArcPoint = Position + RotatedDir * Radius;
+        ArcPoints.Add(ArcPoint);
+    }
+
+    // Draw arc
+    for (int32 i = 0; i < Segments; ++i)
+    {
+        LineComp->AddLine(ArcPoints[i], ArcPoints[i + 1], Color);
+    }
+
+    // Draw lines from center to arc endpoints to show the limit
+    LineComp->AddLine(Position, ArcPoints[0], Color);
+    LineComp->AddLine(Position, ArcPoints[Segments], Color);
+}
+
+void SPhysicsAssetEditorWindow::RebuildConstraintVisualization()
+{
+    if (!ActiveState || !ActiveState->CurrentPhysicsAsset) return;
+
+    ULineComponent* LineComp = ActiveState->CollisionShapeLineComponent;
+    if (!LineComp) return;
+
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    const TArray<FConstraintSetup>& Constraints = PhysicsAsset->GetContraintSetups();
+
+    if (Constraints.IsEmpty()) return;
+
+    ASkeletalMeshActor* PreviewActor = ActiveState->PreviewActor;
+    if (!PreviewActor) return;
+
+    USkeletalMeshComponent* MeshComp = PreviewActor->GetSkeletalMeshComponent();
+    if (!MeshComp) return;
+
+    const FSkeleton* Skeleton = ActiveState->CurrentMesh->GetSkeleton();
+    if (!Skeleton) return;
+
+    // Build BoneName -> BoneIndex map for performance
+    TMap<FString, int32> BoneNameToIndexMap;
+    for (int32 i = 0; i < Skeleton->Bones.Num(); ++i)
+    {
+        BoneNameToIndexMap.Add(Skeleton->Bones[i].Name, i);
+    }
+
+    // Colors
+    FVector4 ConstraintColor(0.0f, 1.0f, 1.0f, 1.0f);  // Cyan for constraints
+    FVector4 SelectedColor(1.0f, 1.0f, 0.0f, 1.0f);    // Yellow for selected
+
+    for (int32 i = 0; i < Constraints.Num(); ++i)
+    {
+        const FConstraintSetup& Constraint = Constraints[i];
+
+        // Find child bone index
+        int32* ChildBoneIndexPtr = BoneNameToIndexMap.Find(Constraint.ConstraintBone1.ToString());
+        if (!ChildBoneIndexPtr) continue;
+        int32 ChildBoneIndex = *ChildBoneIndexPtr;
+
+        // Get child bone world transform
+        FTransform ChildBoneTransform = MeshComp->GetBoneWorldTransform(ChildBoneIndex);
+        ChildBoneTransform.Scale3D = FVector(1, 1, 1);
+
+        // Transform Frame1 to world space
+        FVector ConstraintWorldPos = ChildBoneTransform.TransformPosition(Constraint.Frame1.Pos);
+        FVector WorldPriAxis = ChildBoneTransform.TransformVector(Constraint.Frame1.PriAxis).GetSafeNormal();
+        FVector WorldSecAxis = ChildBoneTransform.TransformVector(Constraint.Frame1.SecAxis).GetSafeNormal();
+
+        // Choose color based on selection
+        FVector4 DrawColor = (i == ActiveState->SelectedConstraintIndex) ? SelectedColor : ConstraintColor;
+
+        // Draw constraint frame (coordinate axes)
+        DrawConstraintFrame(LineComp, ConstraintWorldPos, WorldPriAxis, WorldSecAxis, 0.03f, DrawColor);
+
+        const FConstraintProfileProperties& Profile = Constraint.Profile;
+
+        // Draw Swing Cone if limited
+        if (Profile.Swing1Motion == EJointMotion::Limited || Profile.Swing2Motion == EJointMotion::Limited)
+        {
+            float Swing1 = (Profile.Swing1Motion == EJointMotion::Limited) ? Profile.Swing1LimitsAngle : 180.0f;
+            float Swing2 = (Profile.Swing2Motion == EJointMotion::Limited) ? Profile.Swing2LimitsAngle : 180.0f;
+
+            DrawSwingCone(LineComp, ConstraintWorldPos, WorldPriAxis, WorldSecAxis, Swing1, Swing2, DrawColor, 24);
+        }
+
+        // Draw Twist Arc if limited
+        if (Profile.TwistMotion == EJointMotion::Limited)
+        {
+            DrawTwistArc(LineComp, ConstraintWorldPos, WorldPriAxis, WorldSecAxis, Profile.TwistLimit, 0.1f, DrawColor, 16);
+        }
+    }
 }
 
 bool SPhysicsAssetEditorWindow::HasBodyInSubtree(int32 BoneIndex, const TArray<FBone>& Bones, const TArray<TArray<int32>>& Children) const
@@ -1707,10 +1997,10 @@ void SPhysicsAssetEditorWindow::CreateBodyForBone(int32 BoneIndex, EPrimitiveTyp
     // Add the body to the physics asset
     PhysicsAsset->AddBodySetup(NewBody);
 
-    //// Also populate the editor-facing properties for UI consistency
-    //NewBody->SphereRadius = Radius;
-    //NewBody->BoxExtent = Extent; // Extent is already half-extent from CalculateBodyDimensions
-    //NewBody->CapsuleHalfHeight = HalfHeight;
+    // Also populate the editor-facing properties for UI consistency
+    NewBody->SphereRadius = Radius;
+    NewBody->BoxExtent = Extent; // Extent is already half-extent from CalculateBodyDimensions
+    NewBody->CapsuleHalfHeight = HalfHeight;
 
     PhysicsAsset->UpdateBodySetupIndexMap();
 
@@ -1869,25 +2159,96 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType Pri
         const FBone& Bone = Bones[BoneIndex];
         FName BoneName(Bone.Name);
 
-        // Filter: Skip bones that shouldn't have physics bodies
-        if (!ShouldCreateBodyForBone(BoneIndex, Skeleton))
-            continue;
-
         // Check influence map range
         if (BoneIndex < 0 || BoneIndex >= InfluenceMap.Num())
             continue;
 
-        // Check if this bone has enough influenced vertices
+        // Apply same filtering logic as bone-length generation
+        if (!ShouldCreateBodyForBone(BoneIndex, Skeleton))
+            continue;
+
+        // For vertex-driven generation, also check vertex count
         const FBoneVertexInfluence& Influence = InfluenceMap[BoneIndex];
-        if (Influence.Vertices.Num() < 3)  // Need at least 3 vertices for meaningful shape
+        if (Influence.Vertices.Num() < 50)  // Need significant vertex influence for meaningful shape
         {
-            UE_LOG("GenerateAllBodies: Skipping bone %s - only %d influenced vertices",
-                Bone.Name.c_str(), Influence.Vertices.Num());
             continue;
         }
 
-        UE_LOG("GenerateAllBodies: Processing bone %s with %d influenced vertices",
-            Bone.Name.c_str(), Influence.Vertices.Num());
+        // Collect vertices for fitting
+        // For hand/foot/pelvis, include descendant/child bone vertices
+        TArray<FVector> VerticesToFit = Influence.Vertices;
+
+        FString BoneName_Lower = Bone.Name;
+        std::transform(BoneName_Lower.begin(), BoneName_Lower.end(), BoneName_Lower.begin(), ::tolower);
+
+        bool bIsHandOrFoot =
+            (BoneName_Lower.find("hand") != FString::npos) ||
+            (BoneName_Lower.find("foot") != FString::npos);
+
+        bool bIsPelvis =
+            (BoneName_Lower.find("pelvis") != FString::npos) ||
+            (BoneName_Lower.find("hips") != FString::npos);
+
+        if (bIsHandOrFoot)
+        {
+            // Include all descendant bones' vertices (fingers/toes)
+            for (int32 i = 0; i < Bones.size(); ++i)
+            {
+                if (IsDescendantOf(i, BoneIndex, Bones) && i < InfluenceMap.Num())
+                {
+                    VerticesToFit.Append(InfluenceMap[i].Vertices);
+                }
+            }
+            UE_LOG("GenerateAllBodies: Hand/Foot '%s' - expanded to %d vertices (including descendants)",
+                Bone.Name.c_str(), VerticesToFit.Num());
+        }
+        else if (bIsPelvis)
+        {
+            // Include direct children's vertices, but only those near pelvis
+            // (to avoid spine vertices from extending too far up)
+            TArray<int32> Children;
+            GetAllChildBones(BoneIndex, Skeleton, Children);
+
+            // Get pelvis world position
+            FTransform PelvisWorldTM = MeshComp->GetBoneWorldTransform(BoneIndex);
+            PelvisWorldTM.Scale3D = FVector(1, 1, 1);
+            FVector PelvisPos = PelvisWorldTM.Translation;
+
+            // Calculate max distance based on child bone positions
+            float MaxChildDist = 0.f;
+            for (int32 ChildIdx : Children)
+            {
+                FTransform ChildTM = MeshComp->GetBoneWorldTransform(ChildIdx);
+                ChildTM.Scale3D = FVector(1, 1, 1);
+                float Dist = (ChildTM.Translation - PelvisPos).Size();
+                MaxChildDist = FMath::Max(MaxChildDist, Dist);
+            }
+
+            // Only include vertices within ~2.0x the max child bone distance
+            float MaxVertexDistance = MaxChildDist * 2.0f;
+
+            int32 VertexCountBefore = VerticesToFit.Num();
+            for (int32 ChildIdx : Children)
+            {
+                if (ChildIdx < InfluenceMap.Num())
+                {
+                    for (const FVector& Vert : InfluenceMap[ChildIdx].Vertices)
+                    {
+                        if ((Vert - PelvisPos).Size() <= MaxVertexDistance)
+                        {
+                            VerticesToFit.Add(Vert);
+                        }
+                    }
+                }
+            }
+            UE_LOG("GenerateAllBodies: Pelvis '%s' - expanded from %d to %d vertices (distance-filtered)",
+                Bone.Name.c_str(), VertexCountBefore, VerticesToFit.Num());
+        }
+        else
+        {
+            UE_LOG("GenerateAllBodies: Processing bone %s with %d influenced vertices",
+                Bone.Name.c_str(), Influence.Vertices.Num());
+        }
 
         // Create new BodySetup
         UBodySetup* NewBody = NewObject<UBodySetup>();
@@ -1901,7 +2262,7 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType Pri
         NewBody->BodyType = ToBodySetupType(PrimitiveType);
 
         // Step 3: Calculate principal axis from vertex cloud
-        FVector PrincipalAxis = CalculatePrincipalAxis(Influence.Vertices);
+        FVector PrincipalAxis = CalculatePrincipalAxis(VerticesToFit);
 
         // Step 4: Fit minimal bounding primitive based on type
         FVector FittedCenter = FVector::Zero();
@@ -1910,20 +2271,28 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType Pri
         float   HalfHeight = 0.0f;
         FVector Extent = FVector::Zero();
 
+        // Scale down the fitted dimensions for tighter collision
+        // Physics bodies should be slightly smaller than the visual mesh for better simulation
+        const float ColliderShrinkFactor = 0.8f;  // 80% of the fitted size
+
         switch (PrimitiveType)
         {
         case EPrimitiveType::Sphere:
-            FitMinimalSphere(Influence.Vertices, FittedCenter, Radius);
+            FitMinimalSphere(VerticesToFit, FittedCenter, Radius);
+            Radius *= ColliderShrinkFactor;
             NewBody->SphereRadius = Radius;
             break;
 
         case EPrimitiveType::Box:
-            FitMinimalBox(Influence.Vertices, PrincipalAxis, FittedCenter, FittedRotation, Extent);
+            FitMinimalBox(VerticesToFit, PrincipalAxis, FittedCenter, FittedRotation, Extent);
+            NewBody->BoxExtent = Extent;
             NewBody->BoxExtent = Extent;
             break;
 
         case EPrimitiveType::Capsule:
-            FitMinimalCapsule(Influence.Vertices, PrincipalAxis, FittedCenter, FittedRotation, Radius, HalfHeight);
+            FitMinimalCapsule(VerticesToFit, PrincipalAxis, FittedCenter, FittedRotation, Radius, HalfHeight);
+            Radius *= ColliderShrinkFactor;
+            HalfHeight *= ColliderShrinkFactor;
             NewBody->CapsuleHalfHeight = HalfHeight;
             NewBody->SphereRadius = Radius;
             break;
@@ -2043,37 +2412,59 @@ void SPhysicsAssetEditorWindow::GenerateAllConstraints()
     // Clear existing constraint setups
     PhysicsAsset->GetConstraintSetupsMutable().Empty();
 
+    const TArray<UBodySetup*>& Bodies = PhysicsAsset->GetBodySetups();
     const TArray<FBone>& Bones = Skeleton->Bones;
 
     int32 CreatedCount = 0;
 
-    for (int32 ChildIndex = 0; ChildIndex < Bones.Num(); ++ChildIndex)
+    // Only create constraints between bodies (not all bones)
+    for (int32 ChildBodyIndex = 0; ChildBodyIndex < Bodies.Num(); ++ChildBodyIndex)
     {
-        const FBone& Child = Bones[ChildIndex];
-        int32 ParentIndex = Child.ParentIndex;
+        UBodySetup* ChildBody = Bodies[ChildBodyIndex];
+        int32 ChildBoneIndex = BoneNameToIndex(ChildBody->BoneName);
 
-        if (ParentIndex < 0)
+        if (ChildBoneIndex < 0 || ChildBoneIndex >= Bones.Num())
             continue;
 
-        const FBone& Parent = Bones[ParentIndex];
+        const FBone& ChildBone = Bones[ChildBoneIndex];
+        int32 ParentBoneIndex = ChildBone.ParentIndex;
 
-        FTransform ChildWT = MeshComp->GetBoneWorldTransform(ChildIndex);
-        FTransform ParentWT = MeshComp->GetBoneWorldTransform(ParentIndex);
+        if (ParentBoneIndex < 0)
+            continue;
 
-        FConstraintSetup Setup;
-        BuildConstraintSetup(
-            FName(Parent.Name.c_str()),
-            FName(Child.Name.c_str()),
-            ParentWT,
-            ChildWT,
-            Setup
-        );
+        // Find the parent body (traverse up the bone hierarchy until we find a bone with a body)
+        int32 ParentBodyIndex = -1;
+        int32 CurrentBoneIndex = ParentBoneIndex;
 
-        PhysicsAsset->GetConstraintSetupsMutable().Add(Setup);
-        CreatedCount++;
+        while (CurrentBoneIndex >= 0 && ParentBodyIndex < 0)
+        {
+            const FBone& CurrentBone = Bones[CurrentBoneIndex];
+            FName CurrentBoneName = FName(CurrentBone.Name.c_str());
+
+            // Check if this bone has a body
+            for (int32 i = 0; i < Bodies.Num(); ++i)
+            {
+                if (Bodies[i]->BoneName == CurrentBoneName)
+                {
+                    ParentBodyIndex = i;
+                    break;
+                }
+            }
+
+            // Move up the hierarchy
+            if (ParentBodyIndex < 0)
+                CurrentBoneIndex = CurrentBone.ParentIndex;
+        }
+
+        // If we found a parent body, create a constraint
+        if (ParentBodyIndex >= 0)
+        {
+            CreateConstraintBetweenBodies(ParentBodyIndex, ChildBodyIndex);
+            CreatedCount++;
+        }
     }
 
-    UE_LOG("GenerateAllConstraints: Created %d constraints", CreatedCount);
+    UE_LOG("GenerateAllConstraints: Created %d constraints between %d bodies", CreatedCount, Bodies.Num());
 }
 
 void SPhysicsAssetEditorWindow::CreateConstraintBetweenBodies(int ParentBodyIndex, int ChildBodyIndex)
@@ -2188,6 +2579,23 @@ int32 SPhysicsAssetEditorWindow::FindFirstChildBone(int32 BoneIndex, const FSkel
     return -1;  // no child
 }
 
+void SPhysicsAssetEditorWindow::GetAllChildBones(int32 BoneIndex, const FSkeleton* Skeleton, TArray<int32>& OutChildren) const
+{
+    OutChildren.Empty();
+
+    if (!Skeleton || BoneIndex < 0 || BoneIndex >= Skeleton->Bones.Num())
+        return;
+
+    const TArray<FBone>& Bones = Skeleton->Bones;
+    for (int32 i = 0; i < Bones.Num(); ++i)
+    {
+        if (Bones[i].ParentIndex == BoneIndex)
+        {
+            OutChildren.Add(i);
+        }
+    }
+}
+
 int32 SPhysicsAssetEditorWindow::BoneNameToIndex(const FName& BoneName) const
 {
     if (!ActiveState || !ActiveState->CurrentMesh)
@@ -2208,6 +2616,95 @@ int32 SPhysicsAssetEditorWindow::BoneNameToIndex(const FName& BoneName) const
     return -1; // not found
 }
 
+bool SPhysicsAssetEditorWindow::IsDescendantOf(int32 ChildIdx, int32 RootIdx, const TArray<FBone>& Bones) const
+{
+    int32 Current = ChildIdx;
+
+    while (Current >= 0 && Current < Bones.Num())
+    {
+        int32 Parent = Bones[Current].ParentIndex;
+        if (Parent == RootIdx)
+            return true;
+        Current = Parent;
+    }
+    return false;
+}
+
+float SPhysicsAssetEditorWindow::ComputeLimbChainLength(int32 RootBoneIndex, const FSkeleton* Skeleton, USkeletalMeshComponent* MeshComp) const
+{
+    if (!Skeleton || !MeshComp)
+        return 0.f;
+
+    const TArray<FBone>& Bones = Skeleton->Bones;
+    if (RootBoneIndex < 0 || RootBoneIndex >= Bones.Num())
+        return 0.f;
+
+    // Use world transform for correct scale/units
+    FTransform RootWorldTM = MeshComp->GetBoneWorldTransform(RootBoneIndex);
+    RootWorldTM.Scale3D = FVector(1, 1, 1);
+    FVector RootPos = RootWorldTM.Translation;
+
+    float MaxDist = 0.f;
+
+    // Find the maximum distance from root to any descendant (e.g., finger tips)
+    for (int32 i = 0; i < Bones.Num(); ++i)
+    {
+        if (IsDescendantOf(i, RootBoneIndex, Bones))
+        {
+            FTransform ChildWorldTM = MeshComp->GetBoneWorldTransform(i);
+            ChildWorldTM.Scale3D = FVector(1, 1, 1);
+            FVector ChildPos = ChildWorldTM.Translation;
+
+            float Dist = (ChildPos - RootPos).Size();
+            MaxDist = FMath::Max(MaxDist, Dist);
+        }
+    }
+
+    return MaxDist;
+}
+
+FVector SPhysicsAssetEditorWindow::ComputeLimbCentroid(int32 RootBoneIndex, const FSkeleton* Skeleton, USkeletalMeshComponent* MeshComp) const
+{
+    if (!Skeleton || !MeshComp)
+        return FVector::Zero();
+
+    const TArray<FBone>& Bones = Skeleton->Bones;
+    if (RootBoneIndex < 0 || RootBoneIndex >= Bones.Num())
+        return FVector::Zero();
+
+    // Get root position
+    FTransform RootWorldTM = MeshComp->GetBoneWorldTransform(RootBoneIndex);
+    RootWorldTM.Scale3D = FVector(1, 1, 1);
+    FVector RootPos = RootWorldTM.Translation;
+
+    // Find the furthest descendant bone to determine direction
+    float MaxDist = 0.f;
+    FVector FurthestPos = RootPos;
+
+    for (int32 i = 0; i < Bones.Num(); ++i)
+    {
+        if (IsDescendantOf(i, RootBoneIndex, Bones))
+        {
+            FTransform ChildWorldTM = MeshComp->GetBoneWorldTransform(i);
+            ChildWorldTM.Scale3D = FVector(1, 1, 1);
+            FVector ChildPos = ChildWorldTM.Translation;
+
+            float Dist = (ChildPos - RootPos).Size();
+            if (Dist > MaxDist)
+            {
+                MaxDist = Dist;
+                FurthestPos = ChildPos;
+            }
+        }
+    }
+
+    // Center the collider: root position + half distance toward furthest descendant
+    // Apply 5% padding to match the dimension calculation
+    const float PaddingMultiplier = 1.05f;
+    FVector Direction = (FurthestPos - RootPos).GetSafeNormal();
+    return RootPos + Direction * (MaxDist * PaddingMultiplier * 0.5f);
+}
+
 void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex, const FSkeleton* Skeleton, USkeletalMeshComponent* MeshComp, FVector& OutLocalCenter, FQuat& OutLocalRotation)
 {
     OutLocalCenter = FVector::Zero();
@@ -2222,6 +2719,7 @@ void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex
     // Get bone world transform (remove scale)
     FTransform BoneWorldTM = MeshComp->GetBoneWorldTransform(BoneIndex);
     BoneWorldTM.Scale3D = FVector(1, 1, 1);
+    UE_LOG("EDITOR Bone %d World: Pos=(%.2f,%.2f,%.2f)", BoneIndex, BoneWorldTM.Translation.X, BoneWorldTM.Translation.Y,BoneWorldTM.Translation.Z);
 
     FVector BoneWorldPos = BoneWorldTM.Translation;
 
@@ -2236,8 +2734,37 @@ void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex
 
     // 1) LocalCenter ---------------------------------
     // Compute bone midpoint in world space
-    // Convert world offset → bone local (rotation only)
-    FVector WorldCenter = (BoneWorldPos + ChildWorldPos) * 0.5f;
+    // Special handling for multi-branch bones (pelvis/hips) and limbs (hand/foot)
+    const TArray<FBone>& Bones = Skeleton->Bones;
+    FString BoneName = Bones[BoneIndex].Name;
+    std::transform(BoneName.begin(), BoneName.end(), BoneName.begin(), ::tolower);
+
+    bool bIsHandOrFoot =
+        (BoneName.find("hand") != FString::npos) ||
+        (BoneName.find("foot") != FString::npos);
+
+    bool bIsPelvis =
+        (BoneName.find("pelvis") != FString::npos) ||
+        (BoneName.find("hips") != FString::npos);
+
+    FVector WorldCenter;
+    if (bIsHandOrFoot && FirstChildIndex >= 0)
+    {
+        // For hand/foot: use centroid of all descendant bones for proper centering
+        WorldCenter = ComputeLimbCentroid(BoneIndex, Skeleton, MeshComp);
+    }
+    else if (bIsPelvis)
+    {
+        // For pelvis/hips: keep center at pelvis position
+        // (Box primitive will adjust center separately)
+        WorldCenter = BoneWorldPos;
+    }
+    else
+    {
+        // Normal bones: use midpoint between bone and first child
+        WorldCenter = (BoneWorldPos + ChildWorldPos) * 0.5f;
+    }
+
     FVector WorldOffset = WorldCenter - BoneWorldPos;
 
     FQuat InvRot = BoneWorldTM.Rotation.Inverse();
@@ -2246,7 +2773,7 @@ void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex
     // 2) LocalRotation --------------------------------
     // Align collider Z-axis with bone direction
     FVector WorldDir = (ChildWorldPos - BoneWorldPos).GetSafeNormal();
-    if (WorldDir.IsZero())
+    if (!WorldDir.IsZero())
     {
         FVector LocalDir = InvRot.RotateVector(WorldDir);
         OutLocalRotation = FQuat::FindBetween(FVector(0, 0, 1), LocalDir);
@@ -2349,6 +2876,19 @@ bool SPhysicsAssetEditorWindow::ShouldCreateBodyForBone(int32 BoneIndex, const F
         return false;
     }
 
+    // Exclude finger/toe bones by name pattern
+    // These should be covered by parent hand/foot body
+    if (BoneName.find("thumb") != FString::npos ||
+        BoneName.find("index") != FString::npos ||
+        BoneName.find("middle") != FString::npos ||
+        BoneName.find("ring") != FString::npos ||
+        BoneName.find("pinky") != FString::npos ||
+        BoneName.find("toe") != FString::npos)
+    {
+        UE_LOG("ShouldCreateBodyForBone: Excluding finger/toe bone '%s'", Bone.Name.c_str());
+        return false;
+    }
+
     // 2. Exclude leaf bones (finger tips, toe tips, etc.)
     // A leaf bone has no children
     bool bHasChildren = false;
@@ -2369,6 +2909,11 @@ bool SPhysicsAssetEditorWindow::ShouldCreateBodyForBone(int32 BoneIndex, const F
     }
 
     // 3. Exclude very short bones (detail/helper bones)
+    // Special handling: hand/foot are allowed even if short (they use chain length)
+    bool bIsHandOrFoot =
+        (BoneName.find("hand") != FString::npos) ||
+        (BoneName.find("foot") != FString::npos);
+
     int32 FirstChildIndex = -1;
     for (int32 i = 0; i < Bones.size(); ++i)
     {
@@ -2390,9 +2935,9 @@ bool SPhysicsAssetEditorWindow::ShouldCreateBodyForBone(int32 BoneIndex, const F
 
         float BoneLength = (ChildPos - BonePos).Size();
 
-        // Exclude bones shorter than 0.01 units (1cm - excludes finger segments)
-        // Mixamo models are often scaled down, so use a small threshold
-        if (BoneLength < 0.05f)
+        // Exclude bones shorter than 0.01 units (1cm)
+        // BUT allow hand/foot even if short - they will use limb chain length
+        if (!bIsHandOrFoot && BoneLength < 0.01f)
         {
             UE_LOG("ShouldCreateBodyForBone: Excluding short bone '%s' (length: %.2f)", Bone.Name.c_str(), BoneLength);
             return false;
@@ -2434,7 +2979,97 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
 
     // Calculate bone length
     float BoneLength = (ChildWorldPos - BoneWorldPos).Size();
-    const float DefaultLeafLength = 5.0f;
+
+    // Check for special bone types that need custom dimension calculation
+    const TArray<FBone>& Bones = Skeleton->Bones;
+    if (BoneIndex >= 0 && BoneIndex < Bones.Num())
+    {
+        FString BoneName = Bones[BoneIndex].Name;
+        std::transform(BoneName.begin(), BoneName.end(), BoneName.begin(), ::tolower);
+
+        bool bIsHandOrFoot =
+            (BoneName.find("hand") != FString::npos) ||
+            (BoneName.find("foot") != FString::npos);
+
+        bool bIsPelvis =
+            (BoneName.find("pelvis") != FString::npos) ||
+            (BoneName.find("hips") != FString::npos);
+
+        if (bIsHandOrFoot)
+        {
+            // Use chain length from hand/foot root to furthest descendant (finger/toe tips)
+            // Add 10% padding to ensure proper coverage
+            const float PaddingMultiplier = 1.1f;
+            float ChainLength = ComputeLimbChainLength(BoneIndex, Skeleton, MeshComp);
+            if (ChainLength > 0.01f)
+            {
+                BoneLength = ChainLength * PaddingMultiplier;
+                UE_LOG("CalculateBodyDimensions: Using limb chain length %.2f (with %.0f%% padding) for '%s'",
+                    BoneLength, (PaddingMultiplier - 1.0f) * 100.0f, Bones[BoneIndex].Name.c_str());
+            }
+        }
+        else if (bIsPelvis)
+        {
+            // For pelvis/hips: find max distance to any direct child
+            TArray<int32> Children;
+            GetAllChildBones(BoneIndex, Skeleton, Children);
+
+            float MaxChildDist = 0.f;
+            for (int32 ChildIdx : Children)
+            {
+                FTransform ChildTM = MeshComp->GetBoneWorldTransform(ChildIdx);
+                ChildTM.Scale3D = FVector(1, 1, 1);
+                float Dist = (ChildTM.Translation - BoneWorldPos).Size();
+                MaxChildDist = FMath::Max(MaxChildDist, Dist);
+            }
+
+            if (MaxChildDist > 0.01f)
+            {
+                BoneLength = MaxChildDist;
+                UE_LOG("CalculateBodyDimensions: Using max child distance %.2f for pelvis '%s'",
+                    BoneLength, Bones[BoneIndex].Name.c_str());
+            }
+        }
+    }
+
+    // Estimate scale factor from average skeleton bone lengths to determine appropriate defaults
+    // We sample multiple bones to get a better estimate of the overall model scale
+    float AvgBoneLength = 0.0f;
+    int32 SampleCount = 0;
+    for (int32 i = 0; i < Skeleton->Bones.Num() && SampleCount < 10; ++i)
+    {
+        int32 ChildIdx = FindFirstChildBone(i, Skeleton);
+        if (ChildIdx >= 0)
+        {
+            FTransform ParentTM = MeshComp->GetBoneWorldTransform(i);
+            FTransform ChildTM = MeshComp->GetBoneWorldTransform(ChildIdx);
+            ParentTM.Scale3D = FVector(1, 1, 1);
+            ChildTM.Scale3D = FVector(1, 1, 1);
+            float Length = (ChildTM.Translation - ParentTM.Translation).Size();
+            if (Length > 0.001f)  // Exclude very small bones
+            {
+                AvgBoneLength += Length;
+                SampleCount++;
+            }
+        }
+    }
+    if (SampleCount > 0)
+    {
+        AvgBoneLength /= SampleCount;
+    }
+
+    // Determine scale factor based on average bone length
+    // If average bone length is very small (< 0.2), we're dealing with a small-scale model (e.g., FBX with cm units)
+    float ScaleFactor = 1.0f;
+    if (AvgBoneLength > 0.0f && AvgBoneLength < 0.2f)
+    {
+        ScaleFactor = 0.01f;
+    }
+
+    const float DefaultLeafLength = 5.0f * ScaleFactor;
+    const float MinRadius = 1.0f * ScaleFactor;
+    const float MinCylinderLength = 1.0f * ScaleFactor;
+
     if (FirstChildIndex < 0)
     {
         BoneLength = DefaultLeafLength;
@@ -2449,6 +3084,24 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
         if (FirstChildIndex < 0)
             Radius = DefaultLeafLength * 0.5f;
 
+        // Special handling for pelvis: BoneLength is max child distance from pelvis
+        // But center is averaged, so we need full distance as radius
+        if (BoneIndex >= 0 && BoneIndex < Bones.Num())
+        {
+            FString BoneName = Bones[BoneIndex].Name;
+            std::transform(BoneName.begin(), BoneName.end(), BoneName.begin(), ::tolower);
+
+            bool bIsPelvis =
+                (BoneName.find("pelvis") != FString::npos) ||
+                (BoneName.find("hips") != FString::npos);
+
+            if (bIsPelvis)
+            {
+                // For pelvis, use full BoneLength as radius to reach all children
+                Radius = BoneLength;
+            }
+        }
+
         OutRadius = Radius;
         OutHalfHeight = 0.0f;
         OutExtent = FVector(Radius, Radius, Radius);
@@ -2460,6 +3113,54 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
         float HalfY = BoneLength * 0.2f;
         float HalfZ = BoneLength * 0.5f;
 
+        // Special handling for pelvis: use full length for Z-axis
+        if (BoneIndex >= 0 && BoneIndex < Bones.Num())
+        {
+            FString BoneName = Bones[BoneIndex].Name;
+            std::transform(BoneName.begin(), BoneName.end(), BoneName.begin(), ::tolower);
+
+            bool bIsPelvis =
+                (BoneName.find("pelvis") != FString::npos) ||
+                (BoneName.find("hips") != FString::npos);
+
+            if (bIsPelvis)
+            {
+                // For pelvis: calculate AABB from pelvis + all children
+                // Center was calculated as AABB center in CalculateBoneLocalShapeTransform
+                TArray<int32> Children;
+                GetAllChildBones(BoneIndex, Skeleton, Children);
+
+                FVector MinBound = BoneWorldPos;
+                FVector MaxBound = BoneWorldPos;
+
+                for (int32 ChildIdx : Children)
+                {
+                    FTransform ChildTM = MeshComp->GetBoneWorldTransform(ChildIdx);
+                    ChildTM.Scale3D = FVector(1, 1, 1);
+                    FVector ChildPos = ChildTM.Translation;
+
+                    MinBound.X = FMath::Min(MinBound.X, ChildPos.X);
+                    MinBound.Y = FMath::Min(MinBound.Y, ChildPos.Y);
+                    MinBound.Z = FMath::Min(MinBound.Z, ChildPos.Z);
+
+                    MaxBound.X = FMath::Max(MaxBound.X, ChildPos.X);
+                    MaxBound.Y = FMath::Max(MaxBound.Y, ChildPos.Y);
+                    MaxBound.Z = FMath::Max(MaxBound.Z, ChildPos.Z);
+                }
+
+                // AABB half-extent in world space
+                FVector WorldHalfExtent = (MaxBound - MinBound) * 0.5f * 1.1f;  // 10% padding
+
+                // Convert to bone local space
+                FQuat InvBoneRot = BoneWorldTM.Rotation.Inverse();
+                FVector LocalHalfExtent = InvBoneRot.RotateVector(WorldHalfExtent);
+
+                HalfX = FMath::Abs(LocalHalfExtent.X);
+                HalfY = FMath::Abs(LocalHalfExtent.Y);
+                HalfZ = FMath::Abs(LocalHalfExtent.Z);
+            }
+        }
+
         OutRadius = 0.0f;
         OutHalfHeight = 0.0f;
         OutExtent = FVector(HalfX, HalfY, HalfZ);
@@ -2467,9 +3168,27 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
     }
     case EPrimitiveType::Capsule:
     {
-        float Radius = FMath::Max(BoneLength * 0.25f, 1.0f);
+        float Radius = FMath::Max(BoneLength * 0.25f, MinRadius);
         float CylinderLength = BoneLength - (Radius * 2.0f);
-        CylinderLength = FMath::Max(CylinderLength, 1.0f);
+        CylinderLength = FMath::Max(CylinderLength, MinCylinderLength);
+
+        // Special handling for pelvis: use full length for cylinder
+        if (BoneIndex >= 0 && BoneIndex < Bones.Num())
+        {
+            FString BoneName = Bones[BoneIndex].Name;
+            std::transform(BoneName.begin(), BoneName.end(), BoneName.begin(), ::tolower);
+
+            bool bIsPelvis =
+                (BoneName.find("pelvis") != FString::npos) ||
+                (BoneName.find("hips") != FString::npos);
+
+            if (bIsPelvis)
+            {
+                // For pelvis, use full BoneLength to cover all children
+                Radius = BoneLength * 0.3f;  // Wider radius for legs
+                CylinderLength = BoneLength * 2.0f;  // Full length coverage
+            }
+        }
 
         OutRadius = Radius;
         OutHalfHeight = CylinderLength * 0.5f;
@@ -2497,7 +3216,7 @@ void SPhysicsAssetEditorWindow::BuildBoneVertexInfluenceMap(const FSkeletalMeshD
     OutInfluenceMap.Empty();
     OutInfluenceMap.SetNum(Skeleton.Bones.Num());
 
-    UE_LOG("BuildBoneVertexInfluenceMap: Processing %d vertices for %d bones", Vertices.Num(), Skeleton.Bones.Num());
+    // UE_LOG("BuildBoneVertexInfluenceMap: Processing %d vertices for %d bones", Vertices.Num(), Skeleton.Bones.Num());
 
     // Iterate through all vertices and build reverse mapping
     for (int32 VertexIndex = 0; VertexIndex < Vertices.Num(); ++VertexIndex)
@@ -2621,7 +3340,7 @@ void SPhysicsAssetEditorWindow::FitMinimalSphere(const TArray<FVector>& Vertices
     }
 
     // Add small padding
-    OutRadius *= 1.05f;
+    OutRadius *= 1.f;
 }
 
 void SPhysicsAssetEditorWindow::FitMinimalCapsule(const TArray<FVector>& Vertices, const FVector& PrincipalAxis,
@@ -2665,8 +3384,8 @@ void SPhysicsAssetEditorWindow::FitMinimalCapsule(const TArray<FVector>& Vertice
     }
 
     // Capsule dimensions
-    OutRadius = MaxRadialDistance * 1.05f;  // Add 5% padding
-    float CylinderHeight = (MaxProjection - MinProjection) * 1.05f;
+    OutRadius = MaxRadialDistance * 1.0f;  // Add 5% padding
+    float CylinderHeight = (MaxProjection - MinProjection) * 1.0f;
     OutHalfHeight = CylinderHeight * 0.5f;
 
     // Calculate rotation from Z-axis to principal axis
@@ -2750,9 +3469,9 @@ void SPhysicsAssetEditorWindow::FitMinimalBox(const TArray<FVector>& Vertices, c
 
     // Calculate half extents with padding
     OutExtent = FVector(
-        (MaxX - MinX) * 0.5f * 1.05f,
-        (MaxY - MinY) * 0.5f * 1.05f,
-        (MaxZ - MinZ) * 0.5f * 1.05f
+        (MaxX - MinX) * 0.5f * 1.f,
+        (MaxY - MinY) * 0.5f * 1.f,
+        (MaxZ - MinZ) * 0.5f * 1.f
     );
 
     // Calculate rotation from default axes to local axes

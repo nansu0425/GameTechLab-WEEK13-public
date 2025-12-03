@@ -279,7 +279,6 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Source\Runtime\Engine\Physics\PhysicsEventCallback.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Physics\PhysScene.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Physics\BodySetup.cpp" />
-    <ClCompile Include="Source\Runtime\Engine\Physics\BodySetupImpl.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Physics\BodyInstance.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Physics\BodyInstanceImpl.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Animation\AnimationRuntime.cpp" />
@@ -858,11 +857,13 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Source\Runtime\Core\Object\ObjectMacros.h" />
     <ClInclude Include="Source\Runtime\Core\Object\Property.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\Camera\CamMod_DoF.h" />
+    <ClInclude Include="Source\Runtime\Engine\Physics\AggregateGeom.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\BodySetupCore.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\BodySetupEnums.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\ConstraintInstance.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\PhysicsAsset.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\PhysicsSceneLock.h" />
+    <ClInclude Include="Source\Runtime\Engine\Physics\PhysicsStats.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\PhysicsTypes.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\PhysicsCore.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\PhysicsEventCallback.h" />
@@ -870,7 +871,6 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Source\Runtime\Engine\Physics\PhysScene.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\PhysSceneImpl.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\BodySetup.h" />
-    <ClInclude Include="Source\Runtime\Engine\Physics\BodySetupImpl.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\BodyInstance.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\BodyInstanceImpl.h" />
     <ClInclude Include="Source\Runtime\Engine\Animation\AnimationAsset.h" />

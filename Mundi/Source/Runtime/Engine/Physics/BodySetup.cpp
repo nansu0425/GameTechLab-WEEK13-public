@@ -23,6 +23,68 @@ UBodySetup::UBodySetup()
 {
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// AggGeom 자동 생성 헬퍼
+// ═══════════════════════════════════════════════════════════════════════════
+
+bool UBodySetup::IsAggGeomEmpty() const
+{
+    return AggGeom.BoxElems.IsEmpty()
+        && AggGeom.SphereElems.IsEmpty()
+        && AggGeom.SphylElems.IsEmpty()
+        && AggGeom.ConvexElems.IsEmpty();
+}
+
+void UBodySetup::GenerateAggGeomFromProperties() const
+{
+    // const_cast: fallback 자동 생성은 논리적 const (lazy initialization)
+    FAggregateGeom& MutableAggGeom = const_cast<FAggregateGeom&>(AggGeom);
+
+    switch (BodyType)
+    {
+    case EBodySetupType::Box:
+        {
+            FBoxElem BoxElem;
+            BoxElem.X = BoxExtent.X * 2.0f;  // half → full
+            BoxElem.Y = BoxExtent.Y * 2.0f;
+            BoxElem.Z = BoxExtent.Z * 2.0f;
+            BoxElem.Center = FVector::Zero();
+            BoxElem.Rotation = FQuat::Identity();
+            MutableAggGeom.BoxElems.Add(BoxElem);
+        }
+        break;
+
+    case EBodySetupType::Sphere:
+        {
+            FSphereElem SphereElem;
+            SphereElem.Radius = SphereRadius;
+            SphereElem.Center = FVector::Zero();
+            MutableAggGeom.SphereElems.Add(SphereElem);
+        }
+        break;
+
+    case EBodySetupType::Capsule:
+        {
+            FSphylElem SphylElem;
+            SphylElem.Radius = SphereRadius;
+            // CapsuleHalfHeight는 언리얼 방식 (반구 포함 전체 높이의 절반)
+            // FSphylElem.Length는 실린더 부분의 전체 길이
+            SphylElem.Length = FMath::Max(0.0f, (CapsuleHalfHeight - SphereRadius) * 2.0f);
+            SphylElem.Center = FVector::Zero();
+            SphylElem.Rotation = FQuat::Identity();
+            MutableAggGeom.SphylElems.Add(SphylElem);
+        }
+        break;
+
+    default:
+        break;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Shape 생성
+// ═══════════════════════════════════════════════════════════════════════════
+
 int32 UBodySetup::AddShapesToRigidActor(physx::PxRigidActor* RigidActor, physx::PxMaterial* DefaultMaterial, const FVector& Scale) const
 {
     if (!RigidActor)
@@ -30,7 +92,11 @@ int32 UBodySetup::AddShapesToRigidActor(physx::PxRigidActor* RigidActor, physx::
         return 0;
     }
 
-    int32 ShapeCount = 0;
+    // AggGeom Fallback: 비어있으면 직접 프로퍼티에서 자동 생성
+    if (IsAggGeomEmpty() && BodyType != EBodySetupType::None)
+    {
+        GenerateAggGeomFromProperties();
+    }
 
     AddBoxElems(RigidActor, DefaultMaterial, Scale);
     AddSphereElems(RigidActor, DefaultMaterial, Scale);
@@ -45,11 +111,16 @@ void UBodySetup::AddBoxElems(physx::PxRigidActor* RigidActor, physx::PxMaterial*
     PxPhysics* Physics = FPhysicsCore::Get().GetPhysics();
     for (const auto& BoxElem : AggGeom.BoxElems)
     {
-        float HalfExtentX = (BoxElem.X * 0.5f) * FMath::Abs(Scale.X);
-        float HalfExtentY = (BoxElem.Y * 0.5f) * FMath::Abs(Scale.Y);
-        float HalfExtentZ = (BoxElem.Z * 0.5f) * FMath::Abs(Scale.Z);
+        // Mundi 좌표계 기준 HalfExtent (스케일 적용)
+        FVector MundiHalfExtent(
+            (BoxElem.X * 0.5f) * FMath::Abs(Scale.X),
+            (BoxElem.Y * 0.5f) * FMath::Abs(Scale.Y),
+            (BoxElem.Z * 0.5f) * FMath::Abs(Scale.Z)
+        );
 
-        PxBoxGeometry BoxGeom(HalfExtentX, HalfExtentY, HalfExtentZ);
+        // 좌표계 변환: ScaleToPxVec3 사용 (크기이므로 부호 반전 없이 축만 재배치)
+        PxVec3 PxHalfExtent = PhysicsConversion::ScaleToPxVec3(MundiHalfExtent);
+        PxBoxGeometry BoxGeom(PxHalfExtent.x, PxHalfExtent.y, PxHalfExtent.z);
 
         PxShape* Shape = Physics->createShape(BoxGeom, *DefaultMaterial);
         if (Shape)
@@ -112,19 +183,29 @@ void UBodySetup::AddSphylElems(physx::PxRigidActor* RigidActor, physx::PxMateria
         }
 
         PxCapsuleGeometry CapsuleGeom(Radius, ScaledHalfLength);
-        
+
         PxShape* Shape = Physics->createShape(CapsuleGeom, *DefaultMaterial);
         if (Shape)
         {
-            FTransform SphylTransform(SphylElem.Center, SphylElem.Rotation, FVector::One());
-            Shape->setLocalPose(PhysicsConversion::ToPxTransform(SphylTransform));
+            // PhysX Capsule은 기본적으로 PhysX X축 방향으로 누워있음
+            // Mundi Z축(Up) = PhysX Y축이므로, PhysX Y축 방향으로 세워야 함
+            // PhysX Z축 기준 90도 회전: PhysX X축 → PhysX Y축
+            PxQuat CapsuleUpright(PxHalfPi, PxVec3(0, 0, 1));
+
+            // SphylElem의 Transform 적용
+            PxVec3 PxCenter = PhysicsConversion::ToPxVec3(SphylElem.Center);
+            PxQuat PxRotation = PhysicsConversion::ToPxQuat(SphylElem.Rotation);
+
+            // 최종 LocalPose = 사용자 회전 * 캡슐 세우기 회전
+            PxTransform LocalPose(PxCenter, PxRotation * CapsuleUpright);
+            Shape->setLocalPose(LocalPose);
 
             FSphylElem& MutableElem = const_cast<FSphylElem&>(SphylElem);
             Shape->userData = &MutableElem.UserData;
 
             RigidActor->attachShape(*Shape);
             Shape->release();
-        }        
+        }
     }
 }
 
@@ -187,8 +268,9 @@ void UBodySetup::AddConvexElems(physx::PxRigidActor* RigidActor, physx::PxMateri
 
         if (TargetMesh)
         {
+            // 스케일 변환: 축 재배치만 수행 (부호 반전 없음)
             physx::PxMeshScale PxScale(
-                PhysicsConversion::ToPxVec3(Scale),
+                PhysicsConversion::ScaleToPxVec3(Scale),
                 physx::PxQuat(physx::PxIdentity)
             );
 

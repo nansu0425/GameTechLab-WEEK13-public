@@ -216,6 +216,11 @@ void UPhysicsAsset::EnableCollision(int32 BodyIndexA, int32 BodyIndexB)
     }
 }
 
+void UPhysicsAsset::SetBoneNameIndexTable(const FName& BoneName, int32 Index)
+{
+    BoneNameToBodyIndex.Add(BoneName, Index);
+}
+
 void UPhysicsAsset::AddBodySetup(UBodySetup* NewBody)
 {
     if (NewBody)
@@ -229,6 +234,8 @@ void UPhysicsAsset::ClearAllBodies()
 {
     BodySetups.Empty();
     BoneNameToBodyIndex.Empty();
+    CollisionDisableTable.Empty();
+    ConstraintSetups.Empty();
     CollisionDisableTable.Empty();
 }
 

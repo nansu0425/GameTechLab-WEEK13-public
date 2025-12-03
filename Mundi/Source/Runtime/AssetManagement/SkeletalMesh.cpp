@@ -8,6 +8,9 @@
 #include "PathUtils.h"
 #include <filesystem>
 
+#include "BodySetup.h"
+#include "PhysicsAsset.h"
+
 IMPLEMENT_CLASS(USkeletalMesh)
 
 USkeletalMesh::USkeletalMesh()
@@ -91,6 +94,23 @@ void USkeletalMesh::CreateGPUSkinnedVertexBuffer(ID3D11Buffer** InVertexBuffer)
 
     HRESULT hr = Device->CreateBuffer(&BufferDesc, &InitData, InVertexBuffer);
     assert(SUCCEEDED(hr));
+}
+
+int32 USkeletalMesh::GetBoneIndexFromBoneName(const FName& BoneName)
+{
+    const FSkeleton* Skeleton = GetSkeleton();
+    if (!Skeleton)
+    {
+        return -1;
+    }
+    
+    FString Name = BoneName.ToString();
+    const int32* Index = Skeleton->BoneNameToIndex.Find(Name);
+    if (!Index)
+    {
+        return -1;
+    }
+    return *Index;
 }
 
 void USkeletalMesh::CreateIndexBuffer(FSkeletalMeshData* InSkeletalMesh, ID3D11Device* InDevice)

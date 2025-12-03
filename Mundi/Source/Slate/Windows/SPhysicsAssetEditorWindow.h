@@ -42,9 +42,15 @@ private:
     void DrawWireframeSphere(ULineComponent* LineComp, const FVector& Center, float Radius, const FQuat& Rotation, const FVector4& Color, int32 Segments = 16);
     void DrawWireframeCapsule(ULineComponent* LineComp, const FVector& Center, float Radius, float HalfHeight, const FQuat& Rotation, const FVector4& Color, int32 Segments = 16);
 
+    // Constraint visualization functions
+    void DrawConstraintFrame(ULineComponent* LineComp, const FVector& Position, const FVector& PriAxis, const FVector& SecAxis, float AxisLength, const FVector4& Color);
+    void DrawSwingCone(ULineComponent* LineComp, const FVector& Position, const FVector& PriAxis, const FVector& SecAxis, float Swing1Angle, float Swing2Angle, const FVector4& Color, int32 Segments = 16);
+    void DrawTwistArc(ULineComponent* LineComp, const FVector& Position, const FVector& PriAxis, const FVector& SecAxis, float TwistAngle, float Radius, const FVector4& Color, int32 Segments = 16);
+
     // Collision shape management
     void RebuildCollisionShapes();
     void ClearCollisionShapes();
+    void RebuildConstraintVisualization();
 
     // Helper function for physics body hierarchy filtering
     bool HasBodyInSubtree(int32 BoneIndex, const TArray<struct FBone>& Bones, const TArray<TArray<int32>>& Children) const;
@@ -60,16 +66,20 @@ private:
     void CreateConstraintForBone(int32 BoneIndex);
     void GenerateAllConstraints();
     void CreateConstraintBetweenBodies(int ParentBodyIndex, int ChildBodyIndex);
-    void BuildConstraintSetup(const FName& ParentBoneName, const FName& ChildBoneName, const FTransform& ParentWT, const FTransform& ChildWT, class FConstraintSetup& OutSetup);
+    void BuildConstraintSetup(const FName& ParentBoneName, const FName& ChildBoneName, const FTransform& ParentWT, const FTransform& ChildWT, struct FConstraintSetup& OutSetup);
 
     // Helper functions for above
     int32 FindFirstChildBone(int32 BoneIndex, const FSkeleton* Skeleton) const;
+    void GetAllChildBones(int32 BoneIndex, const FSkeleton* Skeleton, TArray<int32>& OutChildren) const;
     int32 BoneNameToIndex(const FName& BoneName) const;
     void CalculateBoneLocalShapeTransform(int32 BoneIndex, const FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp, FVector& OutLocalCenter, FQuat& OutLocalRotation);
     void CalculateBodyDimensions(int32 BoneIndex, const struct FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp,
                                  EPrimitiveType PrimitiveType, float& OutRadius, float& OutHalfHeight, FVector& OutExtent) const;
     bool ShouldCreateBodyForBone(int32 BoneIndex, const struct FSkeleton* Skeleton) const;
     void RecreateBodyPrimitive(class UBodySetup* BodySetup, EPrimitiveType NewPrimitiveType);
+    bool IsDescendantOf(int32 ChildIdx, int32 RootIdx, const TArray<FBone>& Bones) const;
+    float ComputeLimbChainLength(int32 RootBoneIndex, const FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp) const;
+    FVector ComputeLimbCentroid(int32 RootBoneIndex, const FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp) const;
 
     // Vertex-driven body generation
     struct FBoneVertexInfluence
