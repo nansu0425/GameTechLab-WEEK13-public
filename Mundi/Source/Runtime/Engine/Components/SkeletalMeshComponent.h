@@ -111,7 +111,9 @@ public:
 	TArray<FConstraintInstance*> GetConstraints() { return Constraints; }
 
     void SetPhysicsAsset(UPhysicsAsset* InAsset);
-    
+
+    // 래그돌: 물리 결과를 본 트랜스폼에 동기화
+    void UpdateBoneTransformsFromPhysics();
 
 protected:
     /**
@@ -137,9 +139,6 @@ protected:
 
     void ClearBodies();
     void ClearConstraints();
-    
-    // 래그돌: 물리 결과를 본 트랜스폼에 동기화
-    void UpdateBoneTransformsFromPhysics();
 
 protected:
     /**

@@ -133,6 +133,9 @@ public:
     UCollisionManager* GetCollisionManager() { return CollisionManager.get(); }
     FPhysScene* GetPhysScene() { return PhysScene.get(); }
 
+    // PreviewWorld에서 물리 시뮬레이션 활성화/비활성화
+    void EnablePhysicsSimulation(bool bEnable);
+
     // Pilot 모드 액터 관리 (뷰포트에서 해당 액터의 카메라로 보는 중)
     void SetPilotActor(AActor* InActor) { PilotActor = InActor; }
     AActor* GetPilotActor() const { return PilotActor; }

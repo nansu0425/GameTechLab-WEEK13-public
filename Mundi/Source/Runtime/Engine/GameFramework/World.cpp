@@ -802,6 +802,29 @@ AActor* UWorld::SpawnPrefabActor(const FWideString& PrefabPath)
 	return nullptr;
 }
 
+void UWorld::EnablePhysicsSimulation(bool bEnable)
+{
+	if (bEnable)
+	{
+		// Physics Scene이 없으면 생성
+		if (!PhysScene)
+		{
+			PhysScene = std::make_unique<FPhysScene>();
+			PhysScene->InitPhysScene(this);
+			UE_LOG("[Physics] PreviewWorld에 FPhysScene 생성");
+		}
+	}
+	else
+	{
+		// Physics Scene 해제 (선택적 - PreviewWorld 정리 시)
+		if (PhysScene && IsPreviewWorld())
+		{
+			PhysScene.reset();
+			UE_LOG("[Physics] PreviewWorld에서 FPhysScene 해제");
+		}
+	}
+}
+
 bool UWorld::TryMarkOverlapPair(const AActor* Actor, const AActor* B)
 {
 	if (!Actor || !B) return false;
