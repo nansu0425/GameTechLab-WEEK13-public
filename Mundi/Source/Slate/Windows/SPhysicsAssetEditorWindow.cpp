@@ -2204,19 +2204,45 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType Pri
         }
         else if (bIsPelvis)
         {
-            // Include all direct children's vertices (spine + legs)
+            // Include direct children's vertices, but only those near pelvis
+            // (to avoid spine vertices from extending too far up)
             TArray<int32> Children;
             GetAllChildBones(BoneIndex, Skeleton, Children);
 
+            // Get pelvis world position
+            FTransform PelvisWorldTM = MeshComp->GetBoneWorldTransform(BoneIndex);
+            PelvisWorldTM.Scale3D = FVector(1, 1, 1);
+            FVector PelvisPos = PelvisWorldTM.Translation;
+
+            // Calculate max distance based on child bone positions
+            float MaxChildDist = 0.f;
+            for (int32 ChildIdx : Children)
+            {
+                FTransform ChildTM = MeshComp->GetBoneWorldTransform(ChildIdx);
+                ChildTM.Scale3D = FVector(1, 1, 1);
+                float Dist = (ChildTM.Translation - PelvisPos).Size();
+                MaxChildDist = FMath::Max(MaxChildDist, Dist);
+            }
+
+            // Only include vertices within ~2.0x the max child bone distance
+            float MaxVertexDistance = MaxChildDist * 2.0f;
+
+            int32 VertexCountBefore = VerticesToFit.Num();
             for (int32 ChildIdx : Children)
             {
                 if (ChildIdx < InfluenceMap.Num())
                 {
-                    VerticesToFit.Append(InfluenceMap[ChildIdx].Vertices);
+                    for (const FVector& Vert : InfluenceMap[ChildIdx].Vertices)
+                    {
+                        if ((Vert - PelvisPos).Size() <= MaxVertexDistance)
+                        {
+                            VerticesToFit.Add(Vert);
+                        }
+                    }
                 }
             }
-            UE_LOG("GenerateAllBodies: Pelvis '%s' - expanded to %d vertices (including children)",
-                Bone.Name.c_str(), VerticesToFit.Num());
+            UE_LOG("GenerateAllBodies: Pelvis '%s' - expanded from %d to %d vertices (distance-filtered)",
+                Bone.Name.c_str(), VertexCountBefore, VerticesToFit.Num());
         }
         else
         {
