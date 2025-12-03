@@ -65,6 +65,28 @@ void UClothComponent::OnUnregister()
 	Super::OnUnregister();
 }
 
+void UClothComponent::BeginPlay()
+{
+	Super::BeginPlay();
+}
+
+void UClothComponent::EndPlay()
+{
+	UE_LOG("[ClothComponent] EndPlay called\n");
+
+	// PIE 종료 시 물리 상태 파괴
+	DestroyClothPhysicsState();
+
+	Super::EndPlay();
+
+	//// 에디터로 돌아갈 때 다시 생성
+	//if (bEnableClothSimulation && ClothAsset && FClothCore::GetInstance().IsInitialized())
+	//{
+	//	UE_LOG("[ClothComponent] Re-creating cloth state for editor\n");
+	//	CreateClothPhysicsState();
+	//}
+}
+
 void UClothComponent::TickComponent(float DeltaTime)
 {
 	Super::TickComponent(DeltaTime);
@@ -72,6 +94,30 @@ void UClothComponent::TickComponent(float DeltaTime)
 	// Cloth 시뮬레이션이 활성화되어 있으면
 	if (bSimulatingCloth && ClothInstance)
 	{
+		// Apply random wind variation to prevent standing waves
+		if (bEnableWind)
+		{
+			// Generate random wind variation using Perlin-like noise
+			static float TimeAccumulator = 0.0f;
+			TimeAccumulator += DeltaTime;
+
+			// Use sine waves with different frequencies for smooth variation
+			float Variation1 = sinf(TimeAccumulator * 0.8f) * 0.15f; // Slow variation
+			float Variation2 = sinf(TimeAccumulator * 2.1f) * 0.08f; // Medium variation
+			float Variation3 = sinf(TimeAccumulator * 1.7f) * 0.04f; // Fast variation
+
+			float TotalVariation = 1.0f + Variation1 + Variation2 + Variation3;
+
+			// Apply varied wind force
+			physx::PxVec3 VariedWind(
+				Gravity.X + (Wind.X * TotalVariation),
+				Gravity.Y + (Wind.Y * TotalVariation),
+				Gravity.Z + (Wind.Z * TotalVariation)
+			);
+
+			ClothInstance->setGravity(VariedWind);
+		}
+
 		// 시뮬레이션 결과를 렌더링 메쉬에 반영
 		UpdateRenderMesh();
 	}

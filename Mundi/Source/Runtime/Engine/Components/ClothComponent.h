@@ -40,6 +40,8 @@ public:
 
 	void OnRegister(UWorld* InWorld) override;
 	void OnUnregister() override;
+	void BeginPlay() override;
+	void EndPlay() override;
 	void TickComponent(float DeltaTime) override;
 
 	// Rendering
