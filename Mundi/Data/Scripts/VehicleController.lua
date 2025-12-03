@@ -8,7 +8,7 @@ local function GetVehicleComponent()
         return VehicleMovement
     end
 
-    local comp = GetComponent(Obj, "USimpleWheeledVehicleMovementComponent")
+    local comp = GetComponent(Obj, "UVehicleMovementComponent")
     if not comp then
         print("[VehicleController] Vehicle movement component not found")
         return nil
@@ -29,27 +29,12 @@ function Tick(dt)
     end
 
     -- 입력 읽기
-    local w = InputManager:IsKeyDown("W")
-    local s = InputManager:IsKeyDown("S")
-    local a = InputManager:IsKeyDown("A")
-    local d = InputManager:IsKeyDown("D")
-    local shift = InputManager:IsKeyDown(0x10)  -- VK_SHIFT
-    local space = InputManager:IsKeyDown(0x20)  -- VK_SPACE
-
-    -- 스로틀/스티어 값 계산 (-1.0 ~ 1.0)
-    local throttle = 0.0
-    if w then throttle = throttle + 1.0 end
-    if s then throttle = throttle - 1.0 end
-
+    -- 테스트용: 풀스로틀, 브레이크/핸드브레이크 해제 고정
+    local throttle = 1.0
     local steering = 0.0
-    if d then steering = steering + 1.0 end
-    if a then steering = steering - 1.0 end
+    local brake = 0.0
+    local handbrake = 0.0
 
-    -- 브레이크 입력 (0.0 ~ 1.0)
-    local brake = space and 1.0 or 0.0
-    local handbrake = shift and 1.0 or 0.0
-
-    -- 컴포넌트에 전달
     Vehicle:SetThrottleInput(throttle)
     Vehicle:SetSteeringInput(steering)
     Vehicle:SetBrakeInput(brake)
