@@ -169,6 +169,11 @@ bool UVehicleMovementComponent::InitVehiclePhysX()
         return true;
     }
 
+    // =========================================================================
+    // 사전 검사
+	// =========================================================================
+
+
 	// 검사1: UpdatedComponent 확인
     if (!UpdatedComponent)
     {
@@ -228,6 +233,10 @@ bool UVehicleMovementComponent::InitVehiclePhysX()
         return false;
     }
 
+	// =========================================================================
+	// BodySetup 및 BodyInstance 생성/초기화
+	// =========================================================================
+
     // BodySetup 생성 (BeginPlay~EndPlay 동안 유지)
     if (!VehicleBodySetup)
     {
@@ -278,10 +287,148 @@ bool UVehicleMovementComponent::InitVehiclePhysX()
         UE_LOG("[VehicleMovement] Failed to initialize BodyInstance.");
         return false;
     }
+    // =========================================================================
+    // PhysX 리소스 생성/초기화
+    // =========================================================================
+
+    // 휠 쿼리 버퍼 초기화
+    WheelQueryResults.SetNum(WheelSetups.Num());
+    VehicleQueryResults.wheelQueryResults = WheelQueryResults.GetData();
+    VehicleQueryResults.nbWheelQueryResults = WheelQueryResults.Num();
+
+    // 마찰 테이블 준비 (노면 1, 타이어 1)
+    if (!TireFrictionPairs)
+    {
+        physx::PxMaterial* DefaultMat = PhysScene->GetDefaultMaterial();
+        if (!DefaultMat)
+        {
+            DefaultMat = FPhysicsCore::Get().CreateMaterial(0.5f, 0.5f, 0.6f);
+        }
+
+        TireFrictionPairs = physx::PxVehicleDrivableSurfaceToTireFrictionPairs::allocate(1, 1);
+        physx::PxVehicleDrivableSurfaceType SurfaceTypes[1];
+        SurfaceTypes[0].mType = 0;
+        const physx::PxMaterial* SurfaceMats[1] = { DefaultMat };
+        TireFrictionPairs->setup(1, 1, SurfaceMats, SurfaceTypes);
+        TireFrictionPairs->setTypePairFriction(0, 0, 1.0f); // Tire Type 0 & Surface Type 0 => Friction 1.0f
+    }
+
+    // Drive4W 생성
+    const physx::PxU32 NumWheels = WheelSetups.Num();
+
+    // 스프링 질량 계산용 오프셋
+    TArray<physx::PxVec3> PxSprungMassOffsets;
+    PxSprungMassOffsets.SetNum(NumWheels);
+    for (physx::PxU32 i = 0; i < NumWheels; ++i)
+    {
+        FVector WheelCentreLocal = WheelSetups[i].DefaultPosition + ChassisOffset;
+        WheelCentreLocal.Z -= WheelSetups[i].WheelRadius;
+        PxSprungMassOffsets[i] = PhysicsConversion::ToPxVec3(WheelCentreLocal);
+    }
+
+    TArray<float> SprungMasses;
+    SprungMasses.SetNum(NumWheels);
+    physx::PxVehicleComputeSprungMasses(
+        NumWheels,
+        PxSprungMassOffsets.GetData(),
+        physx::PxVec3(0.0f, 0.0f, 0.0f),
+        VehicleMass,
+        1,
+        SprungMasses.GetData());
+
+    // WheelsSimData 구성
+    physx::PxVehicleWheelsSimData* WheelsSimData = physx::PxVehicleWheelsSimData::allocate(NumWheels);
+
+    const float WheelWidth = 0.4f;
+    const float WheelMass = 20.0f;
+    const float SuspensionTravel = 0.3f;
+
+    for (physx::PxU32 i = 0; i < NumWheels; ++i)
+    {
+        const FWheelSetup& Setup = WheelSetups[i];
+
+        physx::PxVehicleWheelData WheelData;
+        WheelData.mRadius = Setup.WheelRadius;
+        WheelData.mWidth = WheelWidth;
+        WheelData.mMass = WheelMass;
+        WheelData.mMOI = 0.5f * WheelMass * Setup.WheelRadius * Setup.WheelRadius;
+        WheelData.mMaxHandBrakeTorque = Setup.bIsDriveWheel ? MaxHandbrakeTorque : 0.0f;
+        WheelData.mMaxBrakeTorque = MaxBrakeTorque;
+        WheelData.mMaxSteer = physx::PxPi * MaxSteerAngle / 180.0f;
+
+        physx::PxVehicleSuspensionData SusData;
+        SusData.mMaxCompression = SuspensionTravel;
+        SusData.mMaxDroop = SuspensionTravel;
+        SusData.mSpringStrength = 35000.0f;
+        SusData.mSpringDamperRate = 4500.0f;
+        SusData.mSprungMass = (i < (physx::PxU32)SprungMasses.Num()) ? SprungMasses[i] : VehicleMass / NumWheels;
+
+        FVector WheelCentreLocal = Setup.DefaultPosition + ChassisOffset;
+        WheelCentreLocal.Z -= Setup.WheelRadius;
+        physx::PxVec3 WheelCentreOffset = PhysicsConversion::ToPxVec3(WheelCentreLocal);
+
+        WheelsSimData->setWheelData(i, WheelData);
+        WheelsSimData->setSuspensionData(i, SusData);
+        WheelsSimData->setWheelCentreOffset(i, WheelCentreOffset);
+        WheelsSimData->setSuspTravelDirection(i, physx::PxVec3(0.0f, -1.0f, 0.0f));
+        WheelsSimData->setSuspForceAppPointOffset(i, WheelCentreOffset);
+        WheelsSimData->setTireForceAppPointOffset(i, WheelCentreOffset);
+    }
+
+    // 휠 shape 매핑 (BodySetup 생성 순서: 박스 1개 + 휠 캡슐 N개)
+    {
+        const physx::PxU32 WheelShapeStart = 1; // 박스 이후 첫 캡슐 인덱스
+        for (physx::PxU32 i = 0; i < NumWheels; ++i)
+        {
+            WheelsSimData->setWheelShapeMapping(i, WheelShapeStart + i);
+        }
+    }
+
+    // DriveSimData 구성
+    physx::PxVehicleDriveSimData4W DriveSimData;
+    physx::PxVehicleEngineData EngineData;
+    EngineData.mPeakTorque = MaxDriveTorque;
+    EngineData.mMaxOmega = 600.0f;
+    DriveSimData.setEngineData(EngineData);
+
+    physx::PxVehicleGearsData GearsData;
+    DriveSimData.setGearsData(GearsData);
+
+    physx::PxVehicleClutchData ClutchData;
+    DriveSimData.setClutchData(ClutchData);
+
+    physx::PxVehicleAckermannGeometryData Ackermann;
+    Ackermann.mFrontWidth = 150.0f;
+    Ackermann.mRearWidth = 150.0f;
+    Ackermann.mAxleSeparation = 250.0f;
+    DriveSimData.setAckermannGeometryData(Ackermann);
+
+    physx::PxVehicleSetBasisVectors(physx::PxVec3(0.0f, 1.0f, 0.0f), physx::PxVec3(0.0f, 0.0f, -1.0f));
+    physx::PxVehicleSetUpdateMode(physx::PxVehicleUpdateMode::eVELOCITY_CHANGE);
+
+    physx::PxRigidDynamic* ChassisActor = VehicleBodyInstance.GetPxRigidDynamic();
+    if (!ChassisActor)
+    {
+        UE_LOG("[VehicleMovement] BodyInstance has no PxRigidDynamic.");
+        WheelsSimData->free();
+        return false;
+    }
+
+    physx::PxVehicleDrive4W* Drive4W = physx::PxVehicleDrive4W::allocate(NumWheels);
+    Drive4W->setup(Physics, ChassisActor, *WheelsSimData, DriveSimData, NumWheels);
+    WheelsSimData->free();
+
+    if (!Drive4W->getRigidDynamicActor())
+    {
+        Drive4W->free();
+        UE_LOG("[VehicleMovement] PxVehicleDrive4W setup failed (no actor bound).");
+        return false;
+    }
+
+    PxVehicleDrive4WInstance = Drive4W;
 
     bVehicleInitialized = true;
     return true;
-
 }
 
 void UVehicleMovementComponent::ApplyInputToPhysX(float DeltaTime)
