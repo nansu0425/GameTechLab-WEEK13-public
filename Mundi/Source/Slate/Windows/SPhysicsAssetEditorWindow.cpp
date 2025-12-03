@@ -2495,6 +2495,23 @@ int32 SPhysicsAssetEditorWindow::FindFirstChildBone(int32 BoneIndex, const FSkel
     return -1;  // no child
 }
 
+void SPhysicsAssetEditorWindow::GetAllChildBones(int32 BoneIndex, const FSkeleton* Skeleton, TArray<int32>& OutChildren) const
+{
+    OutChildren.Empty();
+
+    if (!Skeleton || BoneIndex < 0 || BoneIndex >= Skeleton->Bones.Num())
+        return;
+
+    const TArray<FBone>& Bones = Skeleton->Bones;
+    for (int32 i = 0; i < Bones.Num(); ++i)
+    {
+        if (Bones[i].ParentIndex == BoneIndex)
+        {
+            OutChildren.Add(i);
+        }
+    }
+}
+
 int32 SPhysicsAssetEditorWindow::BoneNameToIndex(const FName& BoneName) const
 {
     if (!ActiveState || !ActiveState->CurrentMesh)
@@ -2632,7 +2649,7 @@ void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex
 
     // 1) LocalCenter ---------------------------------
     // Compute bone midpoint in world space
-    // For hand/foot, use chain length to properly center the collider
+    // Special handling for multi-branch bones (pelvis/hips) and limbs (hand/foot)
     const TArray<FBone>& Bones = Skeleton->Bones;
     FString BoneName = Bones[BoneIndex].Name;
     std::transform(BoneName.begin(), BoneName.end(), BoneName.begin(), ::tolower);
@@ -2641,11 +2658,21 @@ void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex
         (BoneName.find("hand") != FString::npos) ||
         (BoneName.find("foot") != FString::npos);
 
+    bool bIsPelvis =
+        (BoneName.find("pelvis") != FString::npos) ||
+        (BoneName.find("hips") != FString::npos);
+
     FVector WorldCenter;
     if (bIsHandOrFoot && FirstChildIndex >= 0)
     {
         // For hand/foot: use centroid of all descendant bones for proper centering
         WorldCenter = ComputeLimbCentroid(BoneIndex, Skeleton, MeshComp);
+    }
+    else if (bIsPelvis)
+    {
+        // For pelvis/hips: keep center at pelvis position
+        // (Box primitive will adjust center separately)
+        WorldCenter = BoneWorldPos;
     }
     else
     {
@@ -2868,7 +2895,7 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
     // Calculate bone length
     float BoneLength = (ChildWorldPos - BoneWorldPos).Size();
 
-    // Check if this is a hand/foot bone - use limb chain length instead
+    // Check for special bone types that need custom dimension calculation
     const TArray<FBone>& Bones = Skeleton->Bones;
     if (BoneIndex >= 0 && BoneIndex < Bones.Num())
     {
@@ -2879,17 +2906,43 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
             (BoneName.find("hand") != FString::npos) ||
             (BoneName.find("foot") != FString::npos);
 
+        bool bIsPelvis =
+            (BoneName.find("pelvis") != FString::npos) ||
+            (BoneName.find("hips") != FString::npos);
+
         if (bIsHandOrFoot)
         {
             // Use chain length from hand/foot root to furthest descendant (finger/toe tips)
-            // Add 5% padding to ensure proper coverage
-            const float PaddingMultiplier = 1.05f;
+            // Add 10% padding to ensure proper coverage
+            const float PaddingMultiplier = 1.1f;
             float ChainLength = ComputeLimbChainLength(BoneIndex, Skeleton, MeshComp);
             if (ChainLength > 0.01f)
             {
                 BoneLength = ChainLength * PaddingMultiplier;
                 UE_LOG("CalculateBodyDimensions: Using limb chain length %.2f (with %.0f%% padding) for '%s'",
                     BoneLength, (PaddingMultiplier - 1.0f) * 100.0f, Bones[BoneIndex].Name.c_str());
+            }
+        }
+        else if (bIsPelvis)
+        {
+            // For pelvis/hips: find max distance to any direct child
+            TArray<int32> Children;
+            GetAllChildBones(BoneIndex, Skeleton, Children);
+
+            float MaxChildDist = 0.f;
+            for (int32 ChildIdx : Children)
+            {
+                FTransform ChildTM = MeshComp->GetBoneWorldTransform(ChildIdx);
+                ChildTM.Scale3D = FVector(1, 1, 1);
+                float Dist = (ChildTM.Translation - BoneWorldPos).Size();
+                MaxChildDist = FMath::Max(MaxChildDist, Dist);
+            }
+
+            if (MaxChildDist > 0.01f)
+            {
+                BoneLength = MaxChildDist;
+                UE_LOG("CalculateBodyDimensions: Using max child distance %.2f for pelvis '%s'",
+                    BoneLength, Bones[BoneIndex].Name.c_str());
             }
         }
     }
@@ -2946,6 +2999,24 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
         if (FirstChildIndex < 0)
             Radius = DefaultLeafLength * 0.5f;
 
+        // Special handling for pelvis: BoneLength is max child distance from pelvis
+        // But center is averaged, so we need full distance as radius
+        if (BoneIndex >= 0 && BoneIndex < Bones.Num())
+        {
+            FString BoneName = Bones[BoneIndex].Name;
+            std::transform(BoneName.begin(), BoneName.end(), BoneName.begin(), ::tolower);
+
+            bool bIsPelvis =
+                (BoneName.find("pelvis") != FString::npos) ||
+                (BoneName.find("hips") != FString::npos);
+
+            if (bIsPelvis)
+            {
+                // For pelvis, use full BoneLength as radius to reach all children
+                Radius = BoneLength;
+            }
+        }
+
         OutRadius = Radius;
         OutHalfHeight = 0.0f;
         OutExtent = FVector(Radius, Radius, Radius);
@@ -2957,6 +3028,54 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
         float HalfY = BoneLength * 0.2f;
         float HalfZ = BoneLength * 0.5f;
 
+        // Special handling for pelvis: use full length for Z-axis
+        if (BoneIndex >= 0 && BoneIndex < Bones.Num())
+        {
+            FString BoneName = Bones[BoneIndex].Name;
+            std::transform(BoneName.begin(), BoneName.end(), BoneName.begin(), ::tolower);
+
+            bool bIsPelvis =
+                (BoneName.find("pelvis") != FString::npos) ||
+                (BoneName.find("hips") != FString::npos);
+
+            if (bIsPelvis)
+            {
+                // For pelvis: calculate AABB from pelvis + all children
+                // Center was calculated as AABB center in CalculateBoneLocalShapeTransform
+                TArray<int32> Children;
+                GetAllChildBones(BoneIndex, Skeleton, Children);
+
+                FVector MinBound = BoneWorldPos;
+                FVector MaxBound = BoneWorldPos;
+
+                for (int32 ChildIdx : Children)
+                {
+                    FTransform ChildTM = MeshComp->GetBoneWorldTransform(ChildIdx);
+                    ChildTM.Scale3D = FVector(1, 1, 1);
+                    FVector ChildPos = ChildTM.Translation;
+
+                    MinBound.X = FMath::Min(MinBound.X, ChildPos.X);
+                    MinBound.Y = FMath::Min(MinBound.Y, ChildPos.Y);
+                    MinBound.Z = FMath::Min(MinBound.Z, ChildPos.Z);
+
+                    MaxBound.X = FMath::Max(MaxBound.X, ChildPos.X);
+                    MaxBound.Y = FMath::Max(MaxBound.Y, ChildPos.Y);
+                    MaxBound.Z = FMath::Max(MaxBound.Z, ChildPos.Z);
+                }
+
+                // AABB half-extent in world space
+                FVector WorldHalfExtent = (MaxBound - MinBound) * 0.5f * 1.1f;  // 10% padding
+
+                // Convert to bone local space
+                FQuat InvBoneRot = BoneWorldTM.Rotation.Inverse();
+                FVector LocalHalfExtent = InvBoneRot.RotateVector(WorldHalfExtent);
+
+                HalfX = FMath::Abs(LocalHalfExtent.X);
+                HalfY = FMath::Abs(LocalHalfExtent.Y);
+                HalfZ = FMath::Abs(LocalHalfExtent.Z);
+            }
+        }
+
         OutRadius = 0.0f;
         OutHalfHeight = 0.0f;
         OutExtent = FVector(HalfX, HalfY, HalfZ);
@@ -2967,6 +3086,24 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
         float Radius = FMath::Max(BoneLength * 0.25f, MinRadius);
         float CylinderLength = BoneLength - (Radius * 2.0f);
         CylinderLength = FMath::Max(CylinderLength, MinCylinderLength);
+
+        // Special handling for pelvis: use full length for cylinder
+        if (BoneIndex >= 0 && BoneIndex < Bones.Num())
+        {
+            FString BoneName = Bones[BoneIndex].Name;
+            std::transform(BoneName.begin(), BoneName.end(), BoneName.begin(), ::tolower);
+
+            bool bIsPelvis =
+                (BoneName.find("pelvis") != FString::npos) ||
+                (BoneName.find("hips") != FString::npos);
+
+            if (bIsPelvis)
+            {
+                // For pelvis, use full BoneLength to cover all children
+                Radius = BoneLength * 0.3f;  // Wider radius for legs
+                CylinderLength = BoneLength * 2.0f;  // Full length coverage
+            }
+        }
 
         OutRadius = Radius;
         OutHalfHeight = CylinderLength * 0.5f;

@@ -70,6 +70,7 @@ private:
 
     // Helper functions for above
     int32 FindFirstChildBone(int32 BoneIndex, const FSkeleton* Skeleton) const;
+    void GetAllChildBones(int32 BoneIndex, const FSkeleton* Skeleton, TArray<int32>& OutChildren) const;
     int32 BoneNameToIndex(const FName& BoneName) const;
     void CalculateBoneLocalShapeTransform(int32 BoneIndex, const FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp, FVector& OutLocalCenter, FQuat& OutLocalRotation);
     void CalculateBodyDimensions(int32 BoneIndex, const struct FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp,
