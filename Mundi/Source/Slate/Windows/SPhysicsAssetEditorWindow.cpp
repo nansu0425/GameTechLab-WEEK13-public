@@ -402,11 +402,7 @@ void SPhysicsAssetEditorWindow::PreRenderViewportUpdate()
                 ActiveState->bWasGizmoDragging = bCurrentlyDragging;
             }
 
-            // Reconstruct bone overlay
-            if (ActiveState->bShowBones)
-            {
-                ActiveState->bBoneLinesDirty = true;
-            }
+            // Reconstruct bone overlay only when dirty (removed automatic every-frame dirtying)
             if (ActiveState->bShowBones && ActiveState->PreviewActor && ActiveState->CurrentMesh && ActiveState->bBoneLinesDirty)
             {
                 if (ULineComponent* LineComp = ActiveState->PreviewActor->GetBoneLineComponent())
