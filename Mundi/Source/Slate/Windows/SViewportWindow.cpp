@@ -458,6 +458,9 @@ void SViewportWindow::LoadToolbarIcons(ID3D11Device* Device)
 	IconParticles = NewObject<UTexture>();
 	IconParticles->Load(GDataDir + "/Icon/ParticleSystemIcon.png", Device);
 
+	IconPhysicsBodies = NewObject<UTexture>();
+	IconPhysicsBodies->Load(GDataDir + "/Icon/Viewport_PhysicsBodies.png", Device);
+
 	// 뷰포트 레이아웃 전환 아이콘 로드
 	IconSingleToMultiViewport = NewObject<UTexture>();
 	IconSingleToMultiViewport->Load(GDataDir + "/Icon/Viewport_SingleToMultiViewport.png", Device);
@@ -1857,6 +1860,24 @@ void SViewportWindow::RenderShowFlagDropdownMenu()
 		if (ImGui::IsItemHovered())
 		{
 			ImGui::SetTooltip("스텔레탈 메시 렌더링을 표시합니다.");
+		}
+
+		// Physics Bodies
+		bool bPhysicsBodies = RenderSettings.IsShowFlagEnabled(EEngineShowFlags::SF_PhysicsBodies);
+		if (ImGui::Checkbox("##PhysicsBodies", &bPhysicsBodies))
+		{
+			RenderSettings.ToggleShowFlag(EEngineShowFlags::SF_PhysicsBodies);
+		}
+		ImGui::SameLine();
+		if (IconPhysicsBodies && IconPhysicsBodies->GetShaderResourceView())
+		{
+			ImGui::Image((void*)IconPhysicsBodies->GetShaderResourceView(), IconSize);
+			ImGui::SameLine(0, 4);
+		}
+		ImGui::Text(" 피직스 바디");
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip("피직스 애셋의 바디 셋업 콜라이더를 표시합니다.");
 		}
 
 		// Particle System
