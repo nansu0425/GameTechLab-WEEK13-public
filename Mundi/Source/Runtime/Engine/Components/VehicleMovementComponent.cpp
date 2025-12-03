@@ -102,10 +102,6 @@ void UVehicleMovementComponent::TickComponent(float DeltaTime)
     if (!bVehicleInitialized)
     {
         bVehicleInitialized = InitVehiclePhysX();
-        if (!bVehicleInitialized)
-        {
-            return;
-        }
     }
 }
 
@@ -169,6 +165,11 @@ bool UVehicleMovementComponent::InitVehiclePhysX()
         return true;
     }
 
+    // =========================================================================
+    // 사전 검사
+	// =========================================================================
+
+
 	// 검사1: UpdatedComponent 확인
     if (!UpdatedComponent)
     {
@@ -228,6 +229,10 @@ bool UVehicleMovementComponent::InitVehiclePhysX()
         return false;
     }
 
+	// =========================================================================
+	// BodySetup 및 BodyInstance 생성/초기화
+	// =========================================================================
+
     // BodySetup 생성 (BeginPlay~EndPlay 동안 유지)
     if (!VehicleBodySetup)
     {
@@ -278,10 +283,149 @@ bool UVehicleMovementComponent::InitVehiclePhysX()
         UE_LOG("[VehicleMovement] Failed to initialize BodyInstance.");
         return false;
     }
+    // =========================================================================
+    // PhysX 리소스 생성/초기화
+    // =========================================================================
 
+    // 휠 쿼리 버퍼 초기화
+    WheelQueryResults.SetNum(WheelSetups.Num());
+    VehicleQueryResults.wheelQueryResults = WheelQueryResults.GetData();
+    VehicleQueryResults.nbWheelQueryResults = WheelQueryResults.Num();
+
+    // 마찰 테이블 준비 (노면 1, 타이어 1)
+    if (!TireFrictionPairs)
+    {
+        physx::PxMaterial* DefaultMat = PhysScene->GetDefaultMaterial();
+        if (!DefaultMat)
+        {
+            DefaultMat = FPhysicsCore::Get().CreateMaterial(0.5f, 0.5f, 0.6f);
+        }
+
+        TireFrictionPairs = physx::PxVehicleDrivableSurfaceToTireFrictionPairs::allocate(1, 1);
+        physx::PxVehicleDrivableSurfaceType SurfaceTypes[1];
+        SurfaceTypes[0].mType = 0;
+        const physx::PxMaterial* SurfaceMats[1] = { DefaultMat };
+        TireFrictionPairs->setup(1, 1, SurfaceMats, SurfaceTypes);
+        TireFrictionPairs->setTypePairFriction(0, 0, 1.0f); // Tire Type 0 & Surface Type 0 => Friction 1.0f
+    }
+
+    // Drive4W 생성
+    const physx::PxU32 NumWheels = WheelSetups.Num();
+
+    // 스프링 질량 계산용 오프셋
+    TArray<physx::PxVec3> PxSprungMassOffsets;
+    PxSprungMassOffsets.SetNum(NumWheels);
+    for (physx::PxU32 i = 0; i < NumWheels; ++i)
+    {
+        FVector WheelCentreLocal = WheelSetups[i].DefaultPosition + ChassisOffset;
+        WheelCentreLocal.Z -= WheelSetups[i].WheelRadius;
+        PxSprungMassOffsets[i] = PhysicsConversion::ToPxVec3(WheelCentreLocal);
+    }
+
+    TArray<float> SprungMasses;
+    SprungMasses.SetNum(NumWheels);
+    physx::PxVehicleComputeSprungMasses(
+        NumWheels,
+        PxSprungMassOffsets.GetData(),
+        physx::PxVec3(0.0f, 0.0f, 0.0f),
+        VehicleMass,
+        1,
+        SprungMasses.GetData());
+
+    // WheelsSimData 구성
+    physx::PxVehicleWheelsSimData* WheelsSimData = physx::PxVehicleWheelsSimData::allocate(NumWheels);
+
+    const float WheelWidth = 0.4f;
+    const float WheelMass = 20.0f;
+    const float SuspensionTravel = 0.3f;
+
+    for (physx::PxU32 i = 0; i < NumWheels; ++i)
+    {
+        const FWheelSetup& Setup = WheelSetups[i];
+
+        physx::PxVehicleWheelData WheelData;
+        WheelData.mRadius = Setup.WheelRadius;
+        WheelData.mWidth = WheelWidth;
+        WheelData.mMass = WheelMass;
+        WheelData.mMOI = 0.5f * WheelMass * Setup.WheelRadius * Setup.WheelRadius;
+        WheelData.mMaxHandBrakeTorque = Setup.bIsDriveWheel ? MaxHandbrakeTorque : 0.0f;
+        WheelData.mMaxBrakeTorque = MaxBrakeTorque;
+        WheelData.mMaxSteer = physx::PxPi * MaxSteerAngle / 180.0f;
+
+        physx::PxVehicleSuspensionData SusData;
+        SusData.mMaxCompression = SuspensionTravel;
+        SusData.mMaxDroop = SuspensionTravel;
+        SusData.mSpringStrength = 35000.0f;
+        SusData.mSpringDamperRate = 4500.0f;
+        SusData.mSprungMass = (i < (physx::PxU32)SprungMasses.Num()) ? SprungMasses[i] : VehicleMass / NumWheels;
+
+        FVector WheelCentreLocal = Setup.DefaultPosition + ChassisOffset;
+        WheelCentreLocal.Z -= Setup.WheelRadius;
+        physx::PxVec3 WheelCentreOffset = PhysicsConversion::ToPxVec3(WheelCentreLocal);
+
+        WheelsSimData->setWheelData(i, WheelData);
+        WheelsSimData->setSuspensionData(i, SusData);
+        WheelsSimData->setWheelCentreOffset(i, WheelCentreOffset);
+        WheelsSimData->setSuspTravelDirection(i, physx::PxVec3(0.0f, -1.0f, 0.0f));
+        WheelsSimData->setSuspForceAppPointOffset(i, WheelCentreOffset);
+        WheelsSimData->setTireForceAppPointOffset(i, WheelCentreOffset);
+    }
+
+    // 휠 shape 매핑 (BodySetup 생성 순서: 박스 1개 + 휠 캡슐 N개)
+    {
+        const physx::PxU32 WheelShapeStart = 1; // 박스 이후 첫 캡슐 인덱스
+        for (physx::PxU32 i = 0; i < NumWheels; ++i)
+        {
+            WheelsSimData->setWheelShapeMapping(i, WheelShapeStart + i);
+        }
+    }
+
+    // DriveSimData 구성
+    physx::PxVehicleDriveSimData4W DriveSimData;
+    physx::PxVehicleEngineData EngineData;
+    EngineData.mPeakTorque = MaxDriveTorque;
+    EngineData.mMaxOmega = 600.0f;
+    DriveSimData.setEngineData(EngineData);
+
+    physx::PxVehicleGearsData GearsData;
+    DriveSimData.setGearsData(GearsData);
+
+    physx::PxVehicleClutchData ClutchData;
+    DriveSimData.setClutchData(ClutchData);
+
+    physx::PxVehicleAckermannGeometryData Ackermann;
+    Ackermann.mFrontWidth = 150.0f;
+    Ackermann.mRearWidth = 150.0f;
+    Ackermann.mAxleSeparation = 250.0f;
+    DriveSimData.setAckermannGeometryData(Ackermann);
+
+    physx::PxVehicleSetBasisVectors(physx::PxVec3(0.0f, 0.0f, -1.0f), physx::PxVec3(0.0f, 1.0f, 0.0f));
+    physx::PxVehicleSetUpdateMode(physx::PxVehicleUpdateMode::eVELOCITY_CHANGE);
+
+    physx::PxRigidDynamic* ChassisActor = VehicleBodyInstance.GetPxRigidDynamic();
+    if (!ChassisActor)
+    {
+        UE_LOG("[VehicleMovement] BodyInstance has no PxRigidDynamic.");
+        WheelsSimData->free();
+        return false;
+    }
+
+    physx::PxVehicleDrive4W* Drive4W = physx::PxVehicleDrive4W::allocate(NumWheels);
+    Drive4W->setup(Physics, ChassisActor, *WheelsSimData, DriveSimData, NumWheels);
+    WheelsSimData->free();
+
+    if (!Drive4W->getRigidDynamicActor())
+    {
+        Drive4W->free();
+        UE_LOG("[VehicleMovement] PxVehicleDrive4W setup failed (no actor bound).");
+        return false;
+    }
+
+    PxVehicleDrive4WInstance = Drive4W;
+
+	UE_LOG("[VehicleMovement] Vehicle PhysX initialized successfully.");
     bVehicleInitialized = true;
     return true;
-
 }
 
 void UVehicleMovementComponent::ApplyInputToPhysX(float DeltaTime)
@@ -386,6 +530,9 @@ void UVehicleMovementComponent::PerformSuspensionRaycasts()
     // 레이캐스트 설정
     const physx::PxHitFlags HitFlags = physx::PxHitFlag::ePOSITION | physx::PxHitFlag::eNORMAL;
 
+    static int32 DebugRaycastCounter = 0;
+    DebugRaycastCounter++;
+
     for (int32 WheelIdx = 0; WheelIdx < WheelSetups.Num(); ++WheelIdx)
     {
         physx::PxWheelQueryResult& Result = WheelQueryResults[WheelIdx];
@@ -395,39 +542,14 @@ void UVehicleMovementComponent::PerformSuspensionRaycasts()
         Result = physx::PxWheelQueryResult();
         Result.isInAir = true;
 
-        // 휠 시작점(차체 로컬 오프셋을 다시 계산)
-        FVector WheelCentreLocal = FVector::Zero();
-        if (USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(UpdatedComponent))
-        {
-            USkeletalMesh* SkelMesh = SkelComp->GetSkeletalMesh();
-            const FSkeleton* Skeleton = SkelMesh ? SkelMesh->GetSkeletalMeshData() ? &SkelMesh->GetSkeletalMeshData()->Skeleton : nullptr : nullptr;
-            if (Skeleton)
-            {
-                int32 BoneIndex = -1;
-                for (int32 i = 0; i < Skeleton->Bones.Num(); ++i)
-                {
-                    if (Skeleton->Bones[i].Name == Setup.BoneName)
-                    {
-                        BoneIndex = i;
-                        break;
-                    }
-                }
-
-                if (BoneIndex != -1)
-                {
-                    FTransform BoneWorld = SkelComp->GetBoneWorldTransform(BoneIndex);
-                    FTransform BoneLocalToChassis = BoneWorld.GetRelativeTransform(ChassisWorld);
-                    WheelCentreLocal = BoneLocalToChassis.Translation;
-                }
-            }
-        }
-
-        WheelCentreLocal.Z -= Setup.WheelRadius;
+        // BodySetup/WheelsSimData 기준 로컬 위치 사용
+        FVector WheelCentreLocal = Setup.DefaultPosition + ChassisOffset;
+        WheelCentreLocal.Z -= (Setup.WheelRadius + 0.1f);
 
         const FVector StartMundi = ChassisWorld.TransformPosition(WheelCentreLocal);
         const FVector DirMundi = FVector(0.0f, 0.0f, -1.0f); // 다운 방향
 
-        const float TraceLength = FMath::Max(Setup.WheelRadius + 50.0f, 50.0f);
+        const float TraceLength = FMath::Max(Setup.WheelRadius + 0.25f, 0.25f);
 
         const physx::PxVec3 Origin = PhysicsConversion::ToPxVec3(StartMundi);
         const physx::PxVec3 Direction = PhysicsConversion::ToPxVec3(DirMundi).getNormalized();
@@ -450,6 +572,20 @@ void UVehicleMovementComponent::PerformSuspensionRaycasts()
         {
             Result.isInAir = true;
         }
+    }
+
+    // 60프레임마다 접지 상태 로그
+    if (DebugRaycastCounter >= 60)
+    {
+        DebugRaycastCounter = 0;
+        int32 NumGrounded = 0;
+        for (int32 i = 0; i < WheelQueryResults.Num(); ++i)
+        {
+            const physx::PxWheelQueryResult& R = WheelQueryResults[i];
+            if (!R.isInAir) { NumGrounded++; }
+            UE_LOG("[VehicleMovement] Wheel %d: %s", i, R.isInAir ? "air" : "ground");
+        }
+        UE_LOG("[VehicleMovement] Raycast ground check: %d / %d grounded", NumGrounded, WheelQueryResults.Num());
     }
 }
 
@@ -527,58 +663,7 @@ void UVehicleMovementComponent::UpdateVehiclePoseFromPhysX()
     // UpdatedComponent는 차체 메시(스켈레탈/스태틱)여야 하므로 World Transform 설정
     UpdatedComponent->SetWorldTransform(WorldTransform);
 
-    // 휠 본 승강 반영 (스켈레탈 메시에만 적용, 회전/스티어는 추후)
-    if (USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(UpdatedComponent))
-    {
-        USkeletalMesh* SkelMesh = SkelComp->GetSkeletalMesh();
-        const FSkeleton* Skeleton = SkelMesh ? SkelMesh->GetSkeletalMeshData() ? &SkelMesh->GetSkeletalMeshData()->Skeleton : nullptr : nullptr;
-        if (Skeleton)
-        {
-            // WheelQueryResults와 캐싱된 로컬 위치를 안전하게 접근
-            const int32 NumWheels = WheelSetups.Num();
-            for (int32 WheelIdx = 0; WheelIdx < NumWheels; ++WheelIdx)
-            {
-                const FWheelSetup& Setup = WheelSetups[WheelIdx];
-
-                // 본 인덱스 찾기
-                int32 BoneIndex = -1;
-                for (int32 i = 0; i < Skeleton->Bones.Num(); ++i)
-                {
-                    if (Skeleton->Bones[i].Name == Setup.BoneName)
-                    {
-                        BoneIndex = i;
-                        break;
-                    }
-                }
-
-                if (BoneIndex == -1)
-                {
-                    continue;
-                }
-
-                // 현재 로컬 트랜스폼에서 회전/스케일 유지, 위치만 수정
-                FTransform Local = SkelComp->GetBoneLocalTransform(BoneIndex);
-
-                FVector BaseLocalPos = (WheelIdx < InitialWheelLocalPositions.Num())
-                    ? InitialWheelLocalPositions[WheelIdx]
-                    : Local.Translation;
-
-                float SuspJounce = (WheelIdx < WheelQueryResults.Num()) ? WheelQueryResults[WheelIdx].suspJounce : 0.0f;
-                bool bInAir = (WheelIdx < WheelQueryResults.Num()) ? WheelQueryResults[WheelIdx].isInAir : true;
-
-                // 접지 시: 압축만큼 위로 이동, 공중 시: 기본 위치 유지
-                FVector NewLocalPos = BaseLocalPos;
-                if (!bInAir)
-                {
-                    NewLocalPos.Z -= SuspJounce;
-                }
-
-                Local.Translation = NewLocalPos;
-
-                SkelComp->SetBoneLocalTransform(BoneIndex, Local);
-            }
-        }
-    }
+    // 휠 본 로컬 트랜스폼 조정은 임시로 비활성화 (바퀴 본을 원래 위치/회전 그대로 유지)
 }
 
 /**
@@ -682,6 +767,8 @@ void UVehicleMovementComponent::SearchForRollableWheels()
             return;
         }
     }
+
+    UE_LOG("[VehicleMovement] Rollable wheels are set successfully.");
 	bUseRollableWheels = true;
 }
 
