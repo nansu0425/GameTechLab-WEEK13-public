@@ -76,6 +76,9 @@ private:
                                  EPrimitiveType PrimitiveType, float& OutRadius, float& OutHalfHeight, FVector& OutExtent) const;
     bool ShouldCreateBodyForBone(int32 BoneIndex, const struct FSkeleton* Skeleton) const;
     void RecreateBodyPrimitive(class UBodySetup* BodySetup, EPrimitiveType NewPrimitiveType);
+    bool IsDescendantOf(int32 ChildIdx, int32 RootIdx, const TArray<FBone>& Bones) const;
+    float ComputeLimbChainLength(int32 RootBoneIndex, const FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp) const;
+    FVector ComputeLimbCentroid(int32 RootBoneIndex, const FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp) const;
 
     // Vertex-driven body generation
     struct FBoneVertexInfluence

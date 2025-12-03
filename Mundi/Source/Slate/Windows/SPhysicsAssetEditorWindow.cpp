@@ -2159,20 +2159,29 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType Pri
         const FBone& Bone = Bones[BoneIndex];
         FName BoneName(Bone.Name);
 
-        // Filter: Skip bones that shouldn't have physics bodies
-        if (!ShouldCreateBodyForBone(BoneIndex, Skeleton))
-            continue;
-
         // Check influence map range
         if (BoneIndex < 0 || BoneIndex >= InfluenceMap.Num())
             continue;
 
-        // Check if this bone has enough influenced vertices
+        // For vertex-driven generation, prioritize vertex count over bone length
+        // This allows short bones like wrists to get bodies if they have enough vertices
         const FBoneVertexInfluence& Influence = InfluenceMap[BoneIndex];
-        if (Influence.Vertices.Num() < 3)  // Need at least 3 vertices for meaningful shape
+        if (Influence.Vertices.Num() < 50)  // Need significant vertex influence for meaningful shape
         {
-            UE_LOG("GenerateAllBodies: Skipping bone %s - only %d influenced vertices",
-                Bone.Name.c_str(), Influence.Vertices.Num());
+            continue;
+        }
+
+        // Skip leaf bones (no children) unless they have very high vertex influence
+        int32 ChildCount = 0;
+        for (int32 i = 0; i < Bones.size(); ++i)
+        {
+            if (Bones[i].ParentIndex == BoneIndex)
+            {
+                ChildCount++;
+            }
+        }
+        if (ChildCount == 0 && Influence.Vertices.Num() < 100)
+        {
             continue;
         }
 
@@ -2200,20 +2209,28 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType Pri
         float   HalfHeight = 0.0f;
         FVector Extent = FVector::Zero();
 
+        // Scale down the fitted dimensions for tighter collision
+        // Physics bodies should be slightly smaller than the visual mesh for better simulation
+        const float ColliderShrinkFactor = 0.8f;  // 80% of the fitted size
+
         switch (PrimitiveType)
         {
         case EPrimitiveType::Sphere:
             FitMinimalSphere(Influence.Vertices, FittedCenter, Radius);
+            Radius *= ColliderShrinkFactor;
             NewBody->SphereRadius = Radius;
             break;
 
         case EPrimitiveType::Box:
             FitMinimalBox(Influence.Vertices, PrincipalAxis, FittedCenter, FittedRotation, Extent);
             NewBody->BoxExtent = Extent;
+            NewBody->BoxExtent = Extent;
             break;
 
         case EPrimitiveType::Capsule:
             FitMinimalCapsule(Influence.Vertices, PrincipalAxis, FittedCenter, FittedRotation, Radius, HalfHeight);
+            Radius *= ColliderShrinkFactor;
+            HalfHeight *= ColliderShrinkFactor;
             NewBody->CapsuleHalfHeight = HalfHeight;
             NewBody->SphereRadius = Radius;
             break;
@@ -2498,6 +2515,95 @@ int32 SPhysicsAssetEditorWindow::BoneNameToIndex(const FName& BoneName) const
     return -1; // not found
 }
 
+bool SPhysicsAssetEditorWindow::IsDescendantOf(int32 ChildIdx, int32 RootIdx, const TArray<FBone>& Bones) const
+{
+    int32 Current = ChildIdx;
+
+    while (Current >= 0 && Current < Bones.Num())
+    {
+        int32 Parent = Bones[Current].ParentIndex;
+        if (Parent == RootIdx)
+            return true;
+        Current = Parent;
+    }
+    return false;
+}
+
+float SPhysicsAssetEditorWindow::ComputeLimbChainLength(int32 RootBoneIndex, const FSkeleton* Skeleton, USkeletalMeshComponent* MeshComp) const
+{
+    if (!Skeleton || !MeshComp)
+        return 0.f;
+
+    const TArray<FBone>& Bones = Skeleton->Bones;
+    if (RootBoneIndex < 0 || RootBoneIndex >= Bones.Num())
+        return 0.f;
+
+    // Use world transform for correct scale/units
+    FTransform RootWorldTM = MeshComp->GetBoneWorldTransform(RootBoneIndex);
+    RootWorldTM.Scale3D = FVector(1, 1, 1);
+    FVector RootPos = RootWorldTM.Translation;
+
+    float MaxDist = 0.f;
+
+    // Find the maximum distance from root to any descendant (e.g., finger tips)
+    for (int32 i = 0; i < Bones.Num(); ++i)
+    {
+        if (IsDescendantOf(i, RootBoneIndex, Bones))
+        {
+            FTransform ChildWorldTM = MeshComp->GetBoneWorldTransform(i);
+            ChildWorldTM.Scale3D = FVector(1, 1, 1);
+            FVector ChildPos = ChildWorldTM.Translation;
+
+            float Dist = (ChildPos - RootPos).Size();
+            MaxDist = FMath::Max(MaxDist, Dist);
+        }
+    }
+
+    return MaxDist;
+}
+
+FVector SPhysicsAssetEditorWindow::ComputeLimbCentroid(int32 RootBoneIndex, const FSkeleton* Skeleton, USkeletalMeshComponent* MeshComp) const
+{
+    if (!Skeleton || !MeshComp)
+        return FVector::Zero();
+
+    const TArray<FBone>& Bones = Skeleton->Bones;
+    if (RootBoneIndex < 0 || RootBoneIndex >= Bones.Num())
+        return FVector::Zero();
+
+    // Get root position
+    FTransform RootWorldTM = MeshComp->GetBoneWorldTransform(RootBoneIndex);
+    RootWorldTM.Scale3D = FVector(1, 1, 1);
+    FVector RootPos = RootWorldTM.Translation;
+
+    // Find the furthest descendant bone to determine direction
+    float MaxDist = 0.f;
+    FVector FurthestPos = RootPos;
+
+    for (int32 i = 0; i < Bones.Num(); ++i)
+    {
+        if (IsDescendantOf(i, RootBoneIndex, Bones))
+        {
+            FTransform ChildWorldTM = MeshComp->GetBoneWorldTransform(i);
+            ChildWorldTM.Scale3D = FVector(1, 1, 1);
+            FVector ChildPos = ChildWorldTM.Translation;
+
+            float Dist = (ChildPos - RootPos).Size();
+            if (Dist > MaxDist)
+            {
+                MaxDist = Dist;
+                FurthestPos = ChildPos;
+            }
+        }
+    }
+
+    // Center the collider: root position + half distance toward furthest descendant
+    // Apply 5% padding to match the dimension calculation
+    const float PaddingMultiplier = 1.05f;
+    FVector Direction = (FurthestPos - RootPos).GetSafeNormal();
+    return RootPos + Direction * (MaxDist * PaddingMultiplier * 0.5f);
+}
+
 void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex, const FSkeleton* Skeleton, USkeletalMeshComponent* MeshComp, FVector& OutLocalCenter, FQuat& OutLocalRotation)
 {
     OutLocalCenter = FVector::Zero();
@@ -2526,8 +2632,27 @@ void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex
 
     // 1) LocalCenter ---------------------------------
     // Compute bone midpoint in world space
-    // Convert world offset → bone local (rotation only)
-    FVector WorldCenter = (BoneWorldPos + ChildWorldPos) * 0.5f;
+    // For hand/foot, use chain length to properly center the collider
+    const TArray<FBone>& Bones = Skeleton->Bones;
+    FString BoneName = Bones[BoneIndex].Name;
+    std::transform(BoneName.begin(), BoneName.end(), BoneName.begin(), ::tolower);
+
+    bool bIsHandOrFoot =
+        (BoneName.find("hand") != FString::npos) ||
+        (BoneName.find("foot") != FString::npos);
+
+    FVector WorldCenter;
+    if (bIsHandOrFoot && FirstChildIndex >= 0)
+    {
+        // For hand/foot: use centroid of all descendant bones for proper centering
+        WorldCenter = ComputeLimbCentroid(BoneIndex, Skeleton, MeshComp);
+    }
+    else
+    {
+        // Normal bones: use midpoint between bone and first child
+        WorldCenter = (BoneWorldPos + ChildWorldPos) * 0.5f;
+    }
+
     FVector WorldOffset = WorldCenter - BoneWorldPos;
 
     FQuat InvRot = BoneWorldTM.Rotation.Inverse();
@@ -2639,6 +2764,19 @@ bool SPhysicsAssetEditorWindow::ShouldCreateBodyForBone(int32 BoneIndex, const F
         return false;
     }
 
+    // Exclude finger/toe bones by name pattern
+    // These should be covered by parent hand/foot body
+    if (BoneName.find("thumb") != FString::npos ||
+        BoneName.find("index") != FString::npos ||
+        BoneName.find("middle") != FString::npos ||
+        BoneName.find("ring") != FString::npos ||
+        BoneName.find("pinky") != FString::npos ||
+        BoneName.find("toe") != FString::npos)
+    {
+        UE_LOG("ShouldCreateBodyForBone: Excluding finger/toe bone '%s'", Bone.Name.c_str());
+        return false;
+    }
+
     // 2. Exclude leaf bones (finger tips, toe tips, etc.)
     // A leaf bone has no children
     bool bHasChildren = false;
@@ -2659,6 +2797,11 @@ bool SPhysicsAssetEditorWindow::ShouldCreateBodyForBone(int32 BoneIndex, const F
     }
 
     // 3. Exclude very short bones (detail/helper bones)
+    // Special handling: hand/foot are allowed even if short (they use chain length)
+    bool bIsHandOrFoot =
+        (BoneName.find("hand") != FString::npos) ||
+        (BoneName.find("foot") != FString::npos);
+
     int32 FirstChildIndex = -1;
     for (int32 i = 0; i < Bones.size(); ++i)
     {
@@ -2680,9 +2823,9 @@ bool SPhysicsAssetEditorWindow::ShouldCreateBodyForBone(int32 BoneIndex, const F
 
         float BoneLength = (ChildPos - BonePos).Size();
 
-        // Exclude bones shorter than 0.01 units (1cm - excludes finger segments)
-        // Mixamo models are often scaled down, so use a small threshold
-        if (BoneLength < 0.05f)
+        // Exclude bones shorter than 0.01 units (1cm)
+        // BUT allow hand/foot even if short - they will use limb chain length
+        if (!bIsHandOrFoot && BoneLength < 0.01f)
         {
             UE_LOG("ShouldCreateBodyForBone: Excluding short bone '%s' (length: %.2f)", Bone.Name.c_str(), BoneLength);
             return false;
@@ -2724,6 +2867,32 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
 
     // Calculate bone length
     float BoneLength = (ChildWorldPos - BoneWorldPos).Size();
+
+    // Check if this is a hand/foot bone - use limb chain length instead
+    const TArray<FBone>& Bones = Skeleton->Bones;
+    if (BoneIndex >= 0 && BoneIndex < Bones.Num())
+    {
+        FString BoneName = Bones[BoneIndex].Name;
+        std::transform(BoneName.begin(), BoneName.end(), BoneName.begin(), ::tolower);
+
+        bool bIsHandOrFoot =
+            (BoneName.find("hand") != FString::npos) ||
+            (BoneName.find("foot") != FString::npos);
+
+        if (bIsHandOrFoot)
+        {
+            // Use chain length from hand/foot root to furthest descendant (finger/toe tips)
+            // Add 5% padding to ensure proper coverage
+            const float PaddingMultiplier = 1.05f;
+            float ChainLength = ComputeLimbChainLength(BoneIndex, Skeleton, MeshComp);
+            if (ChainLength > 0.01f)
+            {
+                BoneLength = ChainLength * PaddingMultiplier;
+                UE_LOG("CalculateBodyDimensions: Using limb chain length %.2f (with %.0f%% padding) for '%s'",
+                    BoneLength, (PaddingMultiplier - 1.0f) * 100.0f, Bones[BoneIndex].Name.c_str());
+            }
+        }
+    }
 
     // Estimate scale factor from average skeleton bone lengths to determine appropriate defaults
     // We sample multiple bones to get a better estimate of the overall model scale
