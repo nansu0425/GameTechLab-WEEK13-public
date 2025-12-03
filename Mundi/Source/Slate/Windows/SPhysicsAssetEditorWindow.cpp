@@ -7,6 +7,7 @@
 #include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 #include "PhysicsAsset.h"
 #include "BodySetup.h"
+#include "PlatformProcess.h"
 
 static EBodySetupType ToBodySetupType(EPrimitiveType InPrimitiveType)
 {
@@ -826,6 +827,8 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
 
         // Trigger collision shape visualization
         bCollisionShapesDirty = true;
+
+        ActiveState->bIsDirty = true;
     }
 
     ImGui::Dummy(ImVec2(0, 5));
@@ -854,6 +857,7 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
 
             // Clear visualization
             bCollisionShapesDirty = true;
+            ActiveState->bIsDirty = true;
         }
     }
 
@@ -885,6 +889,7 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
     if (ImGui::Button("Generate All Constraints", ImVec2(-1, 30)))
     {
         GenerateAllConstraints();
+        ActiveState->bIsDirty = true;
     }
 
     ImGui::Dummy(ImVec2(0, 5));
@@ -902,6 +907,7 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
     {
         UE_LOG("CLEAR ALL CONSTRAINTS");
         ActiveState->CurrentPhysicsAsset->GetConstraintSetupsMutable().Empty();
+        ActiveState->bIsDirty = true;
     }
 
     if (!hasConstraints)
@@ -911,6 +917,55 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
         ImGui::EndDisabled();
 
     ImGui::Dummy(ImVec2(0, 5));
+}
+
+void SPhysicsAssetEditorWindow::OnSave()
+{
+    if (!ActiveState || !ActiveState->CurrentMesh || !ActiveState->CurrentPhysicsAsset)
+    {
+        UE_LOG("[SPhysicsAssetEditorWindow/OnSave] 저장할 PhysicsAsset이 없습니다.");
+        return;
+    }
+    /*
+     * 어떤 메시의 애셋인지 지정하기 위한 CurrentMesh
+     * 피직스애셋 정보 저장
+     */
+    USkeletalMesh* SkeletalMesh = ActiveState->CurrentMesh;
+    if (!SkeletalMesh)
+    {
+        return;
+    }
+
+    UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
+    if (!PhysicsAsset)
+    {
+        return;
+    }
+    
+    std::filesystem::path SavePath = FPlatformProcess::OpenSaveFileDialog(
+        L"Data/PhysicsAsset",       // 기본 디렉토리
+        L"PhysicsAsset",             // 기본 확장자
+        L"PhysicsAsset Files",       // 파일 타입 설명
+        L"NewPhysicsAsset"     // 기본 파일명
+    );
+    if (SavePath.empty())
+    {
+        UE_LOG("[SPhysicsAssetEditorWindow] OnSave: 사용자가 취소했습니다");
+        return;
+    }
+
+    FString SavePathStr = ResolveAssetRelativePath(NormalizePath(WideToUTF8(SavePath.wstring())), "");
+    if (PhysicsAssetEditorBootstrap::SavePhysicsAsset(PhysicsAsset, SavePathStr))
+    {
+        UResourceManager::GetInstance().AddOrReplacePhysicsAsset(SavePathStr, PhysicsAsset);
+        ActiveState->bIsDirty = false;
+        UE_LOG("[SPhysicsAssetEditorWindow] PhysicsAsset 저장 완료: %s", SavePathStr.c_str());
+    }
+    else
+    {
+        UE_LOG("[SPhysicsAssetEditorWindow] PhysicsAsset 저장 실패: %s", SavePathStr.c_str());
+    }
+    
 }
 
 void SPhysicsAssetEditorWindow::LoadSkeletalMesh(ViewerState* State, const FString& Path)
@@ -972,6 +1027,9 @@ void SPhysicsAssetEditorWindow::LoadSkeletalMesh(ViewerState* State, const FStri
         }
 
         UE_LOG("SPhysicsAssetEditorWindow: Loaded skeletal mesh from %s", Path.c_str());
+
+        // 직렬화/역직렬화 시 메시에 적합한 애셋 선택할 수 있도록 경로 기억
+        State->CurrentPhysicsAsset->SetMeshFilePath(Path);
     }
     else
     {
@@ -1258,6 +1316,7 @@ void SPhysicsAssetEditorWindow::RenderBodyProperties()
     // Mark collision shapes dirty to update the visualization
     if (bChanged)
     {
+        ActiveState->bIsDirty = true;
         bCollisionShapesDirty = true;
     }
 }
@@ -2100,6 +2159,8 @@ void SPhysicsAssetEditorWindow::CreateBodyForBone(int32 BoneIndex, EPrimitiveTyp
     ActiveState->SelectedBodyIndex = PhysicsAsset->FindBodyIndex(BoneName);
     ActiveState->bBoneLinesDirty = true;
     bCollisionShapesDirty = true;
+
+    ActiveState->bIsDirty = true;
 
     UE_LOG("CreateBodyForBone: Successfully created body for '%s'.", Bone.Name.c_str());
 }

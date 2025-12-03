@@ -4,6 +4,7 @@
 #include "FViewportClient.h"
 #include "CameraActor.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
+#include "Source/Runtime/Engine/Physics/PhysicsAsset.h"
 
 ViewerState* PhysicsAssetEditorBootstrap::CreateViewerState(const char* Name, UWorld* InWorld, ID3D11Device* InDevice)
 {
@@ -80,4 +81,32 @@ void PhysicsAssetEditorBootstrap::DestroyViewerState(ViewerState*& State)
     if (State->Client) { delete State->Client; State->Client = nullptr; }
     if (State->World) { ObjectFactory::DeleteObject(State->World); State->World = nullptr; }
     delete State; State = nullptr;
+}
+
+bool PhysicsAssetEditorBootstrap::SavePhysicsAsset(UPhysicsAsset* Asset, const FString& Path)
+{
+    if (!Asset)
+    {
+        UE_LOG("[PhysicsAssetEditorBootstrap] SavePhysicsAsset: Asset이 nullptr입니다");
+        return false;
+    }
+
+    if (Path.empty())
+    {
+        UE_LOG("[PhysicsAssetEditorBootstrap] SavePhysicsAsset: FilePath가 비어있습니다");
+        return false;
+    }
+
+    JSON JsonHandle = JSON::Make(JSON::Class::Object);
+    Asset->Serialize(false, JsonHandle);
+
+    FWideString WidePath = UTF8ToWide(Path);
+    if (!FJsonSerializer::SaveJsonToFile(JsonHandle, WidePath))
+    {
+        UE_LOG("[PhysicsAssetEditorBootstrap] SavePhysicsAsset: 파일 저장 실패: %s", Path.c_str());
+        return false;
+    }
+
+    UE_LOG("[PhysicsAssetEditorBootstrap] SavePhysicsAsset: 저장 성공: %s", Path.c_str());
+    return true;
 }

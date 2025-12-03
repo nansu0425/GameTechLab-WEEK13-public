@@ -21,6 +21,7 @@ class FMeshBVH;
 class UResourceBase;
 class UMaterial;
 class USound;
+class UPhysicsAsset;
 
 //================================================================================================
 // UResourceManager
@@ -49,6 +50,9 @@ public:
 	// 리소스 추가 또는 교체 (이미 존재하면 교체)
 	template<typename T>
 	void AddOrReplace(const FString& InFilePath, UObject* InObject);
+
+	void AddOrReplacePhysicsAsset(const FString& InFilePath, UPhysicsAsset* Asset);
+	UPhysicsAsset* GetPhysicsAsset(const FString& InFilePath);
 
 	template<typename T>
 	T* Get(const FString& InFilePath);
@@ -118,6 +122,7 @@ protected:
 
 	TMap<FString, TArray<D3D11_INPUT_ELEMENT_DESC>> ShaderToInputLayoutMap;
 	TMap<FString, FString> TextureToShaderMap;
+	TMap<FString, UPhysicsAsset*> PhysicsAssetsMap;
 
 	TArray<UStaticMesh*> StaticMeshs;
 	TArray<USkeletalMesh*> SkeletalMeshs;

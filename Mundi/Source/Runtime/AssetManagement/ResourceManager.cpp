@@ -11,6 +11,8 @@
 #include <filesystem>
 #include <cwctype>
 
+#include "PhysicsAsset.h"
+
 IMPLEMENT_CLASS(UResourceManager)
 
 #define GRIDNUM 100
@@ -121,6 +123,24 @@ void UResourceManager::Clear()
     Resources.Empty();
 
     // Instance lifetime is managed by ObjectFactory
+}
+
+void UResourceManager::AddOrReplacePhysicsAsset(const FString& InFilePath, UPhysicsAsset* Asset)
+{
+    FString NormalizedPath = NormalizePath(InFilePath);
+    PhysicsAssetsMap[NormalizedPath] = Asset;
+    PhysicsAssetsMap[NormalizedPath]->SetMeshFilePath(NormalizedPath);
+}
+
+UPhysicsAsset* UResourceManager::GetPhysicsAsset(const FString& InFilePath)
+{
+    FString NormalizedPath = NormalizePath(InFilePath);
+    auto It = PhysicsAssetsMap.find(NormalizedPath);
+    if (It != PhysicsAssetsMap.end())
+    {
+        return It->second;
+    }
+    // TODO 맵에 없으면 Json 로드
 }
 
 FMeshBVH* UResourceManager::GetMeshBVH(const FString& ObjPath)

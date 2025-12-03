@@ -21,6 +21,8 @@ protected:
     void RenderPhysicsBodyHierarchy();
     void RenderToolsPanel();
 
+    virtual void OnSave() override;
+
 private:
     // Load a skeletal mesh into the active tab
     void LoadSkeletalMesh(ViewerState* State, const FString& Path);

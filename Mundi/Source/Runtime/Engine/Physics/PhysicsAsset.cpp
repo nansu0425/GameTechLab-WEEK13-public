@@ -16,135 +16,150 @@ void UPhysicsAsset::Serialize(const bool bInIsLoading, JSON& InOutHandle)
     UObject::Serialize(bInIsLoading, InOutHandle);
 
     if (bInIsLoading)
-      {
-          BodySetups.Empty();
-          ConstraintSetups.Empty();
-          CollisionDisableTable.Empty();
-          BoneNameToBodyIndex.Empty();
+    {
+        JSON MeshJson;
+        FString SavedMeshFilePath = {};
+        FJsonSerializer::ReadString(MeshJson, "MeshFilePath", SavedMeshFilePath);
+        if (SavedMeshFilePath != MeshFilePath)
+        {
+            UE_LOG("스켈레탈과 애셋이 일치하지 않습니다.");
+            return;
+        }
+        
+        BodySetups.Empty();
+        ConstraintSetups.Empty();
+        CollisionDisableTable.Empty();
+        BoneNameToBodyIndex.Empty();
 
-          // Bodies
-          JSON BodiesJson;
-          if (FJsonSerializer::ReadObject(InOutHandle, "Bodies", BodiesJson))
-          {
-              for (auto& Pair : BodiesJson.ObjectRange())
-              {
-                  JSON& BodyJson = Pair.second;
-                  UBodySetup* NewBody = NewObject<UBodySetup>();
-                  // BoneName
-                  FString BoneName = NewBody->BoneName.ToString();
-                  FJsonSerializer::ReadString(BodyJson, "Bone", BoneName);
-                  // BodyType 및 기본 치수
-                  int32 BodyTypeValue = 0;
-                  FJsonSerializer::ReadInt32(BodyJson, "BodyType", BodyTypeValue);
-                  NewBody->BodyType = static_cast<EBodySetupType>(BodyTypeValue);
-                  FJsonSerializer::ReadVector(BodyJson, "BoxExtent", NewBody->BoxExtent);
-                  FJsonSerializer::ReadFloat(BodyJson, "SphereRadius", NewBody->SphereRadius);
-                  FJsonSerializer::ReadFloat(BodyJson, "CapsuleHalfHeight", NewBody->CapsuleHalfHeight);
-                  // AggGeom
-                  SerializeAggGeom(true, BodyJson["AggGeom"], NewBody->AggGeom);
+        // Bodies
+        JSON BodiesJson;
+        if (FJsonSerializer::ReadObject(InOutHandle, "Bodies", BodiesJson))
+        {
+            for (auto& Pair : BodiesJson.ObjectRange())
+            {
+                JSON& BodyJson = Pair.second;
+                UBodySetup* NewBody = NewObject<UBodySetup>();
+                // BoneName
+                FString BoneName = NewBody->BoneName.ToString();
+                FJsonSerializer::ReadString(BodyJson, "Bone", BoneName);
+                // BodyType 및 기본 치수
+                int32 BodyTypeValue = 0;
+                FJsonSerializer::ReadInt32(BodyJson, "BodyType", BodyTypeValue);
+                NewBody->BodyType = static_cast<EBodySetupType>(BodyTypeValue);
+                FJsonSerializer::ReadVector(BodyJson, "BoxExtent", NewBody->BoxExtent);
+                FJsonSerializer::ReadFloat(BodyJson, "SphereRadius", NewBody->SphereRadius);
+                FJsonSerializer::ReadFloat(BodyJson, "CapsuleHalfHeight", NewBody->CapsuleHalfHeight);
+                // AggGeom
+                SerializeAggGeom(true, BodyJson["AggGeom"], NewBody->AggGeom);
 
-                  BodySetups.Add(NewBody);
-              }
-          }
+                BodySetups.Add(NewBody);
+            }
+        }
 
-          // Constraints
-          JSON ConstraintJson;
-          if (FJsonSerializer::ReadObject(InOutHandle, "Constraints", ConstraintJson))
-          {
-              for (auto& Pair : ConstraintJson.ObjectRange())
-              {
-                  JSON& ItemJson = Pair.second;
-                  FConstraintSetup Setup;
-                  SerializeConstraintSetup(true, ItemJson, Setup);
-                  ConstraintSetups.Add(Setup);
-              }
-          }
+        // Constraints
+        JSON ConstraintJson;
+        if (FJsonSerializer::ReadObject(InOutHandle, "Constraints", ConstraintJson))
+        {
+            for (auto& Pair : ConstraintJson.ObjectRange())
+            {
+                JSON& ItemJson = Pair.second;
+                FConstraintSetup Setup;
+                SerializeConstraintSetup(true, ItemJson, Setup);
+                ConstraintSetups.Add(Setup);
+            }
+        }
 
-          // Solver
-          SerializeSolverSettings(true, InOutHandle["SolverSettings"], SolverSettings);
+        // Solver
+        SerializeSolverSettings(true, InOutHandle["SolverSettings"], SolverSettings);
 
-          // CollisionDisableTable (저장된 페어를 읽어 재구성)
-          JSON DisablePairs;
-          if (FJsonSerializer::ReadObject(InOutHandle, "DisablePairs", DisablePairs))
-          {
-              for (auto& Pair : DisablePairs.ObjectRange())
-              {
-                  JSON& Entry = Pair.second;
-                  int32 A = -1, B = -1;
-                  FJsonSerializer::ReadInt32(Entry, "A", A);
-                  FJsonSerializer::ReadInt32(Entry, "B", B);
-                  if (A >= 0 && B >= 0)
-                  {
-                      if (A > B) std::swap(A, B);
-                      CollisionDisableTable.Add(TPair<int32, int32>(A, B));
-                  }
-              }
-          }
+        // CollisionDisableTable (저장된 페어를 읽어 재구성)
+        JSON DisablePairs;
+        if (FJsonSerializer::ReadObject(InOutHandle, "DisablePairs", DisablePairs))
+        {
+            for (auto& Pair : DisablePairs.ObjectRange())
+            {
+                JSON& Entry = Pair.second;
+                int32 A = -1, B = -1;
+                FJsonSerializer::ReadInt32(Entry, "A", A);
+                FJsonSerializer::ReadInt32(Entry, "B", B);
+                if (A >= 0 && B >= 0)
+                {
+                    if (A > B) std::swap(A, B);
+                    CollisionDisableTable.Add(TPair<int32, int32>(A, B));
+                }
+            }
+        }
 
-          // BoneName → Index 맵 재구성
-          UpdateBodySetupIndexMap();
+        // BoneName → Index 맵 재구성
+        UpdateBodySetupIndexMap();
 
-          // Constraint에 의해 자동 비활성 충돌 설정 (Profile.bDisableCollision)
-          for (const FConstraintSetup& Setup : ConstraintSetups)
-          {
-              int32 ChildIdx = FindBodyIndex(Setup.ConstraintBone1);
-              int32 ParentIdx = FindBodyIndex(Setup.ConstraintBone2);
-              if (Setup.Profile.bDisableCollision && ChildIdx != -1 && ParentIdx != -1 && ChildIdx != ParentIdx)
-              {
-                  int32 A = ChildIdx;
-                  int32 B = ParentIdx;
-                  if (A > B) std::swap(A, B);
-                  CollisionDisableTable.Add(TPair<int32, int32>(A, B));
-              }
-          }
-      }
-      else
-      {
-          // Bodies
-          JSON BodiesJson;
-          for (int32 Index = 0; Index < BodySetups.Num(); ++Index)
-          {
-              JSON BodyJson;
-              UBodySetup* Body = BodySetups[Index];
-              BodyJson["Bone"] = Body->BoneName.ToString();
-              BodyJson["BodyType"] = static_cast<int32>(Body->BodyType);
-              BodyJson["BoxExtent"] = FJsonSerializer::VectorToJson(Body->BoxExtent);
-              BodyJson["SphereRadius"] = Body->SphereRadius;
-              BodyJson["CapsuleHalfHeight"] = Body->CapsuleHalfHeight;
-              JSON AggJson;
-              SerializeAggGeom(false, AggJson, Body->AggGeom);
-              BodyJson["AggGeom"] = AggJson;
-              BodiesJson[std::to_string(Index)] = BodyJson;
-          }
-          InOutHandle["Bodies"] = BodiesJson;
+        // Constraint에 의해 자동 비활성 충돌 설정 (Profile.bDisableCollision)
+        for (const FConstraintSetup& Setup : ConstraintSetups)
+        {
+            int32 ChildIdx = FindBodyIndex(Setup.ConstraintBone1);
+            int32 ParentIdx = FindBodyIndex(Setup.ConstraintBone2);
+            if (Setup.Profile.bDisableCollision && ChildIdx != -1 && ParentIdx != -1 && ChildIdx != ParentIdx)
+            {
+                int32 A = ChildIdx;
+                int32 B = ParentIdx;
+                if (A > B) std::swap(A, B);
+                CollisionDisableTable.Add(TPair<int32, int32>(A, B));
+            }
+        }
+    }
+    else
+    {
+        if (!MeshFilePath.empty())
+        {
+            JSON MeshJson;
+            MeshJson["MeshFilePath"] = MeshFilePath;
+        }
 
-          // Constraints
-          JSON ConstraintJson;
-          for (int32 Index = 0; Index < ConstraintSetups.Num(); ++Index)
-          {
-              JSON ItemJson;
-              SerializeConstraintSetup(false, ItemJson, ConstraintSetups[Index]);
-              ConstraintJson[std::to_string(Index)] = ItemJson;
-          }
-          InOutHandle["Constraints"] = ConstraintJson;
+        // Bodies
+        JSON BodiesJson;
+        for (int32 Index = 0; Index < BodySetups.Num(); ++Index)
+        {
+            JSON BodyJson;
+            UBodySetup* Body = BodySetups[Index];
+            BodyJson["Bone"] = Body->BoneName.ToString();
+            BodyJson["BodyType"] = static_cast<int32>(Body->BodyType);
+            BodyJson["BoxExtent"] = FJsonSerializer::VectorToJson(Body->BoxExtent);
+            BodyJson["SphereRadius"] = Body->SphereRadius;
+            BodyJson["CapsuleHalfHeight"] = Body->CapsuleHalfHeight;
+            JSON AggJson;
+            SerializeAggGeom(false, AggJson, Body->AggGeom);
+            BodyJson["AggGeom"] = AggJson;
+            BodiesJson[std::to_string(Index)] = BodyJson;
+        }
+        InOutHandle["Bodies"] = BodiesJson;
 
-          // Solver
-          JSON SolverJson;
-          SerializeSolverSettings(false, SolverJson, SolverSettings);
-          InOutHandle["SolverSettings"] = SolverJson;
+        // Constraints
+        JSON ConstraintJson;
+        for (int32 Index = 0; Index < ConstraintSetups.Num(); ++Index)
+        {
+            JSON ItemJson;
+            SerializeConstraintSetup(false, ItemJson, ConstraintSetups[Index]);
+            ConstraintJson[std::to_string(Index)] = ItemJson;
+        }
+        InOutHandle["Constraints"] = ConstraintJson;
 
-          // CollisionDisableTable
-          JSON DisablePairs;
-          int32 PairIdx = 0;
-          for (const TPair<int32, int32>& Pair : CollisionDisableTable)
-          {
-              JSON Item;
-              Item["A"] = Pair.first;
-              Item["B"] = Pair.second;
-              DisablePairs[std::to_string(PairIdx++)] = Item;
-          }
-          InOutHandle["DisablePairs"] = DisablePairs;
-      }
+        // Solver
+        JSON SolverJson;
+        SerializeSolverSettings(false, SolverJson, SolverSettings);
+        InOutHandle["SolverSettings"] = SolverJson;
+
+        // CollisionDisableTable
+        JSON DisablePairs;
+        int32 PairIdx = 0;
+        for (const TPair<int32, int32>& Pair : CollisionDisableTable)
+        {
+            JSON Item;
+            Item["A"] = Pair.first;
+            Item["B"] = Pair.second;
+            DisablePairs[std::to_string(PairIdx++)] = Item;
+        }
+        InOutHandle["DisablePairs"] = DisablePairs;
+    }
 }
 
 void UPhysicsAsset::UpdateBodySetupIndexMap()

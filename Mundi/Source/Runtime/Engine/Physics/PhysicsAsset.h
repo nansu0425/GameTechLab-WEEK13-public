@@ -135,6 +135,8 @@ public:
     void AddBodySetup(UBodySetup* NewBody);
     void ClearAllBodies();
 
+    void SetMeshFilePath(const FString& InFilePath) { MeshFilePath = InFilePath; }
+
 private:
     static void SerializeBoxElem(bool bIsLoading, JSON& InOut, struct FBoxElem& Elem);
     static void SerializeSphereElem(bool bIsLoading, JSON& InOut, struct FSphereElem& Elem);
@@ -165,4 +167,7 @@ private:
     TMap<FName, int32> BoneNameToBodyIndex;
 
     FPhysicsAssetSolverSettings SolverSettings;
+
+    // 어느 메시인지 구분하기 위한 변수
+    FString MeshFilePath = {};
 };
