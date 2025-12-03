@@ -358,6 +358,8 @@ void SPhysicsAssetEditorWindow::PreRenderViewportUpdate()
                 {
                     // 첫 프레임이 아닐 때만 기즈모로부터 트랜스폼 업데이트
                     UpdateBoneTransformFromGizmo(ActiveState);
+                    // Mark collision shapes dirty to update in real-time
+                    bCollisionShapesDirty = true;
                 }
                 else if (!bCurrentlyDragging)
                 {
@@ -1080,6 +1082,88 @@ void SPhysicsAssetEditorWindow::RenderBodyProperties()
 
             RecreateBodyPrimitive(SelectedBody, NewPrimitiveType);
         }
+    }
+
+    ImGui::Dummy(ImVec2(0, 8));
+    ImGui::Separator();
+    ImGui::Dummy(ImVec2(0, 8));
+
+    // === Transform Properties ===
+    ImGui::Text("Transform");
+    ImGui::Spacing();
+
+    // Get the current primitive's center and rotation
+    FVector CurrentCenter = FVector::Zero();
+    FQuat CurrentRotation = FQuat::Identity();
+
+    switch (SelectedBody->BodyType)
+    {
+    case EBodySetupType::Sphere:
+        if (!SelectedBody->AggGeom.SphereElems.IsEmpty())
+        {
+            CurrentCenter = SelectedBody->AggGeom.SphereElems[0].Center;
+        }
+        break;
+    case EBodySetupType::Box:
+        if (!SelectedBody->AggGeom.BoxElems.IsEmpty())
+        {
+            CurrentCenter = SelectedBody->AggGeom.BoxElems[0].Center;
+            CurrentRotation = SelectedBody->AggGeom.BoxElems[0].Rotation;
+        }
+        break;
+    case EBodySetupType::Capsule:
+        if (!SelectedBody->AggGeom.SphylElems.IsEmpty())
+        {
+            CurrentCenter = SelectedBody->AggGeom.SphylElems[0].Center;
+            CurrentRotation = SelectedBody->AggGeom.SphylElems[0].Rotation;
+        }
+        break;
+    }
+
+    // Convert quaternion to euler angles for display (ZYX order, in degrees)
+    FVector EulerAngles = CurrentRotation.ToEulerZYXDeg();
+
+    bool bTransformChanged = false;
+
+    if (ImGui::DragFloat3("Center", &CurrentCenter.X, 0.01f, -100.0f, 100.0f, "%.3f"))
+    {
+        bTransformChanged = true;
+    }
+
+    if (ImGui::DragFloat3("Rotation (Deg)", &EulerAngles.X, 0.5f, -180.0f, 180.0f, "%.2f"))
+    {
+        // Convert euler angles (degrees) back to quaternion
+        CurrentRotation = FQuat::MakeFromEulerZYX(EulerAngles);
+        bTransformChanged = true;
+    }
+
+    // Apply transform changes to the primitive
+    if (bTransformChanged)
+    {
+        switch (SelectedBody->BodyType)
+        {
+        case EBodySetupType::Sphere:
+            if (!SelectedBody->AggGeom.SphereElems.IsEmpty())
+            {
+                SelectedBody->AggGeom.SphereElems[0].Center = CurrentCenter;
+            }
+            break;
+        case EBodySetupType::Box:
+            if (!SelectedBody->AggGeom.BoxElems.IsEmpty())
+            {
+                SelectedBody->AggGeom.BoxElems[0].Center = CurrentCenter;
+                SelectedBody->AggGeom.BoxElems[0].Rotation = CurrentRotation;
+            }
+            break;
+        case EBodySetupType::Capsule:
+            if (!SelectedBody->AggGeom.SphylElems.IsEmpty())
+            {
+                SelectedBody->AggGeom.SphylElems[0].Center = CurrentCenter;
+                SelectedBody->AggGeom.SphylElems[0].Rotation = CurrentRotation;
+            }
+            break;
+        }
+        bChanged = true;
     }
 
     ImGui::Dummy(ImVec2(0, 8));
