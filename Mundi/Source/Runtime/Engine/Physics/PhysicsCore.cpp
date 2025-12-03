@@ -172,7 +172,7 @@ bool FPhysicsCore::ConnectPvd()
     if (!GPvd)
         return false;
 
-    GPvdTransport = PxDefaultPvdSocketTransportCreate("127.0.0.1", 5425, 10);
+    GPvdTransport = PxDefaultPvdSocketTransportCreate("127.0.0.1", 5425, std::numeric_limits<uint32>::max());
     if (!GPvdTransport)
     {
         GPvd->release();

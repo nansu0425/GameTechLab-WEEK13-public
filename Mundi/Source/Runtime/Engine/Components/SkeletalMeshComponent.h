@@ -27,6 +27,13 @@ public:
     void CreatePhysicsState() override;
     void DestroyPhysicsState() override;
 
+    // 래그돌 물리 시뮬레이션
+    UPROPERTY(EditAnywhere, Category="Physics")
+    bool bEnableRagdoll = false;
+
+    void SetAllBodiesSimulatePhysics(bool bSimulate);
+    bool IsSimulatingRagdoll() const { return bSimulatingRagdoll; }
+
     // Animation Integration
 public:
     void SetAnimInstance(class UAnimInstance* InInstance);
@@ -129,6 +136,9 @@ protected:
 
     void BuildPhysics();
 
+    // 래그돌: 물리 결과를 본 트랜스폼에 동기화
+    void UpdateBoneTransformsFromPhysics();
+
 protected:
     /**
      * @brief 각 뼈의 부모 기준 로컬 트랜스폼
@@ -157,4 +167,7 @@ private:
     // Animation state
     UAnimInstance* AnimInstance = nullptr;
     bool bUseAnimation = true;
+
+    // 래그돌 런타임 상태
+    bool bSimulatingRagdoll = false;
 };
