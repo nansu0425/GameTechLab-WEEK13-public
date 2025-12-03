@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include "SViewerWindow.h"
 
+struct FConvexElem;
+
 class SPhysicsAssetEditorWindow : public SViewerWindow
 {
 public:
@@ -44,6 +46,7 @@ private:
     void DrawWireframeBox(ULineComponent* LineComp, const FVector& Center, const FVector& HalfExtents, const FQuat& Rotation, const FVector4& Color);
     void DrawWireframeSphere(ULineComponent* LineComp, const FVector& Center, float Radius, const FQuat& Rotation, const FVector4& Color, int32 Segments = 16);
     void DrawWireframeCapsule(ULineComponent* LineComp, const FVector& Center, float Radius, float HalfHeight, const FQuat& Rotation, const FVector4& Color, int32 Segments = 16);
+    void DrawWireframeConvex(ULineComponent* LineComp, const FConvexElem& ConvexElem, const FTransform WorldTransform, const FVector4& Color);
 
     // Constraint visualization functions
     void DrawConstraintFrame(ULineComponent* LineComp, const FVector& Position, const FVector& PriAxis, const FVector& SecAxis, float AxisLength, const FVector4& Color);

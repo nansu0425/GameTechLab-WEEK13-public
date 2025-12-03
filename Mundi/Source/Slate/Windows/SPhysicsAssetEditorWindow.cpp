@@ -7,6 +7,7 @@
 #include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 #include "PhysicsAsset.h"
 #include "BodySetup.h"
+#include "PhysicsUtils.h"
 #include "PlatformProcess.h"
 
 static EBodySetupType ToBodySetupType(EPrimitiveType InPrimitiveType)
@@ -582,12 +583,13 @@ void SPhysicsAssetEditorWindow::RenderPhysicsBodyHierarchy()
                 {
                     // Determine body label
                     FString BodyLabel = "Aggregate Body";
-                    int primitiveCount = BodySetup->AggGeom.SphereElems.Num() + BodySetup->AggGeom.BoxElems.Num() + BodySetup->AggGeom.SphylElems.Num();
+                    int primitiveCount = BodySetup->AggGeom.GetElementCount();
                     if (primitiveCount == 1)
                     {
                         if (BodySetup->AggGeom.SphereElems.Num() == 1) BodyLabel = "Sphere";
                         else if (BodySetup->AggGeom.BoxElems.Num() == 1) BodyLabel = "Box";
                         else if (BodySetup->AggGeom.SphylElems.Num() == 1) BodyLabel = "Capsule";
+                        else if (BodySetup->AggGeom.ConvexElems.Num() == 1) BodyLabel = "Convex";
                     }
 
                     ImGuiTreeNodeFlags bodyFlags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen |
@@ -785,6 +787,8 @@ void SPhysicsAssetEditorWindow::RenderToolsPanel()
     ImGui::RadioButton("Box", (int*)&SelectedPrimitiveType, (int)EPrimitiveType::Box);
     ImGui::SameLine(0, 8.0f);
     ImGui::RadioButton("Capsule", (int*)&SelectedPrimitiveType, (int)EPrimitiveType::Capsule);
+    ImGui::SameLine(0, 8.0f);
+    ImGui::RadioButton("Convex", (int*)&SelectedPrimitiveType, (int)EPrimitiveType::Convex);
     ImGui::PopStyleVar();
 
     ImGui::Dummy(ImVec2(0, 6));
@@ -1761,6 +1765,63 @@ void SPhysicsAssetEditorWindow::DrawWireframeCapsule(ULineComponent* LineComp, c
     }
 }
 
+void SPhysicsAssetEditorWindow::DrawWireframeConvex(ULineComponent* LineComp, const FConvexElem& ConvexElem, const FTransform WorldTransform, const FVector4& Color)
+{
+    if (!LineComp)
+    {
+        return;
+    }
+
+    if (ConvexElem.VertexData.IsEmpty())
+    {
+        return;
+    }
+
+    if (ConvexElem.IndexData.IsEmpty())
+    {
+        // Fallback: 정점만 포인트로 찍기 (디버깅용)
+        for (const FVector& LocalVert : ConvexElem.VertexData)
+        {
+            FVector WorldVert = WorldTransform.TransformPosition(LocalVert);
+            // 점 그리기 함수가 있다고 가정 (없으면 짧은 선으로 대체)
+            // LineComp->AddPoint(WorldVert, Color, 5.0f); 
+        }
+        return;
+    }
+
+    const TArray<int32>& Indices = ConvexElem.IndexData;
+    const TArray<FVector>& Vertices = ConvexElem.VertexData;
+
+    for (int32 i = 0; i < Indices.Num(); i += 3)
+    {
+        // 안전 장치
+        if (i + 2 >= Indices.Num()) break;
+
+        int32 Index0 = Indices[i];
+        int32 Index1 = Indices[i + 1];
+        int32 Index2 = Indices[i + 2];
+
+        // 인덱스 범위 체크
+        if ((Index0 >= 0) && (Index0 < Vertices.Num()) ||
+            (Index1 >= 0) && (Index1 < Vertices.Num()) ||
+            (Index2 >= 0) && (Index2 < Vertices.Num()))
+        {
+            continue;
+        }
+
+        // 3. 로컬 정점을 월드 좌표로 변환
+        FVector V0 = WorldTransform.TransformPosition(Vertices[Index0]);
+        FVector V1 = WorldTransform.TransformPosition(Vertices[Index1]);
+        FVector V2 = WorldTransform.TransformPosition(Vertices[Index2]);
+
+        // 4. 삼각형의 세 변(Edge)을 그리기
+        // (중복해서 그리는 선분이 생기지만, 디버그 드로잉에서는 무시해도 되는 수준의 오버헤드입니다)
+        LineComp->AddLine(V0, V1, Color);
+        LineComp->AddLine(V1, V2, Color);
+        LineComp->AddLine(V2, V0, Color);
+    }
+}
+
 void SPhysicsAssetEditorWindow::RebuildCollisionShapes()
 {
     if (!ActiveState)   return;
@@ -1874,6 +1935,23 @@ void SPhysicsAssetEditorWindow::RebuildCollisionShapes()
             // Draw capsule with rotation (need to implement rotated capsule drawing)
             // For now, draw axis-aligned capsule at transformed center
             DrawWireframeCapsule(LineComp, WorldCenter, CapsuleElem.Radius, HalfHeight, WorldRotation, DrawColor, 16);
+        }
+
+        for (const FConvexElem& ConvexElem : BodySetup->AggGeom.ConvexElems)
+        {
+            // 1. ConvexElem 자체의 로컬 변환 (Transform) 적용
+            // (보통 Identity지만, 데이터 생성 시 오프셋이 들어갔을 수 있음)
+            FTransform ElemTransform = ConvexElem.GetTransform(); // 혹은 멤버 변수 Transform
+
+            // 2. 최종 월드 변환 계산 (Bone World * Elem Local)
+            FTransform FinalWorldTransform = BoneTransform.GetWorldTransform(ElemTransform);
+    
+            // (참고: FTransform 구현에 따라 곱셈 순서가 다를 수 있습니다. 
+            // 님의 FTransform::GetWorldTransform은 Parent.GetWorldTransform(Child) 방식이므로
+            // BoneTransform이 Parent입니다.)
+
+            // 3. 그리기 함수 호출
+            DrawWireframeConvex(LineComp, ConvexElem, FinalWorldTransform, DrawColor);
         }
     }
 
@@ -2177,6 +2255,45 @@ void SPhysicsAssetEditorWindow::CreateBodyForBone(int32 BoneIndex, EPrimitiveTyp
         NewBody->AggGeom.SphylElems.Add(CapsuleElem);
         break;
     }
+    case EPrimitiveType::Convex:
+        {
+            FConvexElem ConvexElem;
+            
+
+            // 1. 계산된 Extent(Half-Size)를 이용하여 박스 형태의 정점 8개 생성
+            // (이미 LocalCenter와 LocalRotation이 계산되어 있으므로, 
+            //  정점은 원점 기준으로 만들고 나중에 Transform을 적용하거나, 정점에 미리 적용할 수 있습니다.)
+    
+            TArray<FVector> BoxVertices;
+            BoxVertices.SetNum(8);
+    
+            // Extent는 Half-Size이므로 +/- Extent로 정점 생성
+            BoxVertices[0] = FVector( Extent.X,  Extent.Y,  Extent.Z);
+            BoxVertices[1] = FVector( Extent.X,  Extent.Y, -Extent.Z);
+            BoxVertices[2] = FVector( Extent.X, -Extent.Y,  Extent.Z);
+            BoxVertices[3] = FVector( Extent.X, -Extent.Y, -Extent.Z);
+            BoxVertices[4] = FVector(-Extent.X,  Extent.Y,  Extent.Z);
+            BoxVertices[5] = FVector(-Extent.X,  Extent.Y, -Extent.Z);
+            BoxVertices[6] = FVector(-Extent.X, -Extent.Y,  Extent.Z);
+            BoxVertices[7] = FVector(-Extent.X, -Extent.Y, -Extent.Z);
+
+            // 2. 로컬 변환 적용 (LocalCenter, LocalRotation)
+            // BoxElem은 Center/Rotation 변수가 있지만, ConvexElem은 보통 정점 데이터 자체에 굽거나 Transform 변수를 씁니다.
+            // 여기서는 정점 데이터 자체를 이동시켜서 "Bone Local Space"에 맞춥니다.
+            for (FVector& Vert : BoxVertices)
+            {
+                Vert = LocalRotation.RotateVector(Vert) + LocalCenter;
+            }
+
+            // 3. Convex Hull 생성
+            if (FPhysicsUtils::GenerateConvexHull(BoxVertices, ConvexElem))
+            {
+                // 이미 정점을 이동시켰으므로 추가 Transform은 Identity
+                ConvexElem.SetTransform(FTransform());
+                NewBody->AggGeom.ConvexElems.Add(ConvexElem);
+            }
+            break;
+        }
     default:
         UE_LOG("CreateBodyForBone: Unknown primitive type.");
         break;
@@ -2294,6 +2411,44 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByBoneStructure(EPrimitiveType Pri
             NewBody->AggGeom.SphylElems.Add(CapsuleElem);
             break;
         }
+        case EPrimitiveType::Convex:
+            {
+                FConvexElem ConvexElem;
+
+                // 1. 계산된 Extent(Half-Size)를 이용하여 박스 형태의 정점 8개 생성
+                // (이미 LocalCenter와 LocalRotation이 계산되어 있으므로, 
+                //  정점은 원점 기준으로 만들고 나중에 Transform을 적용하거나, 정점에 미리 적용할 수 있습니다.)
+    
+                TArray<FVector> BoxVertices;
+                BoxVertices.SetNum(8);
+    
+                // Extent는 Half-Size이므로 +/- Extent로 정점 생성
+                BoxVertices[0] = FVector( Extent.X,  Extent.Y,  Extent.Z);
+                BoxVertices[1] = FVector( Extent.X,  Extent.Y, -Extent.Z);
+                BoxVertices[2] = FVector( Extent.X, -Extent.Y,  Extent.Z);
+                BoxVertices[3] = FVector( Extent.X, -Extent.Y, -Extent.Z);
+                BoxVertices[4] = FVector(-Extent.X,  Extent.Y,  Extent.Z);
+                BoxVertices[5] = FVector(-Extent.X,  Extent.Y, -Extent.Z);
+                BoxVertices[6] = FVector(-Extent.X, -Extent.Y,  Extent.Z);
+                BoxVertices[7] = FVector(-Extent.X, -Extent.Y, -Extent.Z);
+
+                // 2. 로컬 변환 적용 (LocalCenter, LocalRotation)
+                // BoxElem은 Center/Rotation 변수가 있지만, ConvexElem은 보통 정점 데이터 자체에 굽거나 Transform 변수를 씁니다.
+                // 여기서는 정점 데이터 자체를 이동시켜서 "Bone Local Space"에 맞춥니다.
+                for (FVector& Vert : BoxVertices)
+                {
+                    Vert = LocalRotation.RotateVector(Vert) + LocalCenter;
+                }
+
+                // 3. Convex Hull 생성
+                if (FPhysicsUtils::GenerateConvexHull(BoxVertices, ConvexElem))
+                {
+                    // 이미 정점을 이동시켰으므로 추가 Transform은 Identity
+                    ConvexElem.SetTransform(FTransform());
+                    NewBody->AggGeom.ConvexElems.Add(ConvexElem);
+                }
+                break;
+            }
         }
 
         // Add the body to the physics asset
@@ -2695,7 +2850,8 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType Pri
             NewBody->CapsuleHalfHeight = HalfHeight;
             NewBody->SphereRadius = Radius;
             break;
-
+        case EPrimitiveType::Convex:
+            break;
         default:
             UE_LOG("GenerateAllBodies: Unknown primitive type for bone %s", Bone.Name.c_str());
             continue;
@@ -2753,6 +2909,62 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType Pri
             NewBody->AggGeom.SphylElems.Add(CapsuleElem);
             break;
         }
+        case EPrimitiveType::Convex:
+            {
+                FConvexElem ConvexElem;
+                
+                FTransform WorldTM = MeshComp->GetWorldTransform();
+                WorldTM.Scale3D = FVector::One();
+                
+                FTransform BoneTM = MeshComp->GetBoneWorldTransform(BoneIndex);
+                BoneTM.Scale3D = FVector::One();
+                
+                FTransform InvBoneTM = BoneTM.Inverse();                
+                
+                TArray<FVector> BoneLocalVertex;
+                BoneLocalVertex.Reserve(VerticesToFit.Num());
+                for (const FVector& Vertex : VerticesToFit)
+                {
+                    FVector WorldPos = WorldTM.TransformPosition(Vertex);
+                    FVector BoneLocal = InvBoneTM.TransformVector(WorldPos);                    
+                    BoneLocalVertex.Add(BoneLocal);
+                }
+
+                TArray<FVector> ShapeLocalVertex;
+                ShapeLocalVertex.Reserve(VerticesToFit.Num());
+                FQuat InvLocalRot = LocalRotation.Inverse();
+                for (FVector& BoneLocal : BoneLocalVertex)
+                {
+                    FVector Centered = BoneLocal - LocalCenter;
+                    FVector ShapeLocal = InvLocalRot.RotateVector(Centered);
+                    ShapeLocalVertex.Add(ShapeLocal);
+                }
+                
+                UE_LOG("Bone: %s, VerticesToFit: %d", Bone.Name.c_str(), VerticesToFit.Num());
+                if (FPhysicsUtils::GenerateConvexHull(BoneLocalVertex, ConvexElem))
+                {
+                    ConvexElem.SetTransform(FTransform(LocalCenter, LocalRotation, FVector::One())); 
+                
+                    NewBody->AggGeom.ConvexElems.Add(ConvexElem);
+                }
+                else
+                {
+                    UE_LOG("GenerateAllBodies: Failed to generate convex hull for bone %s", Bone.Name.c_str());
+                }
+                if (NewBody->AggGeom.ConvexElems.Num() > 0)
+                {
+                    const FConvexElem& Elem = NewBody->AggGeom.ConvexElems.Last();
+                    UE_LOG(">> Generated Convex: Verts=%d, Indices=%d", Elem.VertexData.Num(), Elem.IndexData.Num());
+                
+                    if (Elem.VertexData.Num() > 0)
+                    {
+                        // 첫 번째 정점 좌표 확인 (값이 터무니없이 크거나 NaN인지 체크)
+                        FVector V = Elem.VertexData[0];
+                        UE_LOG(">> First Vertex Local Pos: (%f, %f, %f)", V.X, V.Y, V.Z);
+                    }
+                }
+                break;
+            }
         }
 
         // Add the body to the physics asset
