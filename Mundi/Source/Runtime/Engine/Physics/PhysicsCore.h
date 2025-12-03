@@ -33,6 +33,12 @@ public:
     // Material 생성 (전역)
     physx::PxMaterial* CreateMaterial(float StaticFriction, float DynamicFriction, float Restitution);
 
+    // PVD 재연결 (PIE 시작 시 호출)
+    void ReconnectPvd();
+
+    // PVD 연결 상태 확인
+    bool IsPvdConnected() const;
+
     bool IsInitialized() const { return bInitialized; }
 
 private:
