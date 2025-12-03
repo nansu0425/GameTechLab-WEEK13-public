@@ -8,8 +8,7 @@
 // 언리얼 엔진의 UBodySetup과 유사.
 // 여러 FBodyInstance가 동일한 UBodySetup을 공유하여 메모리 효율성 확보.
 //
-// PhysX 의존성이 없는 순수 데이터 클래스.
-// Shape 생성은 BodySetupImpl.h의 BodySetupHelper 네임스페이스에서 담당.
+// Shape 생성은 AddShapesToRigidActor() 메서드에서 담당.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #include "Object.h"
@@ -37,8 +36,7 @@ enum class EBodySetupType : uint8
  * 언리얼 엔진의 UBodySetup과 유사.
  * 여러 FBodyInstance가 동일한 UBodySetup을 공유하여 메모리 효율성 확보.
  *
- * 이 클래스는 순수 데이터만 보유하며, PhysX 의존성이 없습니다.
- * 실제 PhysX Shape 생성은 BodySetupImpl.h의 BodySetupHelper에서 담당합니다.
+ * AggGeom이 비어있으면 BodyType/BoxExtent 등 직접 프로퍼티로 자동 생성됨.
  */
 UCLASS(DisplayName = "충돌 기하 데이터", Description = "공유 가능한 충돌 기하 데이터 입니다")
 class UBodySetup : public UBodySetupCore
@@ -90,6 +88,12 @@ public:
     float CapsuleHalfHeight;
 
 private:
+    /** AggGeom이 비어있는지 확인 */
+    bool IsAggGeomEmpty() const;
+
+    /** 직접 프로퍼티(BodyType, BoxExtent 등)로부터 AggGeom 자동 생성 */
+    void GenerateAggGeomFromProperties() const;
+
     void AddBoxElems(
         physx::PxRigidActor* RigidActor,
         physx::PxMaterial* DefaultMaterial,

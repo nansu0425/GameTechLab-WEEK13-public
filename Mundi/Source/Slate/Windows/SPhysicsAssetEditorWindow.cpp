@@ -2719,6 +2719,7 @@ void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex
     // Get bone world transform (remove scale)
     FTransform BoneWorldTM = MeshComp->GetBoneWorldTransform(BoneIndex);
     BoneWorldTM.Scale3D = FVector(1, 1, 1);
+    UE_LOG("EDITOR Bone %d World: Pos=(%.2f,%.2f,%.2f)", BoneIndex, BoneWorldTM.Translation.X, BoneWorldTM.Translation.Y,BoneWorldTM.Translation.Z);
 
     FVector BoneWorldPos = BoneWorldTM.Translation;
 
@@ -2772,7 +2773,7 @@ void SPhysicsAssetEditorWindow::CalculateBoneLocalShapeTransform(int32 BoneIndex
     // 2) LocalRotation --------------------------------
     // Align collider Z-axis with bone direction
     FVector WorldDir = (ChildWorldPos - BoneWorldPos).GetSafeNormal();
-    if (WorldDir.IsZero())
+    if (!WorldDir.IsZero())
     {
         FVector LocalDir = InvRot.RotateVector(WorldDir);
         OutLocalRotation = FQuat::FindBetween(FVector(0, 0, 1), LocalDir);
@@ -3215,7 +3216,7 @@ void SPhysicsAssetEditorWindow::BuildBoneVertexInfluenceMap(const FSkeletalMeshD
     OutInfluenceMap.Empty();
     OutInfluenceMap.SetNum(Skeleton.Bones.Num());
 
-    UE_LOG("BuildBoneVertexInfluenceMap: Processing %d vertices for %d bones", Vertices.Num(), Skeleton.Bones.Num());
+    // UE_LOG("BuildBoneVertexInfluenceMap: Processing %d vertices for %d bones", Vertices.Num(), Skeleton.Bones.Num());
 
     // Iterate through all vertices and build reverse mapping
     for (int32 VertexIndex = 0; VertexIndex < Vertices.Num(); ++VertexIndex)
