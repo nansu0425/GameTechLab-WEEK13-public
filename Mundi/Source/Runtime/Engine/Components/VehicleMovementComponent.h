@@ -99,10 +99,6 @@ public:
     UPROPERTY(EditAnywhere, Category = "Vehicle")
     float MaxHandbrakeTorque = 2000.0f;
 
-    /** (depracated) UpdatedComponent로부터 BodyInstance 획득 실패시 만들 fallback용 액터 크기*/
-	UPROPERTY(EditAnywhere, Category = "Vehicle")
-    FVector BackUpActorExtent;
-
     // --- 입력 처리 함수 (API) ---
 
     /** 스로틀 입력 설정 (-1.0f ~ 1.0f) */
@@ -133,13 +129,7 @@ protected:
     physx::PxVehicleDrive4W* PxVehicleDrive4WInstance = nullptr;
 
     /** PxVehicleWheels 인스턴스 (바퀴 시뮬레이션 데이터 포함) */
-    physx::PxVehicleWheels* PxVehicleWheelsInstance = nullptr;
-
-    /**
-     * @brief 차량 차체로 사용할 Dynamic Actor
-	 * @note 직접 생성하지 않고, 소유한 UpdatedComponent의 PhysX Body를 참조합니다.
-     */
-    physx::PxRigidDynamic* PxVehicleActor = nullptr;
+    // physx::PxVehicleWheels* PxVehicleWheelsInstance = nullptr;
 
     /** 노면-타이어 마찰 매핑 테이블 (타이어와 노면 타입은 단일 타입 & 마찰계수 1 고정) */
     physx::PxVehicleDrivableSurfaceToTireFrictionPairs* TireFrictionPairs = nullptr;
@@ -197,9 +187,6 @@ protected:
 
     /** 초기 휠 본의 로컬 위치를 캐싱 (서스펜션 승강 계산용) */
     TArray<FVector> InitialWheelLocalPositions;
-
-    /** 내부 폴백용 차량 액터를 사용했는지 여부 */
-    bool bUseInternalVehicleActor = false;
 
     /** PhysScene 레지스트리에 등록/해제 */
     void RegisterWithPhysScene();

@@ -25,7 +25,6 @@ UVehicleMovementComponent::UVehicleMovementComponent()
     BrakeInput = 0.0f;
     HandbrakeInput = 0.0f;
 	ChassisHalfExtents = FVector(2.75f, 1.1f, 0.4f);
-	BackUpActorExtent = FVector(1.0f, 1.0f, 1.0f);
 
     VehicleQueryResults.wheelQueryResults = nullptr;
     VehicleQueryResults.nbWheelQueryResults = 0;
@@ -395,7 +394,6 @@ bool UVehicleMovementComponent::InitVehiclePhysX()
 
     PxVehicleDrive4WInstance = Drive4W;
     PxVehicleWheelsInstance = Drive4W;
-    PxVehicleActor = ChassisActor;
 
     bVehicleInitialized = true;
     UE_LOG("[VehicleMovement] Vehicle PhysX initialization complete.");
@@ -612,13 +610,14 @@ void UVehicleMovementComponent::UpdateVehiclePoseFromPhysX()
         return;
     }
 
-    if (!PxVehicleActor)
+    physx::PxRigidDynamic* ChassisActor = PxVehicleDrive4WInstance ? PxVehicleDrive4WInstance->getRigidDynamicActor() : nullptr;
+    if (!ChassisActor)
     {
         return;
     }
 
     // PhysX 차체 글로벌 포즈를 엔진 Transform으로 변환하여 UpdatedComponent에 적용
-    physx::PxTransform PxPose = PxVehicleActor->getGlobalPose();
+    physx::PxTransform PxPose = ChassisActor->getGlobalPose();
     FTransform WorldTransform = PhysicsConversion::ToFTransform(PxPose);
 
     // UpdatedComponent가 루트가 아닌 경우 경고(60프레임마다 한 번)
@@ -813,7 +812,7 @@ void UVehicleMovementComponent::CleanupVehiclePhysX()
         PxVehicleDrive4WInstance = nullptr;
     }
 
-    PxVehicleWheelsInstance = nullptr;
+    // PxVehicleWheelsInstance = nullptr;
 
     if (TireFrictionPairs)
     {
@@ -821,27 +820,14 @@ void UVehicleMovementComponent::CleanupVehiclePhysX()
         TireFrictionPairs = nullptr;
     }
 
-    if (bUseInternalVehicleActor && PxVehicleActor)
-    {
-        if (physx::PxScene* Scene = PxVehicleActor->getScene())
-        {
-            Scene->removeActor(*PxVehicleActor);
-        }
-        PxVehicleActor->release();
-    }
-
     WheelQueryResults.clear();
     VehicleQueryResults.wheelQueryResults = nullptr;
     VehicleQueryResults.nbWheelQueryResults = 0;
-
-    // 차체 Actor는 BodyInstance가 소유하므로 여기서 해제/씬 제거하지 않음
-    PxVehicleActor = nullptr;
 
     bVehicleInitialized = false;
     bWarnedMissingBodyComponent = false;
     bWarnedPhysicsUninitialized = false;
     bWarnedWheelSetup = false;
-    bUseInternalVehicleActor = false;
 }
 
 /** PhysScene 레지스트리에 등록 */
@@ -1000,7 +986,7 @@ void UVehicleMovementComponent::TestRollWheels(float DeltaTime)
     if (!SkelComp)
         return;
 
-    const float WheelAngleDelta = DeltaTime * 2.0f; // 증분 각도(rad) 원하는 속도로 조정
+    const float WheelAngleDelta = DeltaTime * 4.0f; // 증분 각도(rad) 원하는 속도로 조정
 
     USkeletalMesh* SkelMesh = SkelComp->GetSkeletalMesh();
     const FSkeleton* Skeleton = SkelMesh ? SkelMesh->GetSkeletalMeshData()
