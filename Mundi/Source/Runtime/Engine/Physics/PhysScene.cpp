@@ -205,6 +205,30 @@ physx::PxMaterial* FPhysScene::GetDefaultMaterial() const
     return Impl ? Impl->GetDefaultMaterial() : nullptr;
 }
 
+void FPhysScene::RefreshPvdClient()
+{
+    if (!Impl)
+        return;
+
+    PxScene* PScene = Impl->GetPxScene();
+    if (!PScene)
+        return;
+
+    FPhysicsCore& Core = FPhysicsCore::Get();
+    PxPvd* Pvd = Core.GetPvd();
+    if (Pvd && Pvd->isConnected())
+    {
+        PxPvdSceneClient* PvdClient = PScene->getScenePvdClient();
+        if (PvdClient)
+        {
+            PvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONSTRAINTS, true);
+            PvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONTACTS, true);
+            PvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
+            UE_LOG("FPhysScene: PVD client refreshed");
+        }
+    }
+}
+
 FPhysScene::FPhysSceneStats FPhysScene::GetStats() const
 {
     FPhysSceneStats Stats;
