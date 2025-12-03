@@ -989,7 +989,7 @@ void SPhysicsAssetEditorWindow::OnLoad()
     }
 
     FString SelectedPathStr = ResolveAssetRelativePath(NormalizePath(WideToUTF8(SelectedPath.wstring())), "");
-    if (UPhysicsAsset* Asset = PhysicsAssetEditorBootstrap::LoadPhysicsAsset(SelectedPathStr))
+    if (UPhysicsAsset* Asset = PhysicsAssetEditorBootstrap::LoadPhysicsAsset(SelectedPathStr, ActiveState->LoadedMeshPath))
     {
         ActiveState->CurrentPhysicsAsset = Asset;
         ActiveState->CurrentMesh->SetPhysicsAsset(Asset);
@@ -3099,20 +3099,6 @@ void SPhysicsAssetEditorWindow::BuildConstraintSetup(const FName& ParentBoneName
 
     // Drive disabled
     OutSetup.Profile.bEnableDrive = false;
-}
-
-void SPhysicsAssetEditorWindow::BuildAfterLoad()
-{
-    TArray<FConstraintSetup>& ConstraintSetups = ActiveState->CurrentPhysicsAsset->GetConstraintSetupsMutable();
-    if (ConstraintSetups.IsEmpty())
-    {
-        return;
-    }
-
-    for (const auto& Setup : ConstraintSetups)
-    {
-        
-    }
 }
 
 int32 SPhysicsAssetEditorWindow::FindFirstChildBone(int32 BoneIndex, const FSkeleton* Skeleton) const

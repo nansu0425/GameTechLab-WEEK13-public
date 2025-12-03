@@ -17,18 +17,6 @@ void UPhysicsAsset::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 
     if (bInIsLoading)
     {
-        // JSON MeshJson;
-        // if (FJsonSerializer::ReadObject(InOutHandle, "Mesh", MeshJson))
-        // {
-        //     FString SavedMeshFilePath = {};
-        //     FJsonSerializer::ReadString(MeshJson, "MeshFilePath", SavedMeshFilePath);
-        //     if (SavedMeshFilePath != MeshFilePath)
-        //     {
-        //         UE_LOG("스켈레탈과 애셋이 일치하지 않습니다.");
-        //         return;
-        //     }
-        // }
-        
         BodySetups.Empty();
         ConstraintSetups.Empty();
         CollisionDisableTable.Empty();
@@ -257,6 +245,22 @@ void UPhysicsAsset::ClearAllBodies()
     CollisionDisableTable.Empty();
     ConstraintSetups.Empty();
     CollisionDisableTable.Empty();
+}
+
+bool UPhysicsAsset::IsCompatibleWithMesh(const FString& MeshPath, JSON& InOutHandle)
+{
+    JSON MeshJson;
+    if (FJsonSerializer::ReadObject(InOutHandle, "Mesh", MeshJson))
+    {
+        FString SavedMeshFilePath = {};
+        FJsonSerializer::ReadString(MeshJson, "MeshFilePath", SavedMeshFilePath);
+        if (SavedMeshFilePath != MeshPath)
+        {            
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void UPhysicsAsset::SerializeBoxElem(bool bIsLoading, JSON& InOut, FBoxElem& Elem)

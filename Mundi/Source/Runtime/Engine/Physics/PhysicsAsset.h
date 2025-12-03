@@ -137,6 +137,8 @@ public:
 
     void SetMeshFilePath(const FString& InFilePath) { MeshFilePath = InFilePath; }
 
+    static bool IsCompatibleWithMesh(const FString& MeshPath, JSON& InOutHandle);
+
 private:
     static void SerializeBoxElem(bool bIsLoading, JSON& InOut, struct FBoxElem& Elem);
     static void SerializeSphereElem(bool bIsLoading, JSON& InOut, struct FSphereElem& Elem);

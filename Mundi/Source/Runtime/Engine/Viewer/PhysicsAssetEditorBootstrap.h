@@ -11,5 +11,5 @@ public:
     static ViewerState* CreateViewerState(const char* Name, UWorld* InWorld, ID3D11Device* InDevice);
     static void DestroyViewerState(ViewerState*& State);
     static bool SavePhysicsAsset(UPhysicsAsset* Asset, const FString& Path);
-    static UPhysicsAsset* LoadPhysicsAsset(const FString& Path);
+    static UPhysicsAsset* LoadPhysicsAsset(const FString& FilePath, const FString& LoadedMeshPath);
 };

@@ -111,28 +111,34 @@ bool PhysicsAssetEditorBootstrap::SavePhysicsAsset(UPhysicsAsset* Asset, const F
     return true;
 }
 
-UPhysicsAsset* PhysicsAssetEditorBootstrap::LoadPhysicsAsset(const FString& Path)
+UPhysicsAsset* PhysicsAssetEditorBootstrap::LoadPhysicsAsset(const FString& FilePath, const FString& LoadedMeshPath)
 {
-    if (Path.empty())
+    if (FilePath.empty())
     {
         UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: FilePath가 비어있습니다.");
         return nullptr;
     }
-    
-    UPhysicsAsset* CachedAsset = UResourceManager::GetInstance().GetPhysicsAsset(Path);    
-    if (CachedAsset)
-    {
-        UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: 캐시된 애셋 반환: %s", Path.c_str());
-        return CachedAsset;
-    }
 
-    FWideString WidePath = UTF8ToWide(Path);
-    
+    FWideString WidePath = UTF8ToWide(FilePath);
+
     JSON JsonHandle;
     if (!FJsonSerializer::LoadJsonFromFile(JsonHandle, WidePath))
     {
-        UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: 파일 로드 실패: %s", Path.c_str());
+        UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: 파일 로드 실패: %s", FilePath.c_str());
         return nullptr;
+    }
+    
+    if (!UPhysicsAsset::IsCompatibleWithMesh(LoadedMeshPath, JsonHandle))
+    {
+        UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: 애셋과 메시가 일치하지 않음: %s", FilePath.c_str());
+        return nullptr;
+    }
+    
+    UPhysicsAsset* CachedAsset = UResourceManager::GetInstance().GetPhysicsAsset(FilePath);    
+    if (CachedAsset)
+    {
+        UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: 캐시된 애셋 반환: %s", FilePath.c_str());
+        return CachedAsset;
     }
 
     UPhysicsAsset* NewAsset = NewObject<UPhysicsAsset>();
@@ -143,8 +149,8 @@ UPhysicsAsset* PhysicsAssetEditorBootstrap::LoadPhysicsAsset(const FString& Path
     }
     NewAsset->Serialize(true, JsonHandle);
 
-    UResourceManager::GetInstance().AddOrReplacePhysicsAsset(Path, NewAsset);
-    UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: 로드 성공: %s", Path.c_str());
+    UResourceManager::GetInstance().AddOrReplacePhysicsAsset(FilePath, NewAsset);
+    UE_LOG("[PhysicsAssetEditorBootstrap] LoadPhysicsAsset: 로드 성공: %s", FilePath.c_str());
 
     return NewAsset;
 }

@@ -70,7 +70,6 @@ private:
     void GenerateAllConstraints();
     void CreateConstraintBetweenBodies(int ParentBodyIndex, int ChildBodyIndex);
     void BuildConstraintSetup(const FName& ParentBoneName, const FName& ChildBoneName, const FTransform& ParentWT, const FTransform& ChildWT, const FVector& ParentCapsuleCenter, float ParentCapsuleHalfHeight, float ParentCapsuleRadius, const FQuat& ParentCapsuleRotation, const FVector& ChildCapsuleCenter, const FVector& ComponentScale, struct FConstraintSetup& OutSetup);
-    void BuildAfterLoad();
 
     // Helper functions for above
     int32 FindFirstChildBone(int32 BoneIndex, const FSkeleton* Skeleton) const;
