@@ -8,6 +8,7 @@
 #include "FAudioDevice.h"
 #include <sol/sol.hpp>
 #include "PhysicsCore.h"
+#include "ClothCore.h"
 
 float UGameEngine::ClientWidth = 1024.0f;
 float UGameEngine::ClientHeight = 1024.0f;
@@ -202,6 +203,9 @@ bool UGameEngine::Startup(HINSTANCE hInstance)
 
     // PhysX 전역 초기화 (World 생성 전에 호출해야 함)
     FPhysicsCore::Get().Init();
+
+    // NvCloth 전역 초기화
+    FClothCore::GetInstance().Init();
 
     ///////////////////////////////////
     WorldContexts.Add(FWorldContext(NewObject<UWorld>(), EWorldType::Game));

@@ -24,6 +24,7 @@
 #include "SkinningStats.h"
 #include "BillboardComponent.h"
 #include "TextRenderComponent.h"
+#include "ClothComponent.h"
 #include "OBB.h"
 #include "BoundingSphere.h"
 #include "HeightFogComponent.h"
@@ -310,6 +311,15 @@ void FSceneRenderer::RenderShadowMaps()
 			MeshComponent->CollectMeshBatches(ShadowMeshBatches, View);
 		}
 	}
+
+	// TODO: Add cloth shadow casting
+	//for (UClothComponent* ClothComponent : Proxies.Cloths)
+	//{
+	//	if (ClothComponent && ClothComponent->IsVisible())
+	//	{
+	//		ClothComponent->CollectMeshBatches(ShadowMeshBatches, View);
+	//	}
+	//}
 
 	// NOTE: 카메라 오버라이드 기능을 항상 활성화 하기 위해서 그림자를 그릴 곳이 없어도 함수 실행
 	//if (ShadowMeshBatches.IsEmpty()) return;
@@ -793,6 +803,16 @@ void FSceneRenderer::GatherVisibleProxies()
 					{
 						Proxies.ParticleSystems.Add(ParticleSystemComponent);
 					}
+					else if (UClothComponent* ClothComponent = Cast<UClothComponent>(PrimitiveComponent))
+					{
+						Proxies.Cloths.Add(ClothComponent);
+						static bool bLoggedAdd = false;
+						if (!bLoggedAdd)
+						{
+							bLoggedAdd = true;
+							UE_LOG("[SceneRenderer] ClothComponent added to render proxies\n");
+						}
+					}
 					else if (ULineComponent* LineComponent = Cast<ULineComponent>(PrimitiveComponent))
 					{
 						Proxies.EditorLines.Add(LineComponent);
@@ -987,6 +1007,18 @@ void FSceneRenderer::RenderOpaquePass(EViewMode InRenderViewMode)
 	{
 		// TODO: UTextRenderComponent도 CollectMeshBatches를 통해 FMeshBatchElement를 생성하도록 구현
 		//TextRenderComponent->CollectMeshBatches(MeshBatchElements, View);
+	}
+
+	static bool bLoggedClothRender = false;
+	if (!bLoggedClothRender && !Proxies.Cloths.empty())
+	{
+		bLoggedClothRender = true;
+		UE_LOG("[SceneRenderer] Rendering %d cloth components\n", Proxies.Cloths.size());
+	}
+
+	for (UClothComponent* ClothComponent : Proxies.Cloths)
+	{
+		ClothComponent->CollectMeshBatches(MeshBatchElements, View);
 	}
 
 	// --- 2. 정렬 (Sort) ---

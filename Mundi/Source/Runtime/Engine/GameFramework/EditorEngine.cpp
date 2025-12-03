@@ -8,6 +8,7 @@
 #include <ObjManager.h>
 #include "PhysicsCore.h"
 #include "PhysScene.h"
+#include "ClothCore.h"
 
 float UEditorEngine::ClientWidth = 1024.0f;
 float UEditorEngine::ClientHeight = 1024.0f;
@@ -202,6 +203,9 @@ bool UEditorEngine::Startup(HINSTANCE hInstance)
     // PhysX 전역 초기화 (World 생성 전에 호출해야 함)
     FPhysicsCore::Get().Init();
 
+    // NvCloth 전역 초기화
+    FClothCore::GetInstance().Init();
+
     ///////////////////////////////////
     WorldContexts.Add(FWorldContext(NewObject<UWorld>(), EWorldType::Editor));
     GWorld = WorldContexts[0].World;
@@ -378,6 +382,13 @@ void UEditorEngine::StartPIE()
 
     // PIE 시작 시 PVD 재연결 시도
     FPhysicsCore::Get().ReconnectPvd();
+
+    // Initialize ClothCore if not already initialized
+    if (!FClothCore::GetInstance().IsInitialized())
+    {
+        printf("[PIE] Initializing ClothCore...\n");
+        FClothCore::GetInstance().Init();
+    }
 
     UWorld* EditorWorld = WorldContexts[0].World;
     UWorld* PIEWorld = UWorld::DuplicateWorldForPIE(EditorWorld);
