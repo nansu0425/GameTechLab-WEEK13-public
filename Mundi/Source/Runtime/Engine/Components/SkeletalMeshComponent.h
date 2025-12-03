@@ -45,6 +45,7 @@ public:
     void SetAnimationPosition(float InSeconds);
     float GetAnimationPosition();
     bool IsPlayingAnimation() const;
+    void SetAnimationUsage(bool bValue) { bUseAnimation = bValue; }
 
     //==== Minimal Lua-friendly helper to switch to a state machine anim instance ====
     UFUNCTION(LuaBind, DisplayName="UseStateMachine")

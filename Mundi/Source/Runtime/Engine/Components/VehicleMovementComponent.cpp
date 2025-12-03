@@ -1,5 +1,5 @@
 ﻿#include "pch.h"
-#include "SimpleWheeledVehicleMovementComponent.h"
+#include "VehicleMovementComponent.h"
 
 #include "Actor.h"
 #include "GlobalConsole.h"
@@ -14,9 +14,9 @@
 
 #include <PxPhysicsAPI.h>
 
-IMPLEMENT_CLASS(USimpleWheeledVehicleMovementComponent)
+IMPLEMENT_CLASS(UVehicleMovementComponent)
 
-USimpleWheeledVehicleMovementComponent::USimpleWheeledVehicleMovementComponent()
+UVehicleMovementComponent::UVehicleMovementComponent()
 {
     bCanEverTick = true;
     ThrottleInput = 0.0f;
@@ -34,24 +34,41 @@ USimpleWheeledVehicleMovementComponent::USimpleWheeledVehicleMovementComponent()
 	WheelSetups.Add({ "RR", 0.0f, 30.0f, false });
 }
 
-USimpleWheeledVehicleMovementComponent::~USimpleWheeledVehicleMovementComponent() = default;
+UVehicleMovementComponent::~UVehicleMovementComponent() = default;
 
-void USimpleWheeledVehicleMovementComponent::OnRegister(UWorld* InWorld)
+void UVehicleMovementComponent::OnRegister(UWorld* InWorld)
 {
     Super::OnRegister(InWorld);
     EnsureUpdatedComponentIsValid();
     RegisterWithPhysScene();
 }
 
-void USimpleWheeledVehicleMovementComponent::OnUnregister()
+void UVehicleMovementComponent::OnUnregister()
 {
     UnregisterFromPhysScene();
     CleanupVehiclePhysX();
     Super::OnUnregister();
 }
 
-void USimpleWheeledVehicleMovementComponent::BeginPlay()
+void UVehicleMovementComponent::DuplicateSubObjects()
 {
+    Super::DuplicateSubObjects();
+
+    // PIE 복제 시 UpdatedComponent가 에디터 월드 컴포넌트를 가리키는 문제를 방지.
+    // 자체적으로 복제하지 않고 null로 설정하여 런타임에 다시 설정되도록 함.
+    UpdatedComponent = nullptr;
+    bVehicleInitialized = false;
+    bRegisteredWithPhysScene = false;
+}
+
+
+void UVehicleMovementComponent::BeginPlay()
+{
+    if (USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(UpdatedComponent))
+    {
+        SkelComp->SetAnimationUsage(false); // 애니메이션 비활성화
+    }
+	
     Super::BeginPlay();
     if (!bRegisteredWithPhysScene)
     {
@@ -59,16 +76,18 @@ void USimpleWheeledVehicleMovementComponent::BeginPlay()
 	}
 }
 
-void USimpleWheeledVehicleMovementComponent::EndPlay()
+void UVehicleMovementComponent::EndPlay()
 {
     UnregisterFromPhysScene();
     CleanupVehiclePhysX();
     Super::EndPlay();
 }
 
-void USimpleWheeledVehicleMovementComponent::TickComponent(float DeltaTime)
+void UVehicleMovementComponent::TickComponent(float DeltaTime)
 {
     Super::TickComponent(DeltaTime);
+
+	TestRollWheels(DeltaTime);
 
     EnsureUpdatedComponentIsValid();
 
@@ -82,27 +101,27 @@ void USimpleWheeledVehicleMovementComponent::TickComponent(float DeltaTime)
     }
 }
 
-void USimpleWheeledVehicleMovementComponent::SetThrottleInput(float Throttle)
+void UVehicleMovementComponent::SetThrottleInput(float Throttle)
 {
     ThrottleInput = FMath::Clamp(Throttle, -1.0f, 1.0f);
 }
 
-void USimpleWheeledVehicleMovementComponent::SetSteeringInput(float Steering)
+void UVehicleMovementComponent::SetSteeringInput(float Steering)
 {
     SteeringInput = FMath::Clamp(Steering, -1.0f, 1.0f);
 }
 
-void USimpleWheeledVehicleMovementComponent::SetBrakeInput(float Brake)
+void UVehicleMovementComponent::SetBrakeInput(float Brake)
 {
     BrakeInput = FMath::Clamp(Brake, 0.0f, 1.0f);
 }
 
-void USimpleWheeledVehicleMovementComponent::SetHandbrakeInput(float Handbrake)
+void UVehicleMovementComponent::SetHandbrakeInput(float Handbrake)
 {
     HandbrakeInput = FMath::Clamp(Handbrake, 0.0f, 1.0f);
 }
 
-void USimpleWheeledVehicleMovementComponent::ResetVehicle()
+void UVehicleMovementComponent::ResetVehicle()
 {
     // 기존 PhysX 리소스 정리
     CleanupVehiclePhysX();
@@ -115,7 +134,7 @@ void USimpleWheeledVehicleMovementComponent::ResetVehicle()
     bVehicleInitialized = InitVehiclePhysX();
 }
 
-void USimpleWheeledVehicleMovementComponent::SetUpdatedComponent(USceneComponent* NewUpdatedComponent)
+void UVehicleMovementComponent::SetUpdatedComponent(USceneComponent* NewUpdatedComponent)
 {
     if (!NewUpdatedComponent)
     {
@@ -135,7 +154,7 @@ void USimpleWheeledVehicleMovementComponent::SetUpdatedComponent(USceneComponent
     }
 }
 
-bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
+bool UVehicleMovementComponent::InitVehiclePhysX()
 {
     if (bVehicleInitialized)
     {
@@ -309,6 +328,66 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
 
     physx::PxVec3 WheelCentre(0.0f);
 
+    // 서스펜션 sprung mass 계산
+    {
+        TArray<physx::PxVec3> PxSprungMassOffsets;
+        PxSprungMassOffsets.SetNum(NumWheels);
+
+        for (physx::PxU32 i = 0; i < NumWheels; ++i)
+        {
+            FVector WheelCentreLocal = (i < static_cast<uint32_t>(WheelCentreOffsets.Num())) ? WheelCentreOffsets[i] : FVector::Zero();
+            WheelCentreLocal.Z += WheelSetups[i].SuspensionOffsetZ;
+            WheelCentreLocal.Z -= WheelSetups[i].WheelRadius;
+            PxSprungMassOffsets[i] = PhysicsConversion::ToPxVec3(WheelCentreLocal);
+        }
+
+        TArray<float> SprungMasses;
+        SprungMasses.SetNum(NumWheels);
+
+        physx::PxVehicleComputeSprungMasses(
+            NumWheels,
+            PxSprungMassOffsets.GetData(),
+            physx::PxVec3(0.0f, 0.0f, 0.0f), // 차체 COM offset (ChassisData.mCMOffset 적용 전 기준)
+            VehicleMass,
+            1, // 1차축 분배 방식 (균등)
+            SprungMasses.GetData());
+
+        for (physx::PxU32 i = 0; i < NumWheels; ++i)
+        {
+            const FWheelSetup& Setup = WheelSetups[i];
+
+            physx::PxVehicleWheelData WheelData;
+            WheelData.mRadius = Setup.WheelRadius;
+            WheelData.mWidth = WheelWidth;
+            WheelData.mMass = WheelMass;
+            WheelData.mMOI = 0.5f * WheelMass * Setup.WheelRadius * Setup.WheelRadius;
+            WheelData.mMaxHandBrakeTorque = Setup.bIsDriveWheel ? MaxHandbrakeTorque : 0.0f;
+            WheelData.mMaxBrakeTorque = MaxBrakeTorque;
+            WheelData.mMaxSteer = physx::PxPi * MaxSteerAngle / 180.0f;
+
+            physx::PxVehicleSuspensionData SusData;
+            SusData.mMaxCompression = SuspensionTravel;
+            SusData.mMaxDroop = SuspensionTravel;
+            SusData.mSpringStrength = 35000.0f;
+            SusData.mSpringDamperRate = 4500.0f;
+            SusData.mSprungMass = SprungMasses[i];
+
+            FVector WheelCentreLocal = (i < static_cast<uint32_t>(WheelCentreOffsets.Num())) ? WheelCentreOffsets[i] : FVector::Zero();
+            WheelCentreLocal.Z += Setup.SuspensionOffsetZ;
+            WheelCentreLocal.Z -= Setup.WheelRadius;
+
+            physx::PxVec3 WheelCentreOffset = PhysicsConversion::ToPxVec3(WheelCentreLocal);
+
+            WheelsSimData->setWheelData(i, WheelData);
+            WheelsSimData->setSuspensionData(i, SusData);
+            WheelsSimData->setWheelCentreOffset(i, WheelCentreOffset);
+            WheelsSimData->setSuspTravelDirection(i, physx::PxVec3(0.0f, -1.0f, 0.0f));
+            WheelsSimData->setSuspForceAppPointOffset(i, WheelCentreOffset);
+            WheelsSimData->setTireForceAppPointOffset(i, WheelCentreOffset);
+        }
+    }
+
+    // (이전 코드 통합: 휠/서스펜션 설정을 이미 완료했으므로 루프만 남겨둠)
     for (physx::PxU32 i = 0; i < NumWheels; ++i)
     {
         const FWheelSetup& Setup = WheelSetups[i];
@@ -429,7 +508,7 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
     return true;
 }
 
-void USimpleWheeledVehicleMovementComponent::ApplyInputToPhysX(float DeltaTime)
+void UVehicleMovementComponent::ApplyInputToPhysX(float DeltaTime)
 {
     if (!bVehicleInitialized || !PxVehicleDrive4WInstance)
     {
@@ -487,7 +566,7 @@ void USimpleWheeledVehicleMovementComponent::ApplyInputToPhysX(float DeltaTime)
         *PxVehicleDrive4WInstance);
 }
 
-void USimpleWheeledVehicleMovementComponent::PerformSuspensionRaycasts()
+void UVehicleMovementComponent::PerformSuspensionRaycasts()
 {
     if (!bVehicleInitialized || !PxVehicleDrive4WInstance)
     {
@@ -599,7 +678,7 @@ void USimpleWheeledVehicleMovementComponent::PerformSuspensionRaycasts()
     }
 }
 
-void USimpleWheeledVehicleMovementComponent::SimulateVehicle(float DeltaTime)
+void UVehicleMovementComponent::SimulateVehicle(float DeltaTime)
 {
     if (!bVehicleInitialized || !PxVehicleDrive4WInstance)
     {
@@ -630,7 +709,7 @@ void USimpleWheeledVehicleMovementComponent::SimulateVehicle(float DeltaTime)
     physx::PxVehicleUpdates(FixedTimestep, GravityPx, *TireFrictionPairs, 1, Vehicles, QueryResults);
 }
 
-void USimpleWheeledVehicleMovementComponent::UpdateVehiclePoseFromPhysX()
+void UVehicleMovementComponent::UpdateVehiclePoseFromPhysX()
 {
     if (!bVehicleInitialized || !PxVehicleDrive4WInstance || !UpdatedComponent)
     {
@@ -726,7 +805,7 @@ void USimpleWheeledVehicleMovementComponent::UpdateVehiclePoseFromPhysX()
     }
 }
 
-void USimpleWheeledVehicleMovementComponent::EnsureUpdatedComponentIsValid()
+void UVehicleMovementComponent::EnsureUpdatedComponentIsValid()
 {
     // UpdatedComponent가 올바른 타입/Owner이면 그대로 사용
     if (UpdatedComponent && UpdatedComponent->GetOwner() == Owner)
@@ -785,7 +864,7 @@ void USimpleWheeledVehicleMovementComponent::EnsureUpdatedComponentIsValid()
     }
 }
 
-void USimpleWheeledVehicleMovementComponent::CleanupVehiclePhysX()
+void UVehicleMovementComponent::CleanupVehiclePhysX()
 {
     if (PxVehicleDrive4WInstance)
     {
@@ -824,7 +903,7 @@ void USimpleWheeledVehicleMovementComponent::CleanupVehiclePhysX()
     bUseInternalVehicleActor = false;
 }
 
-void USimpleWheeledVehicleMovementComponent::RegisterWithPhysScene()
+void UVehicleMovementComponent::RegisterWithPhysScene()
 {
     if (bRegisteredWithPhysScene)
     {
@@ -832,17 +911,18 @@ void USimpleWheeledVehicleMovementComponent::RegisterWithPhysScene()
     }
 
     UWorld* World = nullptr;
-    if (UpdatedComponent)
-    {
-        World = UpdatedComponent->GetWorld();
-    }
-
-    if (!World && Owner)
+    if (Owner)
     {
         if (AActor* OwnerActor = Cast<AActor>(Owner))
         {
             World = OwnerActor->GetWorld();
         }
+    }
+
+    // UpdatedComponent는 파괴 순서에 따라 nullptr일 수 있으므로 Owner 우선
+    if (!World && UpdatedComponent)
+    {
+        World = UpdatedComponent->GetWorld();
     }
 
     if (!World)
@@ -862,7 +942,7 @@ void USimpleWheeledVehicleMovementComponent::RegisterWithPhysScene()
     }
 }
 
-void USimpleWheeledVehicleMovementComponent::UnregisterFromPhysScene()
+void UVehicleMovementComponent::UnregisterFromPhysScene()
 {
     if (!bRegisteredWithPhysScene)
     {
@@ -870,17 +950,18 @@ void USimpleWheeledVehicleMovementComponent::UnregisterFromPhysScene()
     }
 
     UWorld* World = nullptr;
-    if (UpdatedComponent)
-    {
-        World = UpdatedComponent->GetWorld();
-    }
-
-    if (!World && Owner)
+    if (Owner)
     {
         if (AActor* OwnerActor = Cast<AActor>(Owner))
         {
             World = OwnerActor->GetWorld();
         }
+    }
+
+    // UpdatedComponent는 파괴 순서에 따라 이미 해제되었을 수 있으므로 Owner에서 World를 우선 조회
+    if (!World && UpdatedComponent)
+    {
+        World = UpdatedComponent->GetWorld();
     }
 
     if (FPhysScene* PhysScene = World ? World->GetPhysScene() : nullptr)
@@ -891,7 +972,7 @@ void USimpleWheeledVehicleMovementComponent::UnregisterFromPhysScene()
     bRegisteredWithPhysScene = false;
 }
 
-physx::PxRigidDynamic* USimpleWheeledVehicleMovementComponent::CreateFallBackVehicleActor()
+physx::PxRigidDynamic* UVehicleMovementComponent::CreateFallBackVehicleActor()
 {
     // 체크포인트: 필수 컨텍스트 확보 (Physics/Scene/UpdatedComponent)
     UWorld* World = UpdatedComponent ? UpdatedComponent->GetWorld() : nullptr;
@@ -965,3 +1046,87 @@ physx::PxRigidDynamic* USimpleWheeledVehicleMovementComponent::CreateFallBackVeh
     bUseInternalVehicleActor = true;
     return FallbackActor;
 }
+
+
+// ============================================================================================
+// 아래는 테스트 전용 코드 영역
+// ============================================================================================
+#pragma region TestCode
+
+void UVehicleMovementComponent::TestRollWheels(float DeltaTime)
+{
+    if (!bTestMode)
+        return;
+
+    USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(UpdatedComponent);
+    if (!SkelComp)
+        return;
+
+    const float WheelAngleDelta = DeltaTime * 2.0f; // 증분 각도(rad) 원하는 속도로 조정
+
+    USkeletalMesh* SkelMesh = SkelComp->GetSkeletalMesh();
+    const FSkeleton* Skeleton = SkelMesh ? SkelMesh->GetSkeletalMeshData()
+        ? &SkelMesh->GetSkeletalMeshData()->Skeleton
+        : nullptr
+        : nullptr;
+
+    static bool bLoggedBoneNames = false;
+    static bool bLoggedWheelSetups = false;
+
+    if (Skeleton && !bLoggedBoneNames)
+    {
+        UE_LOG("[VehicleMovement] SkeletalMesh Bones (%d):", static_cast<int32>(Skeleton->Bones.Num()));
+        for (int32 BoneIdx = 0; BoneIdx < Skeleton->Bones.Num(); ++BoneIdx)
+        {
+            const FBone& Bone = Skeleton->Bones[BoneIdx];
+            UE_LOG("  [%d] %s", BoneIdx, Bone.Name.c_str());
+        }
+        bLoggedBoneNames = true;
+    }
+
+    if (!bLoggedWheelSetups)
+    {
+        UE_LOG("[VehicleMovement] WheelSetups (%d):", WheelSetups.Num());
+        for (int32 WheelIdx = 0; WheelIdx < WheelSetups.Num(); ++WheelIdx)
+        {
+            const FWheelSetup& Setup = WheelSetups[WheelIdx];
+            UE_LOG("  [%d] Bone=%s Radius=%.2f SuspZ=%.2f Drive=%d",
+                WheelIdx,
+                Setup.BoneName.ToString().c_str(),
+                Setup.WheelRadius,
+                Setup.SuspensionOffsetZ,
+                Setup.bIsDriveWheel ? 1 : 0);
+        }
+        bLoggedWheelSetups = true;
+    }
+
+    if (Skeleton)
+    {
+        for (int32 WheelIdx = 0; WheelIdx < WheelSetups.Num(); ++WheelIdx)
+        {
+            const FWheelSetup& Setup = WheelSetups[WheelIdx];
+            int32 BoneIndex = -1;
+            for (int32 i = 0; i < Skeleton->Bones.Num(); ++i)
+            {
+                if (Skeleton->Bones[i].Name == Setup.BoneName)
+                {
+                    BoneIndex = i;
+                    break;
+                }
+            }
+
+            if (BoneIndex != -1)
+            {
+                FTransform Local = SkelComp->GetBoneLocalTransform(BoneIndex);
+                FQuat RollDelta = FQuat::MakeFromEulerZYX(FVector(WheelAngleDelta * 180.f / PI, 0.f, 0.f)); // X축 롤 증분
+                Local.Rotation = RollDelta * Local.Rotation; // 증분 회전을 누적
+                SkelComp->SetBoneLocalTransform(BoneIndex, Local);
+            }
+        }
+    }
+    else
+    {
+        UE_LOG("[VehicleMovement] SkeletalMesh or Skeleton is null in TickComponent.");
+    }
+}
+#pragma endregion

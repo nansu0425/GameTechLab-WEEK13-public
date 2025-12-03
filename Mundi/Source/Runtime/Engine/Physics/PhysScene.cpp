@@ -9,7 +9,7 @@
 #include "World.h"
 #include "GlobalConsole.h"
 #include "PlatformTime.h"
-#include "SimpleWheeledVehicleMovementComponent.h"
+#include "VehicleMovementComponent.h"
 #include "PhysicsSceneLock.h"
 
 using namespace physx;
@@ -108,8 +108,8 @@ void FPhysScene::StartFrame()
         if (PxScene)
         {
             SCOPED_SCENE_READ_LOCK(PxScene);
-            TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>> Vehicles = GetRegisteredVehicleComponents();
-            for (TWeakObjectPtr<USimpleWheeledVehicleMovementComponent> VehiclePtr : Vehicles)
+            TArray<TWeakObjectPtr<UVehicleMovementComponent>> Vehicles = GetRegisteredVehicleComponents();
+            for (TWeakObjectPtr<UVehicleMovementComponent> VehiclePtr : Vehicles)
             {
                 if (VehiclePtr.IsValid())
                 {
@@ -151,8 +151,8 @@ void FPhysScene::EndFrame()
     }
 
     // PhysX 결과가 확정된 후 차량 포즈를 갱신
-    TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>> Vehicles = GetRegisteredVehicleComponents();
-    for (TWeakObjectPtr<USimpleWheeledVehicleMovementComponent> VehiclePtr : Vehicles)
+    TArray<TWeakObjectPtr<UVehicleMovementComponent>> Vehicles = GetRegisteredVehicleComponents();
+    for (TWeakObjectPtr<UVehicleMovementComponent> VehiclePtr : Vehicles)
     {
         if (VehiclePtr.IsValid())
         {
@@ -217,7 +217,7 @@ FPhysScene::FPhysSceneStats FPhysScene::GetStats() const
     return Stats;
 }
 
-void FPhysScene::RegisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent)
+void FPhysScene::RegisterVehicleComponent(UVehicleMovementComponent* InComponent)
 {
     if (Impl)
     {
@@ -225,7 +225,7 @@ void FPhysScene::RegisterVehicleComponent(USimpleWheeledVehicleMovementComponent
     }
 }
 
-void FPhysScene::UnregisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent)
+void FPhysScene::UnregisterVehicleComponent(UVehicleMovementComponent* InComponent)
 {
     if (Impl)
     {
@@ -233,7 +233,7 @@ void FPhysScene::UnregisterVehicleComponent(USimpleWheeledVehicleMovementCompone
     }
 }
 
-TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>> FPhysScene::GetRegisteredVehicleComponents() const
+TArray<TWeakObjectPtr<UVehicleMovementComponent>> FPhysScene::GetRegisteredVehicleComponents() const
 {
     if (Impl)
     {
@@ -381,7 +381,7 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
             return;
         }
         CompactVehicleComponents();
-        for (TWeakObjectPtr<USimpleWheeledVehicleMovementComponent> VehiclePtr : VehicleComponents)
+        for (TWeakObjectPtr<UVehicleMovementComponent> VehiclePtr : VehicleComponents)
         {
             if (VehiclePtr.IsValid())
             {
@@ -397,7 +397,7 @@ void FPhysSceneImpl::Simulate(float DeltaSeconds)
             return;
         }
         CompactVehicleComponents();
-        for (TWeakObjectPtr<USimpleWheeledVehicleMovementComponent> VehiclePtr : VehicleComponents)
+        for (TWeakObjectPtr<UVehicleMovementComponent> VehiclePtr : VehicleComponents)
         {
             if (VehiclePtr.IsValid())
             {
@@ -981,7 +981,7 @@ void FPhysSceneImpl::CaptureActiveActorsVelocity()
 // Vehicle 컴포넌트 레지스트리
 // ═══════════════════════════════════════════════════════════════════════════════
 
-void FPhysSceneImpl::RegisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent)
+void FPhysSceneImpl::RegisterVehicleComponent(UVehicleMovementComponent* InComponent)
 {
     if (!InComponent)
     {
@@ -989,11 +989,11 @@ void FPhysSceneImpl::RegisterVehicleComponent(USimpleWheeledVehicleMovementCompo
     }
 
     std::lock_guard<std::mutex> Lock(VehicleComponentMutex);
-    VehicleComponents.AddUnique(TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>(InComponent));
+    VehicleComponents.AddUnique(TWeakObjectPtr<UVehicleMovementComponent>(InComponent));
     bVehicleListDirty = true;
 }
 
-void FPhysSceneImpl::UnregisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent)
+void FPhysSceneImpl::UnregisterVehicleComponent(UVehicleMovementComponent* InComponent)
 {
     if (!InComponent)
     {
@@ -1001,14 +1001,14 @@ void FPhysSceneImpl::UnregisterVehicleComponent(USimpleWheeledVehicleMovementCom
     }
 
     std::lock_guard<std::mutex> Lock(VehicleComponentMutex);
-    bool bRemoved = VehicleComponents.Remove(TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>(InComponent));
+    bool bRemoved = VehicleComponents.Remove(TWeakObjectPtr<UVehicleMovementComponent>(InComponent));
     if (bRemoved)
     {
         bVehicleListDirty = true;
     }
 }
 
-const TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>>& FPhysSceneImpl::GetVehicleComponents()
+const TArray<TWeakObjectPtr<UVehicleMovementComponent>>& FPhysSceneImpl::GetVehicleComponents()
 {
     CompactVehicleComponents();
     return VehicleComponents;

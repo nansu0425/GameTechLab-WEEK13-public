@@ -2,7 +2,7 @@
 #include "vehicle/PxVehicleUpdate.h"
 #include "MovementComponent.h"
 #include "WheelSetup.h"
-#include "USimpleWheeledVehicleMovementComponent.generated.h"
+#include "UVehicleMovementComponent.generated.h"
 
 // PhysX vehicle 전방 선언
 namespace physx
@@ -20,15 +20,15 @@ class USkeletalMeshComponent;
 
 /** 언리얼 엔진의 USimpleWheeledVehicleMovementComponent를 모방한 컴포넌트 */
 UCLASS(DisplayName = "심플 휠 비히클 무브먼트 컴포넌트", Description = "비히클 움직임을 구현하는 컴포넌트입니다.")
-class USimpleWheeledVehicleMovementComponent : public UMovementComponent
+class UVehicleMovementComponent : public UMovementComponent
 {
 public:
     GENERATED_REFLECTION_BODY()
 
 public:
-    USimpleWheeledVehicleMovementComponent();
+    UVehicleMovementComponent();
 protected:
-    ~USimpleWheeledVehicleMovementComponent() override;
+    ~UVehicleMovementComponent() override;
 public:
     // 등록/해제/EndPlay 훅
     void OnRegister(UWorld* InWorld) override;
@@ -144,6 +144,7 @@ protected:
 
     /** UpdatedComponent를 차량용 메시(Skeletal/Static)로만 제한 */
     void SetUpdatedComponent(USceneComponent* NewUpdatedComponent) override;
+    void DuplicateSubObjects() override;
 
 
     // =======================================================================
@@ -189,4 +190,9 @@ protected:
     /** PhysScene 레지스트리에 등록/해제 */
     void RegisterWithPhysScene();
     void UnregisterFromPhysScene();
+
+private:
+    // 아래는 테스트용 코드
+    bool bTestMode = false; // <----------------------------------------------- 하드코딩으로 직접 제어하시오.
+	void TestRollWheels(float DeltaTime);
 };
