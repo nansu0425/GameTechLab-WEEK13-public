@@ -2163,30 +2163,66 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType Pri
         if (BoneIndex < 0 || BoneIndex >= InfluenceMap.Num())
             continue;
 
-        // For vertex-driven generation, prioritize vertex count over bone length
-        // This allows short bones like wrists to get bodies if they have enough vertices
+        // Apply same filtering logic as bone-length generation
+        if (!ShouldCreateBodyForBone(BoneIndex, Skeleton))
+            continue;
+
+        // For vertex-driven generation, also check vertex count
         const FBoneVertexInfluence& Influence = InfluenceMap[BoneIndex];
         if (Influence.Vertices.Num() < 50)  // Need significant vertex influence for meaningful shape
         {
             continue;
         }
 
-        // Skip leaf bones (no children) unless they have very high vertex influence
-        int32 ChildCount = 0;
-        for (int32 i = 0; i < Bones.size(); ++i)
-        {
-            if (Bones[i].ParentIndex == BoneIndex)
-            {
-                ChildCount++;
-            }
-        }
-        if (ChildCount == 0 && Influence.Vertices.Num() < 100)
-        {
-            continue;
-        }
+        // Collect vertices for fitting
+        // For hand/foot/pelvis, include descendant/child bone vertices
+        TArray<FVector> VerticesToFit = Influence.Vertices;
 
-        UE_LOG("GenerateAllBodies: Processing bone %s with %d influenced vertices",
-            Bone.Name.c_str(), Influence.Vertices.Num());
+        FString BoneName_Lower = Bone.Name;
+        std::transform(BoneName_Lower.begin(), BoneName_Lower.end(), BoneName_Lower.begin(), ::tolower);
+
+        bool bIsHandOrFoot =
+            (BoneName_Lower.find("hand") != FString::npos) ||
+            (BoneName_Lower.find("foot") != FString::npos);
+
+        bool bIsPelvis =
+            (BoneName_Lower.find("pelvis") != FString::npos) ||
+            (BoneName_Lower.find("hips") != FString::npos);
+
+        if (bIsHandOrFoot)
+        {
+            // Include all descendant bones' vertices (fingers/toes)
+            for (int32 i = 0; i < Bones.size(); ++i)
+            {
+                if (IsDescendantOf(i, BoneIndex, Bones) && i < InfluenceMap.Num())
+                {
+                    VerticesToFit.Append(InfluenceMap[i].Vertices);
+                }
+            }
+            UE_LOG("GenerateAllBodies: Hand/Foot '%s' - expanded to %d vertices (including descendants)",
+                Bone.Name.c_str(), VerticesToFit.Num());
+        }
+        else if (bIsPelvis)
+        {
+            // Include all direct children's vertices (spine + legs)
+            TArray<int32> Children;
+            GetAllChildBones(BoneIndex, Skeleton, Children);
+
+            for (int32 ChildIdx : Children)
+            {
+                if (ChildIdx < InfluenceMap.Num())
+                {
+                    VerticesToFit.Append(InfluenceMap[ChildIdx].Vertices);
+                }
+            }
+            UE_LOG("GenerateAllBodies: Pelvis '%s' - expanded to %d vertices (including children)",
+                Bone.Name.c_str(), VerticesToFit.Num());
+        }
+        else
+        {
+            UE_LOG("GenerateAllBodies: Processing bone %s with %d influenced vertices",
+                Bone.Name.c_str(), Influence.Vertices.Num());
+        }
 
         // Create new BodySetup
         UBodySetup* NewBody = NewObject<UBodySetup>();
@@ -2200,7 +2236,7 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType Pri
         NewBody->BodyType = ToBodySetupType(PrimitiveType);
 
         // Step 3: Calculate principal axis from vertex cloud
-        FVector PrincipalAxis = CalculatePrincipalAxis(Influence.Vertices);
+        FVector PrincipalAxis = CalculatePrincipalAxis(VerticesToFit);
 
         // Step 4: Fit minimal bounding primitive based on type
         FVector FittedCenter = FVector::Zero();
@@ -2216,19 +2252,19 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByVertexFitting(EPrimitiveType Pri
         switch (PrimitiveType)
         {
         case EPrimitiveType::Sphere:
-            FitMinimalSphere(Influence.Vertices, FittedCenter, Radius);
+            FitMinimalSphere(VerticesToFit, FittedCenter, Radius);
             Radius *= ColliderShrinkFactor;
             NewBody->SphereRadius = Radius;
             break;
 
         case EPrimitiveType::Box:
-            FitMinimalBox(Influence.Vertices, PrincipalAxis, FittedCenter, FittedRotation, Extent);
+            FitMinimalBox(VerticesToFit, PrincipalAxis, FittedCenter, FittedRotation, Extent);
             NewBody->BoxExtent = Extent;
             NewBody->BoxExtent = Extent;
             break;
 
         case EPrimitiveType::Capsule:
-            FitMinimalCapsule(Influence.Vertices, PrincipalAxis, FittedCenter, FittedRotation, Radius, HalfHeight);
+            FitMinimalCapsule(VerticesToFit, PrincipalAxis, FittedCenter, FittedRotation, Radius, HalfHeight);
             Radius *= ColliderShrinkFactor;
             HalfHeight *= ColliderShrinkFactor;
             NewBody->CapsuleHalfHeight = HalfHeight;
@@ -3255,7 +3291,7 @@ void SPhysicsAssetEditorWindow::FitMinimalSphere(const TArray<FVector>& Vertices
     }
 
     // Add small padding
-    OutRadius *= 1.05f;
+    OutRadius *= 1.f;
 }
 
 void SPhysicsAssetEditorWindow::FitMinimalCapsule(const TArray<FVector>& Vertices, const FVector& PrincipalAxis,
@@ -3299,8 +3335,8 @@ void SPhysicsAssetEditorWindow::FitMinimalCapsule(const TArray<FVector>& Vertice
     }
 
     // Capsule dimensions
-    OutRadius = MaxRadialDistance * 1.05f;  // Add 5% padding
-    float CylinderHeight = (MaxProjection - MinProjection) * 1.05f;
+    OutRadius = MaxRadialDistance * 1.0f;  // Add 5% padding
+    float CylinderHeight = (MaxProjection - MinProjection) * 1.0f;
     OutHalfHeight = CylinderHeight * 0.5f;
 
     // Calculate rotation from Z-axis to principal axis
@@ -3384,9 +3420,9 @@ void SPhysicsAssetEditorWindow::FitMinimalBox(const TArray<FVector>& Vertices, c
 
     // Calculate half extents with padding
     OutExtent = FVector(
-        (MaxX - MinX) * 0.5f * 1.05f,
-        (MaxY - MinY) * 0.5f * 1.05f,
-        (MaxZ - MinZ) * 0.5f * 1.05f
+        (MaxX - MinX) * 0.5f * 1.f,
+        (MaxY - MinY) * 0.5f * 1.f,
+        (MaxZ - MinZ) * 0.5f * 1.f
     );
 
     // Calculate rotation from default axes to local axes
