@@ -2510,6 +2510,9 @@
     <ClInclude Include="Source\Runtime\Engine\Physics\PhysicsSceneLock.h">
       <Filter>Source\Runtime\Engine\Physics</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Runtime\Engine\Physics\WheelSetup.h">
+      <Filter>Source\Runtime\Engine\Physics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="BuildTools\CodeGenerator\generate.py">

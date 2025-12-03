@@ -23,9 +23,15 @@ USimpleWheeledVehicleMovementComponent::USimpleWheeledVehicleMovementComponent()
     SteeringInput = 0.0f;
     BrakeInput = 0.0f;
     HandbrakeInput = 0.0f;
+	BackUpActorExtent = FVector(1.0f, 1.0f, 1.0f);
 
     VehicleQueryResults.wheelQueryResults = nullptr;
     VehicleQueryResults.nbWheelQueryResults = 0;
+
+    WheelSetups.Add({ "FL", 0.0f, 30.0f, true });
+	WheelSetups.Add({ "FR", 0.0f, 30.0f, true });
+	WheelSetups.Add({ "RL", 0.0f, 30.0f, false });
+	WheelSetups.Add({ "RR", 0.0f, 30.0f, false });
 }
 
 USimpleWheeledVehicleMovementComponent::~USimpleWheeledVehicleMovementComponent() = default;
@@ -94,6 +100,19 @@ void USimpleWheeledVehicleMovementComponent::SetBrakeInput(float Brake)
 void USimpleWheeledVehicleMovementComponent::SetHandbrakeInput(float Handbrake)
 {
     HandbrakeInput = FMath::Clamp(Handbrake, 0.0f, 1.0f);
+}
+
+void USimpleWheeledVehicleMovementComponent::ResetVehicle()
+{
+    // 기존 PhysX 리소스 정리
+    CleanupVehiclePhysX();
+
+    // UpdatedComponent 검증 및 PhysScene 등록
+    EnsureUpdatedComponentIsValid();
+    RegisterWithPhysScene();
+
+    // 재초기화 시도
+    bVehicleInitialized = InitVehiclePhysX();
 }
 
 void USimpleWheeledVehicleMovementComponent::SetUpdatedComponent(USceneComponent* NewUpdatedComponent)
@@ -188,20 +207,31 @@ bool USimpleWheeledVehicleMovementComponent::InitVehiclePhysX()
     }
 
     // BodyInstance가 생성한 차체 Dynamic Actor 재사용
-    physx::PxRigidDynamic* ChassisActor;
+    physx::PxRigidDynamic* ChassisActor = nullptr;
     if(USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(PrimComp))
     {
 		TArray<FBodyInstance*> Bodies = SkelComp->GetBodies();
-		ChassisActor = Bodies[0]->GetPxRigidDynamic();
+        if (Bodies.Num() == 0)
+        {
+            UE_LOG("[VehicleMovement] SkeletalMeshComponent has no BodyInstances. Ensure CreatePhysicsState() was called.");
+		}
+        else
+        {
+            ChassisActor = Bodies[0]->GetPxRigidDynamic();
+        }
     }
-    else
+    if (!ChassisActor)
     {
         ChassisActor = PrimComp->GetBodyInstanceRef().GetPxRigidDynamic();
 	}
     if (!ChassisActor)
     {
-        UE_LOG("[VehicleMovement] BodyInstance does not have a valid PxRigidDynamic. Ensure CreatePhysicsState() was called.");
-        return false;
+        UE_LOG("[VehicleMovement] BodyInstance does not have a valid PxRigidDynamic. Ensure CreatePhysicsState() was called. Trying fallback actor.");
+        ChassisActor = CreateFallBackVehicleActor();
+        if (!ChassisActor)
+        {
+            return false;
+        }
     }
 
     // 휠 위치를 차체 로컬 기준(Mundi)으로 계산 (스켈레탈 본 기반)
@@ -723,6 +753,7 @@ void USimpleWheeledVehicleMovementComponent::EnsureUpdatedComponentIsValid()
             {
                 if (Cast<USkeletalMeshComponent>(RootComp) || Cast<UStaticMeshComponent>(RootComp))
                 {
+                    UE_LOG("루트 컴포넌트 발견");
                     SetUpdatedComponent(RootComp);
                 }
             }
@@ -770,6 +801,15 @@ void USimpleWheeledVehicleMovementComponent::CleanupVehiclePhysX()
         TireFrictionPairs = nullptr;
     }
 
+    if (bUseInternalVehicleActor && PxVehicleActor)
+    {
+        if (physx::PxScene* Scene = PxVehicleActor->getScene())
+        {
+            Scene->removeActor(*PxVehicleActor);
+        }
+        PxVehicleActor->release();
+    }
+
     WheelQueryResults.clear();
     VehicleQueryResults.wheelQueryResults = nullptr;
     VehicleQueryResults.nbWheelQueryResults = 0;
@@ -781,6 +821,7 @@ void USimpleWheeledVehicleMovementComponent::CleanupVehiclePhysX()
     bWarnedMissingBodyComponent = false;
     bWarnedPhysicsUninitialized = false;
     bWarnedWheelSetup = false;
+    bUseInternalVehicleActor = false;
 }
 
 void USimpleWheeledVehicleMovementComponent::RegisterWithPhysScene()
@@ -848,4 +889,79 @@ void USimpleWheeledVehicleMovementComponent::UnregisterFromPhysScene()
     }
 
     bRegisteredWithPhysScene = false;
+}
+
+physx::PxRigidDynamic* USimpleWheeledVehicleMovementComponent::CreateFallBackVehicleActor()
+{
+    // 체크포인트: 필수 컨텍스트 확보 (Physics/Scene/UpdatedComponent)
+    UWorld* World = UpdatedComponent ? UpdatedComponent->GetWorld() : nullptr;
+    if (!World)
+    {
+        UE_LOG("[VehicleMovement] Fallback actor creation failed: World is null.");
+        return nullptr;
+    }
+
+    FPhysScene* PhysScene = World->GetPhysScene();
+    if (!PhysScene || !PhysScene->IsInitialized())
+    {
+        UE_LOG("[VehicleMovement] Fallback actor creation failed: PhysScene not initialized.");
+        return nullptr;
+    }
+
+    physx::PxPhysics* Physics = FPhysicsCore::Get().GetPhysics();
+    if (!Physics)
+    {
+        UE_LOG("[VehicleMovement] Fallback actor creation failed: PxPhysics is null.");
+        return nullptr;
+    }
+
+    physx::PxScene* PxScene = PhysScene->GetPxScene();
+    if (!PxScene)
+    {
+        UE_LOG("[VehicleMovement] Fallback actor creation failed: PxScene is null.");
+        return nullptr;
+    }
+
+    // 체크포인트: 기본 재질/필터 확보
+    physx::PxMaterial* DefaultMat = PhysScene->GetDefaultMaterial();
+    if (!DefaultMat)
+    {
+		UE_LOG("[VehicleMovement] Fallback actor creation: Default material not found, creating new one.");
+        DefaultMat = FPhysicsCore::Get().CreateMaterial(0.5f, 0.5f, 0.6f);
+    }
+
+    // 체크포인트: 박스 기하 생성 (하프 익스텐트 사용)
+    physx::PxVec3 HalfExtent(1.0f, 1.0f, 1.0f);
+    physx::PxBoxGeometry BoxGeo(HalfExtent);
+
+    // 체크포인트: 초기 포즈 (UpdatedComponent의 월드 트랜스폼)
+    physx::PxTransform PxPose = PhysicsConversion::ToPxTransform(UpdatedComponent->GetWorldTransform());
+
+    // 체크포인트: RigidDynamic 생성 및 씬 등록
+    physx::PxRigidDynamic* FallbackActor = Physics->createRigidDynamic(PxPose);
+    if (!FallbackActor)
+    {
+        UE_LOG("[VehicleMovement] Fallback actor creation failed: createRigidDynamic returned null.");
+        return nullptr;
+    }
+
+    physx::PxShape* Shape = Physics->createShape(BoxGeo, *DefaultMat, true);
+    if (!Shape)
+    {
+        FallbackActor->release();
+        UE_LOG("[VehicleMovement] Fallback actor creation failed: Shape creation failed.");
+        return nullptr;
+    }
+
+    FallbackActor->attachShape(*Shape);
+    Shape->release(); // actor가 참조 카운트 보유
+
+    // 체크포인트: 질량/관성/CM 업데이트
+    physx::PxRigidBodyExt::updateMassAndInertia(*FallbackActor, VehicleMass);
+
+    // 체크포인트: 씬에 추가
+    PxScene->addActor(*FallbackActor);
+
+    bUseInternalVehicleActor = true;
+    return FallbackActor;
 }

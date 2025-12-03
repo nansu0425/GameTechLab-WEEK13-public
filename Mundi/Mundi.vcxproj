@@ -949,6 +949,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Source\Runtime\Engine\Physics\Shape\ShapeElem.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\Shape\SphereElem.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\Shape\SphylElem.h" />
+    <ClInclude Include="Source\Runtime\Engine\Physics\WheelSetup.h" />
     <ClInclude Include="Source\Runtime\Engine\Scripting\GameObject.h" />
     <ClInclude Include="Source\Runtime\Engine\Scripting\LuaArrayProxy.h" />
     <ClInclude Include="Source\Runtime\Engine\Scripting\LuaBindHelpers.h" />

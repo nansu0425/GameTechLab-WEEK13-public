@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "vehicle/PxVehicleUpdate.h"
 #include "MovementComponent.h"
+#include "WheelSetup.h"
 #include "USimpleWheeledVehicleMovementComponent.generated.h"
 
 // PhysX vehicle 전방 선언
@@ -16,15 +17,6 @@ namespace physx
 }
 
 class USkeletalMeshComponent;
-
-/** 휠 설정에 필요한 최소 정보 */
-struct FWheelSetup
-{
-    FName BoneName;             // 바퀴를 연결할 Skeletal Mesh의 본 이름
-    float SuspensionOffsetZ;    // 서스펜션 Z축 오프셋
-    float WheelRadius;          // 바퀴의 반지름
-    bool  bIsDriveWheel;        // 구동륜 여부
-};
 
 /** 언리얼 엔진의 USimpleWheeledVehicleMovementComponent를 모방한 컴포넌트 */
 UCLASS(DisplayName = "심플 휠 비히클 무브먼트 컴포넌트", Description = "비히클 움직임을 구현하는 컴포넌트입니다.")
@@ -48,6 +40,8 @@ public:
     // 업데이트 API
     // =======================================================================
 
+    void InitializeComponent() override {};
+
     // UActorComponent 인터페이스 오버라이드
     void TickComponent(float DeltaTime) override;
 
@@ -67,13 +61,15 @@ public:
     // 핵심 멤버 변수 (Properties)
     // =======================================================================
 
-    /** 차량 전체 질량 (PhysX Body와 연동) */
-    UPROPERTY(EditAnywhere, Category = "Vehicle")
-    float VehicleMass = 1200.0f;
+	const static int32 NumWheels4W = 4; // 4륜 고정
 
     /** 바퀴 설정 배열 */
     UPROPERTY(EditAnywhere, Category = "Vehicle")
     TArray<FWheelSetup> WheelSetups;
+
+    /** 차량 전체 질량 (PhysX Body와 연동) */
+    UPROPERTY(EditAnywhere, Category = "Vehicle")
+    float VehicleMass = 1200.0f;
 
     /** 최대 구동력 (스로틀 1.0f일 때 적용되는 토크) */
     UPROPERTY(EditAnywhere, Category = "Vehicle")
@@ -91,19 +87,30 @@ public:
     UPROPERTY(EditAnywhere, Category = "Vehicle")
     float MaxHandbrakeTorque = 2000.0f;
 
+    /** UpdatedComponent로부터 BodyInstance 획득 실패시 만들 fallback용 액터 크기*/
+	UPROPERTY(EditAnywhere, Category = "Vehicle")
+    FVector BackUpActorExtent;
+
     // --- 입력 처리 함수 (API) ---
 
     /** 스로틀 입력 설정 (-1.0f ~ 1.0f) */
+    UFUNCTION(LuaBind, DisplayName = "SetThrottleInput")
     void SetThrottleInput(float Throttle);
 
     /** 스티어링 입력 설정 (-1.0f ~ 1.0f) */
+    UFUNCTION(LuaBind, DisplayName = "SetSteeringInput")
     void SetSteeringInput(float Steering);
 
     /** 브레이크 입력 설정 (0.0f ~ 1.0f) */
+    UFUNCTION(LuaBind, DisplayName = "SetBrakeInput")
     void SetBrakeInput(float Brake);
 
     /** 핸드브레이크 입력 설정 (0.0f ~ 1.0f) */
+    UFUNCTION(LuaBind, DisplayName = "SetHandbrakeInput")
     void SetHandbrakeInput(float Handbrake);
+
+    /** WheelSetup 변경 후 재초기화 */
+    void ResetVehicle();
 
 protected:
     // --- PhysX Vehicle 관련 멤버 ---
@@ -146,6 +153,8 @@ protected:
     /** PxVehicleDrive4W 인스턴스 및 관련 PhysX 구조체 초기화 */
     bool InitVehiclePhysX();
 
+	physx::PxRigidDynamic* CreateFallBackVehicleActor();
+
     /** Vehicle 관련 PhysX 리소스 정리 */
     void CleanupVehiclePhysX();
 
@@ -173,6 +182,9 @@ protected:
 
     /** 초기 휠 본의 로컬 위치를 캐싱 (서스펜션 승강 계산용) */
     TArray<FVector> InitialWheelLocalPositions;
+
+    /** 내부 폴백용 차량 액터를 사용했는지 여부 */
+    bool bUseInternalVehicleActor = false;
 
     /** PhysScene 레지스트리에 등록/해제 */
     void RegisterWithPhysScene();
