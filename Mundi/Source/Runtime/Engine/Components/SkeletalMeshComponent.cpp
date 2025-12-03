@@ -1043,7 +1043,23 @@ void USkeletalMeshComponent::UpdateBoneTransformsFromPhysics()
         return;
     }
 
+    const FSkeleton* Skeleton = Mesh->GetSkeleton();
+    if (!Skeleton)
+    {
+        return;
+    }
+
     TArray<UBodySetup*>& Setups = PhysicsAsset->GetBodySetups();
+    const TArray<FBone>& Bones = Skeleton->Bones;
+    const int32 NumBones = Bones.Num();
+
+    // 각 본이 Body를 가지고 있는지 추적
+    TArray<bool> HasBody;
+    HasBody.SetNum(NumBones);
+    for (int32 i = 0; i < NumBones; ++i)
+    {
+        HasBody[i] = false;
+    }
 
     // 컴포넌트 월드 트랜스폼 요소 (루프 밖에서 한 번만 계산)
     FTransform ComponentWorldTransform = GetWorldTransform();
@@ -1052,6 +1068,9 @@ void USkeletalMeshComponent::UpdateBoneTransformsFromPhysics()
     FVector ComponentScale = ComponentWorldTransform.Scale3D;
     FQuat InvComponentRot = ComponentWorldRot.Inverse();
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 1단계: Body가 있는 본들의 컴포넌트 공간 트랜스폼 업데이트
+    // ═══════════════════════════════════════════════════════════════════════════
     for (int32 i = 0; i < Bodies.Num() && i < Setups.Num(); ++i)
     {
         FBodyInstance* Body = Bodies[i];
@@ -1062,10 +1081,12 @@ void USkeletalMeshComponent::UpdateBoneTransformsFromPhysics()
         }
 
         int32 BoneIndex = Mesh->GetBoneIndexFromBoneName(Setup->BoneName);
-        if (BoneIndex == -1)
+        if (BoneIndex == -1 || BoneIndex >= NumBones)
         {
             continue;
         }
+
+        HasBody[BoneIndex] = true;
 
         // 물리 바디의 월드 트랜스폼 가져오기
         FTransform BodyWorldTransform = Body->GetWorldTransform();
@@ -1095,6 +1116,53 @@ void USkeletalMeshComponent::UpdateBoneTransformsFromPhysics()
         {
             CurrentComponentSpacePose[BoneIndex] = BoneComponentTransform;
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 2단계: Body가 없는 본들을 부모를 따라가도록 업데이트
+    // 부모→자식 순서로 순회하여 계층적으로 업데이트
+    // ═══════════════════════════════════════════════════════════════════════════
+    for (int32 BoneIndex = 0; BoneIndex < NumBones; ++BoneIndex)
+    {
+        // Body가 있는 본은 이미 업데이트됨
+        if (HasBody[BoneIndex])
+        {
+            continue;
+        }
+
+        // 유효성 검사
+        if (BoneIndex >= CurrentComponentSpacePose.Num() || BoneIndex >= CurrentLocalSpacePose.Num())
+        {
+            continue;
+        }
+
+        const FBone& Bone = Bones[BoneIndex];
+        int32 ParentIndex = Bone.ParentIndex;
+
+        if (ParentIndex < 0 || ParentIndex >= CurrentComponentSpacePose.Num())
+        {
+            // 루트 본이거나 부모가 없는 경우, 현재 포즈 유지
+            continue;
+        }
+
+        // 부모의 컴포넌트 공간 트랜스폼 + 이 본의 로컬 트랜스폼으로 새 위치 계산
+        // CurrentLocalSpacePose는 원래 애니메이션/RefPose에서 온 부모 기준 로컬 오프셋
+        const FTransform& ParentComponentTransform = CurrentComponentSpacePose[ParentIndex];
+        const FTransform& LocalTransform = CurrentLocalSpacePose[BoneIndex];
+
+        // 새 컴포넌트 공간 트랜스폼 = 부모 컴포넌트 트랜스폼 * 로컬 트랜스폼
+        FTransform NewComponentTransform;
+        NewComponentTransform.Translation = ParentComponentTransform.Translation +
+            ParentComponentTransform.Rotation.RotateVector(LocalTransform.Translation * ParentComponentTransform.Scale3D);
+        NewComponentTransform.Rotation = ParentComponentTransform.Rotation * LocalTransform.Rotation;
+        NewComponentTransform.Rotation.Normalize();
+        NewComponentTransform.Scale3D = FVector(
+            ParentComponentTransform.Scale3D.X * LocalTransform.Scale3D.X,
+            ParentComponentTransform.Scale3D.Y * LocalTransform.Scale3D.Y,
+            ParentComponentTransform.Scale3D.Z * LocalTransform.Scale3D.Z
+        );
+
+        CurrentComponentSpacePose[BoneIndex] = NewComponentTransform;
     }
 
     // 스키닝 행렬 업데이트
