@@ -283,6 +283,8 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Source\Runtime\Engine\Physics\BodySetup.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Physics\BodyInstance.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Physics\BodyInstanceImpl.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Physics\ClothCore.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Physics\ClothAsset.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Animation\AnimationRuntime.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Animation\AnimBlendMath.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Animation\AnimBlendSpace2D.cpp" />
@@ -302,10 +304,12 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Source\Runtime\Engine\Components\SimpleWheeledVehicleMovementComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Components\SkeletalMeshComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Components\SkinnedMeshComponent.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\Components\ClothComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\Components\SpringArmComponent.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\Character.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\Controller.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\DancingCharacter.cpp" />
+    <ClCompile Include="Source\Runtime\Engine\GameFramework\ClothActor.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\GameModeBase.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\GameStateBase.cpp" />
     <ClCompile Include="Source\Runtime\Engine\GameFramework\Pawn.cpp" />
@@ -689,6 +693,9 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClCompile Include="Generated\UBodySetup.generated.cpp" />
     <ClCompile Include="Generated\UBodySetupCore.generated.cpp" />
     <ClCompile Include="Generated\UPhysicsAsset.generated.cpp" />
+    <ClCompile Include="Generated\UClothComponent.generated.cpp" />
+    <ClCompile Include="Generated\UClothAsset.generated.cpp" />
+    <ClCompile Include="Generated\AClothActor.generated.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\Common\LightingBuffers.hlsl">
@@ -875,6 +882,8 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Source\Runtime\Engine\Physics\BodySetup.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\BodyInstance.h" />
     <ClInclude Include="Source\Runtime\Engine\Physics\BodyInstanceImpl.h" />
+    <ClInclude Include="Source\Runtime\Engine\Physics\ClothCore.h" />
+    <ClInclude Include="Source\Runtime\Engine\Physics\ClothAsset.h" />
     <ClInclude Include="Source\Runtime\Engine\Animation\AnimationAsset.h" />
     <ClInclude Include="Source\Runtime\Engine\Animation\AnimBlendMath.h" />
     <ClInclude Include="Source\Runtime\Engine\Animation\AnimBlendSpace2D.h" />
@@ -906,6 +915,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Source\Runtime\Engine\Components\SimpleWheeledVehicleMovementComponent.h" />
     <ClInclude Include="Source\Runtime\Engine\Components\SkeletalMeshComponent.h" />
     <ClInclude Include="Source\Runtime\Engine\Components\SkinnedMeshComponent.h" />
+    <ClInclude Include="Source\Runtime\Engine\Components\ClothComponent.h" />
     <ClInclude Include="Source\Runtime\Engine\Components\SphereComponent.h" />
     <ClInclude Include="Source\Runtime\Engine\Components\SpringArmComponent.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\AmbientLightActor.h" />
@@ -914,6 +924,7 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Source\Runtime\Engine\GameFramework\Character.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\Controller.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\DancingCharacter.h" />
+    <ClInclude Include="Source\Runtime\Engine\GameFramework\ClothActor.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\FAudioDevice.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\Camera\CameraModifierBase.h" />
     <ClInclude Include="Source\Runtime\Engine\GameFramework\Camera\CamMod_Fade.h" />
@@ -1246,6 +1257,9 @@ xcopy /y /d "$(ProjectDir)ThirdParty\lib\Lua\lua54.dll" "$(OutDir)"</Command>
     <ClInclude Include="Generated\UBodySetup.generated.h" />
     <ClInclude Include="Generated\UBodySetupCore.generated.h" />
     <ClInclude Include="Generated\UPhysicsAsset.generated.h" />
+    <ClInclude Include="Generated\UClothComponent.generated.h" />
+    <ClInclude Include="Generated\UClothAsset.generated.h" />
+    <ClInclude Include="Generated\AClothActor.generated.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="BuildTools\CodeGenerator\generate.py" />

@@ -11,6 +11,8 @@
 #include "PlatformTime.h"
 #include "SimpleWheeledVehicleMovementComponent.h"
 #include "PhysicsSceneLock.h"
+#include "ClothCore.h"
+#include <NvCloth/Solver.h>
 
 using namespace physx;
 
@@ -140,6 +142,38 @@ void FPhysScene::Tick(float DeltaSeconds)
     if (Impl)
     {
         Impl->Simulate(DeltaSeconds);
+    }
+
+    // NvCloth simulation (after PhysX)
+    if (FClothCore::GetInstance().IsInitialized())
+    {
+        nv::cloth::Solver* ClothSolver = FClothCore::GetInstance().GetSolver();
+        if (ClothSolver)
+        {
+            int32 NumCloths = ClothSolver->getNumCloths();
+
+            // Debug: Print cloth count on first frame with cloth
+            static bool bFirstClothFrame = true;
+            if (NumCloths > 0 && bFirstClothFrame)
+            {
+                printf("[PhysScene] Cloth simulation active: %d cloths in solver\n", NumCloths);
+                bFirstClothFrame = false;
+            }
+
+            if (NumCloths > 0)
+            {
+                ClothSolver->beginSimulation(DeltaSeconds);
+
+                // Simulate all chunks (can be parallelized)
+                int32 NumChunks = ClothSolver->getSimulationChunkCount();
+                for (int32 i = 0; i < NumChunks; ++i)
+                {
+                    ClothSolver->simulateChunk(i);
+                }
+
+                ClothSolver->endSimulation();
+            }
+        }
     }
 }
 
