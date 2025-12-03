@@ -870,6 +870,13 @@ void USkeletalMeshComponent::UpdateBoneTransformsFromPhysics()
 
     TArray<UBodySetup*>& Setups = PhysicsAsset->GetBodySetups();
 
+    // 컴포넌트 월드 트랜스폼 요소 (루프 밖에서 한 번만 계산)
+    FTransform ComponentWorldTransform = GetWorldTransform();
+    FVector ComponentWorldPos = ComponentWorldTransform.Translation;
+    FQuat ComponentWorldRot = ComponentWorldTransform.Rotation;
+    FVector ComponentScale = ComponentWorldTransform.Scale3D;
+    FQuat InvComponentRot = ComponentWorldRot.Inverse();
+
     for (int32 i = 0; i < Bodies.Num() && i < Setups.Num(); ++i)
     {
         FBodyInstance* Body = Bodies[i];
@@ -888,9 +895,25 @@ void USkeletalMeshComponent::UpdateBoneTransformsFromPhysics()
         // 물리 바디의 월드 트랜스폼 가져오기
         FTransform BodyWorldTransform = Body->GetWorldTransform();
 
-        // 본의 컴포넌트 공간 트랜스폼 계산
-        FTransform ComponentTransform = GetWorldTransform();
-        FTransform BoneComponentTransform = BodyWorldTransform * ComponentTransform.Inverse();
+        // 월드 → 컴포넌트 공간 변환 (스케일 고려하여 수동 계산)
+        // 1. 위치: (물리 위치 - 컴포넌트 위치) → 역회전 → 역스케일
+        FVector RelativePos = BodyWorldTransform.Translation - ComponentWorldPos;
+        RelativePos = InvComponentRot.RotateVector(RelativePos);
+        RelativePos = FVector(
+            RelativePos.X / ComponentScale.X,
+            RelativePos.Y / ComponentScale.Y,
+            RelativePos.Z / ComponentScale.Z
+        );
+
+        // 2. 회전: 역회전 * 물리 회전
+        FQuat RelativeRot = InvComponentRot * BodyWorldTransform.Rotation;
+        RelativeRot.Normalize();
+
+        // 3. 스케일: 애니메이션과 동일한 스케일 유지 (현재 ComponentSpacePose의 스케일 사용)
+        FVector BoneScale = (BoneIndex < CurrentComponentSpacePose.Num())
+            ? CurrentComponentSpacePose[BoneIndex].Scale3D
+            : FVector(1.0f, 1.0f, 1.0f);
+        FTransform BoneComponentTransform(RelativePos, RelativeRot, BoneScale);
 
         // 본 트랜스폼 설정
         if (BoneIndex < CurrentComponentSpacePose.Num())
