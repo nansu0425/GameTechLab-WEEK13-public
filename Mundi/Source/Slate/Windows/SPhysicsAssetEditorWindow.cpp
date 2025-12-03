@@ -291,7 +291,7 @@ void SPhysicsAssetEditorWindow::OnRender()
         ImGui::BeginChild("RightPanel", ImVec2(rightWidth, totalHeight), true);
         ImGui::PopStyleVar();
         {
-            float propertiesHeight = ImGui::GetContentRegionAvail().y * 0.5f;
+            float propertiesHeight = ImGui::GetContentRegionAvail().y * 0.6f;
 
             ImGui::BeginChild("BonePropertiesArea", ImVec2(0, propertiesHeight), false);
             RenderRightPanel();
@@ -2412,37 +2412,59 @@ void SPhysicsAssetEditorWindow::GenerateAllConstraints()
     // Clear existing constraint setups
     PhysicsAsset->GetConstraintSetupsMutable().Empty();
 
+    const TArray<UBodySetup*>& Bodies = PhysicsAsset->GetBodySetups();
     const TArray<FBone>& Bones = Skeleton->Bones;
 
     int32 CreatedCount = 0;
 
-    for (int32 ChildIndex = 0; ChildIndex < Bones.Num(); ++ChildIndex)
+    // Only create constraints between bodies (not all bones)
+    for (int32 ChildBodyIndex = 0; ChildBodyIndex < Bodies.Num(); ++ChildBodyIndex)
     {
-        const FBone& Child = Bones[ChildIndex];
-        int32 ParentIndex = Child.ParentIndex;
+        UBodySetup* ChildBody = Bodies[ChildBodyIndex];
+        int32 ChildBoneIndex = BoneNameToIndex(ChildBody->BoneName);
 
-        if (ParentIndex < 0)
+        if (ChildBoneIndex < 0 || ChildBoneIndex >= Bones.Num())
             continue;
 
-        const FBone& Parent = Bones[ParentIndex];
+        const FBone& ChildBone = Bones[ChildBoneIndex];
+        int32 ParentBoneIndex = ChildBone.ParentIndex;
 
-        FTransform ChildWT = MeshComp->GetBoneWorldTransform(ChildIndex);
-        FTransform ParentWT = MeshComp->GetBoneWorldTransform(ParentIndex);
+        if (ParentBoneIndex < 0)
+            continue;
 
-        FConstraintSetup Setup;
-        BuildConstraintSetup(
-            FName(Parent.Name.c_str()),
-            FName(Child.Name.c_str()),
-            ParentWT,
-            ChildWT,
-            Setup
-        );
+        // Find the parent body (traverse up the bone hierarchy until we find a bone with a body)
+        int32 ParentBodyIndex = -1;
+        int32 CurrentBoneIndex = ParentBoneIndex;
 
-        PhysicsAsset->GetConstraintSetupsMutable().Add(Setup);
-        CreatedCount++;
+        while (CurrentBoneIndex >= 0 && ParentBodyIndex < 0)
+        {
+            const FBone& CurrentBone = Bones[CurrentBoneIndex];
+            FName CurrentBoneName = FName(CurrentBone.Name.c_str());
+
+            // Check if this bone has a body
+            for (int32 i = 0; i < Bodies.Num(); ++i)
+            {
+                if (Bodies[i]->BoneName == CurrentBoneName)
+                {
+                    ParentBodyIndex = i;
+                    break;
+                }
+            }
+
+            // Move up the hierarchy
+            if (ParentBodyIndex < 0)
+                CurrentBoneIndex = CurrentBone.ParentIndex;
+        }
+
+        // If we found a parent body, create a constraint
+        if (ParentBodyIndex >= 0)
+        {
+            CreateConstraintBetweenBodies(ParentBodyIndex, ChildBodyIndex);
+            CreatedCount++;
+        }
     }
 
-    UE_LOG("GenerateAllConstraints: Created %d constraints", CreatedCount);
+    UE_LOG("GenerateAllConstraints: Created %d constraints between %d bodies", CreatedCount, Bodies.Num());
 }
 
 void SPhysicsAssetEditorWindow::CreateConstraintBetweenBodies(int ParentBodyIndex, int ChildBodyIndex)
