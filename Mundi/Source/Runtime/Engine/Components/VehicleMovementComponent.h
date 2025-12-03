@@ -3,6 +3,8 @@
 #include "MovementComponent.h"
 #include "WheelSetup.h"
 #include "BoxComponent.h"
+#include "BodySetup.h"
+#include "BodyInstance.h"
 #include "UVehicleMovementComponent.generated.h"
 
 // PhysX vehicle 전방 선언
@@ -123,14 +125,16 @@ public:
     void RenderDebugLines(URenderer* Renderer);
 
 protected:
+    /** Vehicle용 BodySetup/BodyInstance (BeginPlay~EndPlay 동안 유지) */
+    UBodySetup* VehicleBodySetup = nullptr;
+    FBodyInstance VehicleBodyInstance;
+
     // --- PhysX Vehicle 관련 멤버 ---
 
     /** PhysX PxVehicleDrive4W 인스턴스 */
     physx::PxVehicleDrive4W* PxVehicleDrive4WInstance = nullptr;
 
     /** PxVehicleWheels 인스턴스 (바퀴 시뮬레이션 데이터 포함) */
-    // physx::PxVehicleWheels* PxVehicleWheelsInstance = nullptr;
-
     /** 노면-타이어 마찰 매핑 테이블 (타이어와 노면 타입은 단일 타입 & 마찰계수 1 고정) */
     physx::PxVehicleDrivableSurfaceToTireFrictionPairs* TireFrictionPairs = nullptr;
 
