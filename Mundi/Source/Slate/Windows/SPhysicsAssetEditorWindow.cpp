@@ -2699,12 +2699,36 @@ void SPhysicsAssetEditorWindow::CreateConstraintForBone(int32 ChildBoneIndex)
     FTransform ChildWT = MeshComp->GetBoneWorldTransform(ChildBoneIndex);
     FTransform ParentWT = MeshComp->GetBoneWorldTransform(ParentIndex);
 
+    // 본 이름으로 BodySetup 찾아서 캡슐 center 추출
+    FVector ParentCapsuleCenter = FVector::Zero();
+    FVector ChildCapsuleCenter = FVector::Zero();
+    const TArray<UBodySetup*>& Bodies = PhysicsAsset->GetBodySetups();
+    for (UBodySetup* Body : Bodies)
+    {
+        if (Body && Body->BoneName == FName(Parent.Name.c_str()))
+        {
+            if (!Body->AggGeom.SphylElems.IsEmpty())
+                ParentCapsuleCenter = Body->AggGeom.SphylElems[0].Center;
+        }
+        if (Body && Body->BoneName == FName(Child.Name.c_str()))
+        {
+            if (!Body->AggGeom.SphylElems.IsEmpty())
+                ChildCapsuleCenter = Body->AggGeom.SphylElems[0].Center;
+        }
+    }
+
+    // 컴포넌트 스케일 가져오기 (월드 트랜스폼을 로컬로 변환할 때 필요)
+    FVector ComponentScale = MeshComp->GetWorldTransform().Scale3D;
+
     FConstraintSetup Setup;
     BuildConstraintSetup(
         FName(Parent.Name.c_str()),
         FName(Child.Name.c_str()),
         ParentWT,
         ChildWT,
+        ParentCapsuleCenter,
+        ChildCapsuleCenter,
+        ComponentScale,
         Setup
     );
 
@@ -2816,12 +2840,30 @@ void SPhysicsAssetEditorWindow::CreateConstraintBetweenBodies(int ParentBodyInde
     FTransform ParentWT = Mesh->GetBoneWorldTransform(ParentBoneIndex);
     FTransform ChildWT = Mesh->GetBoneWorldTransform(ChildBoneIndex);
 
+    // 캡슐 center 오프셋 추출
+    FVector ParentCapsuleCenter = FVector::Zero();
+    FVector ChildCapsuleCenter = FVector::Zero();
+    if (!ParentBody->AggGeom.SphylElems.IsEmpty())
+    {
+        ParentCapsuleCenter = ParentBody->AggGeom.SphylElems[0].Center;
+    }
+    if (!ChildBody->AggGeom.SphylElems.IsEmpty())
+    {
+        ChildCapsuleCenter = ChildBody->AggGeom.SphylElems[0].Center;
+    }
+
+    // 컴포넌트 스케일 가져오기 (월드 트랜스폼을 로컬로 변환할 때 필요)
+    FVector ComponentScale = Mesh->GetWorldTransform().Scale3D;
+
     FConstraintSetup Setup;
     BuildConstraintSetup(
         ParentBody->BoneName,
         ChildBody->BoneName,
         ParentWT,
         ChildWT,
+        ParentCapsuleCenter,
+        ChildCapsuleCenter,
+        ComponentScale,
         Setup
     );
 
@@ -2832,7 +2874,7 @@ void SPhysicsAssetEditorWindow::CreateConstraintBetweenBodies(int ParentBodyInde
         ParentBody->BoneName.ToString().c_str());
 }
 
-void SPhysicsAssetEditorWindow::BuildConstraintSetup(const FName& ParentBoneName, const FName& ChildBoneName, const FTransform& ParentWT, const FTransform& ChildWT, FConstraintSetup& OutSetup)
+void SPhysicsAssetEditorWindow::BuildConstraintSetup(const FName& ParentBoneName, const FName& ChildBoneName, const FTransform& ParentWT, const FTransform& ChildWT, const FVector& ParentCapsuleCenter, const FVector& ChildCapsuleCenter, const FVector& ComponentScale, FConstraintSetup& OutSetup)
 {
     OutSetup = FConstraintSetup(); // reset
 
@@ -2872,16 +2914,39 @@ void SPhysicsAssetEditorWindow::BuildConstraintSetup(const FName& ParentBoneName
         WorldSecAxis = FVector::Cross(WorldPriAxis, WorldRight).GetSafeNormal();
     }
 
-    // Child frame at child origin
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Frame 위치 계산 (월드 트랜스폼 기반, 컴포넌트 스케일로 나눠서 로컬화)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 방법 A (UnrealEngine_Ragdoll_Implementation.md 참조):
+    // 1. Parent 본 기준 Child 본 상대 위치 계산 (월드 스케일)
+    // 2. 컴포넌트 스케일로 나눠서 로컬 스케일로 변환
+    // 3. Parent 캡슐 중심 오프셋 적용
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Child frame: Child 캡슐 중심에서 Child 본 원점(조인트 위치)으로의 오프셋
     // Frame1 (Child): Child 본-로컬 좌표계로 월드 축 변환
-    OutSetup.Frame1.Pos = FVector::Zero();
+    OutSetup.Frame1.Pos = -ChildCapsuleCenter;
     OutSetup.Frame1.PriAxis = CWT.Rotation.Inverse().RotateVector(WorldPriAxis);
     OutSetup.Frame1.SecAxis = CWT.Rotation.Inverse().RotateVector(WorldSecAxis);
 
-    // Parent frame: child origin expressed in parent local space
+    // Parent frame: 월드 좌표에서 Child 본의 Parent 본 기준 상대 위치 계산
+    // 월드 좌표 차이를 Parent 본 로컬로 변환 후 컴포넌트 스케일로 나눔
+    FVector ChildPosWorld = CWT.Translation;
+    FVector ParentPosWorld = PWT.Translation;
+
+    // Parent 본 로컬 좌표계에서 Child 본의 위치 (월드 스케일)
+    FVector ChildInParentWorld = PWT.Rotation.Inverse().RotateVector(ChildPosWorld - ParentPosWorld);
+
+    // 컴포넌트 스케일로 나눠서 본 로컬 스케일로 변환
+    // (월드 좌표는 컴포넌트 스케일이 적용된 상태이므로)
+    FVector ChildInParentLocal = FVector(
+        ChildInParentWorld.X / ComponentScale.X,
+        ChildInParentWorld.Y / ComponentScale.Y,
+        ChildInParentWorld.Z / ComponentScale.Z
+    );
+
     // Frame2 (Parent): Parent 본-로컬 좌표계로 월드 축 변환
-    FVector ChildInParent = PWT.Inverse().TransformPosition(CWT.Translation);
-    OutSetup.Frame2.Pos = ChildInParent;
+    OutSetup.Frame2.Pos = ChildInParentLocal - ParentCapsuleCenter;
     OutSetup.Frame2.PriAxis = PWT.Rotation.Inverse().RotateVector(WorldPriAxis);
     OutSetup.Frame2.SecAxis = PWT.Rotation.Inverse().RotateVector(WorldSecAxis);
 
