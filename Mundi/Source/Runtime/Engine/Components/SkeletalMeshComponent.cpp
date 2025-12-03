@@ -41,7 +41,15 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
     Super::TickComponent(DeltaTime);
 
     if (!SkeletalMesh) { return; }
-    // Drive animation instance if present
+
+    // 래그돌 모드: 물리 시뮬레이션 결과를 본에 적용
+    if (bSimulatingRagdoll)
+    {
+        UpdateBoneTransformsFromPhysics();
+        return;
+    }
+
+    // 애니메이션 모드: AnimInstance 업데이트
     if (bUseAnimation && AnimInstance && SkeletalMesh && SkeletalMesh->GetSkeleton())
     {
         AnimInstance->NativeUpdateAnimation(DeltaTime);
@@ -448,6 +456,15 @@ void USkeletalMeshComponent::CreatePhysicsState()
             Bodies.Add(Body);
         }
     }
+
+    // Constraint 초기화 (Joint 연결)
+    InitializeConstraints();
+
+    // 에디터 프로퍼티에 따라 래그돌 활성화
+    if (bEnableRagdoll)
+    {
+        SetAllBodiesSimulatePhysics(true);
+    }
 }
 
 void USkeletalMeshComponent::DestroyPhysicsState()
@@ -816,4 +833,72 @@ void USkeletalMeshComponent::TriggerAnimNotify(const FAnimNotifyEvent& NotifyEve
     {
         Owner->HandleAnimNotify(NotifyEvent);
     }
+}
+
+void USkeletalMeshComponent::SetAllBodiesSimulatePhysics(bool bSimulate)
+{
+    bSimulatingRagdoll = bSimulate;
+
+    for (FBodyInstance* Body : Bodies)
+    {
+        if (Body)
+        {
+            Body->SetSimulatePhysics(bSimulate);
+
+            // 래그돌 활성화 시 중력 활성화, 비활성화 시 기존 설정 유지
+            if (bSimulate)
+            {
+                Body->bEnableGravity = true;
+            }
+        }
+    }
+}
+
+void USkeletalMeshComponent::UpdateBoneTransformsFromPhysics()
+{
+    USkeletalMesh* Mesh = GetSkeletalMesh();
+    if (!Mesh)
+    {
+        return;
+    }
+
+    UPhysicsAsset* PhysicsAsset = Mesh->GetPhysicsAsset();
+    if (!PhysicsAsset)
+    {
+        return;
+    }
+
+    TArray<UBodySetup*>& Setups = PhysicsAsset->GetBodySetups();
+
+    for (int32 i = 0; i < Bodies.Num() && i < Setups.Num(); ++i)
+    {
+        FBodyInstance* Body = Bodies[i];
+        UBodySetup* Setup = Setups[i];
+        if (!Body || !Setup)
+        {
+            continue;
+        }
+
+        int32 BoneIndex = Mesh->GetBoneIndexFromBoneName(Setup->BoneName);
+        if (BoneIndex == -1)
+        {
+            continue;
+        }
+
+        // 물리 바디의 월드 트랜스폼 가져오기
+        FTransform BodyWorldTransform = Body->GetWorldTransform();
+
+        // 본의 컴포넌트 공간 트랜스폼 계산
+        FTransform ComponentTransform = GetWorldTransform();
+        FTransform BoneComponentTransform = BodyWorldTransform * ComponentTransform.Inverse();
+
+        // 본 트랜스폼 설정
+        if (BoneIndex < CurrentComponentSpacePose.Num())
+        {
+            CurrentComponentSpacePose[BoneIndex] = BoneComponentTransform;
+        }
+    }
+
+    // 스키닝 행렬 업데이트
+    UpdateFinalSkinningMatrices();
 }
