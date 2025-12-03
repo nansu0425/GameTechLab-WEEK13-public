@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "PropertyRenderer.h"
 #include "ImGui/imgui.h"
 #include "Vector.h"
@@ -29,6 +29,8 @@
 #include "ParticleSystemComponent.h"
 #include "ParticleSystem.h"
 #include "CameraComponent.h"
+#include "WheelSetup.h"
+#include "Source/Runtime/Engine/Components/SimpleWheeledVehicleMovementComponent.h"
 
 // 정적 멤버 변수 초기화
 UObject* UPropertyRenderer::CurrentRenderingObject = nullptr;
@@ -152,6 +154,13 @@ bool UPropertyRenderer::RenderProperty(const FProperty& Property, void* ObjectIn
 		break;
 
 	case EPropertyType::Array:
+		if (Property.InnerType == EPropertyType::Struct &&
+			Property.TypeName &&
+			strcmp(Property.TypeName, "FWheelSetup") == 0)
+		{
+			bChanged = RenderWheelArrayProperty(Property, ObjectInstance);
+			break;
+		}
 		switch (Property.InnerType)
 		{
 		case EPropertyType::Material:
@@ -1008,6 +1017,110 @@ bool UPropertyRenderer::RenderStructArrayProperty(const FProperty& Prop, void* I
 		if (DeleteRequestIndex >= 0)
 		{
 			StructType->ArrayRemoveAt(ArrayPtr, DeleteRequestIndex);
+		}
+
+		ImGui::TreePop();
+	}
+
+	return bChanged;
+}
+
+bool UPropertyRenderer::RenderWheelArrayProperty(const FProperty& Prop, void* Instance)
+{
+	TArray<FWheelSetup>* WheelArray = Prop.GetValuePtr<TArray<FWheelSetup>>(Instance);
+	if (!WheelArray)
+	{
+		ImGui::Text("%s: [Wheel setup array unavailable]", Prop.Name);
+		return false;
+	}
+
+	bool bChanged = false;
+
+	// 수동 초기화 버튼 (WheelSetup 변경 후 PhysX 재초기화)
+	USimpleWheeledVehicleMovementComponent* VehicleComp = static_cast<USimpleWheeledVehicleMovementComponent*>(Instance);
+	if (VehicleComp && ImGui::Button("Init Vehicle"))
+	{
+		VehicleComp->ResetVehicle();
+		bChanged = true;
+	}
+
+	char HeaderLabel[128];
+	sprintf_s(HeaderLabel, "%s [%d]", Prop.Name, WheelArray->Num());
+	bool bHeaderOpen = ImGui::TreeNode(Prop.Name, HeaderLabel);
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("+"))
+	{
+		FWheelSetup NewSetup{};
+		NewSetup.WheelRadius = 30.0f;
+		WheelArray->Add(NewSetup);
+		bChanged = true;
+	}
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("-") && WheelArray->Num() > 0)
+	{
+		WheelArray->RemoveAt(WheelArray->Num() - 1);
+		bChanged = true;
+	}
+
+	if (bHeaderOpen)
+	{
+		for (int32 Index = 0; Index < WheelArray->Num(); ++Index)
+		{
+			ImGui::PushID(Index);
+			FWheelSetup& Setup = (*WheelArray)[Index];
+
+			bool bElementOpen = ImGui::TreeNodeEx("Wheel", ImGuiTreeNodeFlags_DefaultOpen, "휠 설정 [%d]", Index);
+			ImGui::SameLine();
+			if (ImGui::SmallButton("삭제"))
+			{
+				WheelArray->RemoveAt(Index);
+				bChanged = true;
+				if (bElementOpen)
+				{
+					ImGui::TreePop();
+				}
+				ImGui::PopID();
+				--Index;
+				continue;
+			}
+
+			if (bElementOpen)
+			{
+				char BoneBuffer[64] = {};
+				const bool bHasValidBone = Setup.BoneName.DisplayIndex != static_cast<uint32>(-1);
+				FString BoneNameStr = bHasValidBone ? Setup.BoneName.ToString() : "";
+				if (!BoneNameStr.empty())
+				{
+					strncpy_s(BoneBuffer, BoneNameStr.c_str(), sizeof(BoneBuffer) - 1);
+				}
+
+				if (ImGui::InputText("본 이름", BoneBuffer, sizeof(BoneBuffer)))
+				{
+					Setup.BoneName = FName(BoneBuffer);
+					bChanged = true;
+				}
+
+				if (ImGui::DragFloat("서스펜션 오프셋(Z)", &Setup.SuspensionOffsetZ, 1.0f))
+				{
+					bChanged = true;
+				}
+
+				if (ImGui::DragFloat("휠 반지름", &Setup.WheelRadius, 0.5f, 0.0f, 500.0f))
+				{
+					bChanged = true;
+				}
+
+				if (ImGui::Checkbox("구동륜 여부", &Setup.bIsDriveWheel))
+				{
+					bChanged = true;
+				}
+
+				ImGui::TreePop();
+			}
+
+			ImGui::PopID();
 		}
 
 		ImGui::TreePop();

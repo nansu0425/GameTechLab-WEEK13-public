@@ -70,12 +70,16 @@ private:
 
     // Helper functions for above
     int32 FindFirstChildBone(int32 BoneIndex, const FSkeleton* Skeleton) const;
+    void GetAllChildBones(int32 BoneIndex, const FSkeleton* Skeleton, TArray<int32>& OutChildren) const;
     int32 BoneNameToIndex(const FName& BoneName) const;
     void CalculateBoneLocalShapeTransform(int32 BoneIndex, const FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp, FVector& OutLocalCenter, FQuat& OutLocalRotation);
     void CalculateBodyDimensions(int32 BoneIndex, const struct FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp,
                                  EPrimitiveType PrimitiveType, float& OutRadius, float& OutHalfHeight, FVector& OutExtent) const;
     bool ShouldCreateBodyForBone(int32 BoneIndex, const struct FSkeleton* Skeleton) const;
     void RecreateBodyPrimitive(class UBodySetup* BodySetup, EPrimitiveType NewPrimitiveType);
+    bool IsDescendantOf(int32 ChildIdx, int32 RootIdx, const TArray<FBone>& Bones) const;
+    float ComputeLimbChainLength(int32 RootBoneIndex, const FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp) const;
+    FVector ComputeLimbCentroid(int32 RootBoneIndex, const FSkeleton* Skeleton, class USkeletalMeshComponent* MeshComp) const;
 
     // Vertex-driven body generation
     struct FBoneVertexInfluence
