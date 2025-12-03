@@ -4,6 +4,8 @@
 #include "FViewport.h"
 #include "Source/Runtime/Engine/Viewer/PhysicsAssetEditorBootstrap.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
+#include "Source/Runtime/Engine/GameFramework/PhysGroundActor.h"
+#include "Source/Runtime/Engine/Components/BoxComponent.h"
 #include "Source/Runtime/Engine/Viewer/EditorAssetPreviewContext.h"
 #include "PhysicsAsset.h"
 #include "BodySetup.h"
@@ -28,6 +30,12 @@ SPhysicsAssetEditorWindow::SPhysicsAssetEditorWindow()
 
 SPhysicsAssetEditorWindow::~SPhysicsAssetEditorWindow()
 {
+    // 시뮬레이션 중이면 먼저 정지 (물리 리소스 정리)
+    if (bIsSimulating)
+    {
+        StopSimulation();
+    }
+
     // Cleanup
     for (int i = 0; i < Tabs.Num(); ++i)
     {
@@ -336,9 +344,30 @@ void SPhysicsAssetEditorWindow::PreRenderViewportUpdate()
     // 여기서는 애니메이션이 없으므로 수동으로 RefPose로 리셋해야 누적을 방지할 수 있음
     if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
     {
-        // 시뮬레이션 모드가 아닐 때만 수동 조작 및 포즈 리셋을 처리
-        if (!bIsSimulating)
+        // 시뮬레이션 모드일 때: 물리 결과를 본 트랜스폼에 동기화
+        if (bIsSimulating)
         {
+            // 물리 시뮬레이션 결과로 본 트랜스폼 업데이트
+            // (SkeletalMeshComponent::TickComponent에서 이미 호출되지만,
+            //  PreviewWorld에서 확실히 동작하도록 수동으로 호출)
+            MeshComp->UpdateBoneTransformsFromPhysics();
+
+            // 시뮬레이션 중에도 본 라인 시각화 갱신
+            if (ActiveState->bShowBones && ActiveState->PreviewActor && ActiveState->CurrentMesh)
+            {
+                if (ULineComponent* LineComp = ActiveState->PreviewActor->GetBoneLineComponent())
+                {
+                    LineComp->SetLineVisible(true);
+                }
+                ActiveState->PreviewActor->RebuildBoneLines(ActiveState->SelectedBoneIndex);
+            }
+
+            // 시뮬레이션 중에도 충돌 형상 시각화 갱신
+            bCollisionShapesDirty = true;
+        }
+        else
+        {
+            // 시뮬레이션 모드가 아닐 때만 수동 조작 및 포즈 리셋을 처리
             // 누적 방지를 위해 먼저 참조 포즈로 리셋
             MeshComp->ResetToRefPose();
 
@@ -4301,10 +4330,41 @@ void SPhysicsAssetEditorWindow::StartSimulation()
     if (!ActiveState || !ActiveState->PreviewActor)
         return;
 
+    UWorld* PreviewWorld = ActiveState->World;
+    if (!PreviewWorld)
+        return;
+
+    // 1. PreviewWorld의 Physics 활성화
+    PreviewWorld->EnablePhysicsSimulation(true);
+
+    // 2. 바닥의 물리 상태 생성 (정적 물리 바디)
+    // 바닥 액터는 ViewerState 생성 시 이미 스폰됨
+    if (ActiveState->FloorActor)
+    {
+        if (UBoxComponent* BoxComp = ActiveState->FloorActor->GetBoxComponent())
+        {
+            BoxComp->CreatePhysicsState();
+        }
+    }
+
+    // 3. SkeletalMeshComponent의 물리 상태 생성 및 시뮬레이션 활성화
     if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
     {
-        MeshComp->SetSimulatePhysics(true);
+        // PrimitiveComponent::BeginPlay() 패턴에 맞게 프로퍼티를 직접 설정
+        // (프로퍼티가 단일 진실 원천, CreatePhysicsState에서 이 값을 참조)
+        MeshComp->bSimulatePhysics = true;
+        MeshComp->bEnableGravity = true;
+		MeshComp->bEnableRagdoll = true;
+
+        // 물리 상태 생성 (Bodies + Constraints) - bSimulatePhysics=true 상태로 Dynamic Actor 생성
+        MeshComp->CreatePhysicsState();
+
+        // 래그돌 모드 활성화 - bSimulatingRagdoll을 true로 설정해야
+        // TickComponent에서 UpdateBoneTransformsFromPhysics()가 호출됨
+        // MeshComp->SetAllBodiesSimulatePhysics(true);
     }
+
+    bIsSimulating = true;
 }
 
 void SPhysicsAssetEditorWindow::StopSimulation()
@@ -4314,7 +4374,40 @@ void SPhysicsAssetEditorWindow::StopSimulation()
 
     if (USkeletalMeshComponent* MeshComp = ActiveState->PreviewActor->GetSkeletalMeshComponent())
     {
+        // 1. 시뮬레이션 비활성화
         MeshComp->SetSimulatePhysics(false);
+
+        // 2. 물리 상태 정리
+        MeshComp->DestroyPhysicsState();
+
+        // 3. 원래 포즈로 복원
         MeshComp->ResetToRefPose();
+
+        // 4. 캐릭터를 원점(바닥 위)으로 복원
+        ActiveState->PreviewActor->SetActorLocation(FVector(0.0f, 0.0f, 0.0f));
     }
+
+    // 5. 바닥의 물리 상태 정리 (바닥 액터는 유지)
+    if (ActiveState->FloorActor)
+    {
+        if (UBoxComponent* BoxComp = ActiveState->FloorActor->GetBoxComponent())
+        {
+            BoxComp->DestroyPhysicsState();
+        }
+    }
+
+    // 6. PhysScene 비활성화
+    // 시뮬레이션 중지 시에는 PhysScene도 정리해야 함.
+    // DestroyPhysicsState() 후 PhysScene의 active actors 캐시에 dangling 포인터가 남아있어
+    // 다음 UWorld::Tick()의 EndFrame()에서 크래시가 발생할 수 있음.
+    //
+    // 주의: DestroyViewerState()에서는 EnablePhysicsSimulation(false)를 호출하면 안 됨!
+    //       (World 삭제 전에 PhysScene이 먼저 삭제되면 Actor 삭제 시 크래시)
+    //       하지만 StopSimulation()에서는 Editor가 계속 실행되므로 안전함.
+    if (ActiveState->World)
+    {
+        ActiveState->World->EnablePhysicsSimulation(false);
+    }
+
+    bIsSimulating = false;
 }

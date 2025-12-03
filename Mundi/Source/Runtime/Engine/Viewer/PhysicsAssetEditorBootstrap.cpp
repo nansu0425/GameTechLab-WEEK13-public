@@ -4,7 +4,10 @@
 #include "FViewportClient.h"
 #include "CameraActor.h"
 #include "Source/Runtime/Engine/GameFramework/SkeletalMeshActor.h"
+#include "Source/Runtime/Engine/GameFramework/PhysGroundActor.h"
 #include "Source/Runtime/Engine/Physics/PhysicsAsset.h"
+#include "Source/Runtime/Engine/Components/SkeletalMeshComponent.h"
+#include "Source/Runtime/Engine/Components/BoxComponent.h"
 
 ViewerState* PhysicsAssetEditorBootstrap::CreateViewerState(const char* Name, UWorld* InWorld, ID3D11Device* InDevice)
 {
@@ -52,8 +55,25 @@ ViewerState* PhysicsAssetEditorBootstrap::CreateViewerState(const char* Name, UW
     // Spawn a persistent preview actor (mesh can be set later from UI)
     if (State->World)
     {
+        // 바닥 액터 생성 (시뮬레이션과 무관하게 항상 표시)
+        State->FloorActor = State->World->SpawnActor<APhysGroundActor>();
+        if (State->FloorActor)
+        {
+            // 바닥 위 중앙이 원점이 되도록 배치 (바닥 두께 0.1, 절반인 0.05 아래로)
+            // 주의: SpawnActor에서 SetActorTransform(FTransform())이 호출되어 스케일이 리셋됨
+            //       따라서 위치와 스케일을 명시적으로 다시 설정
+            State->FloorActor->SetActorLocation(FVector(0.0f, 0.0f, -0.05f));
+            State->FloorActor->SetActorScale(FVector(10.0f, 10.0f, 0.1f));  // 넓고 얇은 바닥
+        }
+
         ASkeletalMeshActor* Preview = State->World->SpawnActor<ASkeletalMeshActor>();
         State->PreviewActor = Preview;
+
+        // 캐릭터를 원점에 배치 (바닥 위)
+        if (Preview)
+        {
+            Preview->SetActorLocation(FVector(0.0f, 0.0f, 0.0f));
+        }
 
         // Create a separate LineComponent for collision shape visualization
         State->CollisionShapeLineComponent = NewObject<ULineComponent>();
@@ -70,12 +90,14 @@ void PhysicsAssetEditorBootstrap::DestroyViewerState(ViewerState*& State)
 {
     if (!State) return;
 
-    // Clean up collision shape line component before destroying world
-    if (State->CollisionShapeLineComponent)
-    {
-        ObjectFactory::DeleteObject(State->CollisionShapeLineComponent);
-        State->CollisionShapeLineComponent = nullptr;
-    }
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 기존 SkeletalViewerBootstrap과 동일한 방식으로 정리
+    // World 삭제 시 Level 내 모든 Actor/Component가 자동으로 정리됨
+    // PhysScene도 World의 unique_ptr 멤버이므로 World 소멸 시 자동 해제됨
+    //
+    // 주의: EnablePhysicsSimulation(false)를 명시적으로 호출하면 PhysScene이
+    //       먼저 삭제되어 Actor 삭제 시 BodyInstance::TermBody()에서 크래시 발생
+    // ═══════════════════════════════════════════════════════════════════════════
 
     if (State->Viewport) { delete State->Viewport; State->Viewport = nullptr; }
     if (State->Client) { delete State->Client; State->Client = nullptr; }

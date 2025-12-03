@@ -103,6 +103,9 @@ public:
     class UPhysicsAsset* CurrentPhysicsAsset = nullptr;
     int32 SelectedBodyIndex = -1;
     int32 SelectedConstraintIndex = -1;
+
+    // 시뮬레이션용 바닥 액터 (Physics Asset Editor)
+    class APhysGroundActor* FloorActor = nullptr;
 };
 
 // 파티클 에디터 상태
