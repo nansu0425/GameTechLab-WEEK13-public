@@ -1369,6 +1369,13 @@ struct FTransform
 		return FTransform(TPosition, TRotation, TScale);
 	}
 
+	// 회전 정규화 - 부동소수점 오차 누적 방지
+	// 언리얼 엔진: "We want to remove any loss of precision due to accumulation of error."
+	void NormalizeRotation()
+	{
+		Rotation.Normalize();
+	}
+
 	// 비교 연산자
 	bool operator==(const FTransform& Other) const
 	{

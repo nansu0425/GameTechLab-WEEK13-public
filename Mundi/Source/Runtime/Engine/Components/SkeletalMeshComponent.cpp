@@ -786,12 +786,29 @@ void USkeletalMeshComponent::UpdateBoneTransformsFromPhysics()
     const TArray<FBone>& Bones = Skeleton->Bones;
     const int32 NumBones = Bones.Num();
 
-    // 각 본이 Body를 가지고 있는지 추적
-    TArray<bool> HasBody;
-    HasBody.SetNum(NumBones);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 1단계: 각 본에 대한 Body 정보 수집 (BoneIndex → BodyIndex 매핑)
+    // ═══════════════════════════════════════════════════════════════════════════
+    TArray<int32> BoneToBodyIndex;  // -1이면 Body 없음
+    BoneToBodyIndex.SetNum(NumBones);
     for (int32 i = 0; i < NumBones; ++i)
     {
-        HasBody[i] = false;
+        BoneToBodyIndex[i] = -1;
+    }
+
+    for (int32 BodyIdx = 0; BodyIdx < Bodies.Num() && BodyIdx < Setups.Num(); ++BodyIdx)
+    {
+        UBodySetup* Setup = Setups[BodyIdx];
+        if (!Setup)
+        {
+            continue;
+        }
+
+        int32 BoneIndex = Mesh->GetBoneIndexFromBoneName(Setup->BoneName);
+        if (BoneIndex >= 0 && BoneIndex < NumBones)
+        {
+            BoneToBodyIndex[BoneIndex] = BodyIdx;
+        }
     }
 
     // 컴포넌트 월드 트랜스폼 요소 (루프 밖에서 한 번만 계산)
@@ -802,100 +819,108 @@ void USkeletalMeshComponent::UpdateBoneTransformsFromPhysics()
     FQuat InvComponentRot = ComponentWorldRot.Inverse();
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // 1단계: Body가 있는 본들의 컴포넌트 공간 트랜스폼 업데이트
-    // ═══════════════════════════════════════════════════════════════════════════
-    for (int32 i = 0; i < Bodies.Num() && i < Setups.Num(); ++i)
-    {
-        FBodyInstance* Body = Bodies[i];
-        UBodySetup* Setup = Setups[i];
-        if (!Body || !Setup)
-        {
-            continue;
-        }
-
-        int32 BoneIndex = Mesh->GetBoneIndexFromBoneName(Setup->BoneName);
-        if (BoneIndex == -1 || BoneIndex >= NumBones)
-        {
-            continue;
-        }
-
-        HasBody[BoneIndex] = true;
-
-        // 물리 바디의 월드 트랜스폼 가져오기
-        FTransform BodyWorldTransform = Body->GetWorldTransform();
-
-        // 월드 → 컴포넌트 공간 변환 (스케일 고려하여 수동 계산)
-        // 1. 위치: (물리 위치 - 컴포넌트 위치) → 역회전 → 역스케일
-        FVector RelativePos = BodyWorldTransform.Translation - ComponentWorldPos;
-        RelativePos = InvComponentRot.RotateVector(RelativePos);
-        RelativePos = FVector(
-            RelativePos.X / ComponentScale.X,
-            RelativePos.Y / ComponentScale.Y,
-            RelativePos.Z / ComponentScale.Z
-        );
-
-        // 2. 회전: 역회전 * 물리 회전
-        FQuat RelativeRot = InvComponentRot * BodyWorldTransform.Rotation;
-        RelativeRot.Normalize();
-
-        // 3. 스케일: 애니메이션과 동일한 스케일 유지 (현재 ComponentSpacePose의 스케일 사용)
-        FVector BoneScale = (BoneIndex < CurrentComponentSpacePose.Num())
-            ? CurrentComponentSpacePose[BoneIndex].Scale3D
-            : FVector(1.0f, 1.0f, 1.0f);
-        FTransform BoneComponentTransform(RelativePos, RelativeRot, BoneScale);
-
-        // 본 트랜스폼 설정
-        if (BoneIndex < CurrentComponentSpacePose.Num())
-        {
-            CurrentComponentSpacePose[BoneIndex] = BoneComponentTransform;
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // 2단계: Body가 없는 본들을 부모를 따라가도록 업데이트
-    // 부모→자식 순서로 순회하여 계층적으로 업데이트
+    // 2단계: 본 계층 순서로 순회 (Root → Leaf)
+    // Body가 있는 본: 물리에서 트랜스폼 가져와서 캡슐 Center 오프셋 보정
+    // Body가 없는 본: 부모의 ComponentSpace + 자신의 LocalSpace로 계산
     // ═══════════════════════════════════════════════════════════════════════════
     for (int32 BoneIndex = 0; BoneIndex < NumBones; ++BoneIndex)
     {
-        // Body가 있는 본은 이미 업데이트됨
-        if (HasBody[BoneIndex])
-        {
-            continue;
-        }
-
-        // 유효성 검사
         if (BoneIndex >= CurrentComponentSpacePose.Num() || BoneIndex >= CurrentLocalSpacePose.Num())
         {
             continue;
         }
 
-        const FBone& Bone = Bones[BoneIndex];
-        int32 ParentIndex = Bone.ParentIndex;
+        int32 BodyIdx = BoneToBodyIndex[BoneIndex];
 
-        if (ParentIndex < 0 || ParentIndex >= CurrentComponentSpacePose.Num())
+        if (BodyIdx >= 0)
         {
-            // 루트 본이거나 부모가 없는 경우, 현재 포즈 유지
-            continue;
+            // ─────────────────────────────────────────────────────────────────────
+            // Body가 있는 본: 물리 바디의 월드 트랜스폼에서 캡슐 Center 오프셋 보정
+            // ─────────────────────────────────────────────────────────────────────
+            FBodyInstance* Body = Bodies[BodyIdx];
+            UBodySetup* Setup = Setups[BodyIdx];
+            if (!Body || !Setup)
+            {
+                continue;
+            }
+
+            // 물리 바디의 월드 트랜스폼 (캡슐 중심의 위치)
+            FTransform BodyWorldTransform = Body->GetWorldTransform();
+
+            // 캡슐의 로컬 Center 오프셋 가져오기 (AggGeom에서)
+            FVector CapsuleLocalCenter = FVector::Zero();
+            if (Setup->AggGeom.SphylElems.Num() > 0)
+            {
+                CapsuleLocalCenter = Setup->AggGeom.SphylElems[0].Center;
+            }
+
+            // 캡슐 중심 → 본 원점으로 변환
+            // Body의 월드 트랜스폼에서 캡슐의 로컬 Center를 빼야 본 원점을 얻음
+            FVector BoneOriginWorld = BodyWorldTransform.Translation -
+                BodyWorldTransform.Rotation.RotateVector(CapsuleLocalCenter);
+
+            // Body의 회전은 그대로 본의 회전으로 사용
+            // (캡슐 로컬 회전은 Shape 방향일 뿐, Body 회전과 별개)
+            FQuat BoneWorldRot = BodyWorldTransform.Rotation;
+
+            // 월드 → 컴포넌트 공간 변환
+            // 1. 위치: (본 월드 위치 - 컴포넌트 위치) → 역회전 → 역스케일
+            FVector RelativePos = BoneOriginWorld - ComponentWorldPos;
+            RelativePos = InvComponentRot.RotateVector(RelativePos);
+            RelativePos = FVector(
+                RelativePos.X / ComponentScale.X,
+                RelativePos.Y / ComponentScale.Y,
+                RelativePos.Z / ComponentScale.Z
+            );
+
+            // 2. 회전: 컴포넌트 역회전 * 본 월드 회전
+            FQuat RelativeRot = InvComponentRot * BoneWorldRot;
+            RelativeRot.Normalize();
+
+            // 3. 스케일: 원래 애니메이션 스케일 유지
+            FVector BoneScale = CurrentComponentSpacePose[BoneIndex].Scale3D;
+
+            CurrentComponentSpacePose[BoneIndex] = FTransform(RelativePos, RelativeRot, BoneScale);
+
+            // 회전 정규화 - 부동소수점 오차 누적 방지 (언리얼 엔진 방식)
+            // "A componentSpace transform is the accumulation of all of its local space parents.
+            //  The further down the chain, the greater the error."
+            CurrentComponentSpacePose[BoneIndex].NormalizeRotation();
+
+            // LocalSpace는 재계산하지 않음 - 원본 애니메이션 값 유지
+            // Body가 없는 자식 본들은 자신의 LocalSpace + 부모 ComponentSpace로 계산됨
         }
+        else
+        {
+            // ─────────────────────────────────────────────────────────────────────
+            // Body가 없는 본: 부모 ComponentSpace + 자신의 LocalSpace로 계산
+            // ─────────────────────────────────────────────────────────────────────
+            const FBone& Bone = Bones[BoneIndex];
+            int32 ParentIndex = Bone.ParentIndex;
 
-        // 부모의 컴포넌트 공간 트랜스폼 + 이 본의 로컬 트랜스폼으로 새 위치 계산
-        // CurrentLocalSpacePose는 원래 애니메이션/RefPose에서 온 부모 기준 로컬 오프셋
-        const FTransform& ParentComponentTransform = CurrentComponentSpacePose[ParentIndex];
-        const FTransform& LocalTransform = CurrentLocalSpacePose[BoneIndex];
+            if (ParentIndex >= 0 && ParentIndex < CurrentComponentSpacePose.Num())
+            {
+                const FTransform& ParentCS = CurrentComponentSpacePose[ParentIndex];
+                const FTransform& LocalTM = CurrentLocalSpacePose[BoneIndex];
 
-        // 새 컴포넌트 공간 트랜스폼 = 부모 컴포넌트 트랜스폼 * 로컬 트랜스폼
-        FTransform NewComponentTransform;
-        NewComponentTransform.Translation = ParentComponentTransform.Translation +
-            ParentComponentTransform.Rotation.RotateVector(LocalTransform.Translation * ParentComponentTransform.Scale3D);
-        NewComponentTransform.Rotation = ParentComponentTransform.Rotation * LocalTransform.Rotation;
-        NewComponentTransform.Rotation.Normalize();
-        NewComponentTransform.Scale3D = FVector(
-            ParentComponentTransform.Scale3D.X * LocalTransform.Scale3D.X,
-            ParentComponentTransform.Scale3D.Y * LocalTransform.Scale3D.Y,
-            ParentComponentTransform.Scale3D.Z * LocalTransform.Scale3D.Z
-        );
+                // ComponentSpace = ParentCS * LocalTM
+                FVector NewPos = ParentCS.Translation +
+                    ParentCS.Rotation.RotateVector(LocalTM.Translation * ParentCS.Scale3D);
+                FQuat NewRot = ParentCS.Rotation * LocalTM.Rotation;
+                NewRot.Normalize();
+                FVector NewScale = FVector(
+                    ParentCS.Scale3D.X * LocalTM.Scale3D.X,
+                    ParentCS.Scale3D.Y * LocalTM.Scale3D.Y,
+                    ParentCS.Scale3D.Z * LocalTM.Scale3D.Z
+                );
 
-        CurrentComponentSpacePose[BoneIndex] = NewComponentTransform;
+                CurrentComponentSpacePose[BoneIndex] = FTransform(NewPos, NewRot, NewScale);
+
+                // 회전 정규화 - 부동소수점 오차 누적 방지 (언리얼 엔진 방식)
+                CurrentComponentSpacePose[BoneIndex].NormalizeRotation();
+            }
+            // 루트 본(ParentIndex < 0)이거나 부모가 없으면 현재 포즈 유지
+        }
     }
 
     // 스키닝 행렬 업데이트
