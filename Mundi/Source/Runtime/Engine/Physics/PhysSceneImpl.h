@@ -18,7 +18,7 @@
 class UWorld;
 class FPhysScene;
 class FPhysicsEventCallback;
-class USimpleWheeledVehicleMovementComponent;
+class UVehicleMovementComponent;
 
 /**
  * @brief FPhysScene의 PhysX 구현부
@@ -93,7 +93,7 @@ private:
     physx::PxDefaultCpuDispatcher* CpuDispatcher = nullptr;
     physx::PxMaterial* DefaultMaterial = nullptr;
     FPhysicsEventCallback* EventCallback = nullptr;
-    TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>> VehicleComponents;
+    TArray<TWeakObjectPtr<UVehicleMovementComponent>> VehicleComponents;
 
     // 소유자
     FPhysScene* OwnerScene = nullptr;
@@ -212,9 +212,9 @@ public:
     // ═══════════════════════════════════════════════════════════════════════
 
 public:
-    void RegisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent);
-    void UnregisterVehicleComponent(USimpleWheeledVehicleMovementComponent* InComponent);
-    const TArray<TWeakObjectPtr<USimpleWheeledVehicleMovementComponent>>& GetVehicleComponents();
+    void RegisterVehicleComponent(UVehicleMovementComponent* InComponent);
+    void UnregisterVehicleComponent(UVehicleMovementComponent* InComponent);
+    const TArray<TWeakObjectPtr<UVehicleMovementComponent>>& GetVehicleComponents();
 
 private:
     void CompactVehicleComponents();

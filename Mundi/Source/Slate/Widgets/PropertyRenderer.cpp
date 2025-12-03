@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "PropertyRenderer.h"
 #include "ImGui/imgui.h"
 #include "Vector.h"
@@ -30,7 +30,7 @@
 #include "ParticleSystem.h"
 #include "CameraComponent.h"
 #include "WheelSetup.h"
-#include "Source/Runtime/Engine/Components/SimpleWheeledVehicleMovementComponent.h"
+#include "VehicleMovementComponent.h"
 
 // 정적 멤버 변수 초기화
 UObject* UPropertyRenderer::CurrentRenderingObject = nullptr;
@@ -1037,7 +1037,7 @@ bool UPropertyRenderer::RenderWheelArrayProperty(const FProperty& Prop, void* In
 	bool bChanged = false;
 
 	// 수동 초기화 버튼 (WheelSetup 변경 후 PhysX 재초기화)
-	USimpleWheeledVehicleMovementComponent* VehicleComp = static_cast<USimpleWheeledVehicleMovementComponent*>(Instance);
+	UVehicleMovementComponent* VehicleComp = static_cast<UVehicleMovementComponent*>(Instance);
 	if (VehicleComp && ImGui::Button("Init Vehicle"))
 	{
 		VehicleComp->ResetVehicle();
