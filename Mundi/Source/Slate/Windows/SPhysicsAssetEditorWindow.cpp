@@ -2376,13 +2376,24 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByBoneStructure(EPrimitiveType Pri
     UPhysicsAsset* PhysicsAsset = ActiveState->CurrentPhysicsAsset;
     PhysicsAsset->ClearAllBodies();
 
+    // Track bones that are absorbed into parent bodies
+    TArray<int32> AbsorbedBones;
+
+    const TArray<FBone>& Bones = Skeleton->Bones;
     int32 CreatedCount = 0;
 
     // Create body for all bones
-    for (int32 BoneIndex = 0; BoneIndex < Skeleton->Bones.size(); ++BoneIndex)
+    for (int32 BoneIndex = 0; BoneIndex < Bones.size(); ++BoneIndex)
     {
-        const FBone& Bone = Skeleton->Bones[BoneIndex];
+        const FBone& Bone = Bones[BoneIndex];
         FName BoneName(Bone.Name);
+
+        // Skip if this bone was absorbed into a parent body
+        if (AbsorbedBones.Contains(BoneIndex))
+        {
+            UE_LOG("GenerateBodiesByBoneStructure: Skipping bone '%s' - already absorbed into parent body", Bone.Name.c_str());
+            continue;
+        }
 
         // Filter: Skip bones that shouldn't have physics bodies
         if (!ShouldCreateBodyForBone(BoneIndex, Skeleton))
@@ -2391,6 +2402,206 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByBoneStructure(EPrimitiveType Pri
         // Check if this bone has enough influenced vertices
         if (PhysicsAsset->FindBodyIndex(BoneName) >= 0)
             continue;
+
+        FString BoneName_Lower = Bone.Name;
+        std::transform(BoneName_Lower.begin(), BoneName_Lower.end(), BoneName_Lower.begin(), ::tolower);
+
+        // Check bone types for absorption logic
+        bool bIsHandOrFoot =
+            (BoneName_Lower.find("hand") != FString::npos) ||
+            (BoneName_Lower.find("foot") != FString::npos);
+
+        bool bIsPelvis =
+            (BoneName_Lower.find("pelvis") != FString::npos) ||
+            (BoneName_Lower.find("hips") != FString::npos);
+
+        bool bIsNeck = (BoneName_Lower.find("neck") != FString::npos);
+
+        bool bIsSpine =
+            (BoneName_Lower.find("spine") != FString::npos) ||
+            (BoneName_Lower.find("chest") != FString::npos);
+
+        // Apply absorption logic based on bone type
+        if (bIsHandOrFoot)
+        {
+            // Include all descendant bones' vertices (fingers/toes)
+            TArray<FString> AbsorbedBoneNames;
+            for (int32 i = 0; i < Bones.size(); ++i)
+            {
+                if (IsDescendantOf(i, BoneIndex, Bones))
+                {
+                    // Mark descendant as absorbed (don't create separate body)
+                    if (!AbsorbedBones.Contains(i))
+                    {
+                        AbsorbedBones.Add(i);
+                        AbsorbedBoneNames.Add(Bones[i].Name);
+                    }
+                }
+            }
+
+            FString AbsorbedList = "";
+            for (int32 idx = 0; idx < AbsorbedBoneNames.Num(); ++idx)
+            {
+                if (idx > 0) AbsorbedList += ", ";
+                AbsorbedList += AbsorbedBoneNames[idx];
+            }
+
+            UE_LOG("GenerateBodiesByBoneStructure: Hand/Foot '%s' - absorbed %d bones: [%s]",
+                Bone.Name.c_str(), AbsorbedBoneNames.Num(), AbsorbedList.c_str());
+        }
+        else if (bIsPelvis)
+        {
+            // Pelvis absorbs nearby children (simplified for bone-length mode)
+            TArray<int32> Children;
+            GetAllChildBones(BoneIndex, Skeleton, Children);
+
+            UE_LOG("GenerateBodiesByBoneStructure: Pelvis '%s' - processing with %d children",
+                Bone.Name.c_str(), Children.Num());
+        }
+        else if (bIsNeck)
+        {
+            // Neck should absorb head (descendant) to create natural head capsule
+            TArray<FString> AbsorbedBoneNames;
+            for (int32 i = 0; i < Bones.size(); ++i)
+            {
+                if (IsDescendantOf(i, BoneIndex, Bones))
+                {
+                    // Mark descendant as absorbed (don't create separate body)
+                    if (!AbsorbedBones.Contains(i))
+                    {
+                        AbsorbedBones.Add(i);
+                        AbsorbedBoneNames.Add(Bones[i].Name);
+                    }
+                }
+            }
+
+            FString AbsorbedList = "";
+            for (int32 idx = 0; idx < AbsorbedBoneNames.Num(); ++idx)
+            {
+                if (idx > 0) AbsorbedList += ", ";
+                AbsorbedList += AbsorbedBoneNames[idx];
+            }
+
+            UE_LOG("GenerateBodiesByBoneStructure: Neck '%s' - absorbed %d bones: [%s]",
+                Bone.Name.c_str(), AbsorbedBoneNames.Num(), AbsorbedList.c_str());
+        }
+        else if (bIsSpine)
+        {
+            // Spine bones should encompass nearby torso structures
+            TArray<int32> Children;
+            GetAllChildBones(BoneIndex, Skeleton, Children);
+
+            FTransform SpineWorldTM = MeshComp->GetBoneWorldTransform(BoneIndex);
+            SpineWorldTM.Scale3D = FVector(1, 1, 1);
+            FVector SpinePos = SpineWorldTM.Translation;
+
+            // Find sibling bones and children to determine coverage area
+            // Siblings: bones with same parent (e.g., clavicle_l/r share spine_05 parent)
+            TArray<int32> Siblings;
+            int32 ParentIdx = Bone.ParentIndex;
+            if (ParentIdx >= 0)
+            {
+                for (int32 i = 0; i < Bones.size(); ++i)
+                {
+                    if (i != BoneIndex && Bones[i].ParentIndex == ParentIdx)
+                    {
+                        Siblings.Add(i);
+                    }
+                }
+            }
+
+            // Calculate max distance from spine to related bones
+            float MaxRelatedBoneDist = 0.f;
+
+            // Check children bones (e.g., next spine segment, neck)
+            for (int32 ChildIdx : Children)
+            {
+                FTransform ChildTM = MeshComp->GetBoneWorldTransform(ChildIdx);
+                ChildTM.Scale3D = FVector(1, 1, 1);
+                float Dist = (ChildTM.Translation - SpinePos).Size();
+                MaxRelatedBoneDist = FMath::Max(MaxRelatedBoneDist, Dist);
+            }
+
+            // Check sibling bones (e.g., clavicles attached to upper spine)
+            for (int32 SiblingIdx : Siblings)
+            {
+                FTransform SiblingTM = MeshComp->GetBoneWorldTransform(SiblingIdx);
+                SiblingTM.Scale3D = FVector(1, 1, 1);
+                float Dist = (SiblingTM.Translation - SpinePos).Size();
+                MaxRelatedBoneDist = FMath::Max(MaxRelatedBoneDist, Dist);
+            }
+
+            // Expand radius to cover torso volume
+            float MaxBoneDistance = MaxRelatedBoneDist * 2.5f;
+
+            // Process children - EXCLUDE neck/head
+            TArray<int32> AbsorbedChildren;
+            for (int32 ChildIdx : Children)
+            {
+                // Check if this child is a neck bone - don't absorb it
+                FString ChildName = Bones[ChildIdx].Name;
+                std::transform(ChildName.begin(), ChildName.end(), ChildName.begin(), ::tolower);
+                bool bIsChildNeck = (ChildName.find("neck") != FString::npos) || (ChildName.find("head") != FString::npos);
+
+                if (bIsChildNeck)
+                {
+                    UE_LOG("GenerateBodiesByBoneStructure: Spine '%s' - skipping child '%s' (neck/head should be separate body)",
+                        Bone.Name.c_str(), Bones[ChildIdx].Name.c_str());
+                    continue;  // Skip neck - let it be its own body
+                }
+
+                // Check if child bone is within absorption range
+                FTransform ChildTM = MeshComp->GetBoneWorldTransform(ChildIdx);
+                ChildTM.Scale3D = FVector(1, 1, 1);
+                float ChildDist = (ChildTM.Translation - SpinePos).Size();
+
+                if (ChildDist <= MaxBoneDistance)
+                {
+                    if (!AbsorbedBones.Contains(ChildIdx))
+                    {
+                        AbsorbedBones.Add(ChildIdx);
+                        AbsorbedChildren.Add(ChildIdx);
+                    }
+                }
+            }
+
+            // Process siblings - only torso-related bones
+            TArray<int32> AbsorbedSiblings;
+            for (int32 SiblingIdx : Siblings)
+            {
+                FString SiblingName = Bones[SiblingIdx].Name;
+                std::transform(SiblingName.begin(), SiblingName.end(), SiblingName.begin(), ::tolower);
+
+                // Only include torso-related siblings (not arms/legs)
+                bool bIsTorsoSibling =
+                    (SiblingName.find("clavicle") != FString::npos) ||
+                    (SiblingName.find("scapula") != FString::npos) ||
+                    (SiblingName.find("shoulder") != FString::npos) ||
+                    (SiblingName.find("neck") != FString::npos) ||
+                    (SiblingName.find("spine") != FString::npos) ||
+                    (SiblingName.find("chest") != FString::npos);
+
+                if (bIsTorsoSibling)
+                {
+                    // Check if sibling bone is within absorption range
+                    FTransform SiblingTM = MeshComp->GetBoneWorldTransform(SiblingIdx);
+                    SiblingTM.Scale3D = FVector(1, 1, 1);
+                    float SiblingDist = (SiblingTM.Translation - SpinePos).Size();
+
+                    if (SiblingDist <= MaxBoneDistance)
+                    {
+                        if (!AbsorbedBones.Contains(SiblingIdx))
+                        {
+                            AbsorbedBones.Add(SiblingIdx);
+                            AbsorbedSiblings.Add(SiblingIdx);
+                        }
+                    }
+                }
+            }
+
+            UE_LOG("GenerateBodiesByBoneStructure: Spine '%s' - absorbed %d children, %d siblings (radius=%.1f)",
+                Bone.Name.c_str(), AbsorbedChildren.Num(), AbsorbedSiblings.Num(), MaxBoneDistance);
+        }
 
         // Same as CreateBodyForBone
         FVector LocalCenter;
@@ -2483,7 +2694,7 @@ void SPhysicsAssetEditorWindow::GenerateBodiesByBoneStructure(EPrimitiveType Pri
 
     // Update the body index map
     PhysicsAsset->UpdateBodySetupIndexMap();
-    UE_LOG("GenerateAllBodies: Created %d bodies", CreatedCount);
+    UE_LOG("GenerateBodiesByBoneStructure: Created %d bodies", CreatedCount);
 
     // Mark collision shapes dirty to visualize the newly created bodies
     ActiveState->bBoneLinesDirty = true;
@@ -3769,7 +3980,7 @@ bool SPhysicsAssetEditorWindow::ShouldCreateBodyForBone(int32 BoneIndex, const F
     return true;
 }
 
-void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const FSkeleton* Skeleton, USkeletalMeshComponent* MeshComp, 
+void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const FSkeleton* Skeleton, USkeletalMeshComponent* MeshComp,
         EPrimitiveType PrimitiveType, float& OutRadius, float& OutHalfHeight, FVector& OutExtent) const
 {
     if (!Skeleton || !MeshComp)
@@ -3815,6 +4026,12 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
             (BoneName.find("pelvis") != FString::npos) ||
             (BoneName.find("hips") != FString::npos);
 
+        bool bIsSpine =
+            (BoneName.find("spine") != FString::npos) ||
+            (BoneName.find("chest") != FString::npos);
+
+        bool bIsNeck = (BoneName.find("neck") != FString::npos);
+
         if (bIsHandOrFoot)
         {
             // Use chain length from hand/foot root to furthest descendant (finger/toe tips)
@@ -3848,6 +4065,97 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
                 BoneLength = MaxChildDist;
                 UE_LOG("CalculateBodyDimensions: Using max child distance %.2f for pelvis '%s'",
                     BoneLength, Bones[BoneIndex].Name.c_str());
+            }
+        }
+        else if (bIsNeck)
+        {
+            // Neck absorbs head: find max distance to all descendants
+            float MaxDescendantDist = 0.f;
+            for (int32 i = 0; i < Bones.size(); ++i)
+            {
+                if (IsDescendantOf(i, BoneIndex, Bones))
+                {
+                    FTransform DescTM = MeshComp->GetBoneWorldTransform(i);
+                    DescTM.Scale3D = FVector(1, 1, 1);
+                    float Dist = (DescTM.Translation - BoneWorldPos).Size();
+                    MaxDescendantDist = FMath::Max(MaxDescendantDist, Dist);
+                }
+            }
+
+            if (MaxDescendantDist > 0.01f)
+            {
+                BoneLength = MaxDescendantDist * 1.1f;  // 10% padding
+                UE_LOG("CalculateBodyDimensions: Using max descendant distance %.2f for neck '%s'",
+                    BoneLength, Bones[BoneIndex].Name.c_str());
+            }
+        }
+        else if (bIsSpine)
+        {
+            // Spine: calculate max distance to children and siblings
+            // This covers absorbed bones (children like spine_01, siblings like clavicle/shoulder)
+            TArray<int32> Children;
+            GetAllChildBones(BoneIndex, Skeleton, Children);
+
+            // Get siblings (bones with same parent)
+            TArray<int32> Siblings;
+            const FBone& CurrentBone = Bones[BoneIndex];
+            int32 ParentIdx = CurrentBone.ParentIndex;
+            if (ParentIdx >= 0)
+            {
+                for (int32 i = 0; i < Bones.size(); ++i)
+                {
+                    if (i != BoneIndex && Bones[i].ParentIndex == ParentIdx)
+                    {
+                        Siblings.Add(i);
+                    }
+                }
+            }
+
+            float MaxRelatedDist = BoneLength;  // Start with current bone length
+
+            // Check all children (excluding neck/head)
+            for (int32 ChildIdx : Children)
+            {
+                FString ChildName = Bones[ChildIdx].Name;
+                std::transform(ChildName.begin(), ChildName.end(), ChildName.begin(), ::tolower);
+                bool bIsChildNeck = (ChildName.find("neck") != FString::npos) || (ChildName.find("head") != FString::npos);
+
+                if (!bIsChildNeck)
+                {
+                    FTransform ChildTM = MeshComp->GetBoneWorldTransform(ChildIdx);
+                    ChildTM.Scale3D = FVector(1, 1, 1);
+                    float Dist = (ChildTM.Translation - BoneWorldPos).Size();
+                    MaxRelatedDist = FMath::Max(MaxRelatedDist, Dist);
+                }
+            }
+
+            // Check torso-related siblings (clavicle, scapula, shoulder)
+            for (int32 SiblingIdx : Siblings)
+            {
+                FString SiblingName = Bones[SiblingIdx].Name;
+                std::transform(SiblingName.begin(), SiblingName.end(), SiblingName.begin(), ::tolower);
+
+                bool bIsTorsoSibling =
+                    (SiblingName.find("clavicle") != FString::npos) ||
+                    (SiblingName.find("scapula") != FString::npos) ||
+                    (SiblingName.find("shoulder") != FString::npos) ||
+                    (SiblingName.find("spine") != FString::npos) ||
+                    (SiblingName.find("chest") != FString::npos);
+
+                if (bIsTorsoSibling)
+                {
+                    FTransform SiblingTM = MeshComp->GetBoneWorldTransform(SiblingIdx);
+                    SiblingTM.Scale3D = FVector(1, 1, 1);
+                    float Dist = (SiblingTM.Translation - BoneWorldPos).Size();
+                    MaxRelatedDist = FMath::Max(MaxRelatedDist, Dist);
+                }
+            }
+
+            if (MaxRelatedDist > 0.01f)
+            {
+                BoneLength = MaxRelatedDist * 1.2f;  // 20% padding for spine to cover torso volume
+                UE_LOG("CalculateBodyDimensions: Spine '%s' - using max related distance %.2f (checked %d children, %d siblings)",
+                    Bones[BoneIndex].Name.c_str(), BoneLength, Children.Num(), Siblings.Num());
             }
         }
     }
@@ -3904,8 +4212,8 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
         if (FirstChildIndex < 0)
             Radius = DefaultLeafLength * 0.5f;
 
-        // Special handling for pelvis: BoneLength is max child distance from pelvis
-        // But center is averaged, so we need full distance as radius
+        // Special handling for pelvis, spine, neck: BoneLength is max distance to related bones
+        // Use full distance as radius to reach all absorbed bones
         if (BoneIndex >= 0 && BoneIndex < Bones.Num())
         {
             FString BoneName = Bones[BoneIndex].Name;
@@ -3915,10 +4223,18 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
                 (BoneName.find("pelvis") != FString::npos) ||
                 (BoneName.find("hips") != FString::npos);
 
-            if (bIsPelvis)
+            bool bIsSpine =
+                (BoneName.find("spine") != FString::npos) ||
+                (BoneName.find("chest") != FString::npos);
+
+            bool bIsNeck = (BoneName.find("neck") != FString::npos);
+
+            if (bIsPelvis || bIsSpine || bIsNeck)
             {
-                // For pelvis, use full BoneLength as radius to reach all children
+                // For pelvis/spine/neck, use full BoneLength as radius to reach all related bones
                 Radius = BoneLength;
+                UE_LOG("CalculateBodyDimensions: Sphere for '%s' - using full BoneLength %.2f as radius",
+                    Bones[BoneIndex].Name.c_str(), Radius);
             }
         }
 
@@ -3933,7 +4249,7 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
         float HalfY = BoneLength * 0.2f;
         float HalfZ = BoneLength * 0.5f;
 
-        // Special handling for pelvis: use full length for Z-axis
+        // Special handling for pelvis, spine, neck: calculate AABB from all related bones
         if (BoneIndex >= 0 && BoneIndex < Bones.Num())
         {
             FString BoneName = Bones[BoneIndex].Name;
@@ -3943,41 +4259,92 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
                 (BoneName.find("pelvis") != FString::npos) ||
                 (BoneName.find("hips") != FString::npos);
 
-            if (bIsPelvis)
+            bool bIsSpine =
+                (BoneName.find("spine") != FString::npos) ||
+                (BoneName.find("chest") != FString::npos);
+
+            bool bIsNeck = (BoneName.find("neck") != FString::npos);
+
+            if (bIsPelvis || bIsSpine || bIsNeck)
             {
-                // For pelvis: calculate AABB from pelvis + all children
-                // Center was calculated as AABB center in CalculateBoneLocalShapeTransform
+                // Calculate AABB from bone + all related bones (children + siblings for spine)
                 TArray<int32> Children;
                 GetAllChildBones(BoneIndex, Skeleton, Children);
 
-                FVector MinBound = BoneWorldPos;
-                FVector MaxBound = BoneWorldPos;
-
-                for (int32 ChildIdx : Children)
+                TArray<int32> Siblings;
+                if (bIsSpine)
                 {
-                    FTransform ChildTM = MeshComp->GetBoneWorldTransform(ChildIdx);
-                    ChildTM.Scale3D = FVector(1, 1, 1);
-                    FVector ChildPos = ChildTM.Translation;
+                    // For spine, also include siblings
+                    const FBone& CurrentBone = Bones[BoneIndex];
+                    int32 ParentIdx = CurrentBone.ParentIndex;
+                    if (ParentIdx >= 0)
+                    {
+                        for (int32 i = 0; i < Bones.size(); ++i)
+                        {
+                            if (i != BoneIndex && Bones[i].ParentIndex == ParentIdx)
+                            {
+                                FString SiblingName = Bones[i].Name;
+                                std::transform(SiblingName.begin(), SiblingName.end(), SiblingName.begin(), ::tolower);
 
-                    MinBound.X = FMath::Min(MinBound.X, ChildPos.X);
-                    MinBound.Y = FMath::Min(MinBound.Y, ChildPos.Y);
-                    MinBound.Z = FMath::Min(MinBound.Z, ChildPos.Z);
+                                bool bIsTorsoSibling =
+                                    (SiblingName.find("clavicle") != FString::npos) ||
+                                    (SiblingName.find("scapula") != FString::npos) ||
+                                    (SiblingName.find("shoulder") != FString::npos) ||
+                                    (SiblingName.find("spine") != FString::npos) ||
+                                    (SiblingName.find("chest") != FString::npos);
 
-                    MaxBound.X = FMath::Max(MaxBound.X, ChildPos.X);
-                    MaxBound.Y = FMath::Max(MaxBound.Y, ChildPos.Y);
-                    MaxBound.Z = FMath::Max(MaxBound.Z, ChildPos.Z);
+                                if (bIsTorsoSibling)
+                                {
+                                    Siblings.Add(i);
+                                }
+                            }
+                        }
+                    }
                 }
 
-                // AABB half-extent in world space
-                FVector WorldHalfExtent = (MaxBound - MinBound) * 0.5f * 1.1f;  // 10% padding
+                // Calculate max direct distance from bone to all related bones
+                // Use the same approach as Sphere for consistency
+                float MaxDirectDist = 0.f;
+                int32 CheckedCount = 0;
 
-                // Convert to bone local space
-                FQuat InvBoneRot = BoneWorldTM.Rotation.Inverse();
-                FVector LocalHalfExtent = InvBoneRot.RotateVector(WorldHalfExtent);
+                // Check all children (excluding neck/head for spine)
+                for (int32 ChildIdx : Children)
+                {
+                    if (bIsSpine)
+                    {
+                        FString ChildName = Bones[ChildIdx].Name;
+                        std::transform(ChildName.begin(), ChildName.end(), ChildName.begin(), ::tolower);
+                        bool bIsChildNeck = (ChildName.find("neck") != FString::npos) || (ChildName.find("head") != FString::npos);
+                        if (bIsChildNeck) continue;
+                    }
 
-                HalfX = FMath::Abs(LocalHalfExtent.X);
-                HalfY = FMath::Abs(LocalHalfExtent.Y);
-                HalfZ = FMath::Abs(LocalHalfExtent.Z);
+                    FTransform ChildTM = MeshComp->GetBoneWorldTransform(ChildIdx);
+                    ChildTM.Scale3D = FVector(1, 1, 1);
+                    float Dist = (ChildTM.Translation - BoneWorldPos).Size();
+                    MaxDirectDist = FMath::Max(MaxDirectDist, Dist);
+                    CheckedCount++;
+                }
+
+                // Check all torso siblings (for spine)
+                for (int32 SiblingIdx : Siblings)
+                {
+                    FTransform SiblingTM = MeshComp->GetBoneWorldTransform(SiblingIdx);
+                    SiblingTM.Scale3D = FVector(1, 1, 1);
+                    float Dist = (SiblingTM.Translation - BoneWorldPos).Size();
+                    MaxDirectDist = FMath::Max(MaxDirectDist, Dist);
+                    CheckedCount++;
+                }
+
+                // Use the max distance with padding (same multiplier as Sphere for spine: 1.2x)
+                // This ensures the box is large enough to cover all related bones
+                float BoxExtent = MaxDirectDist * 1.2f;
+
+                HalfX = BoxExtent;
+                HalfY = BoxExtent;
+                HalfZ = BoxExtent;
+
+                UE_LOG("CalculateBodyDimensions: Box for '%s' - extent=%.2f (from max direct distance %.2f), checked %d bones",
+                    Bones[BoneIndex].Name.c_str(), BoxExtent, MaxDirectDist, CheckedCount);
             }
         }
 
@@ -3997,7 +4364,7 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
         float CylinderLength = EffectiveBoneLength - (Radius * 2.0f);
         CylinderLength = FMath::Max(CylinderLength, MinCylinderLength);
 
-        // Special handling for pelvis: use full length for cylinder
+        // Special handling for pelvis, spine, neck: use full length for cylinder
         if (BoneIndex >= 0 && BoneIndex < Bones.Num())
         {
             FString BoneName = Bones[BoneIndex].Name;
@@ -4007,11 +4374,19 @@ void SPhysicsAssetEditorWindow::CalculateBodyDimensions(int32 BoneIndex, const F
                 (BoneName.find("pelvis") != FString::npos) ||
                 (BoneName.find("hips") != FString::npos);
 
-            if (bIsPelvis)
+            bool bIsSpine =
+                (BoneName.find("spine") != FString::npos) ||
+                (BoneName.find("chest") != FString::npos);
+
+            bool bIsNeck = (BoneName.find("neck") != FString::npos);
+
+            if (bIsPelvis || bIsSpine || bIsNeck)
             {
-                // For pelvis, use full BoneLength to cover all children
-                Radius = BoneLength * 0.3f;  // Wider radius for legs
+                // For pelvis/spine/neck, use full BoneLength to cover all related bones
+                Radius = BoneLength * 0.4f;  // Wider radius to cover siblings (shoulders, etc)
                 CylinderLength = BoneLength * 2.0f;  // Full length coverage
+                UE_LOG("CalculateBodyDimensions: Capsule for '%s' - radius=%.2f, halfHeight=%.2f",
+                    Bones[BoneIndex].Name.c_str(), Radius, CylinderLength * 0.5f);
             }
         }
 
