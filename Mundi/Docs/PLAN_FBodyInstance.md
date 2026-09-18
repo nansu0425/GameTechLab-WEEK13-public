@@ -803,5 +803,5 @@ void FPhysSceneImpl::FetchResults()
 ## 참고 문서
 
 - [UnrealEngine_Physics_Architecture.md](./UnrealEngine_Physics_Architecture.md) - 언리얼 엔진 물리 아키텍처 참고
-- [WEEK13_발제.md](./WEEK13_발제.md) - Week 13 발제 요구사항
+- `WEEK13_발제.md` - Week 13 발제 요구사항 (교육과정 발제 문서라 이 저장소에 포함하지 않았습니다)
 - [PLAN_PhysicsEventCallback.md](./PLAN_PhysicsEventCallback.md) - Physics Event Callback 구현 계획
