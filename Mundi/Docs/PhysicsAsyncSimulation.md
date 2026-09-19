@@ -235,8 +235,17 @@ FVector FBodyInstance::GetLinearVelocity() const
 
 `bAsyncSimulation` 플래그가 `false` 면 `simulate()` 와 `fetchResults()` 를 붙여서 부르는
 예전 경로로 돕니다 ([PhysScene.cpp:574](../Source/Runtime/Engine/Physics/PhysScene.cpp#L574)).
-그림으로 치면 `Actor Tick` 박스가 solver 막대 **뒤로** 밀리고, 가운데 계층의 박스 셋이
-하는 일이 없어집니다.
+
+![동기와 비동기의 프레임 구성](PhysBench/slide_timeline.png)
+
+차이는 **`fetchResults()` 의 위치 하나**입니다. 동기에서는 `Actor Tick` 앞에 있어서 게임
+스레드가 solver 를 기다리며 멈추고, 비동기에서는 뒤로 가서 그 구간에 `Actor Tick` 이
+들어갑니다. `solver` 막대는 두 경우에 같은 자리·같은 길이입니다 — PhysX 가 하는 일은
+달라지지 않습니다.
+
+[4장](#4-겹치는-동안의-안전성)의 박스 셋도 동기 경로에서는 하는 일이 없습니다.
+`bIsSimulating` 이 `Simulate()` 밖에서 항상 `false` 라 쓰기가 큐를 타지 않고 바로
+적용되고, 읽기도 경합 대상이 없습니다.
 
 이 경로는 fallback 이자 **측정 기준선**입니다. 비동기 도입 이전 커밋을 checkout 하지 않고도
 같은 실행 순서를 재현할 수 있어서, 프로파일링의 A/B 를 이 플래그 하나로 했습니다.
