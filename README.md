@@ -11,17 +11,19 @@ WEEK13 과제 주제는 *두 개의 DOF — Depth of Field 와 Degrees of Freedo
 
 ## 핵심 작업
 
-문서는 구현 전·중에 쓴 작업 문서 그대로입니다. 면접용으로 다시 쓴 것이 아닙니다.
+문서는 구현 전·중에 쓴 작업 문서 그대로입니다. 면접용으로 다시 쓴 것이 아닙니다. 예외는 [PhysicsAsyncProfiling.md](Mundi/Docs/PhysicsAsyncProfiling.md) 로, WEEK13 종료 후 비동기 전환의 효과를 측정해 쓴 문서입니다.
 
 ### 물리 — PhysX 통합과 멀티스레딩
 
 - [**PhysicsMultithread.md**](Mundi/Docs/PhysicsMultithread.md) — PhysX 물리 시뮬레이션에 멀티스레드 안전성을 넣는 계획. UE Chaos 를 참고한 scene read/write lock, `Simulate`/`FetchResults`·actor 추가 제거 경로의 잠금, 이벤트 콜백 안전성, 시뮬레이션 중 수정 요청의 지연 처리
+- [**PhysicsAsyncSimulation.md**](Mundi/Docs/PhysicsAsyncSimulation.md) — 비동기 물리 시뮬레이션이 **어떻게 구현돼 있고 어떤 순서로 동작하는지**. `simulate()`/`fetchResults()` 사이에 Actor Tick 을 끼워 넣는 프레임 구조, fixed timestep 과 렌더 보간, 겹치는 동안의 읽기(직전 스텝 값)·쓰기(지연 큐)·속도(캐시) 처리. 코드베이스를 모르는 사람이 읽도록 쓴 문서이고 코드 링크가 달려 있습니다
+- [**PhysicsAsyncProfiling.md**](Mundi/Docs/PhysicsAsyncProfiling.md) — 위 비동기 전환의 효과 측정. 동기/비동기를 토글해 프레임 시간을 비교했고, 8000 dynamic body 에서 **17.6% 감소**. 이득이 `min(물리 시간, Actor Tick 시간)` 상한 아래를 따라가는 것까지 확인했습니다. 측정 하네스와 분석 스크립트는 `Mundi/Source/Runtime/Engine/Physics/PhysBench.*` · `Tools/PhysBench/` 에 있습니다
 - [PLAN_TeamA_PhysX_Integration.md](Mundi/Docs/PLAN_TeamA_PhysX_Integration.md) — PhysX 를 엔진에 붙이는 통합 계획
 - [PLAN_FBodyInstance.md](Mundi/Docs/PLAN_FBodyInstance.md) · [PLAN_PhysicsEventCallback.md](Mundi/Docs/PLAN_PhysicsEventCallback.md) — UE 의 `FBodyInstance` · `PxSimulationEventCallback` 대응 설계
 - [UnrealEngine_Physics_Architecture.md](Mundi/Docs/UnrealEngine_Physics_Architecture.md) · [UnrealEngine_Ragdoll_Implementation.md](Mundi/Docs/UnrealEngine_Ragdoll_Implementation.md) — 참고한 UE 구조 분석
 - [PhysicsAssetEditor_SimulateImplementation.md](Mundi/Docs/PhysicsAssetEditor_SimulateImplementation.md) — Physics Asset Editor 의 시뮬레이션 실행
 
-코드는 `Mundi/Source/Runtime/Engine/Physics/` 에 있고, 이 디렉터리 본인 지분은 **3,640 / 7,257줄 (50.2%)** 입니다.
+코드는 `Mundi/Source/Runtime/Engine/Physics/` 에 있고, 이 디렉터리 본인 지분은 **3,640 / 7,257줄 (50.2%)** 입니다. WEEK13 종료 시점 기준이며, 이후 추가한 프로파일링 하네스(`PhysBench.*`)는 빠져 있습니다.
 
 ### [Depth of Field](Mundi/Docs/DepthOfField_Analysis.md)
 
@@ -56,6 +58,6 @@ UE 의 Focus Distance · F-Stop · Focal Length 파라미터로 CoC 를 계산�
 제외 규칙 전체는 [`.gitignore`](.gitignore) 에 이유와 함께 적혀 있습니다. 셰이더(`.hlsl`) · Lua 스크립트 · 빌드 스크립트 · 프로젝트 파일은 소스로 보고 남겼습니다.
 
 - **원본 저장소의 커밋 이력과 기여자 27명의 정보를 그대로 보존했습니다.** 작성자·날짜·커밋 메시지가 원본과 같아 기여 통계를 여기서 `git blame` 으로 검증할 수 있습니다. 다만 에셋·서드파티를 이력에서도 걸러냈기 때문에 커밋 해시는 원본과 다릅니다. 자세한 것은 [Contribution.md](Docs/Contribution.md#커밋-이력에-대한-주의사항) 를 보세요.
-- `Mundi/Docs/` 에는 **본인이 100% 작성한 문서 11편만** 남겼습니다. 팀원 작성 문서는 옮기지 않았습니다.
+- `Mundi/Docs/` 에는 **본인이 100% 작성한 문서 13편만** 남겼습니다. 팀원 작성 문서는 옮기지 않았습니다.
 - `Mundi/Docs/Mundi_CoordinateSystem.md` 는 원본 저장소의 최상위 README(엔진 좌표계 규약, 팀원 작성)를 옮긴 것입니다.
 - KRAFTON 정글 게임테크랩 2기 교육과정 산출물이며, 포트폴리오 목적으로 코드만 공개합니다. 별도 라이선스를 두지 않았습니다 — 공동 저작물이므로 코드 재사용을 원하시면 문의해 주세요.
