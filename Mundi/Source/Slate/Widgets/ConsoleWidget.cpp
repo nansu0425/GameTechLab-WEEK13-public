@@ -6,6 +6,7 @@
 #include "SlateManager.h"
 #include "SkinnedMeshComponent.h"
 #include "PlatformCrashHandler.h"
+#include "PhysBench.h"
 #include <windows.h>
 #include <cstdarg>
 #include <cctype>
@@ -60,6 +61,8 @@ void UConsoleWidget::Initialize()
 	HelpCommandList.Add("STAT SHADOW");
 	HelpCommandList.Add("STAT PARTICLES");
 	HelpCommandList.Add("STAT PHYSICS");
+	HelpCommandList.Add("PHYSBENCH AXIS1 [repeat]");
+	HelpCommandList.Add("PHYSBENCH RUN [csv path]");
 	HelpCommandList.Add("MINIDUMP");
 	HelpCommandList.Add("CAUSECRASH");
 	HelpCommandList.Add("CRASHIN <seconds>");
@@ -443,6 +446,62 @@ void UConsoleWidget::ExecCommand(const char* command_line)
 		UStatsOverlayD2D::Get().SetShowParticles(false);
 		UStatsOverlayD2D::Get().SetShowPhysics(false);
 		AddLog("STAT: OFF");
+	}
+	else if (Strnicmp(command_line, "PHYSBENCH", 9) == 0)
+	{
+		const char* Args = command_line + 9;
+		while (*Args == ' ') ++Args;
+
+		if (Strnicmp(Args, "AXIS1", 5) == 0)
+		{
+			int Repeat = 1;
+			if (sscanf_s(Args + 5, "%d", &Repeat) != 1)
+			{
+				Repeat = 1;
+			}
+			FPhysBench::Get().QueueAxis1(Repeat);
+			AddLog("%s", FPhysBench::Get().GetStatus().c_str());
+		}
+		else if (Strnicmp(Args, "RUN", 3) == 0)
+		{
+			char PathBuf[256] = { 0 };
+			FString Path;
+			if (sscanf_s(Args + 3, "%255s", PathBuf, static_cast<unsigned>(sizeof(PathBuf))) == 1)
+			{
+				Path = PathBuf;
+			}
+			if (FPhysBench::Get().Start(Path))
+			{
+				AddLog("PHYSBENCH STARTED");
+			}
+			else
+			{
+				AddLog("PHYSBENCH START FAILED");
+			}
+		}
+		else if (Strnicmp(Args, "STATUS", 6) == 0)
+		{
+			AddLog("%s", FPhysBench::Get().GetStatus().c_str());
+		}
+		else if (Strnicmp(Args, "ABORT", 5) == 0)
+		{
+			FPhysBench::Get().Abort();
+			AddLog("PHYSBENCH ABORTED");
+		}
+		else if (Strnicmp(Args, "CLEAR", 5) == 0)
+		{
+			FPhysBench::Get().ClearQueue();
+			AddLog("PHYSBENCH QUEUE CLEARED");
+		}
+		else
+		{
+			AddLog("PHYSBENCH commands:");
+			AddLog("- PHYSBENCH AXIS1 [repeat]");
+			AddLog("- PHYSBENCH RUN [csv path]");
+			AddLog("- PHYSBENCH STATUS");
+			AddLog("- PHYSBENCH ABORT");
+			AddLog("- PHYSBENCH CLEAR");
+		}
 	}
 	else if (Strnicmp(command_line, "SKINNING GPU", 12) == 0)
 	{

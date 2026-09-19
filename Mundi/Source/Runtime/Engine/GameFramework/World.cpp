@@ -1,5 +1,8 @@
 ﻿#include "pch.h"
 #include "PhysScene.h"
+#include "PhysBench.h"
+#include "PhysicsStats.h"
+#include "PlatformTime.h"
 #include "SelectionManager.h"
 #include "Picking.h"
 #include "CameraActor.h"
@@ -195,6 +198,8 @@ bool UWorld::LoadLevelFromFile(const FWideString& Path)
 // 함수 내부 코드 순서 유지 필요
 void UWorld::Tick(float DeltaSeconds)
 {
+	FPhysBench::Get().PreWorldTick(this);
+
 	// GameDelat: Unscaled * finalScale
 	float UnscaledDeltaSeconds = DeltaSeconds;
 
@@ -289,6 +294,8 @@ void UWorld::Tick(float DeltaSeconds)
 	}
 
 	// 3. Actor Tick (물리 시뮬레이션과 병렬 실행)
+	const uint64 ActorTickStartCycles = FPlatformTime::Cycles64();
+
 	if (Level)
 	{
 		// Tick 중에 새로운 actor가 추가될 수도 있어서 복사 후 호출
@@ -332,12 +339,18 @@ void UWorld::Tick(float DeltaSeconds)
 		CollisionManager->UpdateCollisions(GetDeltaTime(EDeltaTime::Game));
 	}
 
+	// 비동기 모드에서 물리 시뮬레이션과 겹치는 구간의 비용
+	FPhysicsStatManager::GetInstance().RecordActorTickTime(
+		FPlatformTime::ToMilliseconds(FPlatformTime::Cycles64() - ActorTickStartCycles));
+
 	// 4. 렌더링 전 물리 결과 수집 (시뮬레이션 완료 대기)
 	// ★ 에디터에서도 Cloth 시뮬레이션을 위해 항상 실행
 	if (PhysScene && PhysScene->IsInitialized())
 	{
 		PhysScene->EndFrame();
 	}
+
+	FPhysBench::Get().PostWorldTick(this);
 }
 
 UWorld* UWorld::DuplicateWorldForPIE(UWorld* InEditorWorld)

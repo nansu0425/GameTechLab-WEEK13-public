@@ -33,6 +33,9 @@ struct FPhysicsStats
 	/** Component 동기화 시간 */
 	double SyncToComponentTimeMs = 0.0;
 
+	/** Actor Tick 시간 (UWorld::Tick 의 Actor 순회 구간) */
+	double ActorTickTimeMs = 0.0;
+
 	// ═══════════════════════════════════════════════════════════════════════
 	// Actor 카운트
 	// ═══════════════════════════════════════════════════════════════════════
@@ -88,6 +91,7 @@ struct FPhysicsStats
 		TotalPhysicsTimeMs = 0.0;
 		InterpolationUpdateTimeMs = 0.0;
 		SyncToComponentTimeMs = 0.0;
+		ActorTickTimeMs = 0.0;
 
 		ActiveActorCount = 0;
 		DynamicActorCount = 0;
@@ -155,6 +159,7 @@ public:
 	void RecordTotalPhysicsTime(double Ms) { CurrentStats.TotalPhysicsTimeMs = Ms; }
 	void RecordInterpolationUpdateTime(double Ms) { CurrentStats.InterpolationUpdateTimeMs = Ms; }
 	void RecordSyncToComponentTime(double Ms) { CurrentStats.SyncToComponentTimeMs = Ms; }
+	void RecordActorTickTime(double Ms) { CurrentStats.ActorTickTimeMs = Ms; }
 
 	void SetActiveActorCount(uint32 Count) { CurrentStats.ActiveActorCount = Count; }
 	void SetDynamicActorCount(uint32 Count) { CurrentStats.DynamicActorCount = Count; }

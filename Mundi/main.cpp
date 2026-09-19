@@ -2,6 +2,7 @@
 #include "EditorEngine.h"
 #include "PlatformCrashHandler.h"
 #include "DebugUtils.h"
+#include "PhysBench.h"
 #include <exception>
 
 #if defined(_MSC_VER) && defined(_DEBUG)
@@ -31,6 +32,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     {
         if (!GEngine.Startup(hInstance))
             return -1;
+
+        FPhysBench::Get().ParseCommandLine(lpCmdLine);
 
         GEngine.MainLoop();
         GEngine.Shutdown();

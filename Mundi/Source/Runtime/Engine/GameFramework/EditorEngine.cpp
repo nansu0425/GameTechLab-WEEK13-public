@@ -1,4 +1,5 @@
 ﻿#include "pch.h"
+#include "PhysBench.h"
 #include "EditorEngine.h"
 #include "SlateManager.h"
 #include "SelectionManager.h"
@@ -325,6 +326,9 @@ void UEditorEngine::MainLoop()
 
             bChangedPieToEditor = false;
         }
+        // 프로파일링 하네스 — PIE 진입/종료는 여기서만 구동한다 (PIE 정리 직후)
+        FPhysBench::Get().TickDriver();
+
         // 크래시 모드가 활성화되면 매 프레임마다 랜덤 객체 삭제
         FPlatformCrashHandler::TickCrashMode();
         Tick(DeltaSeconds);

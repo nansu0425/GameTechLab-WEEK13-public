@@ -12,6 +12,7 @@
 #include "VehicleMovementComponent.h"
 #include "PhysicsSceneLock.h"
 #include "ClothCore.h"
+#include "PhysBench.h"
 #include <NvCloth/Solver.h>
 
 using namespace physx;
@@ -375,11 +376,22 @@ bool FPhysSceneImpl::CreateScene(UWorld* InOwningWorld)
     SceneDesc.gravity = PxVec3(0.0f, -9.81f, 0.0f);
 
     // 최적 워커 스레드 수 계산 및 CPU Dispatcher 생성
+    // 프로파일링 중이면 벤치 config 가 스레드 수와 비동기 여부를 덮어쓴다
     NumPhysxThreads = CalculateOptimalThreadCount();
+    if (const FPhysBenchConfig* BenchConfig = FPhysBench::Get().GetActiveConfig())
+    {
+        bAsyncSimulation = BenchConfig->bAsync;
+        if (BenchConfig->ThreadOverride >= 0)
+        {
+            NumPhysxThreads = BenchConfig->ThreadOverride;
+        }
+    }
+
     CpuDispatcher = PxDefaultCpuDispatcherCreate(NumPhysxThreads);
     SceneDesc.cpuDispatcher = CpuDispatcher;
 
-    UE_LOG("FPhysSceneImpl: Using %d physics worker threads", NumPhysxThreads);
+    UE_LOG("FPhysSceneImpl: Using %d physics worker threads (async=%d)",
+        NumPhysxThreads, bAsyncSimulation ? 1 : 0);
 
     // 필터 셰이더 - 커스텀 셰이더로 충돌 이벤트 활성화
     SceneDesc.filterShader = MundiFilterShader;
