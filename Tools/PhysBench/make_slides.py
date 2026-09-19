@@ -53,93 +53,84 @@ def lane(ax, x0, x1, y, h, name):
             fontsize=11.5, color=C_TEXT)
 
 
+def bracket(ax, x0, x1, y, label, color=C_MUTED):
+    """호출 경계 표시 — 어느 블록이 어느 함수 안에서 실행되는지"""
+    d = 0.09
+    ax.plot([x0, x0, x1, x1], [y - d, y, y, y - d],
+            color=color, linewidth=1.3, zorder=4, solid_capstyle="butt")
+    ax.text((x0 + x1) / 2, y + 0.09, label, ha="center", va="bottom",
+            fontsize=10.5, color=color, family=MONO)
+
+
 def timeline(out_dir):
-    fig, ax = plt.subplots(figsize=(15.5, 8.0))
-    ax.set_xlim(-3.4, 13.2)
-    ax.set_ylim(0, 11.4)
+    fig, ax = plt.subplots(figsize=(16.0, 5.0))
+    ax.set_xlim(-4.3, 13.0)
+    ax.set_ylim(0, 7.35)
     ax.axis("off")
 
-    LH = 0.78
-    BH = 0.62
-    X_SYNC_END = 11.55
-    X_ASYNC_END = 8.20
+    LH, BH = 0.72, 0.58
+    X_END = 12.4          # 타임라인 오른쪽 끝
+    SYNC_FRAME = 11.6
+    ASYNC_FRAME = 8.08        # fetchResults() 블록이 끝나는 지점
 
-    # ── 동기 ────────────────────────────────────────────────────────────
-    gy, wy = 8.65, 7.65
-    ax.text(-3.3, 10.72, "동기 — simulate() 와 fetchResults() 를 붙여서 호출",
-            fontsize=14.5, fontweight="bold", color=C_TEXT)
+    def row(gy, wy, title):
+        ax.text(-4.2, (gy + wy + LH) / 2, title, fontsize=14,
+                fontweight="bold", color=C_TEXT, va="center")
+        lane(ax, 0, X_END, gy, LH, "게임 스레드")
+        lane(ax, 0, X_END, wy, LH, "PhysX worker")
+        return gy + (LH - BH) / 2, wy + (LH - BH) / 2
 
-    lane(ax, 0, 11.6, gy, LH, "게임 스레드")
-    lane(ax, 0, 11.6, wy, LH, "PhysX worker")
+    # ── 동기 (변경 전) ──────────────────────────────────────────────────
+    gy, wy = 5.72, 4.82
+    by, bw = row(gy, wy, "동기")
 
-    by = gy + (LH - BH) / 2
-    block(ax, 0.05, by, 0.75, BH, C_START, "①", fontsize=12)
-    block(ax, 0.85, by, 0.75, BH, C_SIM, "②", fontsize=12)
-    block(ax, 1.65, by, 3.6, BH, C_WAIT, "fetchResults() 블로킹 대기", hatch="//")
-    block(ax, 5.30, by, 5.5, BH, C_TICK, "③  Actor Tick · Lua · Collision")
-    block(ax, 10.85, by, 0.7, BH, C_START, "", fontsize=12)
+    block(ax, 0.00, by, 0.95, BH, C_START, "StartFrame()", fontsize=10)
+    block(ax, 0.98, by, 0.85, BH, C_SIM, "simulate()", fontsize=8.5)
+    block(ax, 1.86, by, 3.54, BH, C_WAIT, "fetchResults() 블로킹 대기", hatch="//", fontsize=11)
+    block(ax, 5.43, by, 0.95, BH, C_START, "EndFrame()", fontsize=10)
+    block(ax, 6.41, by, 5.19, BH, C_TICK, "Actor Tick · Lua · Collision", fontsize=11)
+    block(ax, 1.86, bw, 3.54, BH, C_SOLVER, "solver", fontsize=11)
 
-    block(ax, 1.65, wy + (LH - BH) / 2, 3.6, BH, C_SOLVER, "solver")
+    bracket(ax, 0.98, 5.40, gy + LH + 0.06, "Tick()")
 
-    ax.annotate("게임 스레드가 노는 구간",
-                xy=(3.45, gy + LH + 0.05), xytext=(3.45, 10.15),
-                ha="center", fontsize=12.5, color=C_WAIT, fontweight="bold",
-                arrowprops=dict(arrowstyle="-|>", color=C_WAIT, linewidth=1.8))
+    ax.annotate("게임 스레드가 논다", xy=(3.63, bw + BH + 0.03), xytext=(3.63, wy - 0.52),
+                ha="center", fontsize=11.5, color=C_WAIT, fontweight="bold",
+                arrowprops=dict(arrowstyle="-|>", color=C_WAIT, linewidth=1.6,
+                                connectionstyle="arc3,rad=0"))
 
-    ax.plot([X_SYNC_END, X_SYNC_END], [wy - 0.2, gy + LH + 0.45], color=C_MUTED,
-            linestyle=(0, (4, 3)), linewidth=1.4, zorder=2)
-    ax.text(X_SYNC_END + 0.12, gy + LH + 0.5, "프레임 끝", fontsize=11, color=C_MUTED)
+    # ── 비동기 (변경 후) ────────────────────────────────────────────────
+    gy2, wy2 = 2.62, 1.72
+    by2, bw2 = row(gy2, wy2, "비동기")
 
-    # ── 비동기 ──────────────────────────────────────────────────────────
-    gy2, wy2 = 4.35, 3.35
-    ax.text(-3.3, 6.42, "비동기 — 두 호출 사이에 Actor Tick 을 끼워 넣는다",
-            fontsize=14.5, fontweight="bold", color=C_TEXT)
+    block(ax, 0.00, by2, 0.95, BH, C_START, "StartFrame()", fontsize=10)
+    block(ax, 0.98, by2, 0.85, BH, C_SIM, "simulate()", fontsize=8.5)
+    block(ax, 1.86, by2, 4.89, BH, C_TICK, "Actor Tick · Lua · Collision", fontsize=11)
+    block(ax, 6.78, by2, 1.30, BH, C_FETCH, "fetchResults()", fontsize=9.5)
+    block(ax, 1.86, bw2, 3.54, BH, C_SOLVER, "solver", fontsize=11)
 
-    lane(ax, 0, 11.6, gy2, LH, "게임 스레드")
-    lane(ax, 0, 11.6, wy2, LH, "PhysX worker")
+    bracket(ax, 0.98, 1.83, gy2 + LH + 0.06, "Tick()")
+    bracket(ax, 6.78, 8.08, gy2 + LH + 0.06, "EndFrame()")
 
-    by2 = gy2 + (LH - BH) / 2
-    block(ax, 0.05, by2, 0.75, BH, C_START, "①", fontsize=12)
-    block(ax, 0.85, by2, 0.75, BH, C_SIM, "②", fontsize=12)
-    block(ax, 1.65, by2, 5.5, BH, C_TICK, "③  Actor Tick · Lua · Collision")
-    block(ax, 7.20, by2, 1.0, BH, C_FETCH, "④", fontsize=12)
+    ax.annotate("겹친다", xy=(3.63, bw2 + BH + 0.03), xytext=(3.63, wy2 - 0.52),
+                ha="center", fontsize=11.5, color=C_SOLVER, fontweight="bold",
+                arrowprops=dict(arrowstyle="-|>", color=C_SOLVER, linewidth=1.6,
+                                connectionstyle="arc3,rad=0"))
 
-    block(ax, 1.65, wy2 + (LH - BH) / 2, 3.6, BH, C_SOLVER, "solver")
+    # ── 프레임 끝 · 절감 구간 ───────────────────────────────────────────
+    for x, y_top in ((SYNC_FRAME, gy + LH + 0.02), (ASYNC_FRAME, gy2 + LH + 0.02)):
+        ax.plot([x, x], [0.92, y_top], color=C_MUTED,
+                linestyle=(0, (4, 3)), linewidth=1.3, zorder=2)
+        ax.text(x + 0.12, y_top + 0.10, "프레임 끝", fontsize=10, color=C_MUTED)
 
-    ax.annotate("겹친다", xy=(3.45, wy2 - 0.02), xytext=(3.45, 2.42),
-                ha="center", fontsize=12.5, color=C_SOLVER, fontweight="bold",
-                arrowprops=dict(arrowstyle="-|>", color=C_SOLVER, linewidth=1.8))
+    ax.add_patch(FancyArrowPatch((ASYNC_FRAME, 1.12), (SYNC_FRAME, 1.12),
+                                 arrowstyle="<|-|>", mutation_scale=13,
+                                 color=C_GAIN, linewidth=2.0, zorder=5))
+    ax.text((ASYNC_FRAME + SYNC_FRAME) / 2, 0.62, "줄어든 프레임 시간",
+            ha="center", fontsize=11.5, color=C_GAIN, fontweight="bold")
 
-    for x, label in ((X_ASYNC_END, "프레임 끝"), (X_SYNC_END, "동기였다면")):
-        ax.plot([x, x], [1.72, gy2 + LH + 0.45], color=C_MUTED,
-                linestyle=(0, (4, 3)), linewidth=1.4, zorder=2)
-        ax.text(x + 0.12, gy2 + LH + 0.5, label, fontsize=11, color=C_MUTED)
-
-    # ── 절감 구간 ───────────────────────────────────────────────────────
-    ax.add_patch(FancyArrowPatch((X_ASYNC_END, 1.95), (X_SYNC_END, 1.95),
-                                 arrowstyle="<|-|>", mutation_scale=15,
-                                 color=C_GAIN, linewidth=2.1, zorder=5))
-    ax.text((X_ASYNC_END + X_SYNC_END) / 2, 1.5, "줄어든 프레임 시간",
-            ha="center", fontsize=12.5, color=C_GAIN, fontweight="bold")
-
-    ax.text(-3.3, 0.95,
-            "줄일 수 있는 시간의 상한은  min(물리 계산 시간, ③ 구간 비용)  —  둘 중 짧은 쪽이 끝나면 겹칠 것이 없다",
-            fontsize=12.2, color=C_MUTED)
-
-    # ── 범례 ────────────────────────────────────────────────────────────
-    legend = [
-        (C_START, "① StartFrame / EndFrame"),
-        (C_SIM, "② simulate()  비블로킹"),
-        (C_TICK, "③ 게임 스레드 작업"),
-        (C_FETCH, "④ fetchResults()"),
-        (C_SOLVER, "PhysX worker solver"),
-    ]
-    lx = -3.3
-    for color, text in legend:
-        ax.add_patch(Rectangle((lx, 0.18), 0.3, 0.26, facecolor=color,
-                               edgecolor=C_EDGE, linewidth=0.9))
-        ax.text(lx + 0.42, 0.31, text, va="center", fontsize=10.8, color=C_TEXT)
-        lx += 0.42 + len(text) * 0.155 + 0.5
+    ax.text(-4.2, 0.18,
+            "줄일 수 있는 시간의 상한 =  min(물리 계산 시간,  Actor Tick 구간 비용)",
+            fontsize=11, color=C_MUTED)
 
     fig.tight_layout()
     return save(fig, out_dir, "slide_timeline")
