@@ -53,6 +53,140 @@ def lane(ax, x0, x1, y, h, name):
             fontsize=11.5, color=C_TEXT)
 
 
+C_GUARD = "#eef2f7"
+C_GUARD_EDGE = "#8e9bab"
+
+
+def textbox(ax, x, y, w, h, lines, *, face, edge=C_EDGE, lw=1.2,
+            title_size=11.5, body_size=10.2, title_color=C_TEXT,
+            body_color=C_MUTED, align="center"):
+    ax.add_patch(FancyBboxPatch(
+        (x, y), w, h, boxstyle="round,pad=0,rounding_size=0.07",
+        facecolor=face, edgecolor=edge, linewidth=lw, zorder=3))
+
+    n = len(lines)
+    step = 0.40
+    top = y + h / 2 + (n - 1) * step / 2
+    cx = x + w / 2 if align == "center" else x + 0.22
+    ha = "center" if align == "center" else "left"
+
+    for i, (text, bold) in enumerate(lines):
+        ax.text(cx, top - i * step, text, ha=ha, va="center", zorder=4,
+                fontsize=title_size if bold else body_size,
+                fontweight="bold" if bold else "normal",
+                color=title_color if bold else body_color,
+                family=MONO if bold and "(" in text else KR)
+
+
+def arrow(ax, p0, p1, label="", color=C_MUTED, *, lw=1.8, rad=0.0,
+          fontsize=10.2, label_offset=(0.0, 0.18), style="-|>"):
+    ax.add_patch(FancyArrowPatch(p0, p1, arrowstyle=style, mutation_scale=16,
+                                 connectionstyle=f"arc3,rad={rad}",
+                                 color=color, linewidth=lw, zorder=5))
+    if label:
+        ax.text((p0[0] + p1[0]) / 2 + label_offset[0],
+                (p0[1] + p1[1]) / 2 + label_offset[1], label,
+                ha="center", va="center", fontsize=fontsize,
+                color=color, fontweight="bold", zorder=6,
+                bbox=dict(boxstyle="round,pad=0.22", facecolor="white",
+                          edgecolor="none"))
+
+
+def architecture(out_dir):
+    fig, ax = plt.subplots(figsize=(16.0, 7.8))
+    ax.set_xlim(-3.9, 14.6)
+    ax.set_ylim(0, 9.2)
+    ax.axis("off")
+
+    def row_label(y, title, sub=None):
+        ax.text(-3.8, y, title, fontsize=14, fontweight="bold",
+                color=C_TEXT, va="center")
+        if sub:
+            ax.text(-3.8, y - 0.42, sub, fontsize=10.2, color=C_MUTED, va="center")
+
+    ax.text(-3.8, 8.95, "시간 →", fontsize=11.5, color=C_MUTED, va="center")
+    ax.annotate("", xy=(13.4, 8.95), xytext=(0.0, 8.95),
+                arrowprops=dict(arrowstyle="-|>", color="#c8ced6", linewidth=1.4))
+
+    # ── 1. 게임 스레드 ──────────────────────────────────────────────────
+    GY, GH = 7.35, 1.0
+    row_label(GY + GH / 2, "게임 스레드", "UWorld::Tick")
+
+    textbox(ax, 0.0, GY, 2.55, GH,
+            [("PhysScene->Tick()", True), ("simulate() 호출 후 즉시 반환", False)],
+            face="#dce9fa", edge=C_SIM)
+    textbox(ax, 2.75, GY, 6.15, GH,
+            [("Actor Tick · Lua · Collision", True),
+             ("물리가 도는 동안 실행된다", False)],
+            face="#daf2e7", edge=C_TICK)
+    textbox(ax, 9.10, GY, 4.30, GH,
+            [("PhysScene->EndFrame()", True), ("fetchResults(true) 완료 대기", False)],
+            face="#fbe8cd", edge=C_FETCH)
+
+    # ── 2. FPhysScene — 경계에서 막는 것 ────────────────────────────────
+    row_label(5.50, "FPhysScene", "PhysX 의존성 차단 (PIMPL)")
+
+    guards = [
+        (6.10, "scene read lock", "직전 스텝의 pose 를 읽는다"),
+        (5.10, "PendingCommands", "쓰기 7종을 큐에 적재"),
+        (4.10, "속도 캐시", "캡처해 둔 값을 반환"),
+    ]
+    for gy, title, sub in guards:
+        textbox(ax, 3.30, gy, 5.05, 0.80, [(title, True), (sub, False)],
+                face=C_GUARD, edge=C_GUARD_EDGE, lw=1.1,
+                title_size=11, body_size=9.8, align="left")
+
+    textbox(ax, 9.10, 4.10, 4.30, 2.80,
+            [("결과 확정 후 처리", True),
+             ("Transform · Velocity 캡처", False),
+             ("렌더 보간 (getActiveActors)", False),
+             ("ProcessPendingCommands()", False)],
+            face="#fdf4e6", edge=C_FETCH, lw=1.1, align="left")
+
+    # ── 3. PhysX ────────────────────────────────────────────────────────
+    PY, PH = 2.35, 0.95
+    row_label(PY + PH / 2, "PhysX", "PxScene · worker threads")
+
+    ax.add_patch(Rectangle((0.0, PY), 13.4, PH, facecolor="#f2f4f7",
+                           edgecolor="#dfe4ea", linewidth=1, zorder=1))
+    block(ax, 1.30, PY + 0.14, 7.60, PH - 0.28, C_SOLVER,
+          "solver — worker threads", fontsize=12)
+
+    # ── 연결 ────────────────────────────────────────────────────────────
+    arrow(ax, (1.25, GY - 0.05), (1.25, PY + PH + 0.05), "simulate()", C_SIM)
+    arrow(ax, (10.20, PY + PH + 0.05), (10.20, 4.05), "시뮬레이션 완료", C_FETCH,
+          label_offset=(1.35, 0.0))
+
+    # 읽기는 guard 스택 위로 바로 내려온다
+    arrow(ax, (4.30, GY - 0.05), (4.30, 6.95), "읽기", C_GUARD_EDGE, lw=1.6,
+          label_offset=(0.62, 0.0))
+
+    # 쓰기는 guard 스택 왼쪽 바깥으로 돌아 PendingCommands 로 들어간다
+    ax.add_patch(FancyArrowPatch((2.95, GY - 0.05), (3.25, 5.50),
+                                 arrowstyle="-|>", mutation_scale=16,
+                                 connectionstyle="angle,angleA=-90,angleB=180,rad=10",
+                                 color=C_GUARD_EDGE, linewidth=1.6, zorder=5))
+    ax.text(2.62, 6.35, "쓰기", ha="right", va="center", fontsize=10.2,
+            color=C_GUARD_EDGE, fontweight="bold", zorder=6)
+
+    arrow(ax, (8.40, 5.50), (9.05, 5.50), "지연 적용", C_GUARD_EDGE,
+          lw=1.6, label_offset=(0.0, 0.32))
+
+    # ── 겹침 구간 ───────────────────────────────────────────────────────
+    ax.plot([1.30, 1.30, 8.90, 8.90], [PY - 0.22, PY - 0.46, PY - 0.46, PY - 0.22],
+            color=C_SOLVER, linewidth=1.5, zorder=4)
+    ax.text(5.10, PY - 0.88, "겹침 구간 — 줄어드는 시간의 상한은  min(solver, Actor Tick)",
+            ha="center", fontsize=12, color=C_SOLVER, fontweight="bold")
+
+    ax.text(-3.8, 0.40,
+            "쓰기는 큐에 쌓였다가 fetchResults() 뒤에 적용되고, 읽기는 직전 스텝 값을 본다  —  "
+            "겹치는 동안 시뮬레이션 중인 씬을 직접 건드리지 않는다",
+            fontsize=11.5, color=C_MUTED)
+
+    fig.tight_layout()
+    return save(fig, out_dir, "slide_architecture")
+
+
 def timeline(out_dir):
     """장표 상단 배너. 전달할 것은 하나 — fetchResults() 가 어디에 있는가."""
     fig, ax = plt.subplots(figsize=(16.0, 4.6))
@@ -251,7 +385,7 @@ def main():
     args = ap.parse_args()
     os.makedirs(args.out_dir, exist_ok=True)
 
-    for p in timeline(args.out_dir) + code(args.out_dir):
+    for p in timeline(args.out_dir) + code(args.out_dir) + architecture(args.out_dir):
         print("wrote", p)
 
 
