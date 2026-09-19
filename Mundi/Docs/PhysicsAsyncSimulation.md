@@ -230,20 +230,20 @@ UE 의 방식을 따른 것입니다.
 
 | 커밋 | 내용 |
 |---|---|
-| `f358fac4` | Fixed timestep 도입. 프레임 델타 대신 1/60 고정 간격으로 전진 |
-| `3d2814f3` | 스텝 사이 렌더 보간. 직전·현재 transform 을 들고 `Lerp` |
-| `5292ec1c` | **비동기 전환.** `simulate()` 와 `fetchResults()` 분리 |
-| `0e1ad224` | **`EndFrame()` 을 Actor Tick 뒤로 이동.** 겹침이 실제로 생기는 지점 |
-| `a22562e2` | `PhysicsSceneLock` — scene read/write lock RAII 래퍼 |
-| `a5d81a75` | worker 스레드 수를 `Max(논리 코어 - 1, 1)` 로 |
-| `92ee6c58` | `stat physics` — 시뮬레이션·fetch 시간, 액터·이벤트 수 오버레이 |
-| `03e44793` | 시뮬레이션 중 쓰기 지연(`PendingCommands`)과 속도 읽기 캐싱 |
-| `e150ba2a` | 렌더 보간을 `FetchResults()` 이후로 이동 |
-| `48d48e3d` | `FPhysScene` 이동 대입 시 상수 멤버를 건드리던 버그 수정 |
+| [`f358fac4`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/f358fac4) | Fixed timestep 도입. 프레임 델타 대신 1/60 고정 간격으로 전진 |
+| [`3d2814f3`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/3d2814f3) | 스텝 사이 렌더 보간. 직전·현재 transform 을 들고 `Lerp` |
+| [`5292ec1c`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/5292ec1c) | **비동기 전환.** `simulate()` 와 `fetchResults()` 분리 |
+| [`0e1ad224`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/0e1ad224) | **`EndFrame()` 을 Actor Tick 뒤로 이동.** 겹침이 실제로 생기는 지점 |
+| [`a22562e2`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/a22562e2) | `PhysicsSceneLock` — scene read/write lock RAII 래퍼 |
+| [`a5d81a75`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/a5d81a75) | worker 스레드 수를 `Max(논리 코어 - 1, 1)` 로 |
+| [`92ee6c58`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/92ee6c58) | `stat physics` — 시뮬레이션·fetch 시간, 액터·이벤트 수 오버레이 |
+| [`03e44793`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/03e44793) | 시뮬레이션 중 쓰기 지연(`PendingCommands`)과 속도 읽기 캐싱 |
+| [`e150ba2a`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/e150ba2a) | 렌더 보간을 `FetchResults()` 이후로 이동 |
+| [`48d48e3d`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/48d48e3d) | `FPhysScene` 이동 대입 시 상수 멤버를 건드리던 버그 수정 |
 
-`5292ec1c` 단독으로는 효과가 없습니다. 그 시점에는 `StartFrame()` 에서 결과를 수집했고
+[`5292ec1c`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/5292ec1c) 단독으로는 효과가 없습니다. 그 시점에는 `StartFrame()` 에서 결과를 수집했고
 `UWorld::Tick` 이 `StartFrame`·`Tick`·`EndFrame` 을 연달아 불러 겹칠 구간이 없었습니다.
-12분 뒤 `0e1ad224` 가 `EndFrame()` 을 Actor Tick 뒤로 옮기면서 비로소 겹침이 생깁니다.
+12분 뒤 [`0e1ad224`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/0e1ad224) 가 `EndFrame()` 을 Actor Tick 뒤로 옮기면서 비로소 겹침이 생깁니다.
 두 커밋이 한 쌍입니다.
 
 ---

@@ -10,12 +10,12 @@ PhysX 시뮬레이션을 비동기로 돌려 Actor Tick 과 겹치게 한 변경
 
 | 커밋 | 내용 |
 |---|---|
-| `5292ec1c` | `FPhysSceneImpl` 에 비동기 경로 추가. `simulate()` 와 `fetchResults()` 분리 |
-| `0e1ad224` | `UWorld::Tick` 에서 `EndFrame()` 을 Actor Tick 뒤로 이동 |
+| [`5292ec1c`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/5292ec1c) | `FPhysSceneImpl` 에 비동기 경로 추가. `simulate()` 와 `fetchResults()` 분리 |
+| [`0e1ad224`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/0e1ad224) | `UWorld::Tick` 에서 `EndFrame()` 을 Actor Tick 뒤로 이동 |
 
-`5292ec1c` 단독으로는 이득이 없습니다. 그 시점에는 `StartFrame()` 에서 결과를 수집했고
+[`5292ec1c`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/5292ec1c) 단독으로는 이득이 없습니다. 그 시점에는 `StartFrame()` 에서 결과를 수집했고
 `UWorld::Tick` 이 `StartFrame`·`Tick`·`EndFrame` 을 연달아 호출해 겹칠 구간이 없었습니다.
-`0e1ad224` 가 `EndFrame()` 을 Actor Tick 뒤로 옮기면서 겹침이 생깁니다.
+[`0e1ad224`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/0e1ad224) 가 `EndFrame()` 을 Actor Tick 뒤로 옮기면서 겹침이 생깁니다.
 
 현재 코드에서 겹치는 구간은 `UWorld::Tick` 의 Actor 순회부터 `CollisionManager::UpdateCollisions()`
 까지입니다 (`World.cpp:296~339`).
@@ -27,11 +27,11 @@ PhysX 시뮬레이션을 비동기로 돌려 Actor Tick 과 겹치게 한 변경
 과거 커밋을 checkout 하지 않고, 현재 코드의 `FPhysSceneImpl::bAsyncSimulation`
 (`PhysSceneImpl.h:110`) 을 토글해 비교했습니다. 이 플래그가 `false` 면
 `simulate()` 와 `fetchResults()` 가 `PhysScene->Tick()` 안에서 연달아 실행되고
-(`PhysScene.cpp:574~`), Actor Tick 은 물리가 끝난 뒤에 돕니다. `5292ec1c` 이전의 실행
+(`PhysScene.cpp:574~`), Actor Tick 은 물리가 끝난 뒤에 돕니다. [`5292ec1c`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/5292ec1c) 이전의 실행
 순서와 같은 코드 경로입니다.
 
 과거 커밋을 쓰지 않은 이유는 계측 수단이 나중에 들어왔기 때문입니다.
-`stat physics`(`92ee6c58`) 는 `5292ec1c`·`0e1ad224` 보다 뒤이고,
+`stat physics`(`92ee6c58`) 는 [`5292ec1c`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/5292ec1c)·[`0e1ad224`](https://github.com/nansu0425/GameTechLab-WEEK13-public/commit/0e1ad224) 보다 뒤이고,
 그 시점을 checkout 하면 `Simulate`/`Fetch` 시간을 뽑을 수단이 없습니다.
 
 > 이 A/B 는 코드 경로가 같다는 근거에 기반합니다. 두 커밋을 실제로 checkout 해서
